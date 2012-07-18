@@ -1,0 +1,46 @@
+Name:                HMine
+Version:             0.0.0.1
+Description:         Data mining suite
+Category:            Data Mining
+License:             GPL
+License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+
+Executable DataExplore
+    Main-is:            DataExplore.hs
+    Build-Depends:      base >= 3 && < 5, 
+                        bytestring,
+                        vector,
+                        primitive,
+                        deepseq,
+                        logfloat,
+                        binary,
+                        vector-binary-instances,
+                        semigroups,
+                        list-extras,
+                        split,
+                        math-functions
+                        -- HMine
+    hs-source-dirs:     src
+
+Library
+    Build-Depends:      base >= 3 && < 5, 
+                        gnuplot >= 0.5, 
+                        containers >= 0.4, 
+                        vector, 
+                        random, 
+                        MonadRandom, 
+                        mtl, 
+                        parsec, 
+                        list-extras, 
+                        KdTree >= 0.2.1,
+                        directory,
+                        array,
+                        logfloat,
+                        binary,
+                        deepseq
+    Exposed-modules:    Base
+    hs-source-dirs:     src
