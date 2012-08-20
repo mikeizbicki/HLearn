@@ -13,7 +13,6 @@ import qualified Data.Set as S
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
-import Control.Monad.Random
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Binary
@@ -72,9 +71,7 @@ crossValidation ::
 --     , MutableTrainer modelparams model modelST label
     , BatchTrainer modelparams model label
     , {-Probability-}Classifier model label
---     , RandomGen g
---     , DataSparse ds Int
-    , DataSparse label ds (WDPS label)
+    , DataSparse label ds (WLDPS label)
     , DataSparse label ds (LDPS label)
     , DataSparse label ds (UDPS label)
     , DataSparse label ds [(label,Probability)]
@@ -94,7 +91,7 @@ runTest ::
 --     , MutableTrainer modelparams model modelST label
     , BatchTrainer modelparams model label
     , {-Probability-}Classifier model label
-    , DataSparse label lds (WDPS label)
+    , DataSparse label lds (WLDPS label)
     , DataSparse label lds (LDPS label)
     , DataSparse label lds (UDPS label)
     , DataSparse label lds [(label,Probability)]

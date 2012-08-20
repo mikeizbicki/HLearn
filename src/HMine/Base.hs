@@ -15,6 +15,9 @@ runHMine seed hmine = evalRand hmine (mkStdGen seed)
 
 -------------------------------------------------------------------------------
 
+fi :: (Integral a, Num b) => a -> b
+fi = fromIntegral
+
 type Probability = LogFloat
 
 -------------------------------------------------------------------------------

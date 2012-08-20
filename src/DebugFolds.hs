@@ -11,6 +11,12 @@ import System.IO.Unsafe
 
 import qualified Data.Foldable as F
 
+-- mapi :: (Functor f) => (Int -> a -> b) -> f a -> f b
+-- mapi = go 0
+--     where
+--         go !i f xs = 
+-- mapi f xs = map (\(i,x) -> f i x) $ zip [0..] xs
+
 unfoldrM :: (Monad m) => (b -> m (Maybe (a, b))) -> b -> m [a]
 unfoldrM f b  = do
     res <- f b

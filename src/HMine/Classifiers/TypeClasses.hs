@@ -19,6 +19,7 @@ import qualified Data.Foldable as F
 
 import HMine.Base
 import HMine.DataContainers
+import HMine.DataContainers.DS_List
 import HMine.MiscUtils
 
 -------------------------------------------------------------------------------
@@ -37,7 +38,7 @@ class (Label label) =>
         where
     
     trainBatch :: 
-        ( DataSparse label ds (WDPS label)
+        ( DataSparse label ds (WLDPS label)
         , DataSparse label ds (LDPS label)
         , DataSparse label ds DPS
         , DataSparse label ds label
@@ -57,7 +58,7 @@ class (Label label) =>
         where
           
     trainBatchSS ::
-        ( DataSparse label ds (WDPS label)
+        ( DataSparse label ds (WLDPS label)
         , DataSparse label ds (LDPS label)
         , DataSparse label ds DPS
         , DataSparse label ds label
@@ -71,6 +72,14 @@ instance (BatchTrainer modelparams model label) => BatchTrainerSS (Trainer2Train
           
     trainBatchSS (Trainer2TrainerSS modelparams) lds uds = trainBatch modelparams lds
 
+data TrainerSS2Trainer modelpatams = TrainerSS2Trainer { tsstModelPatams :: modelpatams }
+
+instance (BatchTrainerSS modelparams model label) => BatchTrainer (TrainerSS2Trainer modelparams) model label
+    where
+          
+    trainBatch (TrainerSS2Trainer modelparams) lds = trainBatchSS modelparams lds $ emptyds $ getDataDesc lds
+
+
 ---------------------------------------
 
 class (Label label) =>
@@ -78,12 +87,25 @@ class (Label label) =>
         where
               
     trainBatchW :: 
-        ( DataSparse label ds (WDPS label)
+        ( DataSparse label ds (WLDPS label)
         , DataSparse label ds (LDPS label)
         , DataSparse label ds DPS
         , DataSparse label ds label
         ) =>
-        modelparams -> ds (WDPS label) -> HMine model
+        modelparams -> ds (WLDPS label) -> HMine model
+
+class (Label label) =>
+    WeightedBatchTrainerSS modelparams model label | modelparams -> model, model -> label 
+        where
+              
+    trainBatchWSS :: 
+        ( DataSparse label ds (WLDPS label)
+        , DataSparse label ds (LDPS label)
+        , DataSparse label ds (WUDPS label)
+        , DataSparse label ds DPS
+        , DataSparse label ds label
+        ) =>
+        modelparams -> ds (WLDPS label) -> ds (WUDPS label) -> HMine model
 
 data Trainer2WeightedTrainer modelparams = Trainer2WeightedTrainer
     { sampleRate :: Double
@@ -101,15 +123,22 @@ instance (BatchTrainer modelparams model label) =>
     trainBatchW params wds = do
         wds' <- sample (floor $ (sampleRate params)*(fromIntegral $ getNumObs wds)) wds
         trainBatch (sampleModelparams params) wds'
---         trainBatch (sampleModelparams params) $ fmap fst wds
 
---     trainBatchW params wds = do
-{-        let numSamples = floor $ (sampleRate params)*(fromIntegral $ getNumObs wds)
-        weightL <- liftM sort $ replicateM numSamples $ getRandomR (0,1)
-        let wds' = F.foldl' sample () wds-}
---         wds' <- sample 
---         trainBatch (sampleModel params) wds'
+instance (BatchTrainerSS modelparams model label) =>
+    WeightedBatchTrainerSS (Trainer2WeightedTrainer modelparams) model label
+        where
+
+    trainBatchWSS params wlds wuds = do
+        wlds' <- sample numwlds wlds
+        wuds' <- sample numwuds wuds
+        trainBatchSS (sampleModelparams params) wlds' wuds'
         
+        where 
+            l = fromIntegral $ getNumObs wlds
+            u = fromIntegral $ getNumObs wlds
+            numwlds = floor $ (sampleRate params)*(l+u)*(l/u)
+            numwuds = floor $ (sampleRate params)*(l+u)*(u/l)
+
 ---------------------------------------
 
 class (Label label) => OnlineTrainer modelparams model label | modelparams -> model, model -> label where

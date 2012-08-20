@@ -59,7 +59,7 @@ instance (Classifier model label, WeightedBatchTrainer modelparams model label) 
             go (itr,_D,ens)
                 | itr>(adaRounds adaparams) = return (itr,_D,ens)
                 | otherwise = do
-                    model <- trainBatchW (adaBaseModel adaparams) $ zipds ds _D
+                    model <- trainBatchW (adaBaseModel adaparams) $ zipdsL ds _D
                     let err = sum [(_Di)*(indicator $ label/=classify model dps) | (_Di,(label,dps)) <- zip _D (getDataL ds)]
                     let w = (1/2)*(log $ (1-err)/err) {-+ (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)-}
 

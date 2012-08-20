@@ -4,6 +4,7 @@
 module HMine.DataContainers.DS_List
     where
 
+import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
@@ -15,6 +16,7 @@ import Safe
 import Test.QuickCheck
 
 import qualified Data.Foldable as F
+import qualified Data.Traversable as T
 
 import HMine.DataContainers
 import HMine.DataContainers.CSVParser
@@ -30,7 +32,7 @@ data DS_List label dataType = DS_List
     , dsLen :: Int
     }
     deriving (Read,Show)
-
+    
 instance (Eq label) => Semigroup (DS_List label dataType) where
     (<>) (DS_List dsDesc1 dsL1 dsLen1) (DS_List dsDesc2 dsL2 dsLen2) = 
         if (dsDesc1 /= dsDesc2)
@@ -54,7 +56,16 @@ instance F.Foldable (DS_List label) where
 instance Functor (DS_List label) where
     fmap f ds = ds { dsL = fmap f $ dsL ds }
 
+instance T.Traversable (DS_List label) where
+    traverse f ds = liftA (\dsL' -> ds { dsL = dsL' } ) $ T.traverse f (dsL ds)
+
 instance (Ord label, Ord dataType, Show label, Show dataType) => DataSparse label (DS_List label) dataType where
+    emptyds desc = DS_List
+        { dsDesc = desc
+        , dsL = []
+        , dsLen = 0
+        }
+
     getDataDesc ds = dsDesc ds
     getNumObs = dsLen
     getObsL ds = [0..(dsLen ds)-1]
@@ -65,7 +76,14 @@ instance (Ord label, Ord dataType, Show label, Show dataType) => DataSparse labe
         dsL' <- replicateM num (fromList $ fmap (\(x,w) -> (x,toRational w)) $ dsL wds)
         return $ wds { dsL = dsL', dsLen = num }
 
-    zipds ds xs = ds { dsL = zipped, dsLen = length zipped }
+{-    zipds ds1 ds2 = DS_List { dsDesc = dsDesc, dsL = zipped, dsLen = length zipped }
+        where 
+            dsDesc = if dsDesc ds1 /= dsDesc ds2
+                then error "DS_List.zipds: DataDesc not equal!"
+                else dsDesc ds1
+            zipped = zip (dsL ds1) (dsL ds2)-}
+              
+    zipdsL ds xs = ds { dsL = zipped, dsLen = length zipped }
         where zipped = zip (dsL ds) xs
               
     filterds cond ds = ds { dsL = dsL', dsLen = length dsL' }

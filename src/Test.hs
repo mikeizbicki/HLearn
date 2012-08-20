@@ -11,6 +11,7 @@ import HMine.Classifiers.DTree
 import HMine.Classifiers.KNN
 import HMine.Classifiers.LazyNBayes
 import HMine.Classifiers.Ensemble
+import HMine.Classifiers.Ensemble.ASSEMBLE
 import HMine.Classifiers.Ensemble.AdaBoost
 import HMine.Classifiers.Ensemble.Bagging
 import HMine.Testing
@@ -20,8 +21,8 @@ import HMine.Testing
 
 main = do
     let datafile = DatafileDesc 
---             { datafileName = "/home/user/proj/haskell-classification/testdata/german.csv" 
-            { datafileName = "/home/user/proj/haskell-classification/testdata/haberman.csv" 
+            { datafileName = "/home/user/proj/haskell-classification/testdata/bupa.data" 
+--             { datafileName = "/home/user/proj/haskell-classification/testdata/haberman.csv" 
             , datafileTrueClass = Nothing
             , datafileMissingStr = Nothing
             }
@@ -39,14 +40,10 @@ main = do
 --     print $ evalRand (crossValidation (defBaggingParams 0 1 defNBayesParams) dsint 0.90 10) (mkStdGen 10)
 --     print $ evalRand (crossValidation defNBayesParams dsint 0.9 10) (mkStdGen 10)
 --     print $ evalRand (crossValidation defKNNParams dsint 0.9 20) (mkStdGen 10)
---     let x= evalRand (crossValidation (AdaBoostParams 20 $ Trainer2WeightedTrainer 0.5 defDTreeParams) dsint 0.80 10) (mkStdGen 10)
---     let x= evalRand (crossValidation (AdaBoostParams 20 $ Trainer2WeightedTrainer 0.5 defNBayesParams) dsint 0.80 10) (mkStdGen 10)
---     print x
---     print x
---     print $ evalRand (crossValidation DirichletParams ({-takeFirst 50 -}dsint) 0.9 10) (mkStdGen 10)
-    let x= evalRand (crossValidation (defDTreeParams {maxDepth=2,leafModelParams=defNBayesParams}) ({-takeFirst 50 -}dsint) 0.9 10) (mkStdGen 10)
-    let y= evalRand (crossValidation defDStumpParams ({-takeFirst 50 -}dsint) 0.9 10) (mkStdGen 10)
+--     let x= evalRand (crossValidation (AdaBoostParams 20 $ Trainer2WeightedTrainer 0.5 defDStumpParams) dsint 0.80 10) (mkStdGen 10)
+    let x= evalRand (crossValidation (TrainerSS2Trainer $ defASSEMBLEParams {-{ weightedParams = Trainer2WeightedTrainer 0.5 defNBayesParams}-}) dsint 0.80 10) (mkStdGen 10)
     print x
+    let y= evalRand (crossValidation defDStumpParams ({-takeFirst 50 -}dsint) 0.8 10) (mkStdGen 10)
     print y
     print x
     print y

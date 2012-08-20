@@ -7,12 +7,14 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Data.Binary
-import qualified Data.Foldable as F
 import Data.Functor
 import Data.Hashable
 import Data.List
-import Data.Monoid
+import Data.Semigroup
 import Test.QuickCheck
+
+import qualified Data.Foldable as F
+import qualified Data.Traversable as T
 
 import HMine.Base
 import HMine.MiscUtils
@@ -103,7 +105,8 @@ data DatafileDesc = DatafileDesc
 type DPS         = [(Int,DataItem)] -- ^ DPS = DataPointSparse
 type UDPS label  = DPS -- ^ UDPS = Unabeled DataPointSparse
 type LDPS label  = (label,DPS) -- ^ LDPS = Labeled DataPointSparse
-type WDPS label  = (Weighted (LDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
+type WLDPS label = (Weighted (LDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
+type WUDPS label = (Weighted (UDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
 
 type Weighted var = (var,Double)
 
@@ -118,14 +121,18 @@ fetchAttr attrI dps =
 class
     ( F.Foldable ds
     , Functor ds
+    , T.Traversable ds
     , Show label
     , Show dataType
     , Show (ds dataType)
     , Ord label
     , Ord dataType
+    , Semigroup (ds dataType)
     ) => 
     DataSparse label ds dataType | ds -> label 
         where
+    
+    emptyds :: DataDesc label -> ds dataType
     
     getDataDesc :: ds dataType -> DataDesc label
     getNumObs :: ds dataType -> Int
@@ -138,7 +145,8 @@ class
     filterds :: (dataType -> Bool) -> ds (dataType) -> ds (dataType)
     splitdtree :: dataType -> ds (dataType) -> (ds dataType, ds dataType)
     sample :: Int -> ds (Weighted dataType) -> HMine (ds dataType)
-    zipds :: ds dataType -> [w] -> ds (dataType,w)
+--     zipds :: ds dataType -> ds dataType2 -> ds (dataType,dataType2)
+    zipdsL :: ds dataType -> [w] -> ds (dataType,w)
     randSplit :: (RandomGen g) => Double -> ds dataType -> Rand g (ds dataType, ds dataType)
     takeFirst :: Int -> ds dataType -> ds dataType
     dropFirst :: Int -> ds dataType -> ds dataType

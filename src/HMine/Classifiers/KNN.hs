@@ -9,6 +9,7 @@
 
 module HMine.Classifiers.KNN
     ( KNN (..)
+    , KNNParams (..)
     , defKNNParams
     )
     where
@@ -68,6 +69,9 @@ data KNN label = KNN
 instance NFData (KNN label) where
     rnf knn = () -- ^ FIXME: No deepseq instance for kd-tree
 
+-------------------------------------------------------------------------------
+-- Training
+
 instance (Label label) => BatchTrainer KNNParams (KNN label) label where
 
 --     trainBatch :: (DataSparse label ds (WDPS label),DataSparse label ds (LDPS label)) =>
@@ -92,8 +96,13 @@ instance (Label label) => OnlineTrainer KNNParams (KNN label) label where
         { kdtree = fromList $ dps:(toList $ kdtree model)
         }
 
--- instance (Label label) => ProbabilityClassifier (KNN label) label where
-instance ProbabilityClassifier (KNN Int) Int where -- must use the Int version until DataDesc holds labelL
+-------------------------------------------------------------------------------
+-- Classification
+
+instance (Label label) => Classifier (KNN label) label where
+    classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
+
+instance (Label label) => ProbabilityClassifier (KNN label) label where -- must use the Int version until DataDesc holds labelL
 
     probabilityClassify knn dp = addMissing $ map reduce $ groupBy sameLabel neighbors
         where
@@ -101,9 +110,8 @@ instance ProbabilityClassifier (KNN Int) Int where -- must use the Int version u
             sameLabel (l1,d1) (l2,d2) = l1==l2
             neighbors = kNearestNeighbors (kdtree knn) (k $ knnparams knn) (undefined,dp)
 
-            addMissing :: [(Int,Probability)] -> [(Int,Probability)]
             addMissing xs = [ case lookup i xs of
                                  Just x ->(i,x)
                                  Nothing->(i,0)
-                            | i<-[0..numAttr $ kddesc knn]
+                            | i<-labelL $ kddesc knn
                             ]
