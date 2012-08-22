@@ -24,6 +24,7 @@ import HMine.Classifiers.KNN
 import HMine.Classifiers.Ensemble
 import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
+import HMine.MiscUtils
 import HMine.RandUtils
 import HMine.Testing
 
@@ -69,7 +70,7 @@ instance
         -- step 1,2: initialize weights
         let _D1_l = replicate l (beta / fi l)
         let _D1_u = replicate u ((1-beta) / fi u)
-        let _D1 = _D1_l <> _D1_u
+        let _D1 = normalizeL $ _D1_l <> _D1_u
         
         -- step 3,4: initialize pseudo-labels for the unsupervised data
         model0 <- trainBatch unweightedParams lds
@@ -77,8 +78,8 @@ instance
         
         -- step 5-16: iterate and return
         let lds' = lds <> uds'
-        model1 <- trainBatchW weightedParams $ zipdsL lds' _D1
-        go 1 (emptyEnsemble desc params) model1 lds' _D1
+        model1 <- trainBatchW weightedParams $ zipdsL lds{-'-} _D1
+        go 1 (emptyEnsemble desc params) model1 lds{-'-} _D1
         
         where 
             l = getNumObs lds
@@ -92,7 +93,8 @@ instance
                     let y_hat = map (classify model . snd) $ getDataL lds
                     
                     -- step 7
-                    let err = sum $ [ _Di*(indicator $ yi /= yi_hat) | (_Di,yi,yi_hat) <- zip3 _D y y_hat]
+                    let err = -- trace ("(y,y_hat)="++(show $ zip y y_hat)) $
+                            {-0.00001 + -}sum [ _Di*(indicator $ yi /= yi_hat) | (_Di,yi,yi_hat) <- zip3 _D y y_hat ]
                         
                     -- step 8
                     
@@ -112,23 +114,20 @@ instance
                                             
                     -- step 12
                     let cost' x = -exp (-x)
+                    let margin yi _Fib _Fid = (indicator $ yi==_Fib) * _Fid
 
-                    let y' = map (                 fst) $ getDataL lds'
-                    let _F = map (classify model . snd) $ getDataL lds'
+                    let y' = map fst $ getDataL lds'
+                    let (_Fb,_Fd) = unzip $ map (weightedClassify ens' . snd) $ getDataL lds'
                         
-                    let _D' = normalizeL [cost' (bool2num $ yi == _Fi) | (yi, _Fi) <- zip y' _F]
+                    let _D' = normalizeL [cost' (margin yi _Fib _Fid) | (yi, _Fib, _Fid) <- zip3 y' _Fb _Fd]
                         
                     -- step 13,14
                     let wlds = zipdsL lds' _D'
                     model' <- trainBatchW weightedParams wlds
                         
                     -- iterate
-                    go (itr+1) ens' model' lds' _D'
-    
--- normalizeL :: (Floating a) => [a] -> [a]
-normalizeL :: [Double] -> [Double]
-normalizeL xs = map (/s) xs
-    where s = sum xs
+                    trace ("itr="++show itr++", accuracy="++show (accuracy ens' lds)++", w="++show w++", err="++show err++", sum_D="++show (sum _D)++", _D'="++(show $ take 10 _D'))
+                        $ go (itr+1) ens' model' lds' _D'
     
 --     trainBatch adaparams ds = do
 --         let m = getNumObs ds

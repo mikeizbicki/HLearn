@@ -209,10 +209,9 @@ loadSparseData = do
     let zipL = zip rowL $ map Continuous valL
     let csr = listSplit2 0 zipL (tail colL)
     return $ DS_List
-        { dsDesc = DataDesc 97 592158
+        { dsDesc = DataDesc 97 [0..97] 592158
         , dsL = zip labelL csr
         , dsLen = length labelL
-        , dsLabelL = [0..97]
         } 
     where 
         bs2list=BS.split $ toEnum $ fromEnum ','

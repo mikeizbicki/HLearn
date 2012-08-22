@@ -67,21 +67,16 @@ instance (Ord label, Ord dataType, Show label, Show dataType) => DataSparse labe
         }
 
     getDataDesc ds = dsDesc ds
-    getNumObs = dsLen
+    getNumObs = length . dsL --dsLen
     getObsL ds = [0..(dsLen ds)-1]
---     getLabelL = dsLabelL
     getDataL = dsL
 
     sample num wds = do
-        dsL' <- replicateM num (fromList $ fmap (\(x,w) -> (x,toRational w)) $ dsL wds)
-        return $ wds { dsL = dsL', dsLen = num }
-
-{-    zipds ds1 ds2 = DS_List { dsDesc = dsDesc, dsL = zipped, dsLen = length zipped }
-        where 
-            dsDesc = if dsDesc ds1 /= dsDesc ds2
-                then error "DS_List.zipds: DataDesc not equal!"
-                else dsDesc ds1
-            zipped = zip (dsL ds1) (dsL ds2)-}
+        dsL' <- sampleL num $ dsL wds
+        return $ wds
+            { dsL = dsL'
+            , dsLen = length dsL'
+            }
               
     zipdsL ds xs = ds { dsL = zipped, dsLen = length zipped }
         where zipped = zip (dsL ds) xs
@@ -164,6 +159,20 @@ ds2intds ds = DS_List
         getIndex label = case (elemIndex label $ labelL $ getDataDesc ds) of
                               Nothing -> error "stringds2intds: something awful happend"
                               Just x -> x
+
+dd2booldd :: (DataDesc label) -> (DataDesc Bool)
+dd2booldd desc = desc { numLabels=2, labelL = [True,False] }
+
+{-ds2boolds :: (Ord label, Show label) => (DS_List label (LDPS label)) -> (DS_List Bool (LDPS Bool))
+ds2boolds ds = DS_List
+    { dsDesc = dd2booldd $ dsDesc ds
+    , dsL = map (\(label,dp)->(getIndex label, dp)) $ dsL ds
+    , dsLen = dsLen ds
+    }
+    where
+        getIndex label = case (elemIndex label $ labelL $ getDataDesc ds) of
+                              Nothing -> error "stringds2intds: something awful happend"
+                              Just x -> x-}
 
 instance DataLoaderCSV (DS_List String (LDPS String)) where
     loadDataCSV filedesc = do

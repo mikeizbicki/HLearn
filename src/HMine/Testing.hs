@@ -28,7 +28,13 @@ import System.IO.Unsafe
 import HMine.Base
 import HMine.DataContainers
 import HMine.Classifiers.TypeClasses
+import HMine.Classifiers.Ensemble
 import HMine.MiscUtils
+
+-------------------------------------------------------------------------------
+
+meanstddev :: [Double] -> (Double,Double)
+meanstddev xs = (mean xs, stddev xs)
 
 -------------------------------------------------------------------------------
 -- Monoidal cross validation
@@ -77,14 +83,15 @@ crossValidation ::
     , DataSparse label ds [(label,Probability)]
     , DataSparse label ds label
     ) => 
-    modelparams -> ds (LDPS label) -> Double -> Int -> HMine [Double]
-crossValidation modelparams trainingdata trainingRatio rounds = 
-    sequence [ do
+    modelparams -> ds (LDPS label) -> Double -> Int -> HMine (Double,Double)
+crossValidation modelparams trainingdata trainingRatio rounds = do
+    res <- sequence [ do
             (trainingdata,testdata) <- randSplit trainingRatio trainingdata
             ret <- runTest modelparams trainingdata testdata
             return $ deepseq ret ret
         | i <- [1..rounds]
         ]
+    return $ meanstddev res
 
 runTest :: 
     ( NFData model
@@ -103,6 +110,48 @@ runTest modelparams trainingdata testdata = do
     model <- trainBatch modelparams trainingdata
     return $ deepseq model $ accuracy model testdata
 --     return $ deepseq model $ logloss model testdata
+
+-------------------------------------------------------------------------------
+-- Ensemble-specific
+
+testEnsemble :: 
+    ( NFData modelparams, NFData model, NFData label
+    , Classifier model label
+    , BatchTrainer ensparams (Ensemble modelparams model label) label
+    , DataSparse label ds (WLDPS label)
+    , DataSparse label ds (LDPS label)
+    , DataSparse label ds (UDPS label)
+    , DataSparse label ds [(label,Probability)]
+    , DataSparse label ds label
+    ) => 
+    ensparams -> ds (LDPS label) -> Double -> Int -> HMine [(Double,Double)]
+testEnsemble modelparams trainingdata trainingRatio rounds = do
+    res <- sequence [ do
+            (trainingdata,testdata) <- randSplit trainingRatio trainingdata
+            ret <- runTestEnsemble modelparams trainingdata testdata
+            return $ deepseq ret ret
+        | i <- [1..rounds]
+        ]
+    return $ map meanstddev $ transpose res
+
+runTestEnsemble :: 
+    ( NFData modelparams, NFData model, NFData label
+    , BatchTrainer ensparams (Ensemble modelparams model label) label
+    , {-Probability-}Classifier model label
+    , DataSparse label lds (WLDPS label)
+    , DataSparse label lds (LDPS label)
+    , DataSparse label lds (UDPS label)
+    , DataSparse label lds [(label,Probability)]
+    , DataSparse label lds label
+    ) => 
+    ensparams -> lds (LDPS label) -> lds (LDPS label) -> HMine [Double]
+runTestEnsemble modelparams trainingdata testdata = do
+    model <- trainBatch modelparams trainingdata
+    return $ deepseq model $ ensembleAccuracy model testdata
+
+ensembleAccuracy ens testdata = map (\ens -> accuracy ens testdata) ensL
+    where
+        ensL = [ ens {ensembleL = drop i $ ensembleL ens} | i<-[0..length $ ensembleL ens]]
 
 -------------------------------------------------------------------------------
 -- measurement functions
@@ -124,7 +173,7 @@ logloss model testdata = logloss' testdata $ fmap (probabilityClassify model) (l
                 y_ij = fmap (\(l,dp) -> [ indicator $ l==j | j <- labelL $ getDataDesc lds ]) 
                             $ getDataL lds
 
--- see: https://www.kaggle.com/wiki/MultiClassLogLoss
+-- 1-error rate
 accuracy :: 
     ( Classifier model label
     , DataSparse label ds (LDPS label)
@@ -137,31 +186,3 @@ accuracy model testdata = (foldl1' (+) zipL)/(fromIntegral $ length zipL)
     where
         zipL = map (\(a,b) -> indicator $ a==b) $ zip (map fst $ getDataL testdata) (getDataL $ fmap (classify model) (lds2uds testdata))
             
-
-{-logloss :: 
-    ( DataSparse label lds (LDPS label)
-    , DataSparse label pds [(label,Probability)]
-    ) => 
-    lds (LDPS label) -> pds [(label,Probability)] -> Double-}
-        
-        
--- logloss lds results = -(1/(fromIntegral $ length labelL))*(sum [(y i j)*(log $ p i j) | i<-obsL, j<-labelL])
---     where
---         obsL = getObsL lds
---         labelL = getLabelL lds
---         y i j = 
---             if (fst $ (ld testdata) !! i)==j
---                then 1
---                else 0
---         p :: Int -> Int -> Double
---         p i j = 
---             case lookup j (results !! i) of
---                 Just x -> safeProb $ fromLogFloat x
---                 Nothing -> error "logloss: y i j; label index (j) not provided"
---                 
---         safeProb x = 
---             if x==0
---                then 1e-15
---                else x
-
-

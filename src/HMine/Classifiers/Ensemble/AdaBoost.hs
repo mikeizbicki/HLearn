@@ -19,6 +19,8 @@ import HMine.Base
 import HMine.Classifiers.Ensemble
 import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
+import HMine.Evaluation.Misc
+import HMine.MiscUtils
 import HMine.RandUtils
 import HMine.Testing
 
@@ -34,45 +36,65 @@ data AdaBoostParams modelparams = AdaBoostParams
 instance (NFData modelparams) => NFData (AdaBoostParams modelparams) where
     rnf (AdaBoostParams rounds model) = deepseq rounds $ rnf model
 
-class BoostAlg modelparams where
-    cost  :: modelparams -> Double -> Double
-    cost' :: modelparams -> Double -> Double
-    
-instance BoostAlg (AdaBoostParams modelparams) where
-    cost  _ x =  exp (-x)
-    cost' _ x = -exp (-x)
+-- class BoostAlg modelparams where
+--     cost  :: modelparams -> Double -> Double
+--     cost' :: modelparams -> Double -> Double
+--     
+-- instance BoostAlg (AdaBoostParams modelparams) where
+--     cost  _ x =  exp (-x)
+--     cost' _ x = -exp (-x)
 
 -------------------------------------------------------------------------------
 -- Ensemble instances
 
-instance (Classifier model label, WeightedBatchTrainer modelparams model label) => 
+instance (Show model, Show modelparams, Classifier model label, {-Weighted-}BatchTrainer modelparams model label) => 
     BatchTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) label 
         where
               
-    trainBatch adaparams ds = do
+    trainBatch adaparams ds = trace ("getNumObs ds="++show (getNumObs ds)) $ do
         let m = getNumObs ds
-        let _D0 = replicate m (1/fromIntegral m)
-        (_,_,ens) <- go (1,_D0,emptyEnsemble (getDataDesc ds) adaparams)
-        return ens
-
+        let _D0 = replicate m (1/fi m)
+        go 1 (emptyEnsemble (getDataDesc ds) adaparams) _D0
+        
         where
-            go (itr,_D,ens)
-                | itr>(adaRounds adaparams) = return (itr,_D,ens)
-                | otherwise = do
-                    model <- trainBatchW (adaBaseModel adaparams) $ zipdsL ds _D
-                    let err = sum [(_Di)*(indicator $ label/=classify model dps) | (_Di,(label,dps)) <- zip _D (getDataL ds)]
-                    let w = (1/2)*(log $ (1-err)/err) {-+ (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)-}
+            pzip xs ys = if length xs /= length ys
+                then error $ "pzip: unequal lengths! length xs="++show (length xs)++", length ys="++show (length ys)
+                else zip xs ys
+            go !itr !ens !_D 
+                | itr>(adaRounds adaparams) = return ens
+                | otherwise = trace "-----" $ do
+                    ds' <- sample (100) $ zipdsL ds _D
+--                     let ds'=ds
+                    model <- --trace ("ds'="++(show $ takeFirst 10 ds')) $
+                        trainBatch (adaBaseModel adaparams) ds'
+--                     model <- trainBatchW (adaBaseModel adaparams) $ zipdsL ds _D
+                    let err = {-trace ("(_Di,(label,classify))="++show [(_Di,(label,classify model dps)) | (_Di,(label,dps)) <- zip _D (getDataL ds)])
+                            $ -}sum [(_Di)*(indicator $ label/=classify model dps) | (_Di,(label,dps)) <- pzip _D (getDataL ds)]
+                            / sum _D
+--                             +0.00001
+                    let w = trace ("err="++show err++", w="++show ((1/2)*(log $ (1-err)/err))) $
+                            (1/2)*(log $ (1-err)/err) 
+                        -- + (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)
 
                     let ens'=pushClassifier (w,model) ens
 
---                     let _D_numer = [cost' adaparams $ bool2num $ label==classify ens' dp | (label,dp) <- getDataL ds]
---                     let _D_numer = fmap (\(label,dp) -> (cost' adaparams) $ bool2num $ label==classify ens' dp) $ getDataL ds
-                    let _D_numer = fmap (\(label,dp) -> (cost' adaparams) $ (w*) $ indicator $ label/=classify ens dp) $ getDataL ds
-                    let _D_denom = sum _D_numer
-                    let _D' = fmap (/_D_denom) _D_numer
+                    let margin (yi,(_Fib,_Fid)) = (bool2num $ yi==_Fib)*_Fid
+                    let cost' x = -exp (-x)
+--                     let _D' = normalizeL [ cost' $ margin (label,weightedClassify ens' dp) | (label,dp) <- getDataL ds]
+                    let _D' = normalizeL [ _Di * (exp $ (w)*(indicator $ label/=classify model dp)) 
+                                         | (_Di, (label,dp)) <- zip _D $ getDataL ds
+                                         ]
                         
-                    trace ("itr="++show itr++", accuracy="++show (accuracy ens ds)++", err="++show err++", extra="++show (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)++", sum_D="++show (sum _D)++", _D="++show (take 10 _D))
-                        $ go (itr+1,_D',ens')
+                    trace ("itr="++show itr++", accuracy="++show (accuracy ens' ds)++", err="++show err++", extra="++show (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1))
+--                         $ trace ("  -> sum_D ="++show (sum _D)++", _D="++show (take 10 _D))
+--                         $ trace ("  -> sum_D'="++show (sum _D')++", (y,_D')="++show (take 10 $ zip (map fst $ getDataL ds) _D'))
+--                         $ trace "" 
+--                         $ trace ("ens'="++show (map fst $ ensembleL $ ens'))
+--                         $ trace ("model="++show model)
+                        $ trace ""
+                        $ trace ("CM-mod="++show (genConfusionMatrix model ds))
+                        $ trace ("CM-ens="++show (genConfusionMatrix ens' ds))
+                        $ go (itr+1) ens' _D'
 
 --     trainBatch adaparams ds = do
 --         let m = getNumObs ds

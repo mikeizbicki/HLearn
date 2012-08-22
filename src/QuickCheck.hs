@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 import Control.Monad
-import Test.QuickCheck hiding (sample)
+import Test.QuickCheck hiding (sample,classify)
 -- import Test.ClassLaws
 
 import HMine.Algebra
@@ -122,25 +122,25 @@ test_Gaussian = do
 dpdesc = DataDesc 2 [0,1] 3
 
 -- dp 0 = (1::Int,[(0::Int,Continuous (-134.77947687658866)),(1::Int,Continuous 334.64191286414643),(2::Int,Continuous 762.7381029569324)])
-dp 0 = (0::Int,[(0::Int,Continuous 6)   ,(1::Int,Continuous 180),(2::Int,Continuous 12)])
-dp 1 = (0::Int,[(0::Int,Continuous 5.92),(1::Int,Continuous 190),(2::Int,Continuous 11)])
-dp 2 = (0::Int,[(0::Int,Continuous 5.58),(1::Int,Continuous 170),(2::Int,Continuous 12)])
-dp 3 = (0::Int,[(0::Int,Continuous 5.92),(1::Int,Continuous 165),(2::Int,Continuous 10)])
-dp 4 = (1::Int,[(0::Int,Continuous 5)   ,(1::Int,Continuous 100),(2::Int,Continuous 6)])
-dp 5 = (1::Int,[(0::Int,Continuous 5.5) ,(1::Int,Continuous 150),(2::Int,Continuous 8)])
-dp 6 = (1::Int,[(0::Int,Continuous 5.42),(1::Int,Continuous 130),(2::Int,Continuous 7)])
-dp 7 = (1::Int,[(0::Int,Continuous 5.75),(1::Int,Continuous 150),(2::Int,Continuous 9)])
+dp 0 = (0::Int,[(0::Int,Continuous 6)   ,(1::Int,Continuous 180),(2::Int,Continuous 12),(3,Discrete "m")])
+dp 1 = (0::Int,[(0::Int,Continuous 5.92),(1::Int,Continuous 190),(2::Int,Continuous 11),(3,Discrete "m")])
+dp 2 = (0::Int,[(0::Int,Continuous 5.58),(1::Int,Continuous 170),(2::Int,Continuous 12),(3,Discrete "m")])
+dp 3 = (0::Int,[(0::Int,Continuous 5.92),(1::Int,Continuous 165),(2::Int,Continuous 10),(3,Discrete "f")])
+dp 4 = (1::Int,[(0::Int,Continuous 5)   ,(1::Int,Continuous 100),(2::Int,Continuous 6 ),(3,Discrete "m")])
+dp 5 = (1::Int,[(0::Int,Continuous 5.5) ,(1::Int,Continuous 150),(2::Int,Continuous 8 ),(3,Discrete "m")])
+dp 6 = (1::Int,[(0::Int,Continuous 5.42),(1::Int,Continuous 130),(2::Int,Continuous 7 ),(3,Discrete "f")])
+dp 7 = (1::Int,[(0::Int,Continuous 5.75),(1::Int,Continuous 150),(2::Int,Continuous 9 ),(3,Discrete "f")])
 
 dpsample = [(0::Int,Continuous 6),(1::Int,Continuous 130),(2::Int,Continuous 8){-,(3::Int,Continuous 22)-}]
 
 td :: DS_List Int (LDPS Int)
 td = DS_List
-    { dsDesc = DataDesc 2 [0,1] 3
+    { dsDesc = DataDesc 2 [0,1] 4
     , dsL = map dp [0..7]
     , dsLen = 8
     }
 
-tdw :: DS_List Int (WDPS Int)
+tdw :: DS_List Int (WLDPS Int)
 tdw = DS_List
     { dsDesc = DataDesc 2 [0,1] 3
     , dsL = map (\x -> (dp x,1/8)) [0..7]

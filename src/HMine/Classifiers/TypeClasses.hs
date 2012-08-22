@@ -151,7 +151,7 @@ class (Label label) => OnlineTrainer modelparams model label | modelparams -> mo
     
     trainOnline :: (DataSparse label ds (LDPS label)) => 
         modelparams -> ds (LDPS label) -> HMine model
-    trainOnline modelparams ds = {-F.-}foldlMTrace (add1dp desc modelparams) (emptyModel desc modelparams) ds
+    trainOnline modelparams ds = F.foldlM{-Trace-} (add1dp desc modelparams) (emptyModel desc modelparams) ds
         where
             desc = getDataDesc ds
  
@@ -191,11 +191,8 @@ class (Label label) =>
     trainST :: (DataSparse label ds (LDPS label)) => 
         modelparams -> ds (LDPS label) -> model
     trainST modelparams ds = {-return $ -}runST $ do
---         trace ("mkST: "++(show $ getDataDesc ds)) $ return ()
         modelst <- mkST modelparams $ getDataDesc ds
---         trace "folding trainST" $ return ()
         foldlMTrace (add1dpST) modelst ds
---         trace "freezing trainST" $ return ()
         freeze modelst
 
 -------------------------------------------------------------------------------

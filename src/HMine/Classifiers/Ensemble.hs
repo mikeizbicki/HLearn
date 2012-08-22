@@ -25,18 +25,6 @@ import HMine.DataContainers
 import HMine.MiscUtils
 
 -------------------------------------------------------------------------------
--- ModelBox
-
-data ModelBox label = 
-    forall model .
-        ( ProbabilityClassifier model label
-        ) => 
-    ModelBox model
-
-instance (Label label) => ProbabilityClassifier (ModelBox label) label where
-    probabilityClassify (ModelBox model) = probabilityClassify model
-
--------------------------------------------------------------------------------
 -- Ensemble
 
 data Ensemble modelparams model label = Ensemble 
@@ -48,6 +36,11 @@ data Ensemble modelparams model label = Ensemble
 
 pushClassifier :: (Double,model) -> Ensemble modelparams model label -> Ensemble modelparams model label
 pushClassifier wm ens = ens { ensembleL = wm:(ensembleL ens) }
+
+pushClassifierNorm :: (Double,model) -> Ensemble modelparams model label -> Ensemble modelparams model label
+pushClassifierNorm wm ens = ens { ensembleL = map (\(w,model) -> (w/tot,model)) $ wm:(ensembleL ens) }
+    where
+        tot = sum $ map fst $ wm:(ensembleL ens)
 
 emptyEnsemble :: DataDesc label -> modelparams -> Ensemble modelparams model label
 emptyEnsemble desc modelparams = Ensemble
@@ -79,27 +72,32 @@ instance (Label label, Eq modelparams, Semigroup model) => Semigroup (Ensemble m
 -------------------------------------------------------------------------------
 -- Classification
 
+weightedClassify ens dp = argmaxWithMax labelScore (labelL $ ensembleDataDesc ens)
+    where 
+        labelScore label = sum $ map (\(w,model) -> w*(indicator $ label==classify model dp)) $ ensembleL ens
+        classifyL = map (classify . snd) $ ensembleL ens
+
 instance (Classifier model label) => Classifier (Ensemble modelparams model label) label where
     classify ens dp = argmax labelScore (labelL $ ensembleDataDesc ens)
         where 
-            labelScore label = sum $ map (\(w,model) -> w*(indicator $ label==classify model dp)) $ ensembleL ens
+            labelScore label = sum $ [w*(indicator $ label==classify model dp) | (w,model) <- ensembleL ens]
             classifyL = map (classify . snd) $ ensembleL ens
 
-instance ( ProbabilityClassifier model label, Eq label) => 
-    ProbabilityClassifier (Ensemble modelparams model label) label where
-        
-    probabilityClassify (Ensemble xs desc params) dp = foldl1' combiner weightedModelL
-        where
---             combiner :: (Eq label) => [(label,Probability)] -> [(label,Probability)] -> [(label,Probability)]
-            combiner xs ys = map (\((l1,p1),(l2,p2))->if l1==l2
-                                                         then (l1,p1+p2)
-                                                         else error "Ensemble.probabilityClassify: models output different labels"
-                                                         ) 
-                           $ zip xs ys
-                           
---             weightedModelL :: [[(label,Probability)]]
-            weightedModelL = map (\(w,xs) -> map (\(l,p)->(l,(logFloat w)*p)) xs) $ zip weightL' modelL'
-            
-            weightL' = normalizeL weightL
-            modelL' = map (flip probabilityClassify dp) modelL
-            (weightL,modelL)=unzip xs
+-- instance ( ProbabilityClassifier model label, Eq label) => 
+--     ProbabilityClassifier (Ensemble modelparams model label) label where
+--         
+--     probabilityClassify (Ensemble xs desc params) dp = foldl1' combiner weightedModelL
+--         where
+-- --             combiner :: (Eq label) => [(label,Probability)] -> [(label,Probability)] -> [(label,Probability)]
+--             combiner xs ys = map (\((l1,p1),(l2,p2))->if l1==l2
+--                                                          then (l1,p1+p2)
+--                                                          else error "Ensemble.probabilityClassify: models output different labels"
+--                                                          ) 
+--                            $ zip xs ys
+--                            
+-- --             weightedModelL :: [[(label,Probability)]]
+--             weightedModelL = map (\(w,xs) -> map (\(l,p)->(l,(logFloat w)*p)) xs) $ zip weightL' modelL'
+--             
+--             weightL' = normalizeL weightL
+--             modelL' = map (flip probabilityClassify dp) modelL
+--             (weightL,modelL)=unzip xs

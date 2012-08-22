@@ -32,7 +32,10 @@ Executable DataExplore
                         MonadRandom,
                         vector-space,
                         ansi-terminal,
-                        parsec
+                        parsec,
+                        QuickCheck,
+                        hashable,
+                        safe
                         -- HMine
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 

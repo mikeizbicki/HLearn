@@ -4,6 +4,7 @@ module HMine.RandUtils
 import Control.Monad
 import Control.Monad.Random
 import Data.Binary
+import Data.List
 import System.IO.Unsafe
 
 import qualified Data.Foldable as F
@@ -33,6 +34,45 @@ poisson lambda = go 0 0
             if p'<=limit
                then return k
                else go (k+1) p'
+
+
+sampleL :: (RandomGen g, Show a,Eq a) => Int -> [(a,Double)] -> Rand g [a]
+sampleL num xs = replicateM num (fromList $ fmap (\(x,w) -> (x,toRational w)) xs)
+
+{-sampleL :: (RandomGen g, Show a,Eq a) => Int -> [(a,Double)] -> Rand g [a]
+sampleL n xs = do
+    randL <- replicateM n $ getRandomR (0,1)
+    return $ sampleWalk 0 xs randL
+    where 
+          totalWeights = sum $ map snd xs-}
+    
+sampleWalk :: (Show a) => Double -> [(a,Double)] -> [Double] -> [a]
+sampleWalk tally [] _  = []
+sampleWalk tally _  [] = []
+sampleWalk tally (x:xs) (y:ys) = 
+    if not sanity
+       then error $ "sample: One of the sampling weights is either NaN or Infinity:" -- ++(show xs) ++ " -- "++(show ys)
+       else if ((snd x)+tally)>(y)
+               then (fst x):(sampleWalk tally (x:xs) $ ys)
+               else sampleWalk (tally+(snd x)) (xs) (y:ys)
+    where 
+        sanity = (isNumber $ snd x) && (isNumber y)
+        diff = (snd x)+tally-y
+
+isNumber :: Double -> Bool
+isNumber x = if x/=x -- x is NaN
+                then False
+                else if x==x+1 -- x is +/- Infinity
+                        then False
+                        else True
+
+randList :: (Random a, Eq a) => StdGen -> Int -> (a,a) -> [a]
+randList rgen 0 interval = []
+randList rgen n interval = if r==r
+                              then r:(randList rgen' (n-1) interval)
+                              else error "randList: r/=r --> r==NaN"
+    where (r,rgen') = randomR interval rgen
+
 
 -------------------------------------------------------------------------------
 -- Random utils

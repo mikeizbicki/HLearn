@@ -10,30 +10,6 @@ import System.Console.ANSI
 import System.IO.Unsafe
 
 import qualified Data.Foldable as F
-
--- mapi :: (Functor f) => (Int -> a -> b) -> f a -> f b
--- mapi = go 0
---     where
---         go !i f xs = 
--- mapi f xs = map (\(i,x) -> f i x) $ zip [0..] xs
-
-unfoldrM :: (Monad m) => (b -> m (Maybe (a, b))) -> b -> m [a]
-unfoldrM f b  = do
-    res <- f b
-    case res of
-        Just (a,new_b) -> do
-            next <- unfoldrM f new_b
-            return $ a:next
-        Nothing        -> return []
-   
-   
-test_anamorphism :: (RandomGen g) => Int -> Rand g (Maybe (Double,Int))
-test_anamorphism itr = do
-    x <- getRandomR (1,10)
-    y <- getRandomR (0,1)
-    if (x::Int) == 1
-        then return Nothing
-        else return $ Just (y,itr)
    
 
 foldlMTrace :: (F.Foldable f, Monad m) => (a -> b -> m a) -> a -> f b -> m a

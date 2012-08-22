@@ -18,6 +18,7 @@ import HMine.DataContainers
 -- DirichletParams
 
 data DirichletParams = DirichletParams
+    deriving (Read,Show)
 
 instance NFData DirichletParams where
     rnf x = ()
