@@ -19,10 +19,9 @@ import HMine.Base
 import HMine.Classifiers.Ensemble
 import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
-import HMine.Evaluation.Misc
+import HMine.Evaluation.Metrics
 import HMine.MiscUtils
 import HMine.RandUtils
-import HMine.Testing
 
 -------------------------------------------------------------------------------
 -- AdaBoostParams
@@ -57,9 +56,6 @@ instance (Show model, Show modelparams, Classifier model label, {-Weighted-}Batc
         go 1 (emptyEnsemble (getDataDesc ds) adaparams) _D0
         
         where
-            pzip xs ys = if length xs /= length ys
-                then error $ "pzip: unequal lengths! length xs="++show (length xs)++", length ys="++show (length ys)
-                else zip xs ys
             go !itr !ens !_D 
                 | itr>(adaRounds adaparams) = return ens
                 | otherwise = trace "-----" $ do
@@ -68,15 +64,12 @@ instance (Show model, Show modelparams, Classifier model label, {-Weighted-}Batc
                     model <- --trace ("ds'="++(show $ takeFirst 10 ds')) $
                         trainBatch (adaBaseModel adaparams) ds'
 --                     model <- trainBatchW (adaBaseModel adaparams) $ zipdsL ds _D
-                    let err = {-trace ("(_Di,(label,classify))="++show [(_Di,(label,classify model dps)) | (_Di,(label,dps)) <- zip _D (getDataL ds)])
-                            $ -}sum [(_Di)*(indicator $ label/=classify model dps) | (_Di,(label,dps)) <- pzip _D (getDataL ds)]
-                            / sum _D
---                             +0.00001
-                    let w = trace ("err="++show err++", w="++show ((1/2)*(log $ (1-err)/err))) $
-                            (1/2)*(log $ (1-err)/err) 
-                        -- + (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)
+                    let err = max 0.01 $ sum [(_Di)*(indicator $ label/=classify model dps) | (_Di,(label,dps)) <- zip _D (getDataL ds)]
+                    let w_binary = (1/2)*(log $ (1-err)/err) 
+                    let w_adj    = (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)
+                    let w        = w_binary+w_adj
 
-                    let ens'=pushClassifier (w,model) ens
+                    let ens'=pushClassifier{-Norm-} (w,model) ens
 
                     let margin (yi,(_Fib,_Fid)) = (bool2num $ yi==_Fib)*_Fid
                     let cost' x = -exp (-x)

@@ -24,9 +24,9 @@ import HMine.Classifiers.KNN
 import HMine.Classifiers.Ensemble
 import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
+import HMine.Evaluation.Metrics
 import HMine.MiscUtils
 import HMine.RandUtils
-import HMine.Testing
 
 -------------------------------------------------------------------------------
 -- ASSEMBLEParams
@@ -93,8 +93,7 @@ instance
                     let y_hat = map (classify model . snd) $ getDataL lds
                     
                     -- step 7
-                    let err = -- trace ("(y,y_hat)="++(show $ zip y y_hat)) $
-                            {-0.00001 + -}sum [ _Di*(indicator $ yi /= yi_hat) | (_Di,yi,yi_hat) <- zip3 _D y y_hat ]
+                    let err = sum [ _Di*(indicator $ yi /= yi_hat) | (_Di,yi,yi_hat) <- zip3 _D y y_hat ]
                         
                     -- step 8
                     
@@ -102,7 +101,7 @@ instance
                     let w = (1/2) * (log $ (1-err)/err)
                         
                     -- step 10
-                    let ens' = pushClassifier (w,model) ens
+                    let ens' = pushClassifierNorm (w,model) ens
                         
                     -- step 11
                     let lds' = snd $
@@ -126,31 +125,5 @@ instance
                     model' <- trainBatchW weightedParams wlds
                         
                     -- iterate
-                    trace ("itr="++show itr++", accuracy="++show (accuracy ens' lds)++", w="++show w++", err="++show err++", sum_D="++show (sum _D)++", _D'="++(show $ take 10 _D'))
+                    trace ("itr="++show itr++", accuracy="++show (accuracy ens' lds)++", w="++show w++", err="++show err)
                         $ go (itr+1) ens' model' lds' _D'
-    
---     trainBatch adaparams ds = do
---         let m = getNumObs ds
---         let _D0 = replicate m (1/fromIntegral m)
---         (_,_,ens) <- go (1,_D0,emptyEnsemble (getDataDesc ds) adaparams)
---         return ens
--- 
---         where
---             go (itr,_D,ens)
---                 | itr>(adaRounds adaparams) = return (itr,_D,ens)
---                 | otherwise = do
---                     model <- trainBatchW (adaBaseModel adaparams) $ zipds ds _D
---                     let err = sum [(_Di)*(indicator $ label/=classify model dps) | (_Di,(label,dps)) <- zip _D (getDataL ds)]
---                     let w = (1/2)*(log $ (1-err)/err) {-+ (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)-}
--- 
---                     let ens'=pushClassifier (w,model) ens
--- 
--- --                     let _D_numer = [cost' adaparams $ bool2num $ label==classify ens' dp | (label,dp) <- getDataL ds]
--- --                     let _D_numer = fmap (\(label,dp) -> (cost' adaparams) $ bool2num $ label==classify ens' dp) $ getDataL ds
---                     let _D_numer = fmap (\(label,dp) -> (cost' adaparams) $ (w*) $ indicator $ label/=classify ens dp) $ getDataL ds
---                     let _D_denom = sum _D_numer
---                     let _D' = fmap (/_D_denom) _D_numer
---                         
---                     trace ("itr="++show itr++", accuracy="++show (accuracy ens ds)++", err="++show err++", extra="++show (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1)++", sum_D="++show (sum _D)++", _D="++show (take 10 _D))
---                         $ go (itr+1,_D',ens')
--- 
