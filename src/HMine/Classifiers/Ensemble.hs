@@ -70,6 +70,26 @@ instance (Label label, Eq modelparams, Semigroup model) => Semigroup (Ensemble m
                        else desc1
 
 -------------------------------------------------------------------------------
+-- EnsembleAppender
+
+newtype EnsembleAppender modelparams model label = EnsembleAppender (Ensemble modelparams model label)
+    deriving (Read,Show,Eq)
+
+instance (NFData (Ensemble modelparams model label)) => NFData (EnsembleAppender modelparams model label) where
+    rnf (EnsembleAppender ens) = rnf ens
+
+instance (Label label, Eq modelparams) => Semigroup (EnsembleAppender modelparams model label) where
+    (<>) (EnsembleAppender (Ensemble ens1 desc1 params1)) (EnsembleAppender (Ensemble ens2 desc2 params2)) = EnsembleAppender $ Ensemble ens' desc' params'
+        where 
+            ens' = ens1 <> ens2
+            params' = if params1/=params2
+                         then error "EnsembleAppender.semigroup <>: different modelparams"
+                         else params1
+            desc' = if desc1 /= desc2
+                       then error "EnsembleAppender.semigroup <>: different DataDesc"
+                       else desc1
+
+-------------------------------------------------------------------------------
 -- Classification
 
 weightedClassify ens dp = argmaxWithMax labelScore (labelL $ ensembleDataDesc ens)

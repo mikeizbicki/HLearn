@@ -11,11 +11,14 @@ module HMine.Math.Functors
 import Control.DeepSeq
 import Control.Monad
 import Data.List
+import Data.List.Extras
           
 import HMine.Base
 import HMine.DataContainers
+import HMine.Classifiers.Ensemble
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
+import HMine.MiscUtils
 
 -------------------------------------------------------------------------------
 -- Semigroups
@@ -43,6 +46,44 @@ instance (NFData model, Semigroup model, BatchTrainerSS modelparams model label)
 --             ret = liftM (foldl1' (liftM2 (<>))) $ mapM (\(i,lds',uds') -> trace ("sg.trainBatchSS.i="++show i) $ trainBatchSS modelparams lds' uds') $ zip3 [1..] ldsL udsL
             ldsL = splitds num lds
             udsL = splitds num uds
+
+-------------------------------------------------------------------------------
+-- Voting Semigroups
+
+data VotingSemigroupParams modelparams = VotingSemigroupParams modelparams
+    deriving (Read,Show,Eq)
+
+instance (NFData modelparams) => NFData (VotingSemigroupParams modelparams)
+    where
+        rnf (VotingSemigroupParams params) = rnf params
+        
+instance (BatchTrainer modelparams model label) => 
+    BatchTrainer (VotingSemigroupParams modelparams) (VotingSemigroupModel modelparams model label) label
+    where
+        trainBatch vsgparams@(VotingSemigroupParams params) dps = do
+            model <- trainBatch params dps
+            return $ VotingSemigroupModel $ EnsembleAppender $ Ensemble 
+                { ensembleL = [(1,model)]
+                , ensembleDataDesc = getDataDesc dps
+                , ensembleParams = {-vsgparams-} params
+                }
+
+---------------------------------------
+
+data VotingSemigroupModel modelparams model label = VotingSemigroupModel (EnsembleAppender modelparams model label)
+    deriving (Read,Show,Eq)
+
+instance (NFData (EnsembleAppender modelparams model label)) => NFData (VotingSemigroupModel modelparams model label)
+    where
+        rnf (VotingSemigroupModel ensapp) = rnf ensapp
+
+instance (Label label, Eq modelparams) => Semigroup (VotingSemigroupModel modelparams model label) where
+    (<>) (VotingSemigroupModel ensapp1) (VotingSemigroupModel ensapp2) = 
+        VotingSemigroupModel (ensapp1 <> ensapp2)
+
+instance (Label label, Classifier model label) => Classifier (VotingSemigroupModel modelparams model label) label where
+    classify (VotingSemigroupModel (EnsembleAppender model)) dp = --undefined 
+        fst $ argmax snd  $ histogram $ map (flip classify dp . snd) $ ensembleL model
 
 -------------------------------------------------------------------------------
 -- Supervised / Semi-Supervised conversion

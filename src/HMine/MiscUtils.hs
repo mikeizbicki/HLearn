@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 
 module HMine.MiscUtils
-    ( normalizeL
+    ( normalizeL, histogram
     , Stream (..)
     , lazyDecodeFile
     , vSequence
@@ -22,6 +22,7 @@ import Data.Int
 import Data.List
 -- import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
+import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
@@ -72,6 +73,16 @@ instance NFData a => NFData (V.Vector a) where
 --           force !ix | ix < n    = do x <- PA.readArray arr ix
 --                                      rnf x `seq` force (ix+1)
 --                     | otherwise = return ()
+
+-------------------------------------------------------------------------------
+-- Just some list functions
+
+histogram :: (Ord label) => [label] -> [(label,Int)]
+histogram = Map.assocs . go Map.empty {-. map (\x -> (x,1))-}
+    where
+        go :: (Ord label) => Map.Map label Int -> [label] -> Map.Map label Int
+        go !m ![]     = m
+        go !m !(x:xs) = go (Map.insertWith (+) x 1 m) xs
 
 normalizeL :: (Fractional a) => [a] -> [a]
 normalizeL xs = {-trace ("xs==0"++show (map (==0) xs)) $ 

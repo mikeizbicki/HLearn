@@ -168,13 +168,6 @@ info xs = sum $ map (\x -> -(x/tot)*(lg $ x/tot)) xs'
 lg :: Double -> Double -- base 2 logarithm
 lg x = log x / log 2
 
-histogram :: (Ord label) => [label] -> [(label,Int)]
-histogram = Map.assocs . go Map.empty {-. map (\x -> (x,1))-}
-    where
-        go :: (Ord label) => Map.Map label Int -> [label] -> Map.Map label Int
-        go !m ![]     = m
-        go !m !(x:xs) = go (Map.insertWith (+) x 1 m) xs
-
 -------------------------------------------------------------------------------
 -- Classifying
 
