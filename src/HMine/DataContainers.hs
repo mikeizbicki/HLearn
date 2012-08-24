@@ -11,6 +11,7 @@ import Data.Functor
 import Data.Hashable
 import Data.List
 import Data.Semigroup
+import Debug.Trace
 import Test.QuickCheck
 
 import qualified Data.Foldable as F
@@ -142,6 +143,7 @@ class
 --     getNumLabels = length . getLabelL
 --     getLabelL :: ds dataType -> [label]
 
+    randomize :: ds dataType -> HMine (ds dataType)
     filterds :: (dataType -> Bool) -> ds (dataType) -> ds (dataType)
     splitdtree :: dataType -> ds (dataType) -> (ds dataType, ds dataType)
     sample :: Int -> ds (Weighted dataType) -> HMine (ds dataType)
@@ -150,11 +152,26 @@ class
     randSplit :: (RandomGen g) => Double -> ds dataType -> Rand g (ds dataType, ds dataType)
     takeFirst :: Int -> ds dataType -> ds dataType
     dropFirst :: Int -> ds dataType -> ds dataType
+   
 
 -- newtype LDPS_Compare label = LDPS_Compare (LDPS label)
 -- 
 -- splitdsLDPS :: (DataSparse label ds (LDPS label)) => (Int,DataItem) -> ds (LDPS label) -> (ds (LDPS label),ds(LDPS label))
 -- splitdsLDPS = undefined
+
+splitds :: (DataSparse label ds dataType) => Int -> ds dataType -> [ds dataType]
+splitds numsplits ds = -- [ {-dropFirst ((i-1)*splitlen) $-} takeFirst (i*splitlen) ds | i<-[1..numsplits] ]
+    go 1 ds
+    where
+        splitlen = ceiling $ (fromIntegral $ getNumObs ds)/(fromIntegral numsplits)
+
+        go itr ds = (takeFirst splitlen ds):nextL
+            where 
+                nextL=if itr>=numsplits -- (getNumObs ds' == 0 && itr>numsplits)
+                        then trace "hit0" []
+                        else trace "not0" $ go (itr+1) ds'
+                ds'=dropFirst splitlen ds
+
 
 getTransposeL :: (DataSparse label ds (LDPS label)) => ds (LDPS label) -> [[(label,DataItem)]]
 getTransposeL ds = map (zip (map fst dsL)) . map (map snd) . transpose . map (fillL (numAttr $ getDataDesc ds)) $ map snd dsL
@@ -176,16 +193,7 @@ lds2uds ::
     , DataSparse label ds (UDPS label)
     ) => ds (LDPS label) -> ds (UDPS label)
 lds2uds lds = fmap snd lds
-    
--- splitds :: (DataSparse label ds dataType) => Int -> ds dataType -> [ds dataType]
-splitds :: (DataSparse label ds (LDPS label)) => Int -> ds (LDPS label) -> [ds (LDPS label)]
-splitds len ds = (takeFirst len ds):nextL
-    where 
-        nextL=if getNumObs ds' == 0
-                then []
-                else splitds len ds'
-        ds'=dropFirst len ds
-    
+        
 -- class LabeledDataSparse lds label | lds -> label where    
 --     trainOnline :: {-(Monoid model) => -}(model -> LabeledDataPointSparse label -> model) -> model -> lds -> model
 --     trainOnlineM :: (Monad m) => (model -> LabeledDataPointSparse label -> m model) -> model -> lds -> m model

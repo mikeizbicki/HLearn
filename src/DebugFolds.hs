@@ -10,7 +10,6 @@ import System.Console.ANSI
 import System.IO.Unsafe
 
 import qualified Data.Foldable as F
-   
 
 foldlMTrace :: (F.Foldable f, Monad m) => (a -> b -> m a) -> a -> f b -> m a
 foldlMTrace f x ys = unsafePerformIO $ do

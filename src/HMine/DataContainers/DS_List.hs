@@ -71,6 +71,10 @@ instance (Ord label, Ord dataType, Show label, Show dataType) => DataSparse labe
     getObsL ds = [0..(dsLen ds)-1]
     getDataL = dsL
 
+    randomize ds = do
+        dsL' <- shuffle $ dsL ds
+        return $ ds { dsL = dsL' }
+
     sample num wds = do
         dsL' <- sampleL num $ dsL wds
         return $ wds

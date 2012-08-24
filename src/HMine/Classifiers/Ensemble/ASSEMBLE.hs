@@ -19,6 +19,7 @@ import qualified Data.Traversable as T
 
 import DebugFolds
 import HMine.Base
+import HMine.Classifiers.Dirichlet
 import HMine.Classifiers.DTree
 import HMine.Classifiers.KNN
 import HMine.Classifiers.Ensemble
@@ -39,8 +40,15 @@ data ASSEMBLEParams unweightedparams weightedparams = ASSEMBLEParams
     }
     deriving (Show,Read,Eq)
     
+defAdaBoostParams = TrainerSS2Trainer $ ASSEMBLEParams
+    { rounds = 25
+    , beta = 1
+    , unweightedParams = DirichletParams
+    , weightedParams = Trainer2WeightedTrainer 0.5 defDStumpParams
+    }
+    
 defASSEMBLEParams = ASSEMBLEParams
-    { rounds = 10
+    { rounds = 25
     , beta = 0.9
     , unweightedParams = KNNParams 1
     , weightedParams = Trainer2WeightedTrainer 0.5 defDStumpParams
@@ -78,8 +86,8 @@ instance
         
         -- step 5-16: iterate and return
         let lds' = lds <> uds'
-        model1 <- trainBatchW weightedParams $ zipdsL lds{-'-} _D1
-        go 1 (emptyEnsemble desc params) model1 lds{-'-} _D1
+        model1 <- trainBatchW weightedParams $ zipdsL lds' _D1
+        go 1 (emptyEnsemble desc params) model1 lds' _D1
         
         where 
             l = getNumObs lds
@@ -93,7 +101,7 @@ instance
                     let y_hat = map (classify model . snd) $ getDataL lds
                     
                     -- step 7
-                    let err = sum [ _Di*(indicator $ yi /= yi_hat) | (_Di,yi,yi_hat) <- zip3 _D y y_hat ]
+                    let err = max 0.01 $ sum [ _Di*(indicator $ yi /= yi_hat) | (_Di,yi,yi_hat) <- zip3 _D y y_hat ]
                         
                     -- step 8
                     
@@ -104,11 +112,12 @@ instance
                     let ens' = pushClassifierNorm (w,model) ens
                         
                     -- step 11
-                    let lds' = snd $
+                    let lds' = -- lds
+                               snd $
                                T.mapAccumL (\i (label,dps) -> (i+1,
                                                 if i < l
-                                                    then (label,dps)
-                                                    else (classify model dps, dps)
+                                                    then {-trace ("i="++show i++", LT") -}(label,dps)
+                                                    else {-trace ("i="++show i++", GTE")-} (classify model dps, dps)
                                             )) 0 lds
                                             
                     -- step 12
@@ -125,5 +134,5 @@ instance
                     model' <- trainBatchW weightedParams wlds
                         
                     -- iterate
-                    trace ("itr="++show itr++", accuracy="++show (accuracy ens' lds)++", w="++show w++", err="++show err)
+                    trace ("itr="++show itr++", l/u="++show l++"/"++show u++", accuracy="++show (accuracy ens' lds)++", w="++show w++", err="++show err)
                         $ go (itr+1) ens' model' lds' _D'

@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, UndecidableInstances, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, UndecidableInstances, FlexibleContexts, BangPatterns #-}
 
 module HMine.Classifiers.TypeClasses
     where
@@ -45,13 +45,29 @@ class (Label label) =>
         ) =>
         modelparams -> ds (LDPS label) -> HMine model
 
--- data SemigroupTrainer modelparams = SemigroupTrainer
---     { numSemigroups :: Int
---     , sgModelParams :: modelparams
---     }
---     
--- instance (Label label, Semigroup model) => BatchTrainer (SemigroupTrainer modelparams) model label where
---     trainBatch = undefined
+data SemigroupTrainer modelparams = SemigroupTrainer
+    { numSemigroups :: Int
+    , sgModelParams :: modelparams
+    }
+    deriving (Read,Show,Eq)
+    
+-- instance (Semigroup model, BatchTrainer modelparams model label) => BatchTrainer (SemigroupTrainer modelparams) model label where
+--     trainBatch (SemigroupTrainer num modelparams) lds = foldl1' (liftM2 (<>)) $ map (trainBatch modelparams) (splitds num lds)
+
+instance (NFData model, Semigroup model, BatchTrainerSS modelparams model label) => BatchTrainerSS (SemigroupTrainer modelparams) model label where
+{-    trainBatchSS (SemigroupTrainer num modelparams) lds uds = {-liftM2 deepseq (sequence ret) $-} error $ "done. length ret="++show (length ret)++", length ldsL="++show ({-length-} ldsL)++", length udsL="++show (length udsL)
+        where
+            ret = map (\(i,lds',uds') -> trace ("sg.trainBatchSS.i="++show i) $ trainBatchSS modelparams lds' uds') $ zip3 [1..] ldsL udsL
+            ldsL = splitds num lds
+            udsL = splitds num uds-}
+              
+        
+    trainBatchSS (SemigroupTrainer num modelparams) lds uds = 
+        foldl1' (liftM2 (<>)) $ map (\(lds',uds') -> trainBatchSS modelparams lds' uds') $ zip ldsL udsL
+        where                
+--             ret = liftM (foldl1' (liftM2 (<>))) $ mapM (\(i,lds',uds') -> trace ("sg.trainBatchSS.i="++show i) $ trainBatchSS modelparams lds' uds') $ zip3 [1..] ldsL udsL
+            ldsL = splitds num lds
+            udsL = splitds num uds
 
 class (Label label) =>
     BatchTrainerSS modelparams model label | modelparams -> model, model -> label
@@ -66,6 +82,7 @@ class (Label label) =>
         modelparams -> ds (LDPS label) -> ds DPS -> HMine model
 
 data Trainer2TrainerSS modelparams = Trainer2TrainerSS { ttssModelParams :: modelparams }
+    deriving (Read,Show,Eq)
 
 instance (BatchTrainer modelparams model label) => BatchTrainerSS (Trainer2TrainerSS modelparams) model label
     where
@@ -73,6 +90,7 @@ instance (BatchTrainer modelparams model label) => BatchTrainerSS (Trainer2Train
     trainBatchSS (Trainer2TrainerSS modelparams) lds uds = trainBatch modelparams lds
 
 data TrainerSS2Trainer modelpatams = TrainerSS2Trainer { tsstModelPatams :: modelpatams }
+    deriving (Read,Show,Eq)
 
 instance (BatchTrainerSS modelparams model label) => BatchTrainer (TrainerSS2Trainer modelparams) model label
     where
@@ -111,7 +129,7 @@ data Trainer2WeightedTrainer modelparams = Trainer2WeightedTrainer
     { sampleRate :: Double
     , sampleModelparams :: modelparams
     }
-    deriving (Read,Show)
+    deriving (Read,Show,Eq)
     
 instance (NFData modelparams) => NFData (Trainer2WeightedTrainer modelparams) where
     rnf (Trainer2WeightedTrainer params rate) = deepseq params $ rnf rate

@@ -46,7 +46,7 @@ instance Monoid DistContainer where
     mappend UnknownDist b = b
     mappend a UnknownDist = a
     mappend (DistContainer a) (DistContainer b) = DistContainer $ mappend a b
-    mappend (DistDiscrete a) (DistDiscrete b) = error "DistContiner.mappend (DistDiscrete) not yet implemented"
+    mappend (DistDiscrete a) (DistDiscrete b) = DistDiscrete $ mappend a b -- error "DistContiner.mappend (DistDiscrete) not yet implemented"
 
 instance Invertible DistContainer where
     inverse UnknownDist = UnknownDist
@@ -211,7 +211,7 @@ getProb key pdf = logFloat $ 0.0001+((fi val)/(fi tot)::Double)
         tot = F.foldl' (+) 0 pdf
 
 instance Semigroup DiscretePDF where
-    (<>) d1 d2 = error "DiscretePDF.semigroup.(<>): Not yet implemented"
+    (<>) d1 d2 = DiscretePDF $ Map.unionWith (+) (pdf d1) (pdf d2)
     
 instance Monoid DiscretePDF where
     mempty = DiscretePDF mempty

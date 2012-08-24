@@ -3,6 +3,11 @@ module HMine.RandUtils
 
 import Control.Monad
 import Control.Monad.Random
+import Control.Monad.ST
+import System.Random
+import Data.Array.ST
+import GHC.Arr
+
 import Data.Binary
 import Data.List
 import System.IO.Unsafe
@@ -162,21 +167,21 @@ randSplitLUnsafe factor xs = do
 --                 then return (x:l1,l2)
 --                 else return (l1,x:l2)
 -- 
--- -- | Shuffle algorithm taken from http://www.haskell.org/haskellwiki/Random_shuffle
---         
--- shuffle :: RandomGen g => [a] -> Rand g [a]
--- shuffle xs = do
---     let l = length xs
---     rands <- take l `fmap` getRandomRs (0, l-1)
---     let ar = runSTArray $ do
---         ar <- thawSTArray $ listArray (0, l-1) xs
---         forM_ (zip [0..(l-1)] rands) $ \(i, j) -> do
---             vi <- readSTArray ar i
---             vj <- readSTArray ar j
---             writeSTArray ar j vi
---             writeSTArray ar i vj
---         return ar
---     return (elems ar)
+-- | Shuffle algorithm taken from http://www.haskell.org/haskellwiki/Random_shuffle
+        
+shuffle :: RandomGen g => [a] -> Rand g [a]
+shuffle xs = do
+    let l = length xs
+    rands <- take l `fmap` getRandomRs (0, l-1)
+    let ar = runSTArray $ do
+        ar <- thawSTArray $ listArray (0, l-1) xs
+        forM_ (zip [0..(l-1)] rands) $ \(i, j) -> do
+            vi <- readSTArray ar i
+            vj <- readSTArray ar j
+            writeSTArray ar j vi
+            writeSTArray ar i vj
+        return ar
+    return (elems ar)
         
 -------------------
         

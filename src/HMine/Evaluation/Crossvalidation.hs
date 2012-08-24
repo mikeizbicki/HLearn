@@ -54,26 +54,29 @@ crossValidation ::
     , DataSparse label ds DPS
     , DataSparse label ds (LDPS label)
     , DataSparse label ds (WLDPS label)
-    , BatchTrainer modelparams model label
+    , BatchTrainerSS modelparams model label
     ) =>
      (model -> ds (LDPS label) -> measure)
      -> modelparams
      -> ds (LDPS label)
      -> Double
+     -> Double
      -> Int
      -> HMine (measure,measure)
-crossValidation metric modelparams trainingdata trainingRatio rounds = do
+crossValidation metric modelparams inputdata trainingRatio labeledRatio rounds = do
     res <- sequence [ do
-            (trainingdata,testdata) <- randSplit trainingRatio trainingdata
-            ret <- runTest metric modelparams trainingdata testdata
-            return $ deepseq ret  ret
+            (trainingdata,testdata) <- randSplit trainingRatio inputdata
+            (lds,uds) <- randSplit labeledRatio trainingdata
+            let uds' = fmap snd uds
+            model <- trainBatchSS modelparams lds uds'
+            return $ deepseq model $ metric model testdata
         | i <- [1..rounds]
         ]
     return $ ave res
 
-runTest metric modelparams trainingdata testdata = do
-    model <- trainBatch modelparams trainingdata
-    return $ deepseq model $ metric model testdata
+-- runTest metric modelparams trainingdata testdata = do
+--     model <- trainBatch modelparams trainingdata
+--     return $ deepseq model $ metric model testdata
 
 -------------------------------------------------------------------------------
 -- Monoidal cross validation
@@ -91,8 +94,7 @@ crossValidation_monoidal ::
     modelparams -> ds (LDPS label) -> Int -> [Double]
 crossValidation_monoidal modelparams lds folds = [logloss (modelItr modelL i) (testdata ldsL i) | i<-[0..folds-1]]
     where
-        foldLen = ceiling $ (fromIntegral $ getNumObs lds)/(fromIntegral folds)
-        ldsL = splitds foldLen lds
+        ldsL = splitds folds lds
         modelL = map (trainST modelparams) ldsL
         
 {-        testdata :: 
