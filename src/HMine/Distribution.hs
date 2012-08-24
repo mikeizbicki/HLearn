@@ -19,9 +19,9 @@ import qualified Data.Map as Map
 
 import Prelude hiding (log)
 
-import HMine.Algebra
 import HMine.Base hiding (mean,stddev,var)
 import HMine.DataContainers
+import HMine.Math.Algebra
 
 -------------------------------------------------------------------------------
 -- Distribution

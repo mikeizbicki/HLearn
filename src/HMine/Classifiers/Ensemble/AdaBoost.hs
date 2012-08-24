@@ -17,9 +17,9 @@ import Debug.Trace
 import DebugFolds
 import HMine.Base
 import HMine.Classifiers.Ensemble
-import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
 import HMine.Evaluation.Metrics
+import HMine.Math.TypeClasses
 import HMine.MiscUtils
 import HMine.RandUtils
 

@@ -19,11 +19,11 @@ import Debug.Trace
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
 
-import HMine.Algebra
 import HMine.Base
-import HMine.Classifiers.TypeClasses
 import HMine.Classifiers.Dirichlet
 import HMine.DataContainers
+import HMine.Math.Algebra
+import HMine.Math.TypeClasses
 import HMine.MiscUtils
 
 -------------------------------------------------------------------------------

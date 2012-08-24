@@ -18,10 +18,10 @@ import Data.Semigroup
 import Data.Number.LogFloat
 import Debug.Trace
       
-import HMine.Algebra
 import HMine.Base
-import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
+import HMine.Math.Algebra
+import HMine.Math.TypeClasses
 import HMine.MiscUtils
 
 -------------------------------------------------------------------------------

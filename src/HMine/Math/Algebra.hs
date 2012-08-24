@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Algebra
+module HMine.Math.Algebra
     ( Invertible (..)
     , InverseSemigroup (..)
     , CommutativeMonoid

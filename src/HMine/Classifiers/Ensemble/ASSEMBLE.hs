@@ -23,7 +23,8 @@ import HMine.Classifiers.Dirichlet
 import HMine.Classifiers.DTree
 import HMine.Classifiers.KNN
 import HMine.Classifiers.Ensemble
-import HMine.Classifiers.TypeClasses
+import HMine.Math.TypeClasses
+import HMine.Math.Functors
 import HMine.DataContainers
 import HMine.Evaluation.Metrics
 import HMine.MiscUtils

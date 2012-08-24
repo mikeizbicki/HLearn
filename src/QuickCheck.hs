@@ -5,7 +5,6 @@ import Control.Monad
 import Test.QuickCheck hiding (sample,classify)
 -- import Test.ClassLaws
 
-import HMine.Algebra
 import HMine.Base
 import HMine.Classifiers.Ensemble
 import HMine.Classifiers.Ensemble.AdaBoost
@@ -13,11 +12,12 @@ import HMine.Classifiers.Ensemble.Bagging
 import HMine.Classifiers.DTree
 import HMine.Classifiers.Dirichlet
 import HMine.Classifiers.LazyNBayes
-import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
 import HMine.DataContainers.DS_List
 import HMine.Distribution
-
+import HMine.Math.Algebra
+import HMine.Math.Functors
+import HMine.Math.TypeClasses
 
 -------------------------------------------------------------------------------
 -- Create arbitrary datapoints

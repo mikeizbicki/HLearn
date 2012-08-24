@@ -3,7 +3,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
-module HMine.Evaluation.Crossvalidation
+module HMine.Evaluation.CrossValidation
     where
 
 import qualified Data.ByteString.Lazy as BSL
@@ -25,9 +25,9 @@ import System.IO.Unsafe
 
 import HMine.Base
 import HMine.DataContainers
-import HMine.Classifiers.TypeClasses
 import HMine.Classifiers.Ensemble
 import HMine.Evaluation.Metrics
+import HMine.Math.TypeClasses
 import HMine.MiscUtils
 
 -------------------------------------------------------------------------------

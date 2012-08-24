@@ -11,7 +11,7 @@ import Data.Number.LogFloat
 import qualified Data.Map as Map
 import qualified Data.Foldable as F
 
-import HMine.Classifiers.TypeClasses
+import HMine.Math.TypeClasses
 import HMine.DataContainers
 
 -------------------------------------------------------------------------------

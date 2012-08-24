@@ -18,13 +18,13 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector as V
 
 -- import HMine.Base
-import HMine.Classifiers.TypeClasses
 import HMine.Classifiers.LazyNBayes
 import HMine.DataContainers
 import HMine.DataContainers.DS_List
 import HMine.MiscUtils
 import HMine.RandUtils
-import HMine.Testing
+import HMine.Evaluation.CrossValidation
+import HMine.Math.TypeClasses
 
     
 -------------------------------------------------------------------------------

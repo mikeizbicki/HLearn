@@ -10,10 +10,10 @@ import Control.Monad
 import Control.Monad.Random
 import Data.Hashable
 
-import HMine.Algebra
 import HMine.Classifiers.Ensemble
-import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
+import HMine.Math.Algebra
+import HMine.Math.TypeClasses
 
 -------------------------------------------------------------------------------
 -- BaggingParams

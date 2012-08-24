@@ -21,7 +21,7 @@ import Data.Trees.KdTree
 
 import HMine.Base
 import HMine.DataContainers
-import HMine.Classifiers.TypeClasses
+import HMine.Math.TypeClasses
 
 -------------------------------------------------------------------------------
 -- KNNParams

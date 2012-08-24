@@ -29,11 +29,11 @@ import Debug.Trace
 import System.IO
 import Test.QuickCheck
 
-import HMine.Algebra
 import HMine.Base
-import HMine.Classifiers.TypeClasses
 import HMine.DataContainers
 import HMine.Distribution
+import HMine.Math.Algebra
+import HMine.Math.TypeClasses
 import HMine.MiscUtils
 
 instance (VG.Vector v a, Binary a) => Binary (v a) where

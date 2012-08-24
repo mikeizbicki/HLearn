@@ -12,9 +12,9 @@ import Data.Number.LogFloat hiding (log)
 import qualified Data.Map as Map
           
 import HMine.Base
-import HMine.Classifiers.TypeClasses
 import HMine.Classifiers.Ensemble
 import HMine.DataContainers
+import HMine.Math.TypeClasses
           
 -------------------------------------------------------------------------------
 -- ConfusionMatrix
