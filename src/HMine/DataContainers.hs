@@ -149,6 +149,7 @@ class
     sample :: Int -> ds (Weighted dataType) -> HMine (ds dataType)
 --     zipds :: ds dataType -> ds dataType2 -> ds (dataType,dataType2)
     zipdsL :: ds dataType -> [w] -> ds (dataType,w)
+    zip3dsL :: ds dataType -> [a] -> [b] -> ds (dataType,a,b)
     randSplit :: (RandomGen g) => Double -> ds dataType -> Rand g (ds dataType, ds dataType)
     takeFirst :: Int -> ds dataType -> ds dataType
     dropFirst :: Int -> ds dataType -> ds dataType
