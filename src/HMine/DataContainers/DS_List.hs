@@ -81,7 +81,11 @@ instance (Ord label, Ord dataType, Show label, Show dataType) => DataSparse labe
             { dsL = dsL'
             , dsLen = length dsL'
             }
-              
+     
+--     zip3dsL :: ds dataType -> [a] -> [b] -> ds (dataType,a,b)
+    zip3dsL ds xs ys = ds { dsL = zipped, dsLen = length zipped }
+        where zipped = zip3 (dsL ds) xs ys
+     
     zipdsL ds xs = ds { dsL = zipped, dsLen = length zipped }
         where zipped = zip (dsL ds) xs
               
@@ -167,16 +171,16 @@ ds2intds ds = DS_List
 dd2booldd :: (DataDesc label) -> (DataDesc Bool)
 dd2booldd desc = desc { numLabels=2, labelL = [True,False] }
 
-{-ds2boolds :: (Ord label, Show label) => (DS_List label (LDPS label)) -> (DS_List Bool (LDPS Bool))
-ds2boolds ds = DS_List
+ds2boolds :: (Ord label, Show label) => [label] -> (DS_List label (LDPS label)) -> (DS_List Bool (LDPS Bool))
+ds2boolds tL ds = DS_List
     { dsDesc = dd2booldd $ dsDesc ds
-    , dsL = map (\(label,dp)->(getIndex label, dp)) $ dsL ds
+    , dsL = map (\(label,dp)->(newLabel label, dp)) $ dsL ds
     , dsLen = dsLen ds
     }
     where
-        getIndex label = case (elemIndex label $ labelL $ getDataDesc ds) of
-                              Nothing -> error "stringds2intds: something awful happend"
-                              Just x -> x-}
+        newLabel label = if label `elem` tL
+                            then True
+                            else False
 
 instance DataLoaderCSV (DS_List String (LDPS String)) where
     loadDataCSV filedesc = do

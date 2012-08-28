@@ -1,10 +1,16 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module HMine.Base
     where
 
+import Control.DeepSeq
+import Control.Monad
 import Control.Monad.Random
+import Control.Parallel.Strategies
 import Data.Number.LogFloat
+import Data.Semigroup
 import Data.List
 
 
@@ -15,6 +21,21 @@ type HMine a = Rand StdGen a
 
 runHMine :: Int -> (HMine a) -> a
 runHMine seed hmine = evalRand hmine (mkStdGen seed)
+
+-- instance (Semigroup a) => Semigroup (HMine a) where
+--     (<>) a1 a2 = do
+--         seed1 <- getRandom
+--         seed2 <- getRandom
+--         return $ (runHMine seed1 a1) <> (runHMine seed2 a2)
+
+instance (Semigroup a, NFData a) => Semigroup (HMine a) where
+    (<>) a1 a2 = do
+        seed1 <- getRandom
+        seed2 <- getRandom
+        return $ runEval $ do
+            a1' <- rpar $ runHMine seed1 a1
+            a2' <- rseq $ runHMine seed2 a2
+            return $ a1' <> a2'
 
 -------------------------------------------------------------------------------
 

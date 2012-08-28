@@ -10,6 +10,7 @@ module HMine.Math.Functors
           
 import Control.DeepSeq
 import Control.Monad
+import Control.Parallel.Strategies
 import Data.List
 import Data.List.Extras
           
@@ -41,7 +42,8 @@ instance (NFData model, Semigroup model, BatchTrainerSS modelparams model label)
               
         
     trainBatchSS (SemigroupTrainer num modelparams) lds uds = 
-        foldl1' (liftM2 (<>)) $ map (\(lds',uds') -> trainBatchSS modelparams lds' uds') $ zip ldsL udsL
+--         foldl1' (liftM2 (<>)) $ map (\(lds',uds') -> trainBatchSS modelparams lds{-'-} uds') $ zip ldsL udsL
+        foldl1' (<>) $ map (\(lds',uds') -> trainBatchSS modelparams lds{-'-} uds') $ zip ldsL udsL
         where                
 --             ret = liftM (foldl1' (liftM2 (<>))) $ mapM (\(i,lds',uds') -> trace ("sg.trainBatchSS.i="++show i) $ trainBatchSS modelparams lds' uds') $ zip3 [1..] ldsL udsL
             ldsL = splitds num lds

@@ -103,6 +103,7 @@ data DatafileDesc = DatafileDesc
 -------------------------------------------------------------------------------
 -- DataContainers
 
+type DPF         = [DataItem]
 type DPS         = [(Int,DataItem)] -- ^ DPS = DataPointSparse
 type UDPS label  = DPS -- ^ UDPS = Unabeled DataPointSparse
 type LDPS label  = (label,DPS) -- ^ LDPS = Labeled DataPointSparse
@@ -116,6 +117,18 @@ fetchAttr attrI dps =
     case lookup attrI dps of
         Nothing -> Missing
         Just x  -> x
+
+dps2dpf :: Int -> DPS -> DPF
+dps2dpf len dps = go 0 dps []
+    where
+        go itr [] dpf
+            | itr >= len = reverse dpf
+            | otherwise  = go (itr+1) [] (Missing:dpf)
+        go itr dps dpf 
+            | itr >= len = reverse dpf 
+            | otherwise  = if (fst $ head dps) == itr
+                then go (itr+1) (tail dps) ((snd $ head dps):dpf)
+                else go (itr+1) dps (Missing:dpf)
 
 -------------------------------------------------------------------------------
 -- DataSparse
