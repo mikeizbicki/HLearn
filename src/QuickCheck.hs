@@ -147,6 +147,12 @@ tdw = DS_List
     , dsLen = 8
     }
 
+tdempty :: DS_List Int (LDPS Int)
+tdempty = DS_List
+    { dsDesc = DataDesc 2 [0,1] 4
+    , dsL = [(i,[])| i<-[0..7]]
+    , dsLen = 8
+    }
 
 td2 :: DS_List Int (LDPS Int)
 td2 = DS_List

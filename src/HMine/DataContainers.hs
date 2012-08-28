@@ -174,18 +174,26 @@ class
 -- splitdsLDPS = undefined
 
 splitds :: (DataSparse label ds dataType) => Int -> ds dataType -> [ds dataType]
-splitds numsplits ds = -- [ {-dropFirst ((i-1)*splitlen) $-} takeFirst (i*splitlen) ds | i<-[1..numsplits] ]
-    go 1 ds
+splitds numsplits ds = go 1 ds
     where
         splitlen = ceiling $ (fromIntegral $ getNumObs ds)/(fromIntegral numsplits)
 
         go itr ds = (takeFirst splitlen ds):nextL
             where 
                 nextL=if itr>=numsplits -- (getNumObs ds' == 0 && itr>numsplits)
-                        then trace "hit0" []
-                        else trace "not0" $ go (itr+1) ds'
+                        then {-trace "hit0" -}[]
+                        else {-trace "not0" $ -}go (itr+1) ds'
                 ds'=dropFirst splitlen ds
 
+splitdsRedundantSimple :: (DataSparse label ds dataType) => Int -> Int -> ds dataType -> [ds dataType]
+splitdsRedundantSimple numsplits redun ds
+    | redun == numsplits            = replicate numsplits ds
+    | redun == 1                    = splitds numsplits ds
+    | redun >  1 && redun<numsplits = [ (splits !! i) <> (extrads i) | i<-[0..numsplits-1]]
+    where
+        extrads i = foldl1' (<>) [splits !! i' | i'<-redunL i]
+        redunL i =  [i' `mod` numsplits | i' <- [i+1..i+redun-1]]
+        splits = splitds numsplits ds
 
 getTransposeL :: (DataSparse label ds (LDPS label)) => ds (LDPS label) -> [[(label,DataItem)]]
 getTransposeL ds = map (zip (map fst dsL)) . map (map snd) . transpose . map (fillL (numAttr $ getDataDesc ds)) $ map snd dsL

@@ -26,28 +26,32 @@ import HMine.MiscUtils
 
 data SemigroupTrainer modelparams = SemigroupTrainer
     { numSemigroups :: Int
+    , ldsRedundancy :: Int
+    , udsRedundancy :: Int
     , sgModelParams :: modelparams
     }
     deriving (Read,Show,Eq)
-    
--- instance (Semigroup model, BatchTrainer modelparams model label) => BatchTrainer (SemigroupTrainer modelparams) model label where
---     trainBatch (SemigroupTrainer num modelparams) lds = foldl1' (liftM2 (<>)) $ map (trainBatch modelparams) (splitds num lds)
+
+defSemigroup numsg modelparams = SemigroupTrainer
+    { numSemigroups = numsg
+    , ldsRedundancy = 1
+    , udsRedundancy = 1
+    , sgModelParams = modelparams
+    }
+
+defSemigroupSS numsg modelparams = SemigroupTrainer
+    { numSemigroups = numsg
+    , ldsRedundancy = numsg
+    , udsRedundancy = 1
+    , sgModelParams = modelparams
+    }
 
 instance (NFData model, Semigroup model, BatchTrainerSS modelparams model label) => BatchTrainerSS (SemigroupTrainer modelparams) model label where
-{-    trainBatchSS (SemigroupTrainer num modelparams) lds uds = {-liftM2 deepseq (sequence ret) $-} error $ "done. length ret="++show (length ret)++", length ldsL="++show ({-length-} ldsL)++", length udsL="++show (length udsL)
-        where
-            ret = map (\(i,lds',uds') -> trace ("sg.trainBatchSS.i="++show i) $ trainBatchSS modelparams lds' uds') $ zip3 [1..] ldsL udsL
-            ldsL = splitds num lds
-            udsL = splitds num uds-}
-              
-        
-    trainBatchSS (SemigroupTrainer num modelparams) lds uds = 
---         foldl1' (liftM2 (<>)) $ map (\(lds',uds') -> trainBatchSS modelparams lds{-'-} uds') $ zip ldsL udsL
-        foldl1' (<>) $ map (\(lds',uds') -> trainBatchSS modelparams lds{-'-} uds') $ zip ldsL udsL
+    trainBatchSS (SemigroupTrainer numsg ldsredun udsredun modelparams) lds uds = 
+        foldl1' (<>) $ map (\(lds',uds') -> trainBatchSS modelparams lds' uds') $ zip ldsL udsL
         where                
---             ret = liftM (foldl1' (liftM2 (<>))) $ mapM (\(i,lds',uds') -> trace ("sg.trainBatchSS.i="++show i) $ trainBatchSS modelparams lds' uds') $ zip3 [1..] ldsL udsL
-            ldsL = splitds num lds
-            udsL = splitds num uds
+            ldsL = splitdsRedundantSimple numsg ldsredun lds
+            udsL = splitdsRedundantSimple numsg udsredun uds
 
 -------------------------------------------------------------------------------
 -- Voting Semigroups
