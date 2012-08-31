@@ -15,7 +15,7 @@ import Data.Hashable
 import Data.List
 import Data.List.Extras
 import Data.Semigroup
-import Data.Number.LogFloat
+import Data.Number.LogFloat hiding (log)
 import Debug.Trace
       
 import HMine.Base
@@ -61,7 +61,10 @@ instance (Label label, Eq modelparams, Semigroup model) => Semigroup (Ensemble m
         where
             ens' = map merge $ zip (sort' ens1) (sort' ens2)
             sort' = sortBy (\(w1,_) (w2,_) -> compare w1 w2)
-            merge ((w1,m1),(w2,m2)) = ((w1+w2)/2,m1<>m2)
+            merge ((w1,m1),(w2,m2)) = (e2w $ ((w2e w1)+(w2e w2))/2,m1<>m2)
+                where e2w e = (1/2)*(log $ (1-e)/e)
+                      w2e w = 1/((exp $ 2*w)+1)
+--             merge ((w1,m1),(w2,m2)) = ((w1+w2)/2,m1<>m2)
             params' = if params1/=params2
                          then error "Ensemble.semigroup <>: different modelparams"
                          else params1
