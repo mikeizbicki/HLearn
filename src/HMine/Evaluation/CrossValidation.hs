@@ -83,7 +83,7 @@ crossValidation metric modelparams inputdata trainingRatio labeledRatio rounds =
 
 crossValidation_monoidal ::
     ( MutableTrainer modelparams model modelST label
-    , ProbabilityClassifier model label
+    , ProbabilityClassifier model DPS label
     , Monoid model
     , DataSparse label ds (LDPS label)
     , DataSparse label ds (UDPS label)

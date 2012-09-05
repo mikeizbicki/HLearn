@@ -172,7 +172,7 @@ lg x = log x / log 2
 -------------------------------------------------------------------------------
 -- Classifying
 
-instance (ProbabilityClassifier leafmodel label) => Classifier (DTree leafmodel label) label where
+instance (ProbabilityClassifier leafmodel DPS label) => Classifier (DTree leafmodel label) DPS label where
     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
 -- instance (Classifier model label) => Classifier (DTree model label) label where
@@ -184,7 +184,7 @@ instance (ProbabilityClassifier leafmodel label) => Classifier (DTree leafmodel 
 --                 else classify modelGT dp
 --              Nothing -> error "DTree.classify: this should never happen."
 -- 
-instance (ProbabilityClassifier model label) => ProbabilityClassifier (DTree model label) label where
+instance (ProbabilityClassifier model DPS label) => ProbabilityClassifier (DTree model label) DPS label where
     probabilityClassify (DLeaf model) dp = probabilityClassify model dp
     probabilityClassify (DTree desc (attrI,xs)) dp = go xs
         where

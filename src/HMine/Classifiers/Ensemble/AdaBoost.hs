@@ -46,7 +46,7 @@ instance (NFData modelparams) => NFData (AdaBoostParams modelparams) where
 -------------------------------------------------------------------------------
 -- Ensemble instances
 
-instance (Show model, Show modelparams, Classifier model label, {-Weighted-}BatchTrainer modelparams model DPS label) => 
+instance (Show model, Show modelparams, Classifier model DPS label, {-Weighted-}BatchTrainer modelparams model DPS label) => 
     BatchTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) DPS label 
         where
               
@@ -135,7 +135,7 @@ instance (EmptyTrainer modelparams model label) =>
         }
     
 
-instance (Classifier model label, OnlineTrainer modelparams model DPS label) =>
+instance (Classifier model DPS label, OnlineTrainer modelparams model DPS label) =>
     OnlineTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) DPS label where
     
 --     add1dp :: DataDesc -> modelparams -> model -> LDPS label -> HMine model            

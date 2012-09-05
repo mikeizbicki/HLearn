@@ -109,7 +109,9 @@ instance (Label label, Eq modelparams) => Semigroup (VotingSemigroupModel modelp
     (<>) (VotingSemigroupModel ensapp1) (VotingSemigroupModel ensapp2) = 
         VotingSemigroupModel (ensapp1 <> ensapp2)
 
-instance (Label label, Classifier model label) => Classifier (VotingSemigroupModel modelparams model label) label where
+instance (Label label, Classifier model datatype label) => 
+    Classifier (VotingSemigroupModel modelparams model label) datatype label 
+        where
     classify (VotingSemigroupModel (EnsembleAppender model)) dp = --undefined 
         fst $ argmax snd  $ histogram $ map (flip classify dp . snd) $ ensembleL model
 
@@ -192,7 +194,9 @@ instance
 
 data ProbabilityClassifier2Classifier model = ProbabilityClassifier2Classifier { straightModel :: model }
 
-instance (ProbabilityClassifier model label) => Classifier (ProbabilityClassifier2Classifier model) label where
+instance (ProbabilityClassifier model datatype label) => 
+    Classifier (ProbabilityClassifier2Classifier model) datatype label 
+        where
     classify = straightClassify . straightModel
 
 -- instance (ProbabilityClassifier model label) => Classifier model label where

@@ -98,10 +98,10 @@ instance (Label label) => OnlineTrainer KNNParams (KNN label) DPS label where
 -------------------------------------------------------------------------------
 -- Classification
 
-instance (Label label) => Classifier (KNN label) label where
+instance (Label label) => Classifier (KNN label) DPS label where
     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
-instance (Label label) => ProbabilityClassifier (KNN label) label where -- must use the Int version until DataDesc holds labelL
+instance (Label label) => ProbabilityClassifier (KNN label) DPS label where -- must use the Int version until DataDesc holds labelL
 
     probabilityClassify knn dp = addMissing $ map reduce $ groupBy sameLabel neighbors
         where

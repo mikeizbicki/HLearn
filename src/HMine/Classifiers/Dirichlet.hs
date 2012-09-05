@@ -55,10 +55,10 @@ instance (Label label) => OnlineTrainer DirichletParams (Dirichlet label) dataty
 -------------------------------------------------------------------------------
 -- Classification
 
-instance (Label label) => Classifier (Dirichlet label) label where
+instance (Label label) => Classifier (Dirichlet label) datatype label where
     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
-instance (Label label) => ProbabilityClassifier (Dirichlet label) label where
+instance (Label label) => ProbabilityClassifier (Dirichlet label) datatype label where
 --     probabilityClassify :: model -> DPS -> [(label,Probability)]
     probabilityClassify model dp = 
         case (Map.toList $ dist model) of

@@ -63,8 +63,8 @@ instance (NFData unweightedparams, NFData weightedparams) => NFData (ASSEMBLEPar
 -- Ensemble instances
 
 instance 
-    ( Classifier model label
-    , Classifier unweightedmodel label
+    ( Classifier model DPS label
+    , Classifier unweightedmodel DPS label
     , BatchTrainer unweightedparams unweightedmodel DPS label
     , WeightedBatchTrainer weightedparams model DPS label
     ) => 

@@ -229,10 +229,10 @@ unsafeAdd1dp nb (label,dp) = runST $ do
 -------------------------------------------------------------------------------
 -- Classification
 
-instance Classifier (NBayes Int) Int where
+instance Classifier (NBayes Int) DPS Int where
     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
-instance ProbabilityClassifier (NBayes Int) Int where
+instance ProbabilityClassifier (NBayes Int) DPS Int where
     probabilityClassify nb dp = probClassifyNB nb dp
 
 probClassifyNB :: NBayes Int -> DPS -> [(Int,Probability)]

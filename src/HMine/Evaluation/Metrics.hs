@@ -23,10 +23,10 @@ newtype ConfusionMatrix label = ConfusionMatrix [(label,(Int,Int))]
     deriving (Show,Read,Eq)
     
 genConfusionMatrix ::
-    ( DataSparse label ds (LDPS label)
-    , Classifier model label
+    ( DataSparse label ds (Labeled datatype label)
+    , Classifier model datatype label
     ) =>
-    model -> ds (LDPS label) -> ConfusionMatrix label
+    model -> ds (Labeled datatype label) -> ConfusionMatrix label
 genConfusionMatrix model lds = ConfusionMatrix . Map.toList $ Map.fromListWith addL $ map mergeL $ zip labelL labelL'
     where
         addL (a1,b1) (a2,b2) = (a1+a2,b1+b2)
@@ -39,7 +39,7 @@ genConfusionMatrix model lds = ConfusionMatrix . Map.toList $ Map.fromListWith a
 
 -- see: https://www.kaggle.com/wiki/MultiClassLogLoss
 logloss :: 
-    ( ProbabilityClassifier model label
+    ( ProbabilityClassifier model DPS label
     , DataSparse label ds (LDPS label)
     , DataSparse label ds (UDPS label)
     , DataSparse label ds label
@@ -56,7 +56,7 @@ logloss model testdata = logloss' testdata $ fmap (probabilityClassify model) (l
 
 -- accuracy = % correctly classified = 1-error rate
 accuracy ::     
-    ( Classifier model label
+    ( Classifier model DPS label
     , DataSparse label ds (LDPS label)
     , DataSparse label ds (UDPS label)
     , DataSparse label ds label

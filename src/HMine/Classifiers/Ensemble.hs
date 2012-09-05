@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -95,16 +96,18 @@ instance (Label label, Eq modelparams) => Semigroup (EnsembleAppender modelparam
 -------------------------------------------------------------------------------
 -- Classification
 
+weightedClassify :: (Classifier model datatype label) =>
+    Ensemble modelparams model label -> datatype -> (label, Double)
 weightedClassify ens dp = argmaxWithMax labelScore (labelL $ ensembleDataDesc ens)
     where 
         labelScore label = sum $ map (\(w,model) -> w*(indicator $ label==classify model dp)) $ ensembleL ens
-        classifyL = map (classify . snd) $ ensembleL ens
+--         classifyL = map (classify . snd) $ ensembleL ens
 
-instance (Classifier model label) => Classifier (Ensemble modelparams model label) label where
+instance (Classifier model datatype label) => Classifier (Ensemble modelparams model label) datatype label where
     classify ens dp = argmax labelScore (labelL $ ensembleDataDesc ens)
         where 
             labelScore label = sum $ [w*(indicator $ label==classify model dp) | (w,model) <- ensembleL ens]
-            classifyL = map (classify . snd) $ ensembleL ens
+--             classifyL = map (classify . snd) $ ensembleL ens
 
 -- instance ( ProbabilityClassifier model label, Eq label) => 
 --     ProbabilityClassifier (Ensemble modelparams model label) label where

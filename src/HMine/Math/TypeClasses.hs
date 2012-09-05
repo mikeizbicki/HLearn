@@ -144,12 +144,12 @@ class (Label label) =>
 -------------------------------------------------------------------------------
 -- Classification
 
-class (Label label) => ProbabilityClassifier model label | model -> label where
-    probabilityClassify :: model -> DPS -> [(label,Probability)]
+class (Label label) => ProbabilityClassifier model datatype label | model -> label where
+    probabilityClassify :: model -> datatype -> [(label,Probability)]
     
-    straightClassify :: model -> DPS -> label
+    straightClassify :: model -> datatype -> label
     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
     
-class (Label label) => Classifier model label | model -> label where
-    classify :: model -> DPS -> label
+class (Label label) => Classifier model datatype label | model -> label where
+    classify :: model -> datatype -> label
 

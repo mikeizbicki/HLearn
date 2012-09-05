@@ -1,4 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module HMine.Distribution
     where
@@ -22,6 +25,7 @@ import Prelude hiding (log)
 import HMine.Base hiding (mean,stddev,var)
 import HMine.DataContainers
 import HMine.Math.Algebra
+import HMine.Math.TypeClasses
 
 -------------------------------------------------------------------------------
 -- Distribution
@@ -31,6 +35,13 @@ class Distribution dist where
     sampleProb :: dist -> DataItem -> LogFloat
     
     serializationIndex :: dist -> Word8
+       
+class 
+    ( OnlineTrainer distparams dist (Maybe Double) Double
+    , Classifier dist (Maybe Double) Double
+    ) => 
+    RealDistribution distparams dist where
+
        
 -------------------------------------------------------------------------------
 -- DistContainer
@@ -88,6 +99,8 @@ instance NFData DistContainer where
 -------------------------------------------------------------------------------
 -- Gaussian
           
+data GaussianParams = GaussianParams
+          
 data Gaussian = Gaussian 
         { m1 :: {-# UNPACK #-} !Double
         , m2 :: {-# UNPACK #-} !Double
@@ -107,6 +120,17 @@ instance Arbitrary Gaussian where
         m2 <- choose (0,10000)
         n <- choose (0,10000)
         return $ Gaussian m1 m2 n
+
+instance EmptyTrainer GaussianParams Gaussian (Maybe Double) where
+    emptyModel desc params = mempty
+
+instance OnlineTrainer GaussianParams Gaussian () (Maybe Double) where
+--    add1dp :: DataDesc label -> modelparams -> model -> Labeled datatype label -> HMine model
+    add1dp desc modelparams model dp = return $ add1sample model di
+        where 
+            di = case fst dp of
+                Nothing -> Missing
+                Just x -> Continuous x
 
 instance Distribution Gaussian where
     
