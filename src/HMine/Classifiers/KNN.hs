@@ -72,7 +72,7 @@ instance NFData (KNN label) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Label label) => BatchTrainer KNNParams (KNN label) label where
+instance (Label label) => BatchTrainer KNNParams (KNN label) DPS label where
 
 --     trainBatch :: (DataSparse label ds (WDPS label),DataSparse label ds (LDPS label)) =>
 --         modelparams -> ds (LDPS label) -> HMine model
@@ -82,16 +82,15 @@ instance (Label label) => BatchTrainer KNNParams (KNN label) label where
         , knnparams = modelparams
         }
 
-instance (Label label) => OnlineTrainer KNNParams (KNN label) label where
-    
---     emptyModel :: DataDesc -> modelparams -> model
+instance (Label label) => EmptyTrainer KNNParams (KNN label) label where
     emptyModel desc modelparams = KNN
         { kdtree = fromList []
         , kddesc = desc
         , knnparams = modelparams
         }
 
---     add1dp :: DataDesc -> modelparams -> model -> LDPS label -> HMine model
+
+instance (Label label) => OnlineTrainer KNNParams (KNN label) DPS label where
     add1dp desc modelparams model dps = return $ model
         { kdtree = fromList $ dps:(toList $ kdtree model)
         }

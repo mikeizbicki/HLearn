@@ -51,14 +51,18 @@ crossValidation ::
     ( NFData model
     , Averageable measure
     , DataSparse label ds label
+    , DataSparse label ds datatype
+    , DataSparse label ds (Labeled datatype label)
+    , DataSparse label ds (Weighted (Labeled datatype label))
+{-    , DataSparse label ds label
     , DataSparse label ds DPS
     , DataSparse label ds (LDPS label)
-    , DataSparse label ds (WLDPS label)
-    , BatchTrainerSS modelparams model label
+    , DataSparse label ds (WLDPS label)-}
+    , BatchTrainerSS modelparams model datatype label
     ) =>
-     (model -> ds (LDPS label) -> measure)
+     (model -> ds (Labeled datatype label) -> measure)
      -> modelparams
-     -> ds (LDPS label)
+     -> ds (Labeled datatype label)
      -> Double
      -> Double
      -> Int
@@ -73,10 +77,6 @@ crossValidation metric modelparams inputdata trainingRatio labeledRatio rounds =
         | i <- [1..rounds]
         ]
     return $ ave res
-
--- runTest metric modelparams trainingdata testdata = do
---     model <- trainBatch modelparams trainingdata
---     return $ deepseq model $ metric model testdata
 
 -------------------------------------------------------------------------------
 -- Monoidal cross validation

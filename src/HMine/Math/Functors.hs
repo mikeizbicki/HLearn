@@ -46,12 +46,33 @@ defSemigroupSS numsg modelparams = SemigroupTrainer
     , sgModelParams = modelparams
     }
 
-instance (NFData model, Semigroup model, BatchTrainerSS modelparams model label) => BatchTrainerSS (SemigroupTrainer modelparams) model label where
+instance (NFData model, Semigroup model, BatchTrainerSS modelparams model datatype label) => 
+    BatchTrainerSS (SemigroupTrainer modelparams) model datatype label 
+        where
+              
     trainBatchSS (SemigroupTrainer numsg ldsredun udsredun modelparams) lds uds = 
-        foldl1' (<>) $ map (\(lds',uds') -> trainBatchSS modelparams lds' uds') $ zip ldsL udsL
+        reduce $ map (\(lds',uds') -> trainBatchSS modelparams lds' uds') $ zip ldsL udsL
         where                
             ldsL = splitdsRedundantSimple numsg ldsredun lds
             udsL = splitdsRedundantSimple numsg udsredun uds
+
+reduce :: (Semigroup sg) => [sg] -> sg
+reduce [x] = x
+reduce xs  = reduce $ reducestep xs
+
+reducestep :: (Semigroup sg) => [sg] -> [sg]
+reducestep []       = []
+reducestep (x:[])   = [x]
+reducestep (x:y:xs) = runEval $ do
+    z  <- rpar $ (x<>y)
+    zs <- rseq $ reducestep xs
+    return $ z:zs
+
+newtype Fun = Fun Int
+    deriving (Read,Show)
+    
+instance Semigroup Fun where
+    (<>) (Fun x) (Fun y) = Fun (x+y)
 
 -------------------------------------------------------------------------------
 -- Voting Semigroups
@@ -63,16 +84,17 @@ instance (NFData modelparams) => NFData (VotingSemigroupParams modelparams)
     where
         rnf (VotingSemigroupParams params) = rnf params
         
-instance (BatchTrainer modelparams model label) => 
-    BatchTrainer (VotingSemigroupParams modelparams) (VotingSemigroupModel modelparams model label) label
-    where
-        trainBatch vsgparams@(VotingSemigroupParams params) dps = do
-            model <- trainBatch params dps
-            return $ VotingSemigroupModel $ EnsembleAppender $ Ensemble 
-                { ensembleL = [(1,model)]
-                , ensembleDataDesc = getDataDesc dps
-                , ensembleParams = {-vsgparams-} params
-                }
+instance (BatchTrainer modelparams model datatype label) => 
+    BatchTrainer (VotingSemigroupParams modelparams) (VotingSemigroupModel modelparams model label) datatype label
+        where
+
+    trainBatch vsgparams@(VotingSemigroupParams params) dps = do
+        model <- trainBatch params dps
+        return $ VotingSemigroupModel $ EnsembleAppender $ Ensemble 
+            { ensembleL = [(1,model)]
+            , ensembleDataDesc = getDataDesc dps
+            , ensembleParams = {-vsgparams-} params
+            }
 
 ---------------------------------------
 
@@ -97,16 +119,18 @@ instance (Label label, Classifier model label) => Classifier (VotingSemigroupMod
 data Trainer2TrainerSS modelparams = Trainer2TrainerSS { ttssModelParams :: modelparams }
     deriving (Read,Show,Eq)
 
-instance (BatchTrainer modelparams model label) => BatchTrainerSS (Trainer2TrainerSS modelparams) model label
-    where
+instance (BatchTrainer modelparams model datatype label) => 
+    BatchTrainerSS (Trainer2TrainerSS modelparams) model datatype label
+        where
           
     trainBatchSS (Trainer2TrainerSS modelparams) lds uds = trainBatch modelparams lds
 
 data TrainerSS2Trainer modelpatams = TrainerSS2Trainer { tsstModelPatams :: modelpatams }
     deriving (Read,Show,Eq)
 
-instance (BatchTrainerSS modelparams model label) => BatchTrainer (TrainerSS2Trainer modelparams) model label
-    where
+instance (BatchTrainerSS modelparams model datatype label) => 
+    BatchTrainer (TrainerSS2Trainer modelparams) model datatype label
+        where
           
     trainBatch (TrainerSS2Trainer modelparams) lds = trainBatchSS modelparams lds $ emptyds $ getDataDesc lds
 
@@ -122,16 +146,16 @@ data Trainer2WeightedTrainer modelparams = Trainer2WeightedTrainer
 instance (NFData modelparams) => NFData (Trainer2WeightedTrainer modelparams) where
     rnf (Trainer2WeightedTrainer params rate) = deepseq params $ rnf rate
     
-instance (BatchTrainer modelparams model label) =>
-    WeightedBatchTrainer (Trainer2WeightedTrainer modelparams) model label
+instance (BatchTrainer modelparams model datatype label) =>
+    WeightedBatchTrainer (Trainer2WeightedTrainer modelparams) model datatype label
         where
 
     trainBatchW params wds = do
         wds' <- sample (floor $ (sampleRate params)*(fromIntegral $ getNumObs wds)) wds
         trainBatch (sampleModelparams params) wds'
 
-instance (BatchTrainerSS modelparams model label) =>
-    WeightedBatchTrainerSS (Trainer2WeightedTrainer modelparams) model label
+instance (BatchTrainerSS modelparams model datatype label) =>
+    WeightedBatchTrainerSS (Trainer2WeightedTrainer modelparams) model datatype label
         where
 
     trainBatchWSS params wlds wuds = do
@@ -156,9 +180,9 @@ instance (NFData modelparams) => NFData (OnlineTrainer2BatchTrainer modelparams)
     rnf (OnlineTrainer2BatchTrainer params) = rnf params
     
 instance 
-    ( OnlineTrainer modelparams model label
+    ( OnlineTrainer modelparams model datatype label
     ) => 
-        BatchTrainer (OnlineTrainer2BatchTrainer modelparams) model label 
+        BatchTrainer (OnlineTrainer2BatchTrainer modelparams) model datatype label 
             where
     
     trainBatch = trainOnline . ot2btModelParams

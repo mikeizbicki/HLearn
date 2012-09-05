@@ -34,70 +34,84 @@ instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read la
 -- Training
 
 class (Label label) => 
-    BatchTrainer modelparams model label | modelparams -> model, model -> label 
+    BatchTrainer modelparams model datatype label | modelparams -> model, model -> label 
         where
     
     trainBatch :: 
-        ( DataSparse label ds (WLDPS label)
-        , DataSparse label ds (LDPS label)
-        , DataSparse label ds DPS
+        ( DataSparse label ds (Weighted (Labeled datatype label))
+        , DataSparse label ds (Labeled datatype label)
+        , DataSparse label ds datatype
         , DataSparse label ds label
         ) =>
-        modelparams -> ds (LDPS label) -> HMine model
+        modelparams -> ds (Labeled datatype label) -> HMine model
+--     trainBatch :: 
+--         ( DataSparse label ds (WLDPS label)
+--         , DataSparse label ds (LDPS label)
+--         , DataSparse label ds DPS
+--         , DataSparse label ds label
+--         ) =>
+--         modelparams -> ds (LDPS label) -> HMine model
 
 
 class (Label label) =>
-    BatchTrainerSS modelparams model label | modelparams -> model, model -> label
+    BatchTrainerSS modelparams model datatype label | modelparams -> model, model -> label
         where
           
     trainBatchSS ::
-        ( DataSparse label ds (WLDPS label)
-        , DataSparse label ds (LDPS label)
-        , DataSparse label ds DPS
+        ( DataSparse label ds (Weighted (Labeled datatype label))
+        , DataSparse label ds (Labeled datatype label)
+        , DataSparse label ds datatype
         , DataSparse label ds label
         ) =>
-        modelparams -> ds (LDPS label) -> ds DPS -> HMine model
+        modelparams -> ds (Labeled datatype label) -> ds datatype -> HMine model
 
 ---------------------------------------
 
 class (Label label) =>
-    WeightedBatchTrainer modelparams model label | modelparams -> model, model -> label 
+    WeightedBatchTrainer modelparams model datatype label | modelparams -> model, model -> label 
         where
               
     trainBatchW :: 
-        ( DataSparse label ds (WLDPS label)
-        , DataSparse label ds (LDPS label)
-        , DataSparse label ds DPS
+        ( DataSparse label ds (Weighted (Labeled datatype label))
+        , DataSparse label ds (Labeled datatype label)
+        , DataSparse label ds datatype
         , DataSparse label ds label
         ) =>
-        modelparams -> ds (WLDPS label) -> HMine model
+        modelparams -> ds (Weighted (Labeled datatype label)) -> HMine model
 
 class (Label label) =>
-    WeightedBatchTrainerSS modelparams model label | modelparams -> model, model -> label 
+    WeightedBatchTrainerSS modelparams model datatype label | modelparams -> model, model -> label 
         where
               
     trainBatchWSS :: 
-        ( DataSparse label ds (WLDPS label)
-        , DataSparse label ds (LDPS label)
-        , DataSparse label ds (WUDPS label)
-        , DataSparse label ds DPS
+        ( DataSparse label ds (Weighted datatype)
+        , DataSparse label ds (Weighted (Labeled datatype label))
+        , DataSparse label ds (Labeled datatype label)
+        , DataSparse label ds datatype
         , DataSparse label ds label
         ) =>
-        modelparams -> ds (WLDPS label) -> ds (WUDPS label) -> HMine model
+        modelparams -> ds (Weighted (Labeled datatype label)) -> ds (Weighted datatype) -> HMine model
 
 
 ---------------------------------------
 
-class (Label label) => OnlineTrainer modelparams model label | modelparams -> model, model -> label where
-    
-    emptyModel :: DataDesc label -> modelparams -> model
-    add1dp :: DataDesc label -> modelparams -> model -> LDPS label -> HMine model
+class (Label label) =>
+    EmptyTrainer modelparams model label | modelparams -> model, model -> label
+        where
 
-    train1dp :: DataDesc label -> modelparams -> LDPS label -> HMine model
+    emptyModel :: DataDesc label -> modelparams -> model
+
+class (Label label, EmptyTrainer modelparams model label) => 
+    OnlineTrainer modelparams model datatype label | modelparams -> model, model -> label 
+        where
+    
+    add1dp :: DataDesc label -> modelparams -> model -> Labeled datatype label -> HMine model
+
+    train1dp :: DataDesc label -> modelparams -> Labeled datatype label -> HMine model
     train1dp desc modelparams dp = add1dp desc modelparams (emptyModel desc modelparams) dp
     
-    trainOnline :: (DataSparse label ds (LDPS label)) => 
-        modelparams -> ds (LDPS label) -> HMine model
+    trainOnline :: (DataSparse label ds (Labeled datatype label)) => 
+        modelparams -> ds (Labeled datatype label) -> HMine model
     trainOnline modelparams ds = F.foldlM{-Trace-} (add1dp desc modelparams) (emptyModel desc modelparams) ds
         where
             desc = getDataDesc ds

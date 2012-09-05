@@ -106,10 +106,12 @@ data DatafileDesc = DatafileDesc
 type DPF         = [DataItem]
 type DPS         = [(Int,DataItem)] -- ^ DPS = DataPointSparse
 type UDPS label  = DPS -- ^ UDPS = Unabeled DataPointSparse
-type LDPS label  = (label,DPS) -- ^ LDPS = Labeled DataPointSparse
+type LDPS label  = Labeled DPS label -- ^ LDPS = Labeled DataPointSparse
+-- type LDPS label  = (label,DPS) -- ^ LDPS = Labeled DataPointSparse
 type WLDPS label = (Weighted (LDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
 type WUDPS label = (Weighted (UDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
 
+type Labeled var label = (label,var)
 type Weighted var = (var,Double)
 
 fetchAttr :: Int -> DPS -> DataItem

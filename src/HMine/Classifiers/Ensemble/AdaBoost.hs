@@ -46,8 +46,8 @@ instance (NFData modelparams) => NFData (AdaBoostParams modelparams) where
 -------------------------------------------------------------------------------
 -- Ensemble instances
 
-instance (Show model, Show modelparams, Classifier model label, {-Weighted-}BatchTrainer modelparams model label) => 
-    BatchTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) label 
+instance (Show model, Show modelparams, Classifier model label, {-Weighted-}BatchTrainer modelparams model DPS label) => 
+    BatchTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) DPS label 
         where
               
     trainBatch adaparams ds = trace ("getNumObs ds="++show (getNumObs ds)) $ do
@@ -124,15 +124,19 @@ instance (Show model, Show modelparams, Classifier model label, {-Weighted-}Batc
 --                 return $ Just (nextClassifier,(itr+1,_D',ens'))
 
 
-instance (Classifier model label, OnlineTrainer modelparams model label) =>
-    OnlineTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) label where
-        
---     emptyModel :: DataDesc -> modelparams -> HMine model
+instance (EmptyTrainer modelparams model label) =>
+    EmptyTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) label
+        where
+    
     emptyModel desc params = Ensemble
         { ensembleL = map (\x -> (1,emptyModel desc x)) $ replicate (adaRounds params) (adaBaseModel params)
         , ensembleDataDesc = desc
         , ensembleParams = params
         }
+    
+
+instance (Classifier model label, OnlineTrainer modelparams model DPS label) =>
+    OnlineTrainer (AdaBoostParams modelparams) (Ensemble (AdaBoostParams modelparams) model label) DPS label where
     
 --     add1dp :: DataDesc -> modelparams -> model -> LDPS label -> HMine model            
     add1dp desc modelparams ens ldp@(y,x) = do

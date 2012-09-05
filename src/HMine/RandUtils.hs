@@ -121,7 +121,7 @@ randSplitL factor xs = do
     let l1 = map snd $ filter fst $ zip randL xs
     let l2 = map snd $ filter (not . fst) $ zip randL xs
 --     let ret= (l1,l2)
-    return {-$ deepseq l1 $ deepseq l2 $-}(l1,l2)
+    return (l1,l2)
     where
         xs' = xsThunk (1::Int)
         xsThunk (a) = xs

@@ -62,8 +62,9 @@ instance (NFData label, NFData model) => NFData (DTree model label) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (BatchTrainer modelparams model label) => BatchTrainer (DTreeParams modelparams) (DTree model label) label where
--- instance BatchTrainer DTreeParams (DTree Int) Int where
+instance (BatchTrainer modelparams model DPS label) => 
+    BatchTrainer (DTreeParams modelparams) (DTree model label) DPS label 
+        where
     
     trainBatch params ds = do
         spL <- mapM (\(ord,di) -> do

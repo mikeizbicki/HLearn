@@ -178,11 +178,16 @@ instance MutableTrainer NBayesParams (NBayes Int) (NBayesST Int) Int where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (OnlineTrainer NBayesParams (NBayes label) label) => BatchTrainer NBayesParams (NBayes label) label where
+instance (OnlineTrainer NBayesParams (NBayes label) datatype label) => 
+    BatchTrainer NBayesParams (NBayes label) datatype label 
+        where
+              
     trainBatch = trainOnline
 
-instance OnlineTrainer NBayesParams (NBayes Int) Int where
+instance EmptyTrainer NBayesParams (NBayes Int) Int where
     emptyModel desc NBayesParams = emptyNBayes desc
+
+instance OnlineTrainer NBayesParams (NBayes Int) DPS Int where
 
 --     add1dp desc NBayesUndefined (label,dp) = add1dp desc (emptyNBayes desc) (label,dp)
     add1dp desc modelparams nb (label,dp) = return $

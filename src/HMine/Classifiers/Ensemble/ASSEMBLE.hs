@@ -65,11 +65,12 @@ instance (NFData unweightedparams, NFData weightedparams) => NFData (ASSEMBLEPar
 instance 
     ( Classifier model label
     , Classifier unweightedmodel label
-    , BatchTrainer unweightedparams unweightedmodel label
-    , WeightedBatchTrainer weightedparams model label
+    , BatchTrainer unweightedparams unweightedmodel DPS label
+    , WeightedBatchTrainer weightedparams model DPS label
     ) => 
     BatchTrainerSS (ASSEMBLEParams unweightedparams weightedparams) 
                    (Ensemble (ASSEMBLEParams unweightedparams weightedparams) model label) 
+                   DPS
                    label 
         where
 

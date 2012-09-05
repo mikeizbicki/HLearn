@@ -38,15 +38,16 @@ instance (NFData label) => NFData (Dirichlet label) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (OnlineTrainer DirichletParams (Dirichlet label) label) => BatchTrainer DirichletParams (Dirichlet label) label where
+instance (OnlineTrainer DirichletParams (Dirichlet label) datatype label) => 
+    BatchTrainer DirichletParams (Dirichlet label) datatype label 
+        where
+              
     trainBatch = trainOnline
 
-instance (Label label) => OnlineTrainer DirichletParams (Dirichlet label) label where
-    
---     emptyModel :: DataDesc -> modelparams -> model
+instance (Label label) => EmptyTrainer DirichletParams (Dirichlet label) label where
     emptyModel desc modelparams = Dirichlet desc Map.empty
 
---     add1dp :: DataDesc -> modelparams -> model -> LDPS label -> HMine model
+instance (Label label) => OnlineTrainer DirichletParams (Dirichlet label) datatype label where
     add1dp desc modelparams model dps = return $ model
         { dist = Map.insertWith (+) (fst dps) 1 (dist model)
         }

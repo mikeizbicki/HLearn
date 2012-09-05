@@ -11,8 +11,10 @@ Cabal-Version:       >=1.8
 
 -- Executable PerformanceTests
 --    Main-is:            PerformanceTests.hs
-Executable DataExplore
-    Main-is:            DataExplore.hs
+-- Executable DataExplore
+--    Main-is:            BoostingEvaluator.hs
+
+Library
     Build-Depends:      base >= 3 && < 5, 
                         bytestring,
                         vector,
@@ -35,8 +37,13 @@ Executable DataExplore
                         parsec,
                         QuickCheck,
                         hashable,
-                        safe
+                        safe,
+                        parallel
                         -- HMine
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
-    
+    Exposed-modules:    
+        HMine.Math.Algebra
+        HMine.Math.TypeClasses
+        HMine.Math.Functors
+        

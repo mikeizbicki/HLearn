@@ -36,10 +36,11 @@ instance (NFData baseparams) => NFData (SemiBoostParams baseparams) where
 -- instance (WeightedBatchTrainer baseparams basemodel label) => BatchTrainerSS (SemiBoostParams baseparams) basemodel Bool where
 instance 
     ( Classifier basemodel Bool
-    , WeightedBatchTrainer baseparams basemodel Bool
+    , WeightedBatchTrainer baseparams basemodel DPS Bool
     ) => 
     BatchTrainerSS (SemiBoostParams baseparams) 
                    (Ensemble (SemiBoostParams baseparams) basemodel Bool) 
+                   DPS
                    Bool
     where
 

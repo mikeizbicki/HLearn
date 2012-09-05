@@ -40,9 +40,9 @@ defBaggingParams seed num modelparams = BaggingParams
 
 instance 
     ( Hashable label
-    , OnlineTrainer modelparams model label
+    , OnlineTrainer (BaggingParams modelparams) (Ensemble (BaggingParams modelparams) model label) datatype label
     ) =>
-        BatchTrainer (BaggingParams modelparams) (Ensemble (BaggingParams modelparams) model label) label 
+        BatchTrainer (BaggingParams modelparams) (Ensemble (BaggingParams modelparams) model label) datatype label 
             where
               
     trainBatch = trainOnline
@@ -57,19 +57,25 @@ instance
 --                          else params1
 
 instance 
-    ( Hashable label
-    , OnlineTrainer modelparams model label
+    ( Label label
+    , EmptyTrainer modelparams model label
     ) =>
-        OnlineTrainer (BaggingParams modelparams) (Ensemble (BaggingParams modelparams) model label) label 
+        EmptyTrainer (BaggingParams modelparams) (Ensemble (BaggingParams modelparams) model label) label 
             where
-        
---     emptyModel :: DataDesc -> modelparams -> model
+
     emptyModel desc params = Ensemble
         { ensembleL = map (\x -> (1,emptyModel desc x)) (paramsL params)
         , ensembleDataDesc = desc
         , ensembleParams = params
         }
 
+instance 
+    ( Label label
+    , OnlineTrainer modelparams model DPS label
+    ) =>
+        OnlineTrainer (BaggingParams modelparams) (Ensemble (BaggingParams modelparams) model label) DPS label 
+            where
+       
 --     add1dp :: DataDesc -> modelparams -> model -> LDPS label -> model
     add1dp desc modelparams ens ldp = do
         let boolL = genBoolL ens ldp
@@ -77,7 +83,7 @@ instance
         let ens'=map (\(b,(x,(d,y)))->if b; then (d,x); else (d,y)) $ zip boolL $ zip add1dpL $ ensembleL ens
         return $ ens { ensembleL = ens' }
 
-genBoolL :: (Hashable label) => (Ensemble (BaggingParams modelparams) model label) -> LDPS label -> [Bool]
+genBoolL :: (Label label) => (Ensemble (BaggingParams modelparams) model label) -> LDPS label -> [Bool]
 genBoolL ens ldp = flip evalRand (mkStdGen $ combine (bagSeed $ ensembleParams ens) (hash ldp)) $ 
             replicateM (length $ ensembleL ens) $ fmap (<(bagProb $ ensembleParams ens)) $ getRandomR (0,1)
             
