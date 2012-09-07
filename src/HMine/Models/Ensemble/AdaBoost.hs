@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Classifiers.Ensemble.AdaBoost
+module HMine.Models.Ensemble.AdaBoost
     where
 
 import Control.DeepSeq
@@ -16,11 +16,11 @@ import Debug.Trace
 
 import DebugFolds
 import HMine.Base
-import HMine.Classifiers.Ensemble
 import HMine.DataContainers
 import HMine.Evaluation.Metrics
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
+import HMine.Models.Ensemble
 import HMine.RandUtils
 
 -------------------------------------------------------------------------------

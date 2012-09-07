@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Classifiers.Ensemble.Bagging
+module HMine.Models.Ensemble.Bagging
     where
 
 import Control.DeepSeq
@@ -10,10 +10,10 @@ import Control.Monad
 import Control.Monad.Random
 import Data.Hashable
 
-import HMine.Classifiers.Ensemble
 import HMine.DataContainers
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
+import HMine.Models.Ensemble
 
 -------------------------------------------------------------------------------
 -- BaggingParams

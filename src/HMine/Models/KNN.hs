@@ -7,7 +7,7 @@
 
 -}
 
-module HMine.Classifiers.KNN
+module HMine.Models.KNN
     ( KNN (..)
     , KNNParams (..)
     , defKNNParams

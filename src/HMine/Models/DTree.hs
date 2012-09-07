@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE BangPatterns #-}
 
-module HMine.Classifiers.DTree
+module HMine.Models.DTree
     where
 
 import Control.DeepSeq
@@ -20,11 +20,11 @@ import qualified Data.Foldable as F
 import qualified Data.Map as Map
 
 import HMine.Base
-import HMine.Classifiers.Dirichlet
 import HMine.DataContainers
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
+import HMine.Models.Distributions.Dirichlet
 
 -------------------------------------------------------------------------------
 -- DTreeParams
@@ -120,15 +120,18 @@ findSplitPointD xs = (attrL,score)
         score = infoGain xs condensed
         condensed = groupBy (\x1 x2 -> snd x1 == snd x2) xs
             
-findSplitPointC :: (Label label) => [(label,DataItem)] -> ([(Ordering,DataItem)],Double) -- (SplitPoint label,Double)
+findSplitPointC :: (Label label) => [(label,DataItem)] -> ([(Ordering,DataItem)],Double)
 findSplitPointC [] = error "findSplitPointC: empty list"
 findSplitPointC xs = 
     case condensed of
          [] -> error "findSplitPoint: condensed empty"
          x:[] -> ([(LT,snd x),(GT,snd x)],0) -- error "findSplitPoint: condensed 1 elem"
          otherwise -> let tmp = [[take i condensed, drop i condensed] | i<-[1..length condensed-1]]
-                          in split2splitpoint $ {-trace ("tmp="++(show $ map (\x -> (x,infoGain xs x)) tmp)) $ -}argmaxWithMax (infoGain xs)  tmp
+                          in trace ("attr="++(show $ map (infoGain xs) tmp)) $ split2splitpoint $ argmaxWithMax (infoGain xs)  tmp
     where
+--         traceInfoGain = let out=infoGain xs
+--                             in trace ("ig="++show out) $ out
+          
         -- | first we sort all the data points (by value, then label), then we will remove 
         -- datapoints that are "useless" in that they are surrounded by other datapoints of the
         -- same label.  No decision boundary will ever be between them.
@@ -147,6 +150,7 @@ infoGain :: (Ord label) => [(label,DataItem)] -> [[(label,DataItem)]] -> Double
 infoGain xs ys = ret {-trace ("xs="++show xs++"; ys="++show ys) $-} 
     where
         ret = infoGainHistogram (histogram $ map fst xs) (map (histogram . map fst) ys)
+
 
 -- infoGain :: (Ord label) => [(label,DataItem)] -> [(label,DataItem)] -> Double
 -- infoGain xs ys = (info xs) - (sum $ map weightedInfo ys)

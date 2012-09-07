@@ -12,6 +12,7 @@ import Data.Binary
 import Data.Hashable
 import Data.List
 import Data.List.Extras
+import Data.Number.LogFloat
 import Data.Semigroup
 import Debug.Trace
 
@@ -29,6 +30,16 @@ import HMine.MiscUtils
 class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
 
 instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
+
+-------------------------------------------------------------------------------
+-- Distribution
+          
+class Distribution dist datatype where
+    add1sample :: dist -> datatype -> dist
+    sampleProb :: dist -> datatype -> LogFloat
+
+class ContinuousDistribution dist datatype where
+    intersection :: dist -> dist -> [datatype]
 
 -------------------------------------------------------------------------------
 -- Training

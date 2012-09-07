@@ -16,10 +16,10 @@ import Data.List.Extras
           
 import HMine.Base
 import HMine.DataContainers
-import HMine.Classifiers.Ensemble
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
+import HMine.Models.Ensemble
 
 -------------------------------------------------------------------------------
 -- Semigroups

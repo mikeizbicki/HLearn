@@ -6,18 +6,19 @@ import Test.QuickCheck hiding (sample,classify)
 -- import Test.ClassLaws
 
 import HMine.Base
-import HMine.Classifiers.Ensemble
-import HMine.Classifiers.Ensemble.AdaBoost
-import HMine.Classifiers.Ensemble.Bagging
-import HMine.Classifiers.DTree
-import HMine.Classifiers.Dirichlet
-import HMine.Classifiers.LazyNBayes
 import HMine.DataContainers
 import HMine.DataContainers.DS_List
 import HMine.Distribution
 import HMine.Math.Algebra
 import HMine.Math.Functors
 import HMine.Math.TypeClasses
+import HMine.Models.Distributions.Dirichlet
+import HMine.Models.Distributions.Gaussian
+import HMine.Models.DTree
+import HMine.Models.LazyNBayes
+import HMine.Models.Ensemble
+import HMine.Models.Ensemble.AdaBoost
+import HMine.Models.Ensemble.Bagging
 
 -------------------------------------------------------------------------------
 -- Create arbitrary datapoints

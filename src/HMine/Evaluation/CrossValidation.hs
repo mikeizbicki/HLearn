@@ -25,10 +25,10 @@ import System.IO.Unsafe
 
 import HMine.Base
 import HMine.DataContainers
-import HMine.Classifiers.Ensemble
 import HMine.Evaluation.Metrics
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
+import HMine.Models.Ensemble
 
 -------------------------------------------------------------------------------
 

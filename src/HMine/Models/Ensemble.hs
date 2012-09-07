@@ -5,7 +5,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Classifiers.Ensemble
+module HMine.Models.Ensemble
     where
 
 import Control.DeepSeq

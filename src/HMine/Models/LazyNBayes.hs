@@ -1,9 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses, IncoherentInstances, BangPatterns, FlexibleInstances, UndecidableInstances #-}
 
-module HMine.Classifiers.LazyNBayes
+module HMine.Models.LazyNBayes
     ( NBayes (..)
     , NBayesParams (..), defNBayesParams
-    , file2nbayes, nbayes2file
+--     , file2nbayes, nbayes2file
     )
     where
          
@@ -36,9 +36,9 @@ import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
 
-instance (VG.Vector v a, Binary a) => Binary (v a) where
-    put v = put $ VG.toList v
-    get = liftM VG.fromList get
+-- instance (VG.Vector v a, Binary a) => Binary (v a) where
+--     put v = put $ VG.toList v
+--     get = liftM VG.fromList get
 
 -------------------------------------------------------------------------------
 -- NBayesParams
@@ -97,23 +97,23 @@ instance (Label label) => Semigroup (NBayes label) where
                     , attrDist = V.zipWith (V.zipWith mappend) (attrDist a) (attrDist b)
                     }
 
-instance (Binary label) => Binary (NBayes label) where
-    put nb = do
-        put $ dataDesc nb
-        put $ labelCount nb
-        put $ attrDist nb
-    get = liftM3 NBayes get get get
+-- instance (Binary label) => Binary (NBayes label) where
+--     put nb = do
+--         put $ dataDesc nb
+--         put $ labelCount nb
+--         put $ attrDist nb
+--     get = liftM3 NBayes get get get
 
 instance (NFData label) => NFData (NBayes label) where
     rnf nb = seq (rnf $ attrDist nb) $ seq (rnf $ dataDesc nb) (rnf $ labelCount nb)
 
-nbayes2file :: (Label label) => String -> NBayes label -> IO ()
-nbayes2file = encodeFile
--- nbayes2file file nb = writeFile file (show nb)
-
-file2nbayes :: (Label label) => String -> IO (NBayes label)
-file2nbayes = decodeFile
--- file2nbayes file = liftM read $ readFile file
+-- nbayes2file :: (Label label) => String -> NBayes label -> IO ()
+-- nbayes2file = encodeFile
+-- -- nbayes2file file nb = writeFile file (show nb)
+-- 
+-- file2nbayes :: (Label label) => String -> IO (NBayes label)
+-- file2nbayes = decodeFile
+-- -- file2nbayes file = liftM read $ readFile file
 
 -------------------------------------------------------------------------------
 -- NBayesST
@@ -184,7 +184,7 @@ instance (OnlineTrainer NBayesParams (NBayes label) datatype label) =>
               
     trainBatch = trainOnline
 
-instance EmptyTrainer NBayesParams (NBayes Int) Int where
+instance (Label label) => EmptyTrainer NBayesParams (NBayes label) label where
     emptyModel desc NBayesParams = emptyNBayes desc
 
 instance OnlineTrainer NBayesParams (NBayes Int) DPS Int where

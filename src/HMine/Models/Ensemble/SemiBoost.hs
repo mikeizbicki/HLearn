@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Classifiers.Ensemble.SemiBoost
+module HMine.Models.Ensemble.SemiBoost
     where
 
 import Control.DeepSeq
@@ -13,11 +13,11 @@ import Data.Semigroup
 import Debug.Trace
 
 import HMine.Base
-import HMine.Classifiers.Ensemble
-import HMine.Classifiers.KNN
 import HMine.DataContainers
 import HMine.Evaluation.Metrics
 import HMine.Math.TypeClasses
+import HMine.Models.Ensemble
+import HMine.Models.KNN
 
 -------------------------------------------------------------------------------
 -- SemiBoostParams

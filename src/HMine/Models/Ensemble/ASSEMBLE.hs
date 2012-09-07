@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Classifiers.Ensemble.ASSEMBLE
+module HMine.Models.Ensemble.ASSEMBLE
     where
 
 import Control.DeepSeq
@@ -19,15 +19,15 @@ import qualified Data.Traversable as T
 
 import DebugFolds
 import HMine.Base
-import HMine.Classifiers.Dirichlet
-import HMine.Classifiers.DTree
-import HMine.Classifiers.KNN
-import HMine.Classifiers.Ensemble
 import HMine.Math.TypeClasses
 import HMine.Math.Functors
 import HMine.DataContainers
 import HMine.Evaluation.Metrics
 import HMine.MiscUtils
+import HMine.Models.Distributions.Dirichlet
+import HMine.Models.DTree
+import HMine.Models.KNN
+import HMine.Models.Ensemble
 import HMine.RandUtils
 
 -------------------------------------------------------------------------------

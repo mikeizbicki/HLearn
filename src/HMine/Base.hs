@@ -9,6 +9,8 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Control.Parallel.Strategies
+import Data.Binary
+import Data.Hashable
 import Data.Number.LogFloat
 import Data.Semigroup
 import Data.List
@@ -43,6 +45,17 @@ fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
 
 type Probability = LogFloat
+---------------------------------------
+
+instance Read LogFloat where
+    readsPrec = error "LogFloat.read: not implemented"
+
+instance Binary LogFloat where
+    put = error "LogFloat.put: not implemented"
+    get = error "LogFloat.get: not implemented"
+
+instance Hashable LogFloat where
+    hash = error "LogFloat.hash: not implemented"
 
 -------------------------------------------------------------------------------
 -- bool <-> int
