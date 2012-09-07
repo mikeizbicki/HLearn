@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 import Control.Monad
+import Data.Number.LogFloat
 import Test.QuickCheck hiding (sample,classify)
 -- import Test.ClassLaws
 
@@ -95,6 +96,21 @@ prop_MutableTrainer params (dps) = modelPure==modelST
     where
         modelPure = runHMine 1 $ trainBatch params dps
         modelST   = {-runHMine 1 $-} trainST params dps
+        
+-- prop_ContinuousDistribution :: (Distribution dist Double,
+--                               ContinuousDistribution dist Double) =>
+--                              dist -> dist -> Bool
+prop_ContinuousDistribution (dist1,dist2) = and $ map prop_intersectionpoint xs
+       
+    where
+        epsilon = 0.001 :: Double
+        xs = intersection dist1 dist2 :: [Double]
+        
+        prop_intersectionpoint x = (abs $ (fromLogFloat $ sampleProb dist1 x) - (fromLogFloat $ sampleProb dist2 x)) <= epsilon
+{-            if sampleProb dist1 (x-epsilon) > sampleProb dist2 (x-epsilon)
+                then sampleProb dist1 (x+epsilon) < sampleProb dist2 (x+epsilon)
+                else sampleProb dist1 (x+epsilon) > sampleProb dist2 (x+epsilon)-}
+                
 
 -------------------------------------------------------------------------------
 -- tests
@@ -113,9 +129,9 @@ test_Bagging = do
     quickCheck (prop_OnlineTrainer (defBaggingParams 10 10 defNBayesParams) :: (DS_List Int (LDPS Int)) -> Bool)
     
 test_Gaussian = do
---     quickLawCheck  (undefined::SemigroupLaw1 (Gaussian))
-    quickCheck (prop_SemigroupAssociative :: (Gaussian,Gaussian,Gaussian) -> Bool)
-    quickCheck (prop_InverseSemigroup :: (Gaussian,Gaussian) -> Bool)
+--     quickCheck (prop_SemigroupAssociative :: (Gaussian,Gaussian,Gaussian) -> Bool)
+--     quickCheck (prop_InverseSemigroup :: (Gaussian,Gaussian) -> Bool)
+    quickCheck (prop_ContinuousDistribution :: (Gaussian,Gaussian) -> Bool)
     
 -------------------------------------------------------------------------------
 -- fixed stuff

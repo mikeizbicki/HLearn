@@ -36,15 +36,6 @@ data Gaussian = Gaussian
         } 
     deriving (Show,Read)
 
-mean :: Gaussian -> Double
-mean (Gaussian m1 m2 n) = {-float2Double-} m1
-
-varianceSample :: Gaussian -> Double
-varianceSample (Gaussian m1 m2 n) = {-trace ("n="++show n) $-} {-float2Double $-} 
-    if m2==0
-       then abs $ (max m1 1)/(fromIntegral n)
-       else m2/(fromIntegral $ n-1)
-
 instance Binary Gaussian where
     put (Gaussian m1 m2 n) = put m1 >> put m2 >> put n
     get = liftM3 Gaussian get get get
@@ -64,9 +55,9 @@ instance Eq Gaussian where
 
 instance Arbitrary Gaussian where
     arbitrary = do
-        m1 <- choose (0,10000)
-        m2 <- choose (0,10000)
-        n <- choose (0,10000)
+        m1 <- choose (-10,10)
+        m2 <- choose (0.001,10)
+        n <- choose (5,10)
         return $ Gaussian m1 m2 n
 
 -------------------------------------------------------------------------------
@@ -84,30 +75,55 @@ instance Distribution Gaussian Double where
             m = mean g
             v = varianceSample g
 
+mean :: Gaussian -> Double
+mean (Gaussian m1 m2 n) = {-float2Double-} m1
+
+varianceSample :: Gaussian -> Double
+varianceSample (Gaussian m1 m2 n) = {-trace ("n="++show n) $-} {-float2Double $-} 
+    if m2==0
+       then abs $ (max m1 1)/(fromIntegral n)
+       else m2/(fromIntegral $ n-1)
+
 instance ContinuousDistribution Gaussian Double where
-    intersection ga gb = trace ("a="++show a++", b="++show b++", c="++show c++", det="++show det) $ 
+    intersection ga gb = 
+--         trace ("a="++show a++", b="++show b++", c="++show c++", det="++show det) $ 
+--         trace ("ma="++show ma++", va="++show va) $ 
+--         trace ("mb="++show mb++", vb="++show vb) $ 
+--         trace ("dbg="++show (a*q^2+b*q+c)) $ 
         if a/=0
-            then [(-b+det)/(2*a),(-b-det)/(2*a)]
+            then [(-b+(sqrt det))/(2*a),(-b-(sqrt det))/(2*a)]
             else if b/=0
-                then [(ma+mb)/2]
+                then [-c/b]
                 else []
         where
             -- Quadratic equation variables
-            det = sqrt $ b^2 - 4*a*c
+            det = b^2 - 4*a*c
             
-            a = (1/2)*(1/sa^2 - 1/sb^2)
-            b = (1/2)*(-2*ma/sa^2 + 2*mb/sb^2)
-            c = (log $ sa/sb) + (ma/sa)^2 - (mb/sb)^2
+            a = (1/2)*(1/va - 1/vb)
+--             b = (1/2)*(-2*ma/sa^2 + 2*mb/sb^2)
+            b = (-ma/va + mb/vb)
+            c = (log $ sqrt $ va/vb) + (ma^2)/(2*va) - (mb^2)/(2*vb)
             
             -- Gaussian variables
-            ma = m1 ga
-            mb = m1 gb
-            sa = sqrt $ varianceSample ga
-            sb = sqrt $ varianceSample gb
+            ma = mean ga
+            mb = mean gb
+            va = varianceSample ga
+            vb = varianceSample gb
 
 g1 = Gaussian 3 1 10
 g2 = Gaussian 5 2 10
-    
+
+ma = mean g1
+va = varianceSample g1
+mb = mean g2
+vb = varianceSample g2
+
+w1 x = 1/(sqrt $ 2*pi*va) * (exp $ -(x-ma)^2/(2*va)) - 1/(sqrt $ 2*pi*vb) * (exp $ -(x-mb)^2/(2*vb)) 
+w2 x = (log $ sqrt $ vb/va) - (x-ma)^2/(2*va) + (x-mb)^2/(2*vb)
+w2a x = (log $ sqrt $ vb/va) - (1/2)*((x-ma)^2/va - (x-mb)^2/vb)
+w2b x = (log $ sqrt $ vb/va) -(1/2)*((x^2-2*ma*x+ma^2)/va - (x^2-2*mb*x+mb^2)/vb)
+w2c x = (log $ sqrt $ vb/va) -(1/2)*((1/va-1/vb)*x^2+(-2*ma/va+2*mb/vb)*x+ma^2/va-mb^2/vb)
+w3 x = -(1/2)*(1/va-1/vb)*x^2+(ma/va-mb/vb)*x+(log $ sqrt $ vb/va) - ma^2/(2*va) +mb^2/(2*vb)
 
 -------------------------------------------------------------------------------
 -- Training
