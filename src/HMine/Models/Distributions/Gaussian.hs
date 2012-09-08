@@ -77,7 +77,8 @@ instance Distribution Gaussian Double where
             v = varianceSample g
             
     cdf = error "Gaussian.cdf: undefined"
-    cdfInverse = error "Gaussian.cdfInverse: undefined"
+--     cdfInverse = error "Gaussian.cdfInverse: undefined"
+    cdfInverse dist prob = error "Gaussian.cdfInverse: undefined"
     
     drawSample g = do
         seed <- getRandom
@@ -96,7 +97,7 @@ varianceSample (Gaussian m1 m2 n) = {-trace ("n="++show n) $-} {-float2Double $-
 stddev :: Gaussian -> Double
 stddev = sqrt . varianceSample
 
-instance ContinuousDistribution Gaussian Double where
+instance IntersectableDistribution Gaussian Double where
 --     intersection ga gb = 
 -- --         trace ("a="++show a++", b="++show b++", c="++show c++", det="++show det) $ 
 -- --         trace ("ma="++show ma++", va="++show va) $ 

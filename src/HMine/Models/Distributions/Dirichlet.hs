@@ -74,44 +74,33 @@ instance (Label label) => Invertible (Dirichlet label) where
     inverse d1 = Dirichlet $ Map.map (0-) (pdfmap d1)
 
 
--- data Dirichlet label = Dirichlet
---     { desc :: DataDesc label
---     , dist :: Map.Map label Int
---     }
---     deriving (Read,Show)
---     
--- instance (NFData label) => NFData (Dirichlet label) where
---     rnf = rnf . dist
--- 
--- -------------------------------------------------------------------------------
--- -- Training
--- 
--- instance (OnlineTrainer DirichletParams (Dirichlet label) datatype label) => 
---     BatchTrainer DirichletParams (Dirichlet label) datatype label 
---         where
---               
---     trainBatch = trainOnline
--- 
--- instance (Label label) => EmptyTrainer DirichletParams (Dirichlet label) label where
---     emptyModel desc modelparams = Dirichlet desc Map.empty
--- 
--- instance (Label label) => OnlineTrainer DirichletParams (Dirichlet label) datatype label where
---     add1dp desc modelparams model dps = return $ model
---         { dist = Map.insertWith (+) (fst dps) 1 (dist model)
---         }
--- 
--- -------------------------------------------------------------------------------
--- -- Classification
--- 
--- instance (Label label) => Classifier (Dirichlet label) datatype label where
---     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
--- 
--- instance (Label label) => ProbabilityClassifier (Dirichlet label) datatype label where
--- --     probabilityClassify :: model -> DPS -> [(label,Probability)]
---     probabilityClassify model dp = 
+-------------------------------------------------------------------------------
+-- Training
+
+instance (OnlineTrainer DirichletParams (Dirichlet label) datatype label) => 
+    BatchTrainer DirichletParams (Dirichlet label) datatype label 
+        where
+              
+    trainBatch = trainOnline
+
+instance (Label label) => EmptyTrainer DirichletParams (Dirichlet label) label where
+    emptyModel desc modelparams = Dirichlet Map.empty
+
+instance (Label label) => OnlineTrainer DirichletParams (Dirichlet label) datatype label where
+    add1dp desc modelparams model dps = return $ add1sample model $ fst dps
+
+-------------------------------------------------------------------------------
+-- Classification
+
+instance (Label label) => Classifier (Dirichlet label) datatype label where
+    classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
+
+instance (Label label) => ProbabilityClassifier (Dirichlet label) datatype label where
+--     probabilityClassify :: model -> DPS -> [(label,Probability)]
+    probabilityClassify model dp = map (\k -> (k,pdf model k)) (Map.keys $ pdfmap model)
 --         case (Map.toList $ dist model) of
---              [] -> map (\label -> (label,1/(fromIntegral $ numLabels $ desc model))) $ labelL $ desc model
+--              [] -> map (\label -> (label,1/(fromIntegral $ length $ ))) $ labelL $ desc model
 --              xs -> map (\(label,count) -> (label,logFloat $ (fromIntegral count/total))) xs
 --         where
---             total = fromIntegral $ F.foldl' (+) 0 (dist model)::Double
+--             total = fromIntegral $ F.foldl' (+) 0 (pdfmap model)::Double
 -- 

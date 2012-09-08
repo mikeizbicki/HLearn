@@ -136,7 +136,7 @@ instance ProbabilityClassifier (NBayes Int) DPS Int where
             answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
             normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]
 
--------------------------------------------------------------------------------
+{--------------------------------------------------------------------------------
 -- PartialBayes
 
 data PartialBayes label = PartialBayes 
@@ -158,5 +158,5 @@ instance ProbabilityClassifier (PartialBayes Int) DPS Int where
             attrProbL label = [ pdf (attrDist nb V.! label V.! attrIndex) di | (attrIndex,di) <- dp]
 
             answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
-            normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]
+            normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]-}
     

@@ -45,7 +45,7 @@ class ModelParams modelparams where
 -------------------------------------------------------------------------------
 -- Distribution
           
-class Distribution dist datatype {-| dist -> datatype-} where
+class Distribution dist datatype | dist -> datatype where
     add1sample :: dist -> datatype -> dist
     pdf :: dist -> datatype -> LogFloat
     cdf :: dist -> datatype -> LogFloat
@@ -56,7 +56,7 @@ class Distribution dist datatype {-| dist -> datatype-} where
         x <- getRandomR (0,1)
         return $ cdfInverse dist $ logFloat (x::Double)
 
-class ContinuousDistribution dist datatype where
+class IntersectableDistribution dist datatype where
     intersection :: dist -> dist -> [datatype]
     intersection d1 d2 = intersectionScaled (1,d1) (1,d2)
     
@@ -180,8 +180,14 @@ class (Label label) => ProbabilityClassifier model datatype label | model -> lab
     probabilityClassify :: model -> datatype -> [(label,Probability)]
     
     straightClassify :: model -> datatype -> label
-    straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
+    straightClassify model dp = classificationLabel $ probabilityClassify model dp
+--     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
     
 class (Label label) => Classifier model datatype label | model -> label where
     classify :: model -> datatype -> label
 
+classificationLabel :: [(label,Probability)] -> label
+classificationLabel = fst . argmax snd 
+
+classificationEntropy :: [(label,Probability)] -> Double
+classificationEntropy = sum . map (\(l,p) -> (fromLogFloat p)*(logFromLogFloat p)) 

@@ -73,6 +73,8 @@ data DataDesc label = DataDesc
     }
     deriving (Eq,Read,Show)
 
+attrL :: DataDesc label -> [Int]
+attrL desc = [0..numAttr desc-1]
 -- intLabelL :: DataDesc label -> [Int]
 -- intLabelL desc = [0..numLabels desc-1]
 

@@ -33,56 +33,81 @@ import HMine.Models.Distributions.Poisson
 
 -------------------------------------------------------------------------------
 
-instance (Distribution dist Double) => Distribution dist (Maybe Double) where
-    add1sample dist dp = case dp of
-        Nothing -> dist
-        Just x  -> add1sample dist x
+newtype MaybeDistribution basedist = MaybeDistribution basedist
+    deriving (Eq,Show,Read)
+    
+instance (Distribution basedist datatype) => Distribution (MaybeDistribution basedist) (Maybe datatype) where
+    add1sample (MaybeDistribution basedist) dp = case dp of
+        Nothing -> MaybeDistribution $ basedist
+        Just x  -> MaybeDistribution $ add1sample basedist x
 
-    pdf dist dp = case dp of
+    pdf (MaybeDistribution basedist) dp = case dp of
         Nothing -> 1
-        Just x  -> pdf dist x
+        Just x  -> pdf basedist x
         
-    cdf dist dp = case dp of
+    cdf (MaybeDistribution basedist) dp = case dp of
         Nothing -> 0
-        Just x  -> cdf dist x
+        Just x  -> cdf basedist x
         
-    cdfInverse dist prob = undefined
-    
-instance {-(Distribution dist (Maybe Double)) => -}Distribution Gaussian DataItem where
-    add1sample dist dp = case dp of
-        Missing      -> add1sample dist (Nothing :: Maybe Double)
-        Continuous x -> add1sample dist $ Just x
-        Discrete   x -> error "Gaussian.add1sample: cannot add discrete"
-        
-    pdf dist dp = case dp of
-        Missing      -> pdf dist (Nothing :: Maybe Double)
-        Continuous x -> pdf dist $ Just x
-        Discrete   x -> error "Gaussian.pdf: cannot sample discrete"
-        
-    cdf = undefined
-    cdfInverse = undefined
+    cdfInverse (MaybeDistribution basedist) prob = Just $ cdfInverse basedist prob
 
-{-instance 
-    ( OnlineTrainer GaussianParams Gaussian () (Maybe Double)
-    , Classifier Gaussian (Maybe Double) LogFloat
+    drawSample (MaybeDistribution basedist) = do
+        sample <- drawSample basedist
+        return $ Just sample
+
+---------------------------------------
+    
+newtype ContinuousDistribution basedist = ContinuousDistribution (MaybeDistribution basedist)
+    deriving (Eq,Show,Read)
+    
+instance 
+    ( Distribution (MaybeDistribution basedist) (Maybe Double)
     ) => 
-    Distribution Gaussian DataItem 
+    Distribution (ContinuousDistribution basedist) DataItem 
         where
-    add1sample dist Missing        = runHMine 10 $ add1dp undefined GaussianParams dist (Nothing,())
-    add1sample dist (Continuous x) = runHMine 10 $ add1dp undefined GaussianParams dist (Just x,())
-    add1sample dist (Discrete x)   = error "Cannot insert discrete items into continuous distribution"
+              
+    add1sample (ContinuousDistribution basedist) dp = case dp of
+        Missing      -> ContinuousDistribution $ add1sample basedist (Nothing :: Maybe Double)
+        Continuous x -> ContinuousDistribution $ add1sample basedist $ Just x
+        Discrete   x -> error "ContinuousDistribution.add1sample: cannot add discrete"
+        
+    pdf (ContinuousDistribution basedist) dp = case dp of
+        Missing      -> pdf basedist (Nothing :: Maybe Double)
+        Continuous x -> pdf basedist $ Just x
+        Discrete   x -> error "ContinuousDistribution.pdf: cannot sample discrete"
+        
+    cdf = error "ContinuousDistribution.cdf: not implemented"
+
+--     cdfInverse = error "ContinuousDistribution.cdfInverse: not implemented"
+    cdfInverse (ContinuousDistribution maybedist) prob = case cdfInverse maybedist prob of
+        Nothing -> Missing
+        Just x -> Continuous x
+--     cdfInverse (ContinuousDistribution maybedist) (Discrete x) = error "ContinuousDistribution.cdfInverse: cannot discrete"
+--     cdfInverse (ContinuousDistribution maybedist) (Continuous x) = cdfInverse maybedist $ Just x
+
+    drawSample (ContinuousDistribution basedist) = do
+        sample <- drawSample basedist
+        return $ case sample of
+            Nothing -> Missing
+            Just x -> Continuous x
+
+instance (NFData basedist) => NFData (ContinuousDistribution basedist) where
+    rnf (ContinuousDistribution (MaybeDistribution basedist)) = rnf basedist
+
+instance (Invertible basedist) => Invertible (ContinuousDistribution basedist) where
+    inverse (ContinuousDistribution (MaybeDistribution basedist)) = ContinuousDistribution $ MaybeDistribution $ inverse basedist
+
+instance (Monoid basedist) => Monoid (ContinuousDistribution basedist) where
+    mempty = ContinuousDistribution $ MaybeDistribution mempty
     
-    pdf dist Missing        = classify dist (Nothing :: Maybe Double)
-    pdf dist (Continuous x) = classify dist $ Just x
-    pdf dist (Discrete x)   = error "Cannot classify discrete items from continuous distribution"-}
-    
---     serializationIndex x = 1
+    mappend (ContinuousDistribution (MaybeDistribution basedist1)) (ContinuousDistribution (MaybeDistribution basedist2)) = 
+        ContinuousDistribution $ MaybeDistribution $ mappend basedist1 basedist2
     
 -------------------------------------------------------------------------------
 -- DistContainer
    
 data DistContainer = UnknownDist
-                   | DistContainer Gaussian
+                   | DistContainer (ContinuousDistribution Gaussian)
                    | DistDiscrete (Dirichlet DataItem)
 --                    | DistContainer Poisson
     deriving (Show,Read,Eq)
@@ -100,12 +125,11 @@ instance Invertible DistContainer where
 
 instance Distribution DistContainer DataItem where
     {-# INLINE add1sample #-}
---     add1sample UnknownDist di = UnknownDist
     add1sample UnknownDist di = 
         case di of
              Missing -> trace "Distribution.add1sample: Warning, cannot determine which type of distribution to select." UnknownDist
              Discrete x -> DistDiscrete $ add1sample (mempty::Dirichlet DataItem) di
-             Continuous x -> DistContainer $ add1sample (mempty::Gaussian) di
+             Continuous x -> DistContainer $ add1sample (mempty{-:: ContinuousDistribution Gaussian-}) di
     add1sample (DistContainer dist) di = DistContainer $ add1sample dist di
     add1sample (DistDiscrete dist) di = DistDiscrete $ add1sample dist di
 
@@ -114,9 +138,14 @@ instance Distribution DistContainer DataItem where
     pdf (DistContainer dist) di = pdf dist di
     pdf (DistDiscrete dist) di = pdf dist di
     
-    cdf = undefined
-    cdfInverse = undefined
+    cdf (DistContainer dist) = cdf dist
+    cdf (DistDiscrete dist) = cdf dist
     
+    cdfInverse (DistContainer dist) = cdfInverse dist
+    cdfInverse (DistDiscrete dist)  = cdfInverse dist
+    
+    drawSample (DistContainer dist) = drawSample dist
+    drawSample (DistDiscrete dist) = drawSample dist
 --     serializationIndex dist = 0
         
 {-instance Binary DistContainer where
