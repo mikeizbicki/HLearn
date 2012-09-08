@@ -14,6 +14,7 @@ import qualified Data.Map as Map
 import qualified Data.Foldable as F
 
 import HMine.Base
+import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.DataContainers
 
@@ -30,12 +31,12 @@ instance NFData DirichletParams where
 -- Dirichlet
 
 data Dirichlet label = Dirichlet 
-        { pdf :: Map.Map label Int
+        { pdfmap :: Map.Map label Int
         } 
     deriving (Show,Read,Eq)
 
 instance (NFData label) => NFData (Dirichlet label) where
-    rnf d = rnf $ pdf d
+    rnf d = rnf $ pdfmap d
 
 -------------------------------------------------------------------------------
 -- Distribution
@@ -43,27 +44,34 @@ instance (NFData label) => NFData (Dirichlet label) where
 instance (Ord label) => Distribution (Dirichlet label) label where
     
     {-# INLINE add1sample #-}
-    add1sample dist label = Dirichlet $ Map.insertWith (+) label 1 (pdf dist)
+    add1sample dist label = Dirichlet $ Map.insertWith (+) label 1 (pdfmap dist)
 
-    {-# INLINE sampleProb #-}
-    sampleProb dist label = logFloat $ 0.0001+((fi val)/(fi tot)::Double)
+    {-# INLINE pdf #-}
+    pdf dist label = logFloat $ 0.0001+((fi val)/(fi tot)::Double)
         where
-            val = case Map.lookup label (pdf dist) of
+            val = case Map.lookup label (pdfmap dist) of
                 Nothing -> 0
                 Just x  -> x
-            tot = F.foldl' (+) 0 $ pdf dist
+            tot = F.foldl' (+) 0 $ pdfmap dist
 
+    {-# INLINE cdf #-}
+    cdf dist label = (fi $ Map.foldl' (+) 0 $ Map.filterWithKey (\k a -> k<=label) $ pdfmap dist) 
+                   / (fi $ Map.foldl' (+) 0 $ pdfmap dist)
+                   
+    cdfInverse dist prob = argmax (cdf dist) $ Map.keys $ pdfmap dist
+    
 -------------------------------------------------------------------------------
 -- Algebra
 
 instance (Label label) => Semigroup (Dirichlet label) where
-    (<>) d1 d2 = Dirichlet $ Map.unionWith (+) (pdf d1) (pdf d2)
+    (<>) d1 d2 = Dirichlet $ Map.unionWith (+) (pdfmap d1) (pdfmap d2)
     
 instance (Label label) => Monoid (Dirichlet label) where
     mempty = Dirichlet mempty
     mappend = (<>)
 
-
+instance (Label label) => Invertible (Dirichlet label) where
+    inverse d1 = Dirichlet $ Map.map (0-) (pdfmap d1)
 
 
 -- data Dirichlet label = Dirichlet

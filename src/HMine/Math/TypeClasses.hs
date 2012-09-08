@@ -24,7 +24,7 @@ import HMine.DataContainers.DS_List
 import HMine.MiscUtils
 
 -------------------------------------------------------------------------------
--- helpers
+-- Label
 
 -- | I only ever expect labels of type Bool, Int, and String, but it may be convenient to use other types as well for something.  This class and instance exist so that we have some reasonable assumptions about what properties labels should have for our other classes to work with.
 class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
@@ -32,14 +32,35 @@ class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label
 instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
 
 -------------------------------------------------------------------------------
+-- Model
+
+class Model model label | model -> label where
+    datadesc :: model -> DataDesc label
+    
+-------------------------------------------------------------------------------
+-- ModelParams
+
+class ModelParams modelparams where
+
+-------------------------------------------------------------------------------
 -- Distribution
           
-class Distribution dist datatype where
+class Distribution dist datatype {-| dist -> datatype-} where
     add1sample :: dist -> datatype -> dist
-    sampleProb :: dist -> datatype -> LogFloat
+    pdf :: dist -> datatype -> LogFloat
+    cdf :: dist -> datatype -> LogFloat
+    cdfInverse :: dist -> LogFloat -> datatype
+    
+    drawSample :: (RandomGen g) => dist -> Rand g datatype
+    drawSample dist = do
+        x <- getRandomR (0,1)
+        return $ cdfInverse dist $ logFloat (x::Double)
 
 class ContinuousDistribution dist datatype where
     intersection :: dist -> dist -> [datatype]
+    intersection d1 d2 = intersectionScaled (1,d1) (1,d2)
+    
+    intersectionScaled :: (Double,dist) -> (Double,dist) -> [datatype]
 
 -------------------------------------------------------------------------------
 -- Training

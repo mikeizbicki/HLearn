@@ -4,6 +4,7 @@ module HMine.Models.LazyNBayes
     ( NBayes (..)
     , NBayesParams (..), defNBayesParams
 --     , file2nbayes, nbayes2file
+    , getDist, labelProb
     )
     where
          
@@ -61,41 +62,14 @@ data NBayes label = NBayes
     }
     deriving (Read,Show,Eq)
     
--- arbitraryNBayes :: DataDesc -> Gen NBayes
--- arbitraryNBayes desc = do
---     let nb = emptyNBayes desc
---     labelCount' = V.mapM (\x -> choose (0,100))
--- --     labelL <- vector (numLabels desc)
--- --     attrL <- vector (numLabels desc) 
--- --         []
---     return nb -- $ NBayes desc (V.fromList labelL) undefined
-
--- instance Arbitrary NBayes where
---     arbitrary = do
---         labels <- choose (0,100)
---         let desc = DataDesc {numLabels = 5, numAttr = 5}
---         m2 <- choose (0,10000)
---         n <- choose (0,10000)
---         return $ NBayes desc labelV attrV
-
-
-instance Invertible (NBayes label) where
-    inverse nb = nb
-        { labelCount = V.map inverse $ labelCount nb
-        , attrDist = V.map (V.map inverse) $ attrDist nb
-        }
-
-instance (Label label) => Semigroup (NBayes label) where
---     (<>) a NBayesUndefined = a
---     (<>) NBayesUndefined b = b
-    (<>) a b =
-        if (dataDesc a)/=(dataDesc b)
-           then error $ "mappend.NBayes: cannot combine nbayes with different sizes! lhs="++(show $ dataDesc a)++"; rhs="++(show $ dataDesc b)
-           else NBayes
-                    { dataDesc = dataDesc a
-                    , labelCount = V.zipWith (+) (labelCount a) (labelCount b)
-                    , attrDist = V.zipWith (V.zipWith mappend) (attrDist a) (attrDist b)
-                    }
+getDist :: NBayes Int -> Int -> Int -> DistContainer
+getDist nb attrI label = (attrDist nb) V.! label V.! attrI
+    
+labelProb :: NBayes Int -> Int -> Double
+labelProb nb label = (fi $ (labelCount nb) V.! label) / (fi $ V.sum $ labelCount nb)
+    
+instance Model (NBayes label) label where
+    datadesc = dataDesc
 
 -- instance (Binary label) => Binary (NBayes label) where
 --     put nb = do
@@ -114,6 +88,36 @@ instance (NFData label) => NFData (NBayes label) where
 -- file2nbayes :: (Label label) => String -> IO (NBayes label)
 -- file2nbayes = decodeFile
 -- -- file2nbayes file = liftM read $ readFile file
+
+-- arbitraryNBayes :: DataDesc -> Gen NBayes
+-- arbitraryNBayes desc = do
+--     let nb = emptyNBayes desc
+--     labelCount' = V.mapM (\x -> choose (0,100))
+-- --     labelL <- vector (numLabels desc)
+-- --     attrL <- vector (numLabels desc) 
+-- --         []
+--     return nb -- $ NBayes desc (V.fromList labelL) undefined
+
+-------------------------------------------------------------------------------
+-- Algebra
+
+instance Invertible (NBayes label) where
+    inverse nb = nb
+        { labelCount = V.map inverse $ labelCount nb
+        , attrDist = V.map (V.map inverse) $ attrDist nb
+        }
+
+instance (Label label) => Semigroup (NBayes label) where
+--     (<>) a NBayesUndefined = a
+--     (<>) NBayesUndefined b = b
+    (<>) a b =
+        if (dataDesc a)/=(dataDesc b)
+           then error $ "mappend.NBayes: cannot combine nbayes with different sizes! lhs="++(show $ dataDesc a)++"; rhs="++(show $ dataDesc b)
+           else NBayes
+                    { dataDesc = dataDesc a
+                    , labelCount = V.zipWith (+) (labelCount a) (labelCount b)
+                    , attrDist = V.zipWith (V.zipWith mappend) (attrDist a) (attrDist b)
+                    }
 
 -------------------------------------------------------------------------------
 -- NBayesST
@@ -255,34 +259,30 @@ probClassifyNB nb dp = {-trace ("length dp="++(show $ length dp)) -}
         answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
         normedAnswer = {-trace "dD" $-} zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]
 
--- attrProb :: DataItem -> Gaussian -> Probability
--- attrProb Missing _ = 1
--- attrProb (Discrete _) _ = error "cannot classify discrete attributes yet."
--- -- attrProb (Continuous x) (UnknownDist) = 0.001
--- attrProb (Continuous x) (Gaussian m s k) = logFloat $ 
---         if s>0
---            then {-prob-} if prob < 0.001
---                    then            0.001
---                    else prob 
---            else 0.1
---     where
---         prob = 1/(sqrt $ 2*pi*var) * (exp $ -(x-m)^2/(2*var))
---         var = s/(k-1)
-
 -------------------------------------------------------------------------------
--- testing
+-- PartialBayes
 
--- 
--- testnb = train defNBayesParams td :: NBayes
+data PartialBayes label = PartialBayes 
+    { nbayes :: (NBayes label)
+    , attrL :: [Int]
+    }
 
--- testwriter = do
---     encodeFile "testwriter.nbayes" testnb
---     testnb' <- decodeFile "testwriter.nbayes"
---     print (testnb==testnb')
+instance Classifier (PartialBayes Int) DPS Int where
+    classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
--- testthaw = runST $ do
---     trace "test1" $ return ()
---     nbst <- thaw $ {-testnb -- -}emptyNBayes $ DataDesc 100 50000 :: ST s (NBayesST s)
---     trace "test2" $ return ()
---     freeze nbst :: ST s (NBayes)
---     trace "test3" $ return ()
+instance ProbabilityClassifier (PartialBayes Int) DPS Int where
+    probabilityClassify (PartialBayes nb attrL) dpinput = 
+        if (V.sum $ labelCount nb) == 0
+            then [(i,1/(fromIntegral $ numLabels $ dataDesc nb)) | i<-labelL $ dataDesc nb]
+            else normedAnswer
+        where
+            dp = filter (\(attrI,di)->attrI `elem` attrL) dpinput
+              
+            labelProbGivenDp label = (labelProbGivenNothing label)*(dpProbGivenLabel label)
+            labelProbGivenNothing label = logFloat ((fromIntegral $ labelCount nb V.! label)/(fromIntegral $ V.sum $ labelCount nb) :: Double)
+            dpProbGivenLabel label = foldl (*) (logFloat (1::Double)) (attrProbL label)
+            attrProbL label = [ sampleProb (attrDist nb V.! label V.! attrIndex) di | (attrIndex,di) <- dp]
+
+            answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
+            normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]
+    

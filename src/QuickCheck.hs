@@ -16,7 +16,7 @@ import HMine.Math.TypeClasses
 import HMine.Models.Distributions.Dirichlet
 import HMine.Models.Distributions.Gaussian
 import HMine.Models.DTree
-import HMine.Models.LazyNBayes
+import HMine.Models.NBayes
 import HMine.Models.Ensemble
 import HMine.Models.Ensemble.AdaBoost
 import HMine.Models.Ensemble.Bagging
@@ -63,6 +63,9 @@ instance Arbitrary (DS_List Int (LDPS Int)) where
 -------------------------------------------------------------------------------
 -- properties
 
+-- prop_dps dp = dp == (dpf2dps $ dps2dpf 10 dp)
+-- prop_dpf dp = dp == (dps2dpf (length dp) $ dpf2dps dp)
+
 ---------------------------------------
 
 prop_SemigroupAssociative (a,b,c) = (a<>b)<>c == a<>(b<>c)
@@ -103,13 +106,14 @@ prop_MutableTrainer params (dps) = modelPure==modelST
 prop_ContinuousDistribution (dist1,dist2) = and $ map prop_intersectionpoint xs
        
     where
-        epsilon = 0.001 :: Double
-        xs = intersection dist1 dist2 :: [Double]
+        epsilon = 0.01 :: Double
+        xs = intersectionScaled (w1,dist1) (w2,dist2) :: [Double]
         
-        prop_intersectionpoint x = (abs $ (fromLogFloat $ sampleProb dist1 x) - (fromLogFloat $ sampleProb dist2 x)) <= epsilon
-{-            if sampleProb dist1 (x-epsilon) > sampleProb dist2 (x-epsilon)
-                then sampleProb dist1 (x+epsilon) < sampleProb dist2 (x+epsilon)
-                else sampleProb dist1 (x+epsilon) > sampleProb dist2 (x+epsilon)-}
+        w1=0.2
+        w2=0.1
+        
+        prop_intersectionpoint x = 
+            (abs $ w1*(fromLogFloat $ pdf dist1 x) - w2*(fromLogFloat $ pdf dist2 x)) <= epsilon
                 
 
 -------------------------------------------------------------------------------
@@ -118,7 +122,7 @@ prop_ContinuousDistribution (dist1,dist2) = and $ map prop_intersectionpoint xs
 test_NBayes = do
     quickCheck (prop_TrainerSemigroup defNBayesParams :: (DS_List Int (LDPS Int), DS_List Int (LDPS Int)) -> Bool)
     quickCheck (prop_OnlineTrainer defNBayesParams :: (DS_List Int (LDPS Int)) -> Bool)
-    quickCheck (prop_MutableTrainer defNBayesParams :: (DS_List Int (LDPS Int)) -> Bool)
+--     quickCheck (prop_MutableTrainer defNBayesParams :: (DS_List Int (LDPS Int)) -> Bool)
 
 test_Boosting = do
     quickCheck (prop_TrainerSemigroup (defBaggingParams 10 10 defNBayesParams) :: (DS_List Int (LDPS Int), DS_List Int (LDPS Int)) -> Bool)
@@ -132,7 +136,13 @@ test_Gaussian = do
 --     quickCheck (prop_SemigroupAssociative :: (Gaussian,Gaussian,Gaussian) -> Bool)
 --     quickCheck (prop_InverseSemigroup :: (Gaussian,Gaussian) -> Bool)
     quickCheck (prop_ContinuousDistribution :: (Gaussian,Gaussian) -> Bool)
-    
+
+---------------------------------------
+
+-- test_DP = do
+--     quickCheck prop_dps
+--     quickCheck prop_dpf
+
 -------------------------------------------------------------------------------
 -- fixed stuff
 

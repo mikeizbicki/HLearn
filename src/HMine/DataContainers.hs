@@ -53,6 +53,16 @@ instance Binary DataItem where
             1 -> liftM Discrete get
             2 -> liftM Continuous get
 
+instance Arbitrary DataItem where
+    arbitrary = do
+        choice <- choose (0,3)
+        x <- choose (-10,10)
+        return $ case (choice::Int) of
+            0 -> Missing
+            1 -> Discrete $ show x
+            2 -> Continuous x
+
+
 -------------------------------------------------------------------------------
 -- DataDesc
 
@@ -131,6 +141,9 @@ dps2dpf len dps = go 0 dps []
             | otherwise  = if (fst $ head dps) == itr
                 then go (itr+1) (tail dps) ((snd $ head dps):dpf)
                 else go (itr+1) dps (Missing:dpf)
+
+dpf2dps :: DPF -> DPS
+dpf2dps xs = filter (\x -> (snd x)/=Missing) $ zip [0..] xs
 
 -------------------------------------------------------------------------------
 -- DataSparse

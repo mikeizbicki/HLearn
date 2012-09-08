@@ -3,18 +3,19 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module HMine.Classifiers.AlgTree
+module HMine.Models.AlgTree
     where
 
+import Data.List.Extras
 import Data.Semigroup
 
 import HMine.Base
-import HMine.Classifiers.Dirichlet
-import HMine.Classifiers.DTree
-import HMine.Classifiers.LazyNBayes
 import HMine.DataContainers
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
+import HMine.Models.Distributions.Dirichlet
+import HMine.Models.DTree
+import HMine.Models.NBayes
 
 -------------------------------------------------------------------------------
 -- AlgTreeParams
@@ -40,9 +41,15 @@ nbayes2algtree nbayes = AlgTree
     , dtree = error "nbayes2algtree: not implemented"
     }
     
-nbayes2dtree :: (Label label) => Int -> NBayes label -> AlgTree label
-nbayes2dtree = undefined
-
+nbayes2dstump :: Int -> NBayes Int -> AlgTree Int
+nbayes2dstump attrI nb = runHMine 0 $ do
+    {-replicateM 1000 $-} 
+--     x <- sequence $ replicate [(drawSample $ getDist nb attrI label) :: HMine DataItem | label <- labelL $ datadesc nb]
+    return undefined
+-- firstLabel :: Int -> NBayes label -> label
+-- firstLabel attrI nbayes = fst $ argmax snd $ map mapper $ zip [] (labelL $ datadesc nbayes)
+--     where
+--         mapper (dist,l) = (l,sampleProb dist (0::Double))
 -------------------------------------------------------------------------------
 -- Algebra
 

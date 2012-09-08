@@ -38,9 +38,15 @@ instance (Distribution dist Double) => Distribution dist (Maybe Double) where
         Nothing -> dist
         Just x  -> add1sample dist x
 
-    sampleProb dist dp = case dp of
+    pdf dist dp = case dp of
         Nothing -> 1
-        Just x  -> sampleProb dist x
+        Just x  -> pdf dist x
+        
+    cdf dist dp = case dp of
+        Nothing -> 0
+        Just x  -> cdf dist x
+        
+    cdfInverse dist prob = undefined
     
 instance {-(Distribution dist (Maybe Double)) => -}Distribution Gaussian DataItem where
     add1sample dist dp = case dp of
@@ -48,11 +54,13 @@ instance {-(Distribution dist (Maybe Double)) => -}Distribution Gaussian DataIte
         Continuous x -> add1sample dist $ Just x
         Discrete   x -> error "Gaussian.add1sample: cannot add discrete"
         
-    sampleProb dist dp = case dp of
-        Missing      -> sampleProb dist (Nothing :: Maybe Double)
-        Continuous x -> sampleProb dist $ Just x
-        Discrete   x -> error "Gaussian.sampleProb: cannot sample discrete"
+    pdf dist dp = case dp of
+        Missing      -> pdf dist (Nothing :: Maybe Double)
+        Continuous x -> pdf dist $ Just x
+        Discrete   x -> error "Gaussian.pdf: cannot sample discrete"
         
+    cdf = undefined
+    cdfInverse = undefined
 
 {-instance 
     ( OnlineTrainer GaussianParams Gaussian () (Maybe Double)
@@ -64,9 +72,9 @@ instance {-(Distribution dist (Maybe Double)) => -}Distribution Gaussian DataIte
     add1sample dist (Continuous x) = runHMine 10 $ add1dp undefined GaussianParams dist (Just x,())
     add1sample dist (Discrete x)   = error "Cannot insert discrete items into continuous distribution"
     
-    sampleProb dist Missing        = classify dist (Nothing :: Maybe Double)
-    sampleProb dist (Continuous x) = classify dist $ Just x
-    sampleProb dist (Discrete x)   = error "Cannot classify discrete items from continuous distribution"-}
+    pdf dist Missing        = classify dist (Nothing :: Maybe Double)
+    pdf dist (Continuous x) = classify dist $ Just x
+    pdf dist (Discrete x)   = error "Cannot classify discrete items from continuous distribution"-}
     
 --     serializationIndex x = 1
     
@@ -101,10 +109,13 @@ instance Distribution DistContainer DataItem where
     add1sample (DistContainer dist) di = DistContainer $ add1sample dist di
     add1sample (DistDiscrete dist) di = DistDiscrete $ add1sample dist di
 
-    {-# INLINE sampleProb #-}
-    sampleProb UnknownDist _ = trace "Distribution.sampleProb: Warning sampling from an UnkownDist" 0.3
-    sampleProb (DistContainer dist) di = sampleProb dist di
-    sampleProb (DistDiscrete dist) di = sampleProb dist di
+    {-# INLINE pdf #-}
+    pdf UnknownDist _ = trace "Distribution.pdf: Warning sampling from an UnkownDist" 0.3
+    pdf (DistContainer dist) di = pdf dist di
+    pdf (DistDiscrete dist) di = pdf dist di
+    
+    cdf = undefined
+    cdfInverse = undefined
     
 --     serializationIndex dist = 0
         
@@ -141,10 +152,10 @@ instance NFData DistContainer where
 --     add1sample d (Discrete x) = DiscretePDF $ Map.insertWith (+) (Just x) 1 (pdf d) -- error "add1sample: cannot add discrete DataItem to Gaussian"
 --     add1sample d (Continuous x) = error "add1sample: cannot add continuous DataItem to DiscretePDF"
 -- 
---     {-# INLINE sampleProb #-}
---     sampleProb d Missing = getProb Nothing $ pdf d
---     sampleProb d (Discrete x) = getProb (Just x) $ pdf d--error "sampleProb: cannot sample a discrete DataItem from a Gaussian"
---     sampleProb d (Continuous x) = error "sampleProb: cannot sample a continuous DataItem from a DiscretePDF"
+--     {-# INLINE pdf #-}
+--     pdf d Missing = getProb Nothing $ pdf d
+--     pdf d (Discrete x) = getProb (Just x) $ pdf d--error "pdf: cannot sample a discrete DataItem from a Gaussian"
+--     pdf d (Continuous x) = error "pdf: cannot sample a continuous DataItem from a DiscretePDF"
 -- 
 -- getProb :: (Maybe String) -> Map.Map (Maybe String) Int -> Probability
 -- getProb key pdf = logFloat $ 0.0001+((fi val)/(fi tot)::Double)
