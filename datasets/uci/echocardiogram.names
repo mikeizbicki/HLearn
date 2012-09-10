@@ -1,0 +1,116 @@
+1. Title: Echocardiogram Data
+
+2. Source Information:
+   -- Donor: Steven Salzberg (salzberg@cs.jhu.edu)
+   -- Collector:
+      -- Dr. Evlin Kinney
+      -- The Reed Institute
+      -- P.O. Box 402603
+      -- Maimi, FL 33140-0603
+   -- Date Received: 28 February 1989
+
+3. Past Usage:
+   -- 1. Salzberg, S. (1988).  Exemplar-based learning: Theory and
+         implementation (Technical Report TR-10-88).  Harvard University,
+         Center for Research in Computing Technology, Aiken Computation
+         Laboratory (33 Oxford Street; Cambridge, MA 02138).
+      -- Steve applied his EACH program to predict survival (i.e., life
+         or death), did not use the wall-motion attribute, and recorded 87 
+         correct and 29 incorrect in an incremental application to this
+         database.  He also showed that, by tuning EACH to this domain,
+         EACH was able to derive (non-incrementally) a set of 28 
+         hyper-rectangles that could perfectly classify 119 instances.
+   -- 2. Kan, G., Visser, C., Kooler, J., & Dunning, A. (1986).  Short
+         and long term predictive value of wall motion score in acute 
+         myocardial infarction.  British Heart Journal, 56, 422-427.
+      -- They predicted the same variable (whether patients will live
+         one year after a heart attack) using a different set of 345
+         instances.  Their statistical test recorded a 61% accuracy
+         in predicting that a patient will die (post-hoc fit).
+   -- 3. Elvin Kinney (in communication with Steven Salzberg) reported
+         that a Cox regression application recorded a 60% accuracy
+         in predicting that a patient will die.
+
+4. Relevant Information:
+  -- All the patients suffered heart attacks at some point in the past.
+     Some are still alive and some are not.  The survival and still-alive
+     variables, when taken together, indicate whether a patient survived
+     for at least one year following the heart attack.  
+
+     The problem addressed by past researchers was to predict from the 
+     other variables whether or not the patient will survive at least
+     one year.  The most difficult part of this problem is correctly
+     predicting that the patient will NOT survive.  (Part of the difficulty
+     seems to be the size of the data set.)
+
+5. Number of Instances: 132
+
+6. Number of Attributes: 13 (all numeric-valued)
+
+7. Attribute Information:
+   1. survival -- the number of months patient survived (has survived,
+		  if patient is still alive).  Because all the patients
+		  had their heart attacks at different times, it is 
+		  possible that some patients have survived less than
+		  one year but they are still alive.  Check the second
+		  variable to confirm this.  Such patients cannot be 
+		  used for the prediction task mentioned above.
+   2. still-alive -- a binary variable.  0=dead at end of survival period,
+		     1 means still alive 
+   3. age-at-heart-attack -- age in years when heart attack occurred
+   4. pericardial-effusion -- binary. Pericardial effusion is fluid
+			      around the heart.  0=no fluid, 1=fluid
+   5. fractional-shortening -- a measure of contracility around the heart
+			       lower numbers are increasingly abnormal
+   6. epss -- E-point septal separation, another measure of contractility.  
+	      Larger numbers are increasingly abnormal.
+   7. lvdd -- left ventricular end-diastolic dimension.  This is
+	      a measure of the size of the heart at end-diastole.
+	      Large hearts tend to be sick hearts.
+   8. wall-motion-score -- a measure of how the segments of the left
+			   ventricle are moving
+   9. wall-motion-index -- equals wall-motion-score divided by number of
+			   segments seen.  Usually 12-13 segments are seen
+			   in an echocardiogram.  Use this variable INSTEAD
+			   of the wall motion score.
+   10. mult -- a derivate var which can be ignored
+   11. name -- the name of the patient (I have replaced them with "name")
+   12. group -- meaningless, ignore it
+   13. alive-at-1 -- Boolean-valued. Derived from the first two attributes.
+                     0 means patient was either dead after 1 year or had
+                     been followed for less than 1 year.  1 means patient 
+                     was alive at 1 year.
+
+8. Missing Attribute Values: (denoted by "?")
+   Attribute #:    Number of Missing Values: (total: 132)
+   ------------    -------------------------
+              1    2  
+              2	   1  
+              3	   5  
+              4	   1  
+              5	   8  
+              6	   15 
+              7	   11 
+              8	   4  
+              9	   1  
+             10	   4 
+             11	   0 
+             12	   22
+             13	   58
+
+9. Distribution of attribute number 2: still-alive
+   Value   Number of instances with this value
+    ----   -----------------------------------
+      0    88 (dead)
+      1    43 (alive)
+      ?    1
+    Total  132
+
+
+10. Distribution of attribute number 13: alive-at-1
+   Value   Number of instances with this value
+    ----   -----------------------------------
+      0    50
+      1    24
+      ?    58
+    Total  132

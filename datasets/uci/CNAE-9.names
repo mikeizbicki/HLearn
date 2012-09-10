@@ -1,0 +1,48 @@
+1. Title: CNAE-9
+
+2. Source Information
+- Data set was initially used in: 
+  Patrick Marques Ciarelli, Elias Oliveira, "Agglomeration and Elimination of Terms for Dimensionality Reduction",
+  Ninth International Conference on Intelligent Systems Design and Applications, pp. 547-552, 2009
+
+3. Past Usage:
+- Patrick Marques Ciarelli, Elias Oliveira, "Agglomeration and Elimination of Terms for Dimensionality Reduction", 
+  Ninth International Conference on Intelligent Systems Design and Applications, pp. 547-552, 2009:
+  - Feature selection (900 instances for training and 180 instances for test): 
+    - Best results using kNN (k=1):
+      50 dimensions: 87.78% (LSI)
+      100 dimensions: 92.78% (LSI)
+      150 dimensions: 92.22% (LSI)
+      200 dimensions: 92.78% (MI)
+      250 dimensions: 92.78% (MI)
+
+- Patrick Marques Ciarelli, Elias Oliveira, Evandro O. T. Salles, "An Evolving System Based on Probabilistic Neural Network",
+  Brazilian Symposium on Artificial Neural Network, 2010:
+  - Incremental learning (no off-line training):
+    - Best result:
+      88.71% (ePNN)
+
+4. Relevant Information:
+
+- This is a data set containing 1080 documents of free text business descriptions of Brazilian companies categorized into a
+subset of 9 categories cataloged in a table called National Classification of Economic Activities (Classificação Nacional de
+Atividade Econômicas - CNAE). The original texts were pre-processed to obtain the current data set: initially, it was kept only
+letters and then it was removed prepositions of the texts. Next, the words were transformed to their canonical form. Finally,
+each document was represented as a vector, where the weight of each word is its frequency in the document. This data set is
+highly sparse (99.22% of the matrix is filled with zeros).
+ 
+5. Number of Instances: 1080
+
+6. Number of Attributes: 857 (1 category, 856 word frequency)
+
+7. Attribute Information:
+   1. category: range 1 - 9 (integer)
+   2 - 857. word frequency: (integer)
+
+8. Missing Attribute Values: None
+
+9. Class Distribution: the categories are equally distribuited. (120 instances in each of nine categories)
+
+Summary Statistics:
+                 Min   Max   Mean    SD
+word frequency:   0     4   0.0082 0.0948

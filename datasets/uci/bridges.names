@@ -1,0 +1,136 @@
+1. Title: Pittsburgh bridges
+
+2. Sources:
+   -- Yoram Reich & Steven J. Fenves
+      Department of Civil Engineering
+      and
+      Engineering Design Research Center
+      Carnegie Mellon University
+      Pittsburgh, PA 15213
+
+      Compiled from various sources.
+
+   -- Donor: Yoram Reich (yoram.reich@cs.cmu.edu)
+   -- Date: 1 August 1990
+
+3. Past Usage:
+
+   -- Reich & Fenves (1989). Incremental Learning for Capturing Design 
+      Expertise. Technical Report: EDRC 12-34-89, Engineering Design
+      Research Center, Carnegie Mellon University, Pittsburgh, PA.
+      -- Qualitative results and runs with original ordering of examples.
+         using COBWEB.
+
+   -- Reich (1989). Converging to ``Ideal'' Design Knowledge by Learning,
+      Proceedings of the First International Workshop on Formal Methods in
+      Engineering Design, pp: 330-349, Colorado Springs, CO, January 1990.
+      -- Describes a new design method with Bridger (variant of COBWEB) using
+	 this domain. (Also an EDRC report: 12-35-89)
+
+   -- Reich (1989) Combining Nominal and Continuous Properties in an 
+      Incremental Learning System for Design. Technical Report: EDRC 12-33-89.
+      -- Comparison of performance of Bridger when running on both versions
+	 (V1 and V2) of the database
+
+   -- Reich (1989) Incremental Concept Formation with Mixed Property Types
+      Unpublished Manuscript.
+      -- Results using 10 random 10-fold cross-validation test with Bridger
+	 (relative error rate):
+	 Version V1 of the database: 
+	 MATERIAL 18.4%, REL-L 38.7%, SPAN 42.7%, T-OR-D 14.7%, TYPE 47.6%.
+	 Version V2 of the database:
+	 MATERIAL 24.2%, REL-L 41.7%, SPAN 39.9%, T-OR-D 14.7%, TYPE 56.5%.
+
+   -- Quinlan (1989) Personal communication. 
+      -- Results of a 10-fold cross-validation test with C4.5, and with
+         a separate decision tree for each design property obtained the 
+	 following error rates on version V1 of the database:
+	 MATERIAL 15%, REL-L 32%, SPAN 32%, T-OR-D 15%, TYPE 44%.
+
+4. Number of instances: 108
+
+5. Relevant Information:
+   
+   There are two versions to the database: 
+      V1 contains the original examples and 
+      V2 contains descriptions after discretizing numeric properties.
+
+   There are no ``classes'' in the domain. Rather this is a DESIGN domain where
+   5 properties (design description) need to be predicted based on 7 
+   specification properties.
+
+6. Number of Attributes: 13: 7 specifications, 5 design description, and 1
+   identifier (not used for the classification)
+
+7. Attribute Information:  
+
+   The type field state whether a property is continuous/integer (c) 
+						      or nominal (n).
+   For properties with c,n type, the range of continuous numbers is given 
+   first and the possible values of the nominal follow the semi-colon.
+
+
+       name     type    possible values		comments
+   ------------------------------------------------------------------------
+   1.  IDENTIF	-	-			identifier of the examples
+   2.  RIVER	n	A, M, O
+   3.  LOCATION	n       1 to 52
+   4.  ERECTED	c,n	1818-1986 ; CRAFTS, EMERGING, MATURE, MODERN
+   5.  PURPOSE	n	WALK, AQUEDUCT, RR, HIGHWAY
+   6.  LENGTH	c,n	804-4558 ; SHORT, MEDIUM, LONG
+   7.  LANES	c,n	1, 2, 4, 6 ; 1, 2, 4, 6
+   8.  CLEAR-G	n	N, G
+   9.  T-OR-D	n	THROUGH, DECK
+   10. MATERIAL	n	WOOD, IRON, STEEL
+   11. SPAN	n	SHORT, MEDUIM, LONG
+   12. REL-L	n	S, S-F, F
+   13. TYPE	n	WOOD, SUSPEN, SIMPLE-T, ARCH, CANTILEV, CONT-T
+
+
+8. More complicated attributes:
+
+   One can use a hierarchical structure for the Type property. There are two
+   options.
+
+	option 1 (use examples without modification)
+        --------
+
+			Type 
+	     /      /	     \     \
+	   /       /	      \	     \
+	wood	suspen		arch	truss
+				       /  |    \
+				     /    |      \
+				cantilev  cont-t   simple
+
+
+	option 2 (requires changes in the Type property - specified bellow)
+	--------
+
+				Type 
+
+		 /     	/        |	    	    \	
+	   	/     /	         |   		     \
+	    wood   suspen	arch		      truss
+				/ \	    	   /  |  \    \
+			      /	    \	  	 /    |   \	\
+			tied-a    not-tied  cantilev cont-t simple arch-t
+
+
+	Change the Type  property of the following examples (in both V1 and V2):
+		E28   ->  arch-t
+		E91,E90,E84,E83,E73  -> tied-a
+		E97,E78,E77,E75,E66,E64,E43  -> not-tied
+
+
+9. Missing Attribute Values:
+   Attribute #: 	# instances with missing values:
+    2			 1
+    6			27
+    7			16
+    8			 2
+    9			 6
+   10			 2
+   11			16
+   12			 5
+   13			 3

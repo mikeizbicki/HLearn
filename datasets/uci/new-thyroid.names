@@ -1,0 +1,78 @@
+
+1. Title of Database: 
+   Thyroid gland data. ('normal', hypo and hyper functioning)
+
+2. Sources:
+   (a) Original owner
+   	Danny Coomans, Dept. of Maths. and Stats., James Cook University,
+   	Townsville 4811, Australia.  email: madhc@manta.jcu.edu.au
+   (b) Donor of database
+	Stefan Aeberhard, Dept. of Comp. Science, James Cook University,
+        Townsville 4811, Australia.  email: stefan@coral.cs.jcu.edu.au
+   (c) Date received 
+	July, 1992
+ 
+3. Past Usage:
+   - (a) Coomans, D., Broeckaert, M. Jonckheer M. and Massart D.L.,
+       "Comparison of Multivariate Discriminant Techniques for 
+	Clinical Data - Application to the Thyroid Functional State",
+	Meth. Inform. Med. 22 (1983) pp. 93-101.
+
+     (b) The data was used for comparing 16 different discriminant
+	techniques, each trying to predict the state of the 
+	thyroid gland.
+
+   - (a) Coomans, D. and I. Broeckaert, "Potential Pattern Recognition
+	in Cemical and Medical Decision Making", Research Studies Press,
+	Letchworth, England.
+
+     (b) Uses the data to compare different different kernel density 
+	methods. Some achieve 100% correct classification.
+
+4. Relevant Information Paragraph:
+
+	Five lab. tests are used to try to predict whether a patient's
+	thyroid to the class euthyroidism, hypothyroidism or
+	hyperthyroidism. The diagnosis (the class label) was based
+	on a complete medical record, including anamnesis, scan etc.
+   
+5. Number of Instances
+
+	215
+
+6. Number of Attributes 
+
+	5
+
+7. For Each Attribute: (please give both acronym and full name if both exist)
+
+	Attr. no : 
+
+	1:	Class attribute (1 = normal, 2 = hyper, 3 = hypo)
+	2:	T3-resin uptake test. (A percentage)
+	3:	Total Serum thyroxin as measured by the isotopic
+		displacement method. 
+	4: 	Total serum triiodothyronine as measured by radioimmuno
+		assay.
+	5: 	basal thyroid-stimulating hormone (TSH) as measured by 
+		radioimmuno assay.
+	6: 	Maximal absolute difference of TSH value after injection of 
+		200 micro grams of thyrotropin-releasing hormone as compared
+		to the basal value.
+
+	All attributes are continuous.
+
+	(Note, there is a slight possibility of having the 
+	 attribute numbers mixed up, see [2a] if it matters.)
+
+
+8. Missing Attribute Values: how many per each attribute?
+
+	None 
+
+9. Class Distribution: number of instances per class
+
+	Class 1: (normal)	150
+	Class 2: (hyper)	35
+	Class 3: (hypo)		30
+

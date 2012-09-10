@@ -1,0 +1,144 @@
+1. Title: Large Soybean Database
+
+2. Sources:
+     (a) R.S. Michalski and R.L. Chilausky "Learning by Being Told and
+         Learning from Examples: An Experimental Comparison of the Two
+	 Methods of Knowledge Acquisition in the Context of Developing
+	 an Expert System for Soybean Disease Diagnosis", International
+	 Journal of Policy Analysis and Information Systems, Vol. 4,
+	 No. 2, 1980.
+     (b) Donor: Ming Tan & Jeff Schlimmer (Jeff.Schlimmer%cs.cmu.edu)
+     (c) Date: 11 July 1988
+
+3. Past Usage:
+      1. See above.
+      2. Tan, M., & Eshelman, L. (1988). Using weighted networks to represent
+         classification knowledge in noisy domains.  Proceedings of the Fifth
+         International Conference on Machine Learning (pp. 121-134). Ann Arbor,
+         Michigan: Morgan Kaufmann.
+         -- IWN recorded a 97.1% classification accuracy 
+            -- 290 training and 340 test instances
+      3. Fisher,D.H. & Schlimmer,J.C. (1988). Concept Simplification and
+         Predictive Accuracy. Proceedings of the Fifth
+         International Conference on Machine Learning (pp. 22-28). Ann Arbor,
+         Michigan: Morgan Kaufmann.
+         -- Notes why this database is highly predictable
+
+4. Relevant Information Paragraph:
+    There are 19 classes, only the first 15 of which have been used in prior
+    work.  The folklore seems to be that the last four classes are
+    unjustified by the data since they have so few examples.
+    There are 35 categorical attributes, some nominal and some ordered.  The
+    value ``dna'' means does not apply.  The values for attributes are
+    encoded numerically, with the first value encoded as ``0,'' the second as
+    ``1,'' and so forth.  An unknown values is encoded as ``?''.
+
+5. Number of Instances: 307
+
+6. Number of Attributes: 35 (all have been nominalized)
+ 
+7. Attribute Information: 
+    -- 19 Classes
+     diaporthe-stem-canker, charcoal-rot, rhizoctonia-root-rot,
+     phytophthora-rot, brown-stem-rot, powdery-mildew,
+     downy-mildew, brown-spot, bacterial-blight,
+     bacterial-pustule, purple-seed-stain, anthracnose,
+     phyllosticta-leaf-spot, alternarialeaf-spot,
+     frog-eye-leaf-spot, diaporthe-pod-&-stem-blight,
+     cyst-nematode, 2-4-d-injury, herbicide-injury.	
+
+    1. date:		april,may,june,july,august,september,october,?.
+    2. plant-stand:	normal,lt-normal,?.
+    3. precip:		lt-norm,norm,gt-norm,?.
+    4. temp:		lt-norm,norm,gt-norm,?.
+    5. hail:		yes,no,?.
+    6. crop-hist:	diff-lst-year,same-lst-yr,same-lst-two-yrs,
+                        same-lst-sev-yrs,?.
+    7. area-damaged:	scattered,low-areas,upper-areas,whole-field,?.
+    8. severity:	minor,pot-severe,severe,?.
+    9. seed-tmt:	none,fungicide,other,?.
+   10. germination:	90-100%,80-89%,lt-80%,?.
+   11. plant-growth:	norm,abnorm,?.
+   12. leaves:		norm,abnorm.
+   13. leafspots-halo:	absent,yellow-halos,no-yellow-halos,?.
+   14. leafspots-marg:	w-s-marg,no-w-s-marg,dna,?.
+   15. leafspot-size:	lt-1/8,gt-1/8,dna,?.
+   16. leaf-shread:	absent,present,?.
+   17. leaf-malf:	absent,present,?.
+   18. leaf-mild:	absent,upper-surf,lower-surf,?.
+   19. stem:		norm,abnorm,?.
+   20. lodging:    	yes,no,?.
+   21. stem-cankers:	absent,below-soil,above-soil,above-sec-nde,?.
+   22. canker-lesion:	dna,brown,dk-brown-blk,tan,?.
+   23. fruiting-bodies:	absent,present,?.
+   24. external decay:	absent,firm-and-dry,watery,?.
+   25. mycelium:	absent,present,?.
+   26. int-discolor:	none,brown,black,?.
+   27. sclerotia:	absent,present,?.
+   28. fruit-pods:	norm,diseased,few-present,dna,?.
+   29. fruit spots:	absent,colored,brown-w/blk-specks,distort,dna,?.
+   30. seed:		norm,abnorm,?.
+   31. mold-growth:	absent,present,?.
+   32. seed-discolor:	absent,present,?.
+   33. seed-size:	norm,lt-norm,?.
+   34. shriveling:	absent,present,?.
+   35. roots:		norm,rotted,galls-cysts,?.
+
+8. Number of Missing Attribute Values: (denoted by "?")
+   (Problem: these don't appear to be correct!  Needs to be updated.)
+    1. date: 0
+    2. plant-stand: 1
+    3. precip: 8
+    4. temp: 11
+    5. hail: 7
+    6. crop-hist: 41
+    7. area-damaged: 1
+    8. severity: 1
+    9. seed-tmt: 41
+   10. germination: 41
+   11. plant-growth: 36
+   12. leaves: 1
+   13. leafspots-halo: 0
+   14. leafspots-marg: 25
+   15. leafspot-size: 25
+   16. leaf-shread: 25
+   17. leaf-malf: 26
+   18. leaf-mild: 25
+   19. stem: 30
+   20. lodging: 1
+   21. stem-cankers: 41
+   22. canker-lesion: 11
+   23. fruiting-bodies: 11
+   24. external decay: 35
+   25. mycelium: 11
+   26. int-discolor: 11
+   27. sclerotia: 11
+   28. fruit-pods: 11
+   29. fruit spots: 25
+   30. seed: 35
+   31. mold-growth: 29
+   32. seed-discolor: 29
+   33. seed-size: 35
+   34. shriveling: 29
+   35. roots: 35
+
+9. Class Distribution: 
+   1. diaporthe-stem-canker: 10
+   2. charcoal-rot: 10
+   3. rhizoctonia-root-rot: 10
+   4. phytophthora-rot: 40
+   5. brown-stem-rot: 20
+   6. powdery-mildew: 10
+   7. downy-mildew: 10
+   8. brown-spot: 40
+   9. bacterial-blight: 10
+  10. bacterial-pustule: 10
+  11. purple-seed-stain: 10
+  12. anthracnose: 20
+  13. phyllosticta-leaf-spot: 10
+  14. alternarialeaf-spot: 40
+  15. frog-eye-leaf-spot: 40
+  16. diaporthe-pod-&-stem-blight: 6
+  17. cyst-nematode: 6
+  18. 2-4-d-injury: 1
+  19. herbicide-injury: 4

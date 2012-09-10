@@ -1,0 +1,28 @@
+sick-euthyroid, negative.
+
+age:				 continuous,?.
+sex:				 M,F,?.
+on_thyroxine:			 f,t.
+query_on_thyroxine:		 f,t.
+on_antithyroid_medication:	 f,t.
+thyroid_surgery:		 f,t.
+query_hypothyroid:		 f,t.
+query_hyperthyroid:		 f,t.
+pregnant:			 f,t.
+sick:				 f,t.
+tumor:				 f,t.
+lithium:			 f,t.
+goitre:				 f,t.
+TSH_measured:			 f,t.
+TSH:				 continuous,?.
+T3_measured:			 f,t.
+T3:				 continuous,?.
+TT4_measured:			 f,t.
+TT4:				 continuous,?.
+T4U_measured:			 f,t.
+T4U:				 continuous,?.
+FTI_measured:			 f,t.
+FTI:				 continuous,?.
+TBG_measured:			 f,t.
+TBG:				 continuous,?.
+

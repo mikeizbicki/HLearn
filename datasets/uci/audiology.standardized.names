@@ -1,0 +1,178 @@
+WARNING: This database should be credited to the original owner whenever
+         used for any publication whatsoever.
+
+1. Title: Standardized Audiology Database 
+
+2. Sources:
+
+    Original Version:
+
+    (a) Original Owner: Professor Jergen at Baylor College of Medicine
+    (b) Donor: Bruce Porter (porter@fall.cs.utexas.EDU)
+    (c) Date Original Received: 12/3/1987
+
+    Standardized Version:
+
+    (a) Donor: Ross Quinlan
+    (b) Date Standardized version received 8/18/92
+
+3. Past Usage: (Original Version) 
+   -- See: Bareiss, E. Ray, & Porter, Bruce (1987).  Protos: An Exemplar-Based
+      Learning Apprentice.  In the Proceedings of the 4th International
+      Workshop on Machine Learning, 12-23, Irvine, CA: Morgan Kaufmann.
+
+4. Relevant Information:
+
+   This database is a standardized version of the original audiology database
+   (see audiology.* in this directory).  The non-standard set of attributes
+   have been converted to a standard set of attributes according to the rules
+   that follow.
+
+   - Each property that appears anywhere in the original .data or .test
+     file has been represented as a separate attribute in this file.
+
+   - A property such as age_gt_60 is represented as a boolean attribute with
+     values f and t.
+
+   - In most cases, a property of the form x(y) is represented as a discrete
+     attribute x() whose possible values are the various y's; air() is an
+     example.  There are two exceptions:
+
+     - when only one value of y appears anywhere, e.g. static(normal).
+       In this case, x_y appears as a boolean attribute.
+
+     - when one case can have two or more values of x, e.g. history(..).
+       All possible values of history are treated as separate boolean
+       attributes.
+
+   - Since boolean attributes only appear as positive conditions, each boolean
+     attribute is assumed to be false unless noted as true.  The value of
+     multi-value discrete attributes taken as unknown ("?") unless a value is
+     specified.
+
+   - The original case identifications, p1 to p200 in the .data file and t1
+     to t26 in the .test file, have been added as a unique identifier attribute. 
+
+   [Note: in the original .data file, p165 has a repeated specification
+   of o_ar_c(normal); p166 has repeated specification of speech(normal)
+   and conflicting values air(moderate) and air(mild).  No other
+   problems with the original data were noted.]
+
+5. Number of instances: 200 training cases, 26 test cases
+
+6. Number of attributes: 69 + identifier attribute + class attribute
+
+7. Attribute information:
+
+   age_gt_60:		     f, t.
+   air():		     mild,moderate,severe,normal,profound.
+   airBoneGap:		     f, t.
+   ar_c():		     normal,elevated,absent.
+   ar_u():		     normal,absent,elevated.
+   bone():		     mild,moderate,normal,unmeasured.
+   boneAbnormal:	     f, t.
+   bser():		     normal,degraded.
+   history_buzzing:	     f, t.
+   history_dizziness:	     f, t.
+   history_fluctuating:	     f, t.
+   history_fullness:	     f, t.
+   history_heredity:	     f, t.
+   history_nausea:	     f, t.
+   history_noise:	     f, t.
+   history_recruitment:	     f, t.
+   history_ringing:	     f, t.
+   history_roaring:	     f, t.
+   history_vomiting:	     f, t.
+   late_wave_poor:	     f, t.
+   m_at_2k:		     f, t.
+   m_cond_lt_1k:	     f, t.
+   m_gt_1k:		     f, t.
+   m_m_gt_2k:		     f, t.
+   m_m_sn:		     f, t.
+   m_m_sn_gt_1k:	     f, t.
+   m_m_sn_gt_2k:	     f, t.
+   m_m_sn_gt_500:	     f, t.
+   m_p_sn_gt_2k:	     f, t.
+   m_s_gt_500:		     f, t.
+   m_s_sn:		     f, t.
+   m_s_sn_gt_1k:	     f, t.
+   m_s_sn_gt_2k:	     f, t.
+   m_s_sn_gt_3k:	     f, t.
+   m_s_sn_gt_4k:	     f, t.
+   m_sn_2_3k:		     f, t.
+   m_sn_gt_1k:		     f, t.
+   m_sn_gt_2k:		     f, t.
+   m_sn_gt_3k:		     f, t.
+   m_sn_gt_4k:		     f, t.
+   m_sn_gt_500:		     f, t.
+   m_sn_gt_6k:		     f, t.
+   m_sn_lt_1k:		     f, t. 
+   m_sn_lt_2k:		     f, t.
+   m_sn_lt_3k:		     f, t.
+   middle_wave_poor:	     f, t.
+   mod_gt_4k:		     f, t.
+   mod_mixed:		     f, t.
+   mod_s_mixed:		     f, t.
+   mod_s_sn_gt_500:	     f, t.
+   mod_sn:		     f, t.
+   mod_sn_gt_1k:	     f, t.
+   mod_sn_gt_2k:	     f, t.
+   mod_sn_gt_3k:	     f, t.
+   mod_sn_gt_4k:	     f, t.
+   mod_sn_gt_500:	     f, t.
+   notch_4k:		     f, t.
+   notch_at_4k:		     f, t.
+   o_ar_c():		     normal,elevated,absent.
+   o_ar_u():		     normal,absent,elevated.
+   s_sn_gt_1k:		     f, t.
+   s_sn_gt_2k:		     f, t.
+   s_sn_gt_4k:		     f, t.
+   speech():		     normal,good,very_good,very_poor,poor,unmeasured.
+   static_normal:	     f, t.
+   tymp():		     a,as,b,ad,c.
+   viith_nerve_signs:        f, t.
+   wave_V_delayed:	     f, t.
+   waveform_ItoV_prolonged:  f, t.
+   indentifier               (unique for each instance)
+
+   class:                    cochlear_unknown,mixed_cochlear_age_fixation,poss_central
+                             mixed_cochlear_age_otitis_media,mixed_poss_noise_om,
+                             cochlear_age,normal_ear,cochlear_poss_noise,cochlear_age_and_noise,
+                             acoustic_neuroma,mixed_cochlear_unk_ser_om,conductive_discontinuity,
+                             retrocochlear_unknown,conductive_fixation,bells_palsy,
+                             cochlear_noise_and_heredity,mixed_cochlear_unk_fixation,
+                             otitis_media,possible_menieres,possible_brainstem_disorder,
+                             cochlear_age_plus_poss_menieres,mixed_cochlear_age_s_om,
+                             mixed_cochlear_unk_discontinuity,mixed_poss_central_om
+
+8. Missing attributes: Yes
+
+9. Class Distribution: (in the training set)
+    1. acoustic_neuroma: 1
+    2. bells_palsy: 1
+    3. cochlear_age: 46
+    4. cochlear_age_and_noise: 18
+    5. cochlear_age_plus_poss_menieres: 1
+    6. cochlear_noise_and_heredity: 2
+    7. cochlear_poss_noise: 16
+    8. cochlear_unknown: 48
+    9. conductive_discontinuity: 2
+   10. conductive_fixation: 6
+   11. mixed_cochlear_age_fixation: 1
+   12. mixed_cochlear_age_otitis_media: 4
+   13. mixed_cochlear_age_s_om: 2
+   14. mixed_cochlear_unk_discontinuity: 2
+   15. mixed_cochlear_unk_fixation: 5
+   16. mixed_cochlear_unk_ser_om: 3
+   17. mixed_poss_central_om: 1
+   18. mixed_poss_noise_om: 2
+   19. normal_ear: 20
+   20. otitis_media: 4
+   21. poss_central: 1
+   22. possible_brainstem_disorder: 4
+   23. possible_menieres: 8
+   24. retrocochlear_unknown: 2
+
+
+
+

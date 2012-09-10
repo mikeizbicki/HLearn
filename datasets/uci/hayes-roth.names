@@ -1,0 +1,130 @@
+1. Title: Hayes-Roth & Hayes-Roth (1977) Database
+
+2. Source Information:
+   (a) Creators: Barbara and Frederick Hayes-Roth
+   (b) Donor: David W. Aha (aha@ics.uci.edu) (714) 856-8779   
+   (c) Date: March, 1989
+
+3. Past Usage:
+    1. Hayes-Roth, B., & Hayes-Roth, F. (1977).  Concept learning and the
+       recognition and classification of exemplars.  Journal of Verbal Learning
+       and Verbal Behavior, 16, 321-338.
+       -- Results: 
+          -- Human subjects classification and recognition performance:
+	       1. decreases with distance from the prototype,
+	       2. is better on unseen prototypes than old instances, and
+	       3. improves with presentation frequency during learning.
+    2. Anderson, J.R., & Kline, P.J. (1979).  A learning system and its 
+       psychological implications.  In Proceedings of the Sixth International
+       Joint Conference on Artificial Intelligence (pp. 16-21).  Tokyo, Japan:
+       Morgan Kaufmann.
+       -- Partitioned the results into 4 classes:
+	    1. prototypes
+	    2. near-prototypes with high presentation frequency during learning
+	    3. near-prototypes with low presentation frequency during learning
+	    4. instances that are far from protoypes
+       -- Described evidence that ACT's classification confidence and
+          recognition behaviors closely simulated human subjects' behaviors.
+    3. Aha, D.W. (1989).  Incremental learning of independent, overlapping, and
+       graded concept descriptions with an instance-based process framework.
+       Manuscript submitted for publication.
+       -- Used same partition as Anderson & Kline
+       -- Described evidence that Bloom's classification confidence behavior
+	  is similar to the human subjects' behavior.  Bloom fitted the data
+	  more closely than did ACT. 
+
+4. Relevant Information:
+     This database contains 5 numeric-valued attributes.  Only a subset of
+     3 are used during testing (the latter 3).  Furthermore, only 2 of the
+     3 concepts are "used" during testing (i.e., those with the prototypes
+     000 and 111).  I've mapped all values to their zero-indexing equivalents.
+
+     Some instances could be placed in either category 0 or 1.  I've followed
+     the authors' suggestion, placing them in each category with equal
+     probability.
+
+     I've replaced the actual values of the attributes (i.e., hobby has values
+     chess, sports and stamps) with numeric values.  I think this is how 
+     the authors' did this when testing the categorization models described
+     in the paper.  I find this unfair.  While the subjects were able to bring
+     background knowledge to bear on the attribute values and their
+     relationships, the algorithms were provided with no such knowledge.  I'm
+     uncertain whether the 2 distractor attributes (name and hobby) are
+     presented to the authors' algorithms during testing.  However, it is clear
+     that only the age, educational status, and marital status attributes are
+     given during the human subjects' transfer tests.  
+    
+5. Number of Instances: 132 training instances, 28 test instances
+
+6. Number of Attributes: 5 plus the class membership attribute.  3 concepts.
+
+7. Attribute Information:
+      -- 1. name: distinct for each instance and represented numerically
+      -- 2. hobby: nominal values ranging between 1 and 3
+      -- 3. age: nominal values ranging between 1 and 4
+      -- 4. educational level: nominal values ranging between 1 and 4
+      -- 5. marital status: nominal values ranging between 1 and 4
+      -- 6. class: nominal value between 1 and 3
+
+9. Missing Attribute Values: none
+
+10. Class Distribution: see below
+
+11. Detailed description of the experiment:
+  1. 3 categories (1, 2, and neither -- which I call 3)
+     -- some of the instances could be classified in either class 1 or 2, and
+        they have been evenly distributed between the two classes
+  2. 5 Attributes
+     -- A. name (a randomly-generated number between 1 and 132)
+     -- B. hobby (a randomly-generated number between 1 and 3)
+     -- C. age (a number between 1 and 4)
+     -- D. education level (a number between 1 and 4)
+     -- E. marital status (a number between 1 and 4)
+  3. Classification: 
+     -- only attributes C-E are diagnostic; values for A and B are ignored
+     -- Class Neither: if a 4 occurs for any attribute C-E
+     -- Class 1: Otherwise, if (# of 1's)>(# of 2's) for attributes C-E
+     -- Class 2: Otherwise, if (# of 2's)>(# of 1's) for attributes C-E
+     -- Either 1 or 2: Otherwise, if (# of 2's)=(# of 1's) for attributes C-E
+  4. Prototypes:
+     -- Class 1: 111
+     -- Class 2: 222
+     -- Class Either: 333
+     -- Class Neither: 444  
+  5. Number of training instances: 132
+     -- Each instance presented 0, 1, or 10 times
+     -- None of the prototypes seen during training
+     -- 3 instances from each of categories 1, 2, and either are repeated 
+        10 times each
+     -- 3 additional instances from the Either category are shown during
+        learning
+  5. Number of test instances: 28
+     -- All 9 class 1
+     -- All 9 class 2
+     -- All 6 class Either
+     -- All 4 prototypes
+     --------------------
+     --    28 total
+
+Observations of interest:
+  1. Relative classification confidence of 
+     -- prototypes for classes 1 and 2 (2 instances)
+        (Anderson calls these Class 1 instances)
+     -- instances of class 1 with frequency 10 during training and
+        instances of class 2 with frequency 10 during training that
+        are 1 value away from their respective prototypes (6 instances)
+        (Anderson calls these Class 2 instances)
+     -- instances of class 1 with frequency 1 during training and 
+        instances of class 2 with frequency 1 during training that
+        are 1 value away from their respective prototypes (6 instances)
+        (Anderson calls these Class 3 instances)
+     -- instances of class 1 with frequency 1 during training and 
+        instances of class 2 with frequency 1 during training that
+        are 2 values away from their respective prototypes (6 instances)
+        (Anderson calls these Class 4 instances)
+ 2. Relative classification recognition of them also
+
+Some Expected results:
+   Both frequency and distance from prototype will effect the classification
+   accuracy of instances.  Greater the frequency, higher the classification
+   confidence.  Closer to prototype, higher the classification confidence.
