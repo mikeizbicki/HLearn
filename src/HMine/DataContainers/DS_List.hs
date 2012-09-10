@@ -187,7 +187,7 @@ instance DataLoaderCSV (DS_List String (LDPS String)) where
         ret <- loadData filedesc
         return $
             case ret of
-                Left msg -> error "$ show msg"
+                Left msg -> error $ show msg
                 Right x -> x
 
 -- | Lazily loads a file into a TrainingData type for use with the classification algorithms
@@ -224,7 +224,11 @@ csv2data filedesc csv = DS_List
     , dsLen = length dsL 
     }
     where
-        dsL = map (\x -> (last x, list2datapoints (datafileMissingStr filedesc) $ init x)) csv
+        dsL = map csv2ldps csv
+        csv2ldps row = case datafileLabelColumn filedesc of
+            LastC -> (last row, list2datapoints (datafileMissingStr filedesc) $ init row)
+            FirstC -> (head row, list2datapoints (datafileMissingStr filedesc) $ tail row)
+            IndexC x -> error "csv2data: Index x not implemented"
         labelL = extractLabelL dsL []
 
 list2datapoints :: Maybe String -> [String] -> [(Int,DataItem)]

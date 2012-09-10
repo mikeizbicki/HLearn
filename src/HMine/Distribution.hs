@@ -9,6 +9,7 @@ module HMine.Distribution
 
 import Control.DeepSeq
 import Control.Monad
+import Control.Monad.Random
 import Data.Binary
 import Data.Semigroup
 import Data.Number.LogFloat
@@ -146,6 +147,7 @@ instance Distribution DistContainer DataItem where
     
     drawSample (DistContainer dist) = drawSample dist
     drawSample (DistDiscrete dist) = drawSample dist
+    drawSample (UnknownDist) = return Missing
 --     serializationIndex dist = 0
         
 {-instance Binary DistContainer where

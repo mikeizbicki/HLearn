@@ -30,8 +30,12 @@ import HMine.Models.NBayes
 data AlgTreeParams = AlgTreeParams
     {
     }
+    deriving (Show, Read)
     
 defAlgTreeParams = AlgTreeParams
+
+instance NFData AlgTreeParams where
+    rnf params = ()
     
 -------------------------------------------------------------------------------
 -- AlgTree
