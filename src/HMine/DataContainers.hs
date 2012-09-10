@@ -100,10 +100,14 @@ instance Arbitrary (DataDesc Int) where
 class DataLoaderCSV dl where
     loadDataCSV :: DatafileDesc -> IO ({-Either String -}dl)
 
+data AttrIndex = FirstC | LastC | IndexC Int
+    deriving (Read,Show)
+
 -- | Describes the data file to be loaded
 data DatafileDesc = DatafileDesc
     { datafileName :: String -- ^ The path of the file to open 
-    , datafileTrueClass :: Maybe String -- ^ Currently, in order to use the binary classification algorithms you must specify which class label should be considered as True, and all the rest are considered False.
+    , datafileLabelColumn :: AttrIndex
+--     , datafileTrueClass :: Maybe String -- ^ Currently, in order to use the binary classification algorithms you must specify which class label should be considered as True, and all the rest are considered False.
     , datafileMissingStr :: Maybe String -- ^ This field specifies what symbol is used to represent missing data if present.  "?" is very common.
 --     , datafileForce :: Maybe [String -> DataItem]-- ^ If this is set to Nothing, then text fields will automatically be Discrete and numeric fields automatically be Continuous.  Occasionally, however, you want numeric fields to be discrete, so you would have to set this.
     }

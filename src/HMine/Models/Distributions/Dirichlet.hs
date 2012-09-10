@@ -9,6 +9,7 @@ import Control.DeepSeq
 import Data.List.Extras
 import Data.Number.LogFloat
 import Data.Semigroup
+import Debug.Trace
 
 import qualified Data.Map as Map
 import qualified Data.Foldable as F
@@ -32,6 +33,7 @@ instance NFData DirichletParams where
 
 data Dirichlet label = Dirichlet 
         { pdfmap :: Map.Map label Int
+        , desc :: Maybe (DataDesc label)
         } 
     deriving (Show,Read,Eq)
 
@@ -44,7 +46,7 @@ instance (NFData label) => NFData (Dirichlet label) where
 instance (Ord label) => Distribution (Dirichlet label) label where
     
     {-# INLINE add1sample #-}
-    add1sample dist label = Dirichlet $ Map.insertWith (+) label 1 (pdfmap dist)
+    add1sample dist label = dist { pdfmap=Map.insertWith (+) label 1 (pdfmap dist) }
 
     {-# INLINE pdf #-}
     pdf dist label = logFloat $ 0.0001+((fi val)/(fi tot)::Double)
@@ -64,14 +66,16 @@ instance (Ord label) => Distribution (Dirichlet label) label where
 -- Algebra
 
 instance (Label label) => Semigroup (Dirichlet label) where
-    (<>) d1 d2 = Dirichlet $ Map.unionWith (+) (pdfmap d1) (pdfmap d2)
+    (<>) d1 d2 = if (desc d1)==(desc d2)
+        then d1 {pdfmap=Map.unionWith (+) (pdfmap d1) (pdfmap d2)}
+        else error "Dirichlet.(<>): different DataDesc"
     
 instance (Label label) => Monoid (Dirichlet label) where
-    mempty = Dirichlet mempty
+    mempty = Dirichlet mempty Nothing
     mappend = (<>)
 
 instance (Label label) => Invertible (Dirichlet label) where
-    inverse d1 = Dirichlet $ Map.map (0-) (pdfmap d1)
+    inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
 
 
 -------------------------------------------------------------------------------
@@ -84,7 +88,7 @@ instance (OnlineTrainer DirichletParams (Dirichlet label) datatype label) =>
     trainBatch = trainOnline
 
 instance (Label label) => EmptyTrainer DirichletParams (Dirichlet label) label where
-    emptyModel desc modelparams = Dirichlet Map.empty
+    emptyModel desc modelparams = Dirichlet Map.empty (Just desc)
 
 instance (Label label) => OnlineTrainer DirichletParams (Dirichlet label) datatype label where
     add1dp desc modelparams model dps = return $ add1sample model $ fst dps
@@ -96,11 +100,10 @@ instance (Label label) => Classifier (Dirichlet label) datatype label where
     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
 instance (Label label) => ProbabilityClassifier (Dirichlet label) datatype label where
---     probabilityClassify :: model -> DPS -> [(label,Probability)]
-    probabilityClassify model dp = map (\k -> (k,pdf model k)) (Map.keys $ pdfmap model)
---         case (Map.toList $ dist model) of
---              [] -> map (\label -> (label,1/(fromIntegral $ length $ ))) $ labelL $ desc model
---              xs -> map (\(label,count) -> (label,logFloat $ (fromIntegral count/total))) xs
---         where
---             total = fromIntegral $ F.foldl' (+) 0 (pdfmap model)::Double
--- 
+    probabilityClassify model dp = --trace "DirichletPC" $
+        case Map.keys $ pdfmap model of
+            [] -> trace "WARNING: ProbabilityClassifier: empty Dirichlet" $ 
+                case desc model of
+                    Nothing -> error "probabilityClassify: empty Dirichlet and empty DataDesc"
+                    Just desc -> map (\label -> (label,1/(fromIntegral $ numLabels desc))) $ labelL desc
+            xs -> map (\k -> (k,pdf model k)) xs

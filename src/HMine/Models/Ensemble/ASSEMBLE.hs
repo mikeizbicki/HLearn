@@ -41,11 +41,11 @@ data ASSEMBLEParams unweightedparams weightedparams = ASSEMBLEParams
     }
     deriving (Show,Read,Eq)
     
-defAdaBoostParams = TrainerSS2Trainer $ ASSEMBLEParams
-    { rounds = 25
+defAdaBoostParams baseparams = TrainerSS2Trainer $ ASSEMBLEParams
+    { rounds = 50
     , beta = 1
     , unweightedParams = DirichletParams
-    , weightedParams = Trainer2WeightedTrainer 0.5 defDStumpParams
+    , weightedParams = Trainer2WeightedTrainer 0.5 baseparams
     }
     
 defASSEMBLEParams = ASSEMBLEParams

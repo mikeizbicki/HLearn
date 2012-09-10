@@ -97,7 +97,7 @@ findSplitAttr xs = {-trace ("sp="++show sp++", xs'="++show xs') -}ret
     where 
         ret = (index,fst sp)
         xs' = map findSplitPoint xs        
-        sp = {-head xs'---} argmax snd xs'
+        sp = argmax snd xs'
         index = case elemIndex sp xs' of
                      Just i -> i
                      Nothing -> error "findSplitAttr: something horrible has happened."
@@ -126,8 +126,11 @@ findSplitPointC xs =
     case condensed of
          [] -> error "findSplitPoint: condensed empty"
          x:[] -> ([(LT,snd x),(GT,snd x)],0) -- error "findSplitPoint: condensed 1 elem"
-         otherwise -> let tmp = [[take i condensed, drop i condensed] | i<-[1..length condensed-1]]
-                          in trace ("attr="++(show $ map (infoGain xs) tmp)) $ split2splitpoint $ argmaxWithMax (infoGain xs)  tmp
+--          otherwise -> let tmp = [[take i condensed, drop i condensed] | i<-[1..length condensed-1]]
+         otherwise -> let tmp = [[take i condensed, drop i condensed] | i<-[1..length condensed-2]]
+                          in -- trace ("attr="++(show $ map (infoGain xs) tmp)) $ 
+                             split2splitpoint $ argmaxWithMax (infoGain xs) tmp
+                             
     where
 --         traceInfoGain = let out=infoGain xs
 --                             in trace ("ig="++show out) $ out
@@ -176,8 +179,9 @@ lg x = log x / log 2
 -------------------------------------------------------------------------------
 -- Classifying
 
-instance (ProbabilityClassifier leafmodel DPS label) => Classifier (DTree leafmodel label) DPS label where
-    classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
+instance (ProbabilityClassifier leafmodel DPS label, Show leafmodel) => Classifier (DTree leafmodel label) DPS label where
+    classify model dp = {-trace (show xs) $ trace (show model) $ trace (show dp) $-} fst $ argmax snd xs
+        where xs=probabilityClassify model dp
 
 -- instance (Classifier model label) => Classifier (DTree model label) label where
 --     classify (DLeaf model) dp = classify model dp
