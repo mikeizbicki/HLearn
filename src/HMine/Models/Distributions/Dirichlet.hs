@@ -43,7 +43,7 @@ instance (NFData label) => NFData (Dirichlet label) where
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (Ord label) => Distribution (Dirichlet label) label where
+instance (Label label) => Distribution (Dirichlet label) label where
     
     {-# INLINE add1sample #-}
     add1sample dist label = dist { pdfmap=Map.insertWith (+) label 1 (pdfmap dist) }

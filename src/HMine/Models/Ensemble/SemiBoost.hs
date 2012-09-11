@@ -116,7 +116,7 @@ instance
                     
                     -- iterate
                     let ens' = pushClassifier (alpha,model) ens
-                    trace ("itr="++show itr++", l/u="++show l++"/"++show u++", accuracy="++show (accuracy ens' lds)++", alpha="++show alpha++", err="++show err)
+                    trace ("itr="++show itr++", l/u="++show l++"/"++show u++", accuracy="++show (measure Accuracy ens' lds)++", alpha="++show alpha++", err="++show err)
                         $ go (itr+1) ens'
 
 similarityDPS :: DPS -> DPS -> Double

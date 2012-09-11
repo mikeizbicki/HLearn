@@ -78,7 +78,7 @@ instance (Show model, Show modelparams, Classifier model DPS label, {-Weighted-}
                                          | (_Di, (label,dp)) <- zip _D $ getDataL ds
                                          ]
                         
-                    trace ("itr="++show itr++", accuracy="++show (accuracy ens' ds)++", err="++show err++", extra="++show (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1))
+                    trace ("itr="++show itr++", accuracy="++show (measure Accuracy ens' ds)++", err="++show err++", extra="++show (log $ (fromIntegral $ numLabels $ getDataDesc ds)-1))
 --                         $ trace ("  -> sum_D ="++show (sum _D)++", _D="++show (take 10 _D))
 --                         $ trace ("  -> sum_D'="++show (sum _D')++", (y,_D')="++show (take 10 $ zip (map fst $ getDataL ds) _D'))
 --                         $ trace "" 

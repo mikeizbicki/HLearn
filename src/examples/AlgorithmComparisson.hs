@@ -13,6 +13,7 @@ import HMine.Math.Functors
 import HMine.Math.TypeClasses
 import HMine.Models.AlgTree
 import HMine.Models.Distributions.Dirichlet
+import HMine.Models.Distributions.Gaussian as Gaussian
 import HMine.Models.DTree
 import HMine.Models.KNN
 import HMine.Models.NBayes
@@ -26,10 +27,10 @@ import HMine.Models.Ensemble.SemiBoost
             
 main = do
     let datafileL = 
-            [ {-DatafileDesc "../../datasets/uci/abalone.data"   FirstC  Nothing
+            [{- DatafileDesc "../../datasets/uci/abalone.data"   FirstC  Nothing
             , DatafileDesc "../../datasets/uci/adult.data"     LastC   $ Just "?"
             , DatafileDesc "../../datasets/uci/anneal.data"     LastC   $ Just "?"
---             , DatafileDesc "../../datasets/uci/arrhythmia.data"     LastC   $ Just "?"
+--             , DatafileDesc "../../datasets/uci/arrhythmia.data"     LastC   $ Just "?" 
             , DatafileDesc "../../datasets/uci/audiology.standardized.data"     LastC   $ Just "?"
             , DatafileDesc "../../datasets/uci/balance-scale.data"     FirstC   Nothing
 --             , DatafileDesc "../../datasets/uci/bank-full.csv.modified"     LastC   Nothing
@@ -38,8 +39,8 @@ main = do
 --             , DatafileDesc "../../datasets/uci/wdbc.data"     LastC   $ Just "?"
             , DatafileDesc "../../datasets/uci/wpbc.data"     LastC   $ Just "?"
 --             , DatafileDesc "../../datasets/uci/car.data"     LastC   $ Just "?"
-            , DatafileDesc "../../datasets/uci/krkopt.data"     LastC   $ Nothing
-            , DatafileDesc "../../datasets/uci/kr-vs-kp.data"     LastC   $ Nothing
+ *           , DatafileDesc "../../datasets/uci/krkopt.data"     LastC   $ Nothing
+ *           , DatafileDesc "../../datasets/uci/kr-vs-kp.data"     LastC   $ Nothing
 --             , DatafileDesc "../../datasets/uci/CNAE-9.data"     FirstC   $ Nothing
             , DatafileDesc "../../datasets/uci/house-votes-84.data"     FirstC   $ Just "?"
             , DatafileDesc "../../datasets/uci/sonar.all-data"     LastC   $ Nothing
@@ -51,14 +52,14 @@ main = do
 --             , DatafileDesc "../../datasets/uci/ecoli.data"     FirstC   $ Nothing
             , DatafileDesc "../../datasets/uci/glass.data"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/haberman.data"     LastC   $ Nothing
-            , DatafileDesc "../../datasets/uci/hayes-roth.data"     LastC   $ Nothing
+ *           , DatafileDesc "../../datasets/uci/hayes-roth.data"     LastC   $ Nothing
 --             , DatafileDesc "../../datasets/uci/hepatitis.data"     LastC   $ Just "?"
 --             , DatafileDesc "../../datasets/uci/Indian Liver Patient Dataset (ILPD).csv"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/segmentation.data"     FirstC   $ Nothing
             , DatafileDesc "../../datasets/uci/ionosphere.data"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/iris.data"     LastC   $ Nothing
-            , DatafileDesc "../../datasets/uci/letter-recognition.data"     FirstC   $ Nothing
-            , DatafileDesc "../../datasets/uci/movement_libras.data"     LastC   $ Nothing
+ *           , DatafileDesc "../../datasets/uci/letter-recognition.data"     FirstC   $ Nothing
+            , -}DatafileDesc "../../datasets/uci/movement_libras.data"     LastC   $ Nothing
 --             , DatafileDesc "../../datasets/uci/lung-cancer.data"     LastC   $ Just "?"
             , DatafileDesc "../../datasets/uci/magic04.data"     LastC   $ Nothing
 --             , DatafileDesc "../../datasets/uci/mammographic_masses.data"     LastC   $ Just "?"
@@ -73,11 +74,11 @@ main = do
 --             , DatafileDesc "../../datasets/uci/post-operative.data"     LastC   $ Just "?"
             , DatafileDesc "../../datasets/uci/soybean-large.data"     FirstC   $ Just "?"
             , DatafileDesc "../../datasets/uci/spambase.data"     LastC   $ Nothing
---?             , DatafileDesc "../../datasets/uci/SPECT.train"     FirstC   $ Nothing 
+-- ?             , DatafileDesc "../../datasets/uci/SPECT.train"     FirstC   $ Nothing 
             , DatafileDesc "../../datasets/uci/SPECTF.train"     FirstC   $ Nothing
---?             ,-} DatafileDesc "../../datasets/uci/australian.dat"     LastC   $ Nothing {-
+-- ?             , DatafileDesc "../../datasets/uci/australian.dat"     LastC   $ Nothing 
             , DatafileDesc "../../datasets/uci/german.data"     LastC   $ Nothing
---?             , DatafileDesc "../../datasets/uci/heart.dat"     LastC   $ Nothing
+-- ?             , DatafileDesc "../../datasets/uci/heart.dat"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/segment.dat"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/sat.trn"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/shuttle.tst"     LastC   $ Nothing
@@ -93,7 +94,7 @@ main = do
 --             , DatafileDesc "../../datasets/uci/winequality-white.data"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/yeast.data"     LastC   $ Nothing
             , DatafileDesc "../../datasets/uci/zoo.data"     LastC   $ Nothing
--}            ]
+            ]
         
 --     let algparamsL = 
 --             [ ParamsBox defAlgTreeParams
@@ -101,10 +102,10 @@ main = do
 --             ]
     
     let params1 = defAdaBoostParams defAlgTreeParams
-    let params2 = {-defAdaBoostParams-} defDStumpParams
+    let params2 = defAdaBoostParams defDStumpParams
     
     hout <- openFile "output.csv" AppendMode
-    hPutStrLn hout "Filename, num attributes, num labels, num items|alg1 accuracy%,alg1stddev|alg2 accuracy%,alg2stddev"
+--     hPutStrLn hout "Filename, num attributes, num labels, num items|alg1 accuracy%,alg1stddev|alg2 accuracy%,alg2stddev"
     mapM_ (\datafile -> compareAlgorithms datafile hout params1 params2) $ {-take 2-} datafileL
     hClose hout
 
@@ -131,7 +132,7 @@ compareAlgorithms datafile hout params1 params2 = do
 --     putStrLn $ "CM = " ++ show (genConfusionMatrix model dsint)
 --     print model
 
---     testmodel params1 dsint
+    testmodel params1 dsint
     testmodel params2 dsint
     
     hPutStrLn hout ""
@@ -140,7 +141,8 @@ compareAlgorithms datafile hout params1 params2 = do
     where
         testmodel params ds = do
             putStrLn $ "Testing " ++ show params
-            let (acc,acc_stddev) = runHMine 0 $ crossValidation accuracy (Trainer2TrainerSS params) ds 0.08 1 10
+            let gaussian = runHMine 0 $ crossValidation Accuracy (Trainer2TrainerSS params) ds 0.08 1 10
+            let (acc,acc_stddev) = (Gaussian.mean gaussian, Gaussian.varianceSample gaussian)
             putStrLn $ "accuracy = " ++ show acc ++ ", acc_stddev=" ++ show acc_stddev
             hPutStr hout $ show acc ++ "," ++ show acc_stddev++","
 
