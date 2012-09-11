@@ -36,7 +36,12 @@ import HMine.Models.Distributions.Poisson
 
 newtype MaybeDistribution basedist = MaybeDistribution basedist
     deriving (Eq,Show,Read)
-    
+
+instance (Monoid basedist) => Monoid (MaybeDistribution basedist)
+    where 
+        mempty = MaybeDistribution mempty
+        mappend (MaybeDistribution d1) (MaybeDistribution d2) = MaybeDistribution $ d1 `mappend` d2
+
 instance (Distribution basedist datatype) => Distribution (MaybeDistribution basedist) (Maybe datatype) where
     add1sample (MaybeDistribution basedist) dp = case dp of
         Nothing -> MaybeDistribution $ basedist
@@ -63,6 +68,7 @@ newtype ContinuousDistribution basedist = ContinuousDistribution (MaybeDistribut
     
 instance 
     ( Distribution (MaybeDistribution basedist) (Maybe Double)
+    , Monoid basedist
     ) => 
     Distribution (ContinuousDistribution basedist) DataItem 
         where

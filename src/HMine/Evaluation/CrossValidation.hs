@@ -18,7 +18,7 @@ import Control.Monad.ST
 import Data.Array.ST
 import Data.Binary
 import Data.List
-import Data.Monoid
+import Data.Semigroup
 import Debug.Trace
 import System.IO
 import System.IO.Unsafe
@@ -32,56 +32,72 @@ import HMine.Models.Ensemble
 
 -------------------------------------------------------------------------------
 
-class (NFData a) => Averageable a where
-    ave :: [a] -> (a,a)
-    
-instance Averageable Double where
-    ave = meanstddev
-    
-instance Averageable [Double] where
-    ave xs = (map mean $ transpose xs, map stddev $ transpose xs)
+-- newtype Box inside = Box inside
+-- 
+-- instance (AverageableSemigroup Box
 
-meanstddev :: (Floating a) => [a] -> (a,a)
-meanstddev xs = (mean xs, stddev xs)
+-- class (NFData a) => Averageable a where
+--     ave :: [a] -> (a,a)
+--     
+-- instance Averageable Double where
+--     ave = meanstddev
+--     
+-- instance Averageable [Double] where
+--     ave xs = (map mean $ transpose xs, map stddev $ transpose xs)
+-- 
+-- meanstddev :: (Floating a) => [a] -> (a,a)
+-- meanstddev xs = (mean xs, stddev xs)
+
+-- newtype MetricBox = MetricBox
+--     { ave :: Double
+--     , stddev :: Double
+--     , count :: Int
+--     }
+--           
+-- instance Semigroup MetricBox where
+--     (<>) m1 m2 = MetricBox
+--         { ave=(ave m1 + ave m2)/(fi $ count m1 + count m2)
+--         , stddev=(stddev m1 + stddev m2)/(fi $ count m1 + count m2)
+--         , count= (count m1)+(count m2)
+--         }
+
 
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
 crossValidation :: 
     ( NFData model
-    , Averageable measure
+    , NFData outtype
+    , Semigroup outtype
     , DataSparse label ds label
-    , DataSparse label ds datatype
-    , DataSparse label ds (Labeled datatype label)
-    , DataSparse label ds (Weighted (Labeled datatype label))
-{-    , DataSparse label ds label
     , DataSparse label ds DPS
-    , DataSparse label ds (LDPS label)
-    , DataSparse label ds (WLDPS label)-}
-    , BatchTrainerSS modelparams model datatype label
+    , DataSparse label ds (Labeled DPS label)
+    , DataSparse label ds (Weighted (Labeled DPS label))
+    , DataSparse label ds [(label,Probability)]
+    , BatchTrainerSS modelparams model DPS label
+    , Metric metric model ds label outtype
     ) =>
-     (model -> ds (Labeled datatype label) -> measure)
+     metric
      -> modelparams
-     -> ds (Labeled datatype label)
+     -> ds (Labeled DPS label)
      -> Double
      -> Double
      -> Int
-     -> HMine (measure,measure)
-crossValidation metric modelparams inputdata trainingRatio labeledRatio rounds = do
-    res <- sequence [ do
-            (trainingdata,testdata) <- randSplit trainingRatio inputdata
-            (lds,uds) <- randSplit labeledRatio trainingdata
-            let uds' = fmap snd uds
-            model <- trainBatchSS modelparams lds uds'
-            return $ deepseq model $ metric model testdata
-        | i <- [1..rounds]
-        ]
-    return $ ave res
+     -> HMine outtype
+crossValidation metric modelparams inputdata trainingRatio labeledRatio rounds = foldl1' (<>) $
+    [ do
+        (trainingdata,testdata) <- randSplit trainingRatio inputdata
+        (lds,uds) <- randSplit labeledRatio trainingdata
+        let uds' = fmap snd uds
+        model <- trainBatchSS modelparams lds uds'
+        return $ deepseq model $ measure metric model testdata
+    | i <- [1..rounds]
+    ]
 
 -------------------------------------------------------------------------------
 -- Monoidal cross validation
 
-crossValidation_monoidal ::
+{-crossValidation_monoidal ::
     ( MutableTrainer modelparams model modelST label
     , ProbabilityClassifier model DPS label
     , Monoid model
@@ -108,5 +124,5 @@ crossValidation_monoidal modelparams lds folds = [logloss (modelItr modelL i) (t
 --         testdata ldsL itr = ldsL !! itr
 
         modelItr :: (Monoid model) => [model] -> Int -> model
-        modelItr modelL itr = mconcat $ map snd $ filter ((/=) itr . fst) $ zip [0..] modelL
+        modelItr modelL itr = mconcat $ map snd $ filter ((/=) itr . fst) $ zip [0..] modelL-}
             

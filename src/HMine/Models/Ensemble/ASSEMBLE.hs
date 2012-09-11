@@ -75,8 +75,6 @@ instance
         where
 
     trainBatchSS params@(ASSEMBLEParams rounds beta unweightedParams weightedParams) lds uds = do
-        let desc = getDataDesc lds
-            
         -- step 1,2: initialize weights
         let _D1_l = replicate l (beta / fi l)
         let _D1_u = replicate u ((1-beta) / fi u)
@@ -94,6 +92,7 @@ instance
         where 
             l = getNumObs lds
             u = getNumObs uds
+            desc = getDataDesc lds
             
             go !itr !ens !model !lds !_D
                 | itr > rounds = return ens
@@ -108,7 +107,11 @@ instance
                     -- step 8
                     
                     -- step 9
-                    let w = (1/2) * (log $ (1-err)/err)
+                    let w_binary = (1/2)*(log $ (1-err)/err) 
+                    let w_adj    = (log $ (fromIntegral $ numLabels desc)-1)
+                    let w        = w_binary+w_adj
+
+--                     let w = (1/2) * (log $ (1-err)/err)
                         
                     -- step 10
                     let ens' = pushClassifierNorm (w,model) ens
@@ -136,5 +139,5 @@ instance
                     model' <- trainBatchW weightedParams wlds
                         
                     -- iterate
-                    trace ("itr="++show itr++", l/u="++show l++"/"++show u++", accuracy="++show (accuracy ens' lds)++", w="++show w++", err="++show err)
+                    trace ("itr="++show itr++", l/u="++show l++"/"++show u++", accuracy="++show (measure Accuracy ens' lds)++", w="++show w++", err="++show err)
                         $ go (itr+1) ens' model' lds' _D'

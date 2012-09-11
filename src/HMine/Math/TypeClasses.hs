@@ -45,7 +45,10 @@ class ModelParams modelparams where
 -------------------------------------------------------------------------------
 -- Distribution
           
-class Distribution dist datatype | dist -> datatype where
+class (Monoid dist) => Distribution dist datatype | dist -> datatype where
+    train1sample :: datatype -> dist
+    train1sample dp = add1sample mempty dp
+    
     add1sample :: dist -> datatype -> dist
     pdf :: dist -> datatype -> LogFloat
     cdf :: dist -> datatype -> LogFloat
