@@ -13,6 +13,7 @@ import Control.Monad
 import Control.Parallel.Strategies
 import Data.List
 import Data.List.Extras
+import Debug.Trace
           
 import HMine.Base
 import HMine.DataContainers
@@ -20,6 +21,41 @@ import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
 import HMine.Models.Ensemble
+
+-------------------------------------------------------------------------------
+-- DataDivider
+
+data DataDivider modelparams = DataDivider Double modelparams
+
+instance (NFData modelparams) => NFData (DataDivider modelparams) where
+    rnf (DataDivider divisor modelparams) = rnf modelparams
+    
+instance (BatchTrainer modelparams model datatype label) => 
+    BatchTrainer (DataDivider modelparams) model datatype label
+        where
+        
+    trainBatch (DataDivider divisor modelparams) ds = trainBatch modelparams $ takeFirst len ds
+        where len = round $ (fi $ getNumObs ds)/divisor
+    
+
+-------------------------------------------------------------------------------
+-- DebugFunctors
+
+newtype DebugFunctor modelparams = DebugFunctor modelparams
+    deriving (Show,Read,Eq)
+
+instance (NFData modelparams) => NFData (DebugFunctor modelparams) where
+    rnf (DebugFunctor modelparams) = rnf modelparams
+    
+instance (BatchTrainer modelparams model datatype label) => 
+    BatchTrainer (DebugFunctor modelparams) model datatype label
+        where
+        
+    trainBatch (DebugFunctor modelparams) ds = 
+        trace "DebugFunctor.trainBatch:" $
+        trace (" >> datadesc="++(show $ getDataDesc ds)) $
+        trace (" >> numObs="++(show $ getNumObs ds)) $
+        trainBatch modelparams ds
 
 -------------------------------------------------------------------------------
 -- Semigroups
@@ -32,14 +68,14 @@ data SemigroupTrainer modelparams = SemigroupTrainer
     }
     deriving (Read,Show,Eq)
 
-defSemigroup numsg modelparams = SemigroupTrainer
+defSemigroupTrainer numsg modelparams = SemigroupTrainer
     { numSemigroups = numsg
     , ldsRedundancy = 1
     , udsRedundancy = 1
     , sgModelParams = modelparams
     }
 
-defSemigroupSS numsg modelparams = SemigroupTrainer
+defSemigroupTrainerSS numsg modelparams = SemigroupTrainer
     { numSemigroups = numsg
     , ldsRedundancy = numsg
     , udsRedundancy = 1
@@ -56,6 +92,15 @@ instance (NFData model, Semigroup model, BatchTrainerSS modelparams model dataty
             ldsL = splitdsRedundantSimple numsg ldsredun lds
             udsL = splitdsRedundantSimple numsg udsredun uds
 
+instance (NFData model, Semigroup model, BatchTrainer modelparams model datatype label) => 
+    BatchTrainer (SemigroupTrainer modelparams) model datatype label 
+        where
+              
+    trainBatch (SemigroupTrainer numsg ldsredun udsredun modelparams) lds = 
+        reduce $ map (trainBatch modelparams) ldsL
+        where                
+            ldsL = splitdsRedundantSimple numsg ldsredun lds
+
 reduce :: (Semigroup sg) => [sg] -> sg
 reduce [x] = x
 reduce xs  = reduce $ reducestep xs
@@ -67,12 +112,6 @@ reducestep (x:y:xs) = runEval $ do
     z  <- rpar $ (x<>y)
     zs <- rseq $ reducestep xs
     return $ z:zs
-
-newtype Fun = Fun Int
-    deriving (Read,Show)
-    
-instance Semigroup Fun where
-    (<>) (Fun x) (Fun y) = Fun (x+y)
 
 -------------------------------------------------------------------------------
 -- Voting Semigroups
@@ -127,8 +166,11 @@ instance (BatchTrainer modelparams model datatype label) =>
           
     trainBatchSS (Trainer2TrainerSS modelparams) lds uds = trainBatch modelparams lds
 
-data TrainerSS2Trainer modelpatams = TrainerSS2Trainer { tsstModelPatams :: modelpatams }
+data TrainerSS2Trainer modelparams = TrainerSS2Trainer { tsstModelPatams :: modelparams }
     deriving (Read,Show,Eq)
+
+instance (NFData modelparams) => NFData (TrainerSS2Trainer modelparams) where
+    rnf (TrainerSS2Trainer modelparams) = rnf modelparams
 
 instance (BatchTrainerSS modelparams model datatype label) => 
     BatchTrainer (TrainerSS2Trainer modelparams) model datatype label
@@ -192,12 +234,12 @@ instance
 -------------------------------------------------------------------------------
 -- Classifier Conversion
 
-data ProbabilityClassifier2Classifier model = ProbabilityClassifier2Classifier { straightModel :: model }
-
-instance (ProbabilityClassifier model datatype label) => 
-    Classifier (ProbabilityClassifier2Classifier model) datatype label 
-        where
-    classify = straightClassify . straightModel
+-- data ProbabilityClassifier2Classifier model = ProbabilityClassifier2Classifier { straightModel :: model }
+-- 
+-- instance (ProbabilityClassifier model datatype label) => 
+--     Classifier (ProbabilityClassifier2Classifier model) datatype label 
+--         where
+--     classify = straightClassify . straightModel
 
 -- instance (ProbabilityClassifier model label) => Classifier model label where
 --     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp

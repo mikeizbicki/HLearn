@@ -18,7 +18,7 @@ import qualified Data.Map as Map
 import HMine.Base
 import HMine.DataContainers
 import HMine.Math.TypeClasses
-import HMine.Models.Distributions.Gaussian
+import HMine.Models.Distributions
 import HMine.Models.Ensemble
                  
 -------------------------------------------------------------------------------
@@ -62,10 +62,10 @@ instance( Classifier model DPS label
         , DataSparse label ds (UDPS label)
         , DataSparse label ds label
         ) => 
-    Metric Accuracy model ds label Gaussian 
+    Metric Accuracy model ds label (Gaussian Double)
         where
         
-    measure metricparams model testdata = train1sample $ (foldl1' (+) zipL)/(fromIntegral $ length zipL)
+    measure metricparams model testdata = train1sample ((foldl1' (+) zipL)/(fromIntegral $ length zipL) :: Double)
         where
             zipL = map (\(a,b) -> indicator $ a==b) $ zip (map fst $ getDataL testdata) (getDataL $ fmap (classify model) (lds2uds testdata))
 
@@ -80,10 +80,11 @@ instance
     , DataSparse label ds label
     , DataSparse label ds [(label,Probability)]
     ) => 
-    Metric LogLoss model ds label Gaussian 
+    Metric LogLoss model ds label (Gaussian Double)
         where
               
-    measure metricparams model testdata = train1sample $ logloss' testdata $ fmap (probabilityClassify model) (lds2uds testdata)
+    measure metricparams model testdata = 
+        train1sample $ (logloss' testdata $ fmap (dist2list . probabilityClassify model) (lds2uds testdata) :: Double)
         where
             logloss' lds pds = -(1/(fromIntegral $ numLabels $ getDataDesc lds))*(foldl1' (+) zipL)
                 where

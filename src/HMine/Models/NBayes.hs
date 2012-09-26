@@ -36,7 +36,8 @@ import HMine.Distribution
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
-import HMine.Models.Distributions.Dirichlet
+import HMine.Models.Distributions.Common
+import HMine.Models.Distributions.Categorical
 
 -------------------------------------------------------------------------------
 -- NBayesParams
@@ -54,7 +55,7 @@ defNBayesParams = NBayesParams
 
 data NBayes label = NBayes
     { dataDesc :: !(DataDesc label)
-    , labelDist :: !(Dirichlet label)
+    , labelDist :: !(Categorical label)
     , attrDist :: !(V.Vector (V.Vector DistContainer)) -- ^ The inner vector corresponds to attributes and the outer vector labels
     }
     deriving (Read,Show,Eq)
@@ -65,7 +66,7 @@ getDist nb attrI label = (attrDist nb) V.! label V.! attrI
 labelProb :: NBayes Int -> Int -> LogFloat
 labelProb = pdf . labelDist
     
-instance Model (NBayes label) label where
+instance (Label label) => Model (NBayes label) label where
     datadesc = dataDesc
 
 instance (NFData label) => NFData (NBayes label) where
@@ -122,11 +123,12 @@ instance OnlineTrainer NBayesParams (NBayes Int) DPS Int where
 -------------------------------------------------------------------------------
 -- Classification
 
-instance Classifier (NBayes Int) DPS Int where
-    classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
+-- instance Classifier (NBayes Int) DPS Int where
+--     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
 
 instance ProbabilityClassifier (NBayes Int) DPS Int where
-    probabilityClassify nb dp =  normedAnswer
+    probabilityClassify nb dp = trainSamples answer
+        {-normedAnswer-}
         where
             labelProbGivenDp label = (labelProbGivenNothing label)*(dpProbGivenLabel label)
             labelProbGivenNothing label = pdf (labelDist nb) label
@@ -136,27 +138,4 @@ instance ProbabilityClassifier (NBayes Int) DPS Int where
             answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
             normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]
 
-{--------------------------------------------------------------------------------
--- PartialBayes
-
-data PartialBayes label = PartialBayes 
-    { nbayes :: (NBayes label)
-    , attrL :: [Int]
-    }
-
-instance Classifier (PartialBayes Int) DPS Int where
-    classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
-
-instance ProbabilityClassifier (PartialBayes Int) DPS Int where
-    probabilityClassify (PartialBayes nb attrL) dpinput = normedAnswer
-        where
-            dp = filter (\(attrI,di)->attrI `elem` attrL) dpinput
-              
-            labelProbGivenDp label = (labelProbGivenNothing label)*(dpProbGivenLabel label)
-            labelProbGivenNothing label = pdf (labelDist nb) label
-            dpProbGivenLabel label = foldl (*) (logFloat (1::Double)) (attrProbL label)
-            attrProbL label = [ pdf (attrDist nb V.! label V.! attrIndex) di | (attrIndex,di) <- dp]
-
-            answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
-            normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]-}
     

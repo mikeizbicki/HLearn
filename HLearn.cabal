@@ -32,7 +32,6 @@ Library
                         containers,
                         statistics,
                         MonadRandom,
-                        vector-space,
                         ansi-terminal,
                         parsec,
                         QuickCheck,

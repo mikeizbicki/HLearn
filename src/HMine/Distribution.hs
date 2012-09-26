@@ -24,13 +24,11 @@ import qualified Data.Map as Map
 
 import Prelude hiding (log)
 
-import HMine.Base hiding (mean,stddev,var)
+import HMine.Base 
 import HMine.DataContainers
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
-import HMine.Models.Distributions.Dirichlet
-import HMine.Models.Distributions.Gaussian
-import HMine.Models.Distributions.Poisson
+import HMine.Models.Distributions
 
 -------------------------------------------------------------------------------
 
@@ -42,11 +40,12 @@ instance (Monoid basedist) => Monoid (MaybeDistribution basedist)
         mempty = MaybeDistribution mempty
         mappend (MaybeDistribution d1) (MaybeDistribution d2) = MaybeDistribution $ d1 `mappend` d2
 
-instance (Distribution basedist datatype) => Distribution (MaybeDistribution basedist) (Maybe datatype) where
+instance (DistributionEstimator basedist datatype) => DistributionEstimator (MaybeDistribution basedist) (Maybe datatype) where
     add1sample (MaybeDistribution basedist) dp = case dp of
         Nothing -> MaybeDistribution $ basedist
         Just x  -> MaybeDistribution $ add1sample basedist x
 
+instance (Distribution basedist datatype) => Distribution (MaybeDistribution basedist) (Maybe datatype) where
     pdf (MaybeDistribution basedist) dp = case dp of
         Nothing -> 1
         Just x  -> pdf basedist x
@@ -65,7 +64,20 @@ instance (Distribution basedist datatype) => Distribution (MaybeDistribution bas
     
 newtype ContinuousDistribution basedist = ContinuousDistribution (MaybeDistribution basedist)
     deriving (Eq,Show,Read)
-    
+
+instance 
+    ( DistributionEstimator (MaybeDistribution basedist) (Maybe Double)
+    , Monoid basedist
+    ) => 
+    DistributionEstimator (ContinuousDistribution basedist) DataItem 
+        where
+
+    add1sample (ContinuousDistribution basedist) dp = case dp of
+        Missing      -> ContinuousDistribution $ add1sample basedist (Nothing :: Maybe Double)
+        Continuous x -> ContinuousDistribution $ add1sample basedist $ Just x
+        Discrete   x -> error "ContinuousDistribution.add1sample: cannot add discrete"
+        
+
 instance 
     ( Distribution (MaybeDistribution basedist) (Maybe Double)
     , Monoid basedist
@@ -73,11 +85,6 @@ instance
     Distribution (ContinuousDistribution basedist) DataItem 
         where
               
-    add1sample (ContinuousDistribution basedist) dp = case dp of
-        Missing      -> ContinuousDistribution $ add1sample basedist (Nothing :: Maybe Double)
-        Continuous x -> ContinuousDistribution $ add1sample basedist $ Just x
-        Discrete   x -> error "ContinuousDistribution.add1sample: cannot add discrete"
-        
     pdf (ContinuousDistribution basedist) dp = case dp of
         Missing      -> pdf basedist (Nothing :: Maybe Double)
         Continuous x -> pdf basedist $ Just x
@@ -114,8 +121,8 @@ instance (Monoid basedist) => Monoid (ContinuousDistribution basedist) where
 -- DistContainer
    
 data DistContainer = UnknownDist
-                   | DistContainer (ContinuousDistribution Gaussian)
-                   | DistDiscrete (Dirichlet DataItem)
+                   | DistContainer (ContinuousDistribution (Gaussian Double))
+                   | DistDiscrete (Categorical DataItem)
 --                    | DistContainer Poisson
     deriving (Show,Read,Eq)
 
@@ -130,15 +137,17 @@ instance Invertible DistContainer where
     inverse UnknownDist = UnknownDist
     inverse (DistContainer x) = DistContainer $ inverse x
 
-instance Distribution DistContainer DataItem where
+instance DistributionEstimator DistContainer DataItem where
     {-# INLINE add1sample #-}
     add1sample UnknownDist di = 
         case di of
              Missing -> trace "Distribution.add1sample: Warning, cannot determine which type of distribution to select." UnknownDist
-             Discrete x -> DistDiscrete $ add1sample (mempty::Dirichlet DataItem) di
-             Continuous x -> DistContainer $ add1sample (mempty{-:: ContinuousDistribution Gaussian-}) di
+             Discrete x -> DistDiscrete $ add1sample (mempty::Categorical DataItem) di
+             Continuous x -> DistContainer $ add1sample (mempty{-:: ContinuousDistribution (Gaussian Double)-}) di
     add1sample (DistContainer dist) di = DistContainer $ add1sample dist di
     add1sample (DistDiscrete dist) di = DistDiscrete $ add1sample dist di
+
+instance Distribution DistContainer DataItem where
 
     {-# INLINE pdf #-}
     pdf UnknownDist _ = trace "Distribution.pdf: Warning sampling from an UnkownDist" 0.3
@@ -186,12 +195,12 @@ instance NFData DistContainer where
 --     
 --     {-# INLINE add1sample #-}
 --     add1sample d Missing = DiscretePDF $ Map.insertWith (+) (Nothing) 1 (pdf d)
---     add1sample d (Discrete x) = DiscretePDF $ Map.insertWith (+) (Just x) 1 (pdf d) -- error "add1sample: cannot add discrete DataItem to Gaussian"
+--     add1sample d (Discrete x) = DiscretePDF $ Map.insertWith (+) (Just x) 1 (pdf d) -- error "add1sample: cannot add discrete DataItem to (Gaussian Double)"
 --     add1sample d (Continuous x) = error "add1sample: cannot add continuous DataItem to DiscretePDF"
 -- 
 --     {-# INLINE pdf #-}
 --     pdf d Missing = getProb Nothing $ pdf d
---     pdf d (Discrete x) = getProb (Just x) $ pdf d--error "pdf: cannot sample a discrete DataItem from a Gaussian"
+--     pdf d (Discrete x) = getProb (Just x) $ pdf d--error "pdf: cannot sample a discrete DataItem from a (Gaussian Double)"
 --     pdf d (Continuous x) = error "pdf: cannot sample a continuous DataItem from a DiscretePDF"
 -- 
 -- getProb :: (Maybe String) -> Map.Map (Maybe String) Int -> Probability

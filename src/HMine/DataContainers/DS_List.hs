@@ -192,7 +192,7 @@ instance DataLoaderCSV (DS_List String (LDPS String)) where
 
 -- | Lazily loads a file into a TrainingData type for use with the classification algorithms
 loadData :: DatafileDesc -> IO (Either ParseError (DS_List String (LDPS String)))
-loadData filedesc = liftM (liftM $ csv2data filedesc) $ loadCSV $ datafileName filedesc
+loadData filedesc = liftM (liftM $ csv2data filedesc) $ loadCSV $ datafilePath filedesc
 
 {-    do
     csveither <- loadCSV $ datafileName filedesc

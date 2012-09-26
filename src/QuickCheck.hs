@@ -13,8 +13,7 @@ import HMine.Distribution
 import HMine.Math.Algebra
 import HMine.Math.Functors
 import HMine.Math.TypeClasses
-import HMine.Models.Distributions.Dirichlet
-import HMine.Models.Distributions.Gaussian
+import HMine.Models.Distributions
 import HMine.Models.DTree
 import HMine.Models.NBayes
 import HMine.Models.Ensemble
@@ -133,9 +132,9 @@ test_Bagging = do
     quickCheck (prop_OnlineTrainer (defBaggingParams 10 10 defNBayesParams) :: (DS_List Int (LDPS Int)) -> Bool)
     
 test_Gaussian = do
---     quickCheck (prop_SemigroupAssociative :: (Gaussian,Gaussian,Gaussian) -> Bool)
---     quickCheck (prop_InverseSemigroup :: (Gaussian,Gaussian) -> Bool)
-    quickCheck (prop_ContinuousDistribution :: (Gaussian,Gaussian) -> Bool)
+    quickCheck (prop_SemigroupAssociative :: (Gaussian Double,Gaussian Double,Gaussian Double) -> Bool)
+    quickCheck (prop_InverseSemigroup :: (Gaussian Double,Gaussian Double) -> Bool)
+--     quickCheck (prop_ContinuousDistribution :: (Gaussian Double,Gaussian Double) -> Bool)
 
 ---------------------------------------
 
