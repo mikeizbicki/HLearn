@@ -3,24 +3,24 @@ import Control.Monad
 import Data.Monoid
 import System.IO
 
-import HMine.Base
-import HMine.DataContainers
-import HMine.DataContainers.DS_List
-import HMine.Evaluation.CrossValidation
-import HMine.Evaluation.Metrics
-import HMine.Math.Functors
-import HMine.Math.TypeClasses
-import HMine.Models.AlgTree
-import HMine.Models.Distributions.Dirichlet
-import HMine.Models.Distributions.Gaussian as Gaussian
-import HMine.Models.DTree
-import HMine.Models.KNN
-import HMine.Models.NBayes
-import HMine.Models.Ensemble
-import HMine.Models.Ensemble.ASSEMBLE
-import HMine.Models.Ensemble.AdaBoost
-import HMine.Models.Ensemble.Bagging
-import HMine.Models.Ensemble.SemiBoost
+import HLearn.Base
+import HLearn.DataContainers
+import HLearn.DataContainers.DS_List
+import HLearn.Evaluation.CrossValidation
+import HLearn.Evaluation.Metrics
+import HLearn.Math.Functors
+import HLearn.Math.TypeClasses
+import HLearn.Models.AlgTree
+import HLearn.Models.Distributions.Dirichlet
+import HLearn.Models.Distributions.Gaussian as Gaussian
+import HLearn.Models.DTree
+import HLearn.Models.KNN
+import HLearn.Models.NBayes
+import HLearn.Models.Ensemble
+import HLearn.Models.Ensemble.ASSEMBLE
+import HLearn.Models.Ensemble.AdaBoost
+import HLearn.Models.Ensemble.Bagging
+import HLearn.Models.Ensemble.SemiBoost
             
 main = do
 {-    let datafileL = 
@@ -104,7 +104,7 @@ main = do
     putStrLn $ "Openning file: " ++ (datafileName datafile)
     ds <- loadDataCSV datafile :: IO (DS_List String (LDPS String))
     deepseq ds $ putStrLn "done."
-    let dsint = runHMine 10 $ randomize $ ds2intds ds
+    let dsint = runHLearn 10 $ randomize $ ds2intds ds
 
     hout <- openFile ("semigroupbagger-"++(datafileName datafile)++".csv") WriteMode
     hPutStrLn hout "Iteration,Semigroup Accuracy, Semigroup Stddev, Divisor Accuracy, Divisor Stddev"
@@ -116,8 +116,8 @@ main = do
         let paramsSG = defSemigroupTrainer i $ VotingSemigroupParams baseparams
         let paramsD = DataDivider (fi i) baseparams
         
-        let gaussianSG = runHMine 0 $ crossValidation Accuracy (Trainer2TrainerSS paramsSG) dsint 0.8 1 100
-        let gaussianD = runHMine 0 $ crossValidation Accuracy (Trainer2TrainerSS paramsD) dsint 0.8 1 100
+        let gaussianSG = runHLearn 0 $ crossValidation Accuracy (Trainer2TrainerSS paramsSG) dsint 0.8 1 100
+        let gaussianD = runHLearn 0 $ crossValidation Accuracy (Trainer2TrainerSS paramsD) dsint 0.8 1 100
         let (accSG,acc_stddevSG) = (Gaussian.mean gaussianSG, Gaussian.varianceSample gaussianSG)
         let (accD,acc_stddevD) = (Gaussian.mean gaussianD, Gaussian.varianceSample gaussianD)
         putStrLn $ 

@@ -1,4 +1,4 @@
-Name:                HMine
+Name:                HLearn
 Version:             0.0.0.1
 Description:         Data mining suite
 Category:            Data Mining
@@ -24,8 +24,7 @@ Library
                         binary,
                         array,
                         vector-binary-instances,
-                        semigroups,
-                        list-extras,
+                        --list-extras,
                         split,
                         random,
                         math-functions,
@@ -37,12 +36,13 @@ Library
                         QuickCheck,
                         hashable,
                         safe,
+                        semigroups,
                         parallel
-                        -- HMine
+                        -- HLearn
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:    
-        HMine.Math.Algebra
-        HMine.Math.TypeClasses
-        HMine.Math.Functors
+        HLearn.Math.Algebra
+        --HLearn.Math.TypeClasses
+        --HLearn.Math.Functors
         

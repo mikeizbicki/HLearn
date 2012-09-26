@@ -6,19 +6,19 @@ import Data.Number.LogFloat
 import Test.QuickCheck hiding (sample,classify)
 -- import Test.ClassLaws
 
-import HMine.Base
-import HMine.DataContainers
-import HMine.DataContainers.DS_List
-import HMine.Distribution
-import HMine.Math.Algebra
-import HMine.Math.Functors
-import HMine.Math.TypeClasses
-import HMine.Models.Distributions
-import HMine.Models.DTree
-import HMine.Models.NBayes
-import HMine.Models.Ensemble
-import HMine.Models.Ensemble.AdaBoost
-import HMine.Models.Ensemble.Bagging
+import HLearn.Base
+import HLearn.DataContainers
+import HLearn.DataContainers.DS_List
+import HLearn.Distribution
+import HLearn.Math.Algebra
+import HLearn.Math.Functors
+import HLearn.Math.TypeClasses
+import HLearn.Models.Distributions
+import HLearn.Models.DTree
+import HLearn.Models.NBayes
+import HLearn.Models.Ensemble
+import HLearn.Models.Ensemble.AdaBoost
+import HLearn.Models.Ensemble.Bagging
 
 -------------------------------------------------------------------------------
 -- Create arbitrary datapoints
@@ -76,7 +76,7 @@ prop_InverseSemigroup (isg1,isg2) = isg1<>isg2<>(inverse isg2) == isg1
 
 ---------------------------------------
 
-prop_TrainerSemigroup params (dps1,dps2) = runHMine 1 $ do
+prop_TrainerSemigroup params (dps1,dps2) = runHLearn 1 $ do
     model1  <- trainBatch params dps1
     model2  <- trainBatch params dps2
     model12 <- trainBatch params (dps1<>dps2)
@@ -84,8 +84,8 @@ prop_TrainerSemigroup params (dps1,dps2) = runHMine 1 $ do
 
 prop_OnlineTrainer params (dps) = modelOffline==modelOnline
     where
-        modelOnline  = runHMine 1 $ trainOnline params dps
-        modelOffline = runHMine 1 $ trainBatch params dps
+        modelOnline  = runHLearn 1 $ trainOnline params dps
+        modelOffline = runHLearn 1 $ trainBatch params dps
 
 {-prop_MutableTrainer ::
     ( Eq model
@@ -96,8 +96,8 @@ prop_OnlineTrainer params (dps) = modelOffline==modelOnline
     modelparams -> ds (LDPS label) -> Bool-}
 prop_MutableTrainer params (dps) = modelPure==modelST
     where
-        modelPure = runHMine 1 $ trainBatch params dps
-        modelST   = {-runHMine 1 $-} trainST params dps
+        modelPure = runHLearn 1 $ trainBatch params dps
+        modelST   = {-runHLearn 1 $-} trainST params dps
         
 -- prop_ContinuousDistribution :: (Distribution dist Double,
 --                               ContinuousDistribution dist Double) =>

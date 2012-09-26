@@ -4,24 +4,23 @@ import Data.Monoid
 import Data.Map
 import System.IO
 
-import HMine.Base
-import HMine.DataContainers
-import HMine.DataContainers.DS_List
-import HMine.Evaluation.CrossValidation
-import HMine.Evaluation.Metrics
-import HMine.Math.Functors
-import HMine.Math.TypeClasses
-import HMine.Models.AlgTree
-import HMine.Models.Distributions.Dirichlet
-import HMine.Models.Distributions.Gaussian as Gaussian
-import HMine.Models.DTree
-import HMine.Models.KNN
-import HMine.Models.NBayes
-import HMine.Models.Ensemble
-import HMine.Models.Ensemble.ASSEMBLE
-import HMine.Models.Ensemble.AdaBoost
-import HMine.Models.Ensemble.Bagging
-import HMine.Models.Ensemble.SemiBoost
+import HLearn.Base
+import HLearn.DataContainers
+import HLearn.DataContainers.DS_List
+import HLearn.Evaluation.CrossValidation
+import HLearn.Evaluation.Metrics
+import HLearn.Math.Functors
+import HLearn.Math.TypeClasses
+import HLearn.Models.AlgTree
+import HLearn.Models.Distributions
+import HLearn.Models.DTree
+import HLearn.Models.KNN
+import HLearn.Models.NBayes
+import HLearn.Models.Ensemble
+import HLearn.Models.Ensemble.ASSEMBLE
+import HLearn.Models.Ensemble.AdaBoost
+import HLearn.Models.Ensemble.Bagging
+import HLearn.Models.Ensemble.SemiBoost
 
 --         [ DatafileDesc { datafileName = "../../datasets/uci/abalone.data", datafileLabelColumn = FirstC, datafileMissingStr = Nothing }
             
@@ -123,7 +122,7 @@ compareAlgorithms datafile hout params1 params2 = do
     putStrLn $ "loading datafile: " ++ datafileName datafile
     ds <- loadDataCSV datafile :: IO (DS_List String (LDPS String))
     deepseq ds $ putStrLn "done."
-    let dsint = runHMine 10 $ randomize $ ds2intds ds
+    let dsint = runHLearn 10 $ randomize $ ds2intds ds
     let dsbool = ds2boolds [0] dsint
     
     putStrLn $ show $ getDataDesc dsint
@@ -133,7 +132,7 @@ compareAlgorithms datafile hout params1 params2 = do
     -----------------------------------
     -- run tests
 
---     let model = runHMine 10 $ trainBatch params2 dsint
+--     let model = runHLearn 10 $ trainBatch params2 dsint
 --     deepseq model $ return ()
 --     putStrLn $ "CM = " ++ show (genConfusionMatrix model dsint)
 --     print model
@@ -147,13 +146,13 @@ compareAlgorithms datafile hout params1 params2 = do
     where
         testmodel params ds = do
             putStrLn $ "Testing " ++ show params
-            let gaussian = runHMine 0 $ crossValidation Accuracy (Trainer2TrainerSS params) ds 0.8 1 10
-            let (acc,acc_stddev) = (Gaussian.mean gaussian, Gaussian.varianceSample gaussian)
+            let gaussian = runHLearn 0 $ crossValidation Accuracy (Trainer2TrainerSS params) ds 0.8 1 10
+            let (acc,acc_stddev) = (mean gaussian, varianceSample gaussian)
             putStrLn $ "accuracy = " ++ show acc ++ ", acc_stddev=" ++ show acc_stddev
             hPutStr hout $ show acc ++ "," ++ show acc_stddev++","
 
 
 {-    forM_ algparamsL $ \algparams -> do  
         putStrLn $ "Testing " ++ show algparams
-        let (acc,acc_stddev) = runHMine 0 $ crossValidation accuracy (Trainer2TrainerSS algparams) ds 0.08 1 10
+        let (acc,acc_stddev) = runHLearn 0 $ crossValidation accuracy (Trainer2TrainerSS algparams) ds 0.08 1 10
         putStrLn $ "accuracy = " ++ show acc ++ ", acc_stddev=" ++ show acc_stddev-}

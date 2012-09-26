@@ -17,14 +17,14 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector as V
 
--- import HMine.Base
-import HMine.Classifiers.LazyNBayes
-import HMine.DataContainers
-import HMine.DataContainers.DS_List
-import HMine.MiscUtils
-import HMine.RandUtils
-import HMine.Evaluation.CrossValidation
-import HMine.Math.TypeClasses
+-- import HLearn.Base
+import HLearn.Classifiers.LazyNBayes
+import HLearn.DataContainers
+import HLearn.DataContainers.DS_List
+import HLearn.MiscUtils
+import HLearn.RandUtils
+import HLearn.Evaluation.CrossValidation
+import HLearn.Math.TypeClasses
 
     
 -------------------------------------------------------------------------------
