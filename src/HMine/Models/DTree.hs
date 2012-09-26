@@ -24,7 +24,7 @@ import HMine.DataContainers
 import HMine.Math.Algebra
 import HMine.Math.TypeClasses
 import HMine.MiscUtils
-import HMine.Models.Distributions.Dirichlet
+import HMine.Models.Distributions
 
 -------------------------------------------------------------------------------
 -- DTreeParams
@@ -38,8 +38,8 @@ data DTreeParams modelparams = DTreeParams
 instance (NFData modelparams) => NFData (DTreeParams modelparams) where
     rnf params = deepseq (maxDepth params) (rnf $ leafModelParams params)
 
-defDTreeParams = DTreeParams 4 DirichletParams
-defDStumpParams = DTreeParams 1 DirichletParams
+defDTreeParams = DTreeParams 4 CategoricalParams
+defDStumpParams = DTreeParams 1 CategoricalParams
 
 -------------------------------------------------------------------------------
 -- DTree
@@ -54,6 +54,9 @@ data DTree model label
         , root :: !(Int,[SplitPoint (DTree model label)]) -- ^ (Column to split at, (modelLT, dp to split at, modelGT))
         }
     deriving (Read,Show,Eq)
+
+-- instance Model (DTree model label) label where
+    
 
 instance (NFData label, NFData model) => NFData (DTree model label) where
     rnf (DTree dataDesc root) = deepseq dataDesc $ {-trace "Warning: Not deepseq-ing DTree" $ -}rnf ()
@@ -179,9 +182,9 @@ lg x = log x / log 2
 -------------------------------------------------------------------------------
 -- Classifying
 
-instance (ProbabilityClassifier leafmodel DPS label, Show leafmodel) => Classifier (DTree leafmodel label) DPS label where
-    classify model dp = {-trace (show xs) $ trace (show model) $ trace (show dp) $-} fst $ argmax snd xs
-        where xs=probabilityClassify model dp
+-- instance (ProbabilityClassifier leafmodel DPS label, Show leafmodel) => Classifier (DTree leafmodel label) DPS label where
+--     classify model dp = {-trace (show xs) $ trace (show model) $ trace (show dp) $-} fst $ argmax snd xs
+--         where xs=probabilityClassify model dp
 
 -- instance (Classifier model label) => Classifier (DTree model label) label where
 --     classify (DLeaf model) dp = classify model dp
@@ -193,18 +196,21 @@ instance (ProbabilityClassifier leafmodel DPS label, Show leafmodel) => Classifi
 --              Nothing -> error "DTree.classify: this should never happen."
 -- 
 instance (ProbabilityClassifier model DPS label) => ProbabilityClassifier (DTree model label) DPS label where
-    probabilityClassify (DLeaf model) dp = probabilityClassify model dp
-    probabilityClassify (DTree desc (attrI,xs)) dp = go xs
-        where
-            go [] = Map.toList $ F.foldl' mappend Map.empty $ map (\(model,_,_) -> Map.fromList $ probabilityClassify model dp) xs
---             go [] = error ("DTree.classify: barf. dp="++show dp++", attrI="++show attrI++", xs="++show xs)
-            go ((model,ord,di):xs) = if boolcond
-                then {-trace "pC" $-} probabilityClassify model dp
-                else {-trace "go" $-} go xs
-                where
-                    boolcond = case lookup attrI dp of
-                        Just x -> case ord of
-                            EQ -> {-trace "EQ" $-} x==di
-                            LT -> {-trace ("LT, di="++show di++", x="++show x) $-} x<=di
-                            GT -> {-trace "GT" $-} x>di
-                        Nothing -> error "DTree.probabilityClassify: this should never happen."
+    probabilityClassify model dps = list2dist $ probabilityClassifyList model dps
+
+probabilityClassifyList :: (ProbabilityClassifier model DPS label) => 
+    DTree model label -> DPS -> [(label,Probability)]
+probabilityClassifyList (DLeaf model) dp = dist2list $ probabilityClassify model dp
+probabilityClassifyList (DTree desc (attrI,xs)) dp = go xs
+    where
+        go [] = Map.toList $ F.foldl' mappend Map.empty $ map (\(model,_,_) -> Map.fromList $ probabilityClassifyList model dp) xs
+        go ((model,ord,di):xs) = if boolcond
+            then probabilityClassifyList model dp
+            else go xs
+            where
+                boolcond = case lookup attrI dp of
+                    Just x -> case ord of
+                        EQ -> {-trace "EQ" $-} x==di
+                        LT -> {-trace ("LT, di="++show di++", x="++show x) $-} x<=di
+                        GT -> {-trace "GT" $-} x>di
+                    Nothing -> error "DTree.probabilityClassify: this should never happen."

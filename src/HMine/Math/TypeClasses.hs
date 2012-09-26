@@ -22,6 +22,8 @@ import HMine.Base
 import HMine.DataContainers
 import HMine.DataContainers.DS_List
 import HMine.MiscUtils
+import HMine.Models.Distributions.Common
+import HMine.Models.Distributions.Categorical
 
 -------------------------------------------------------------------------------
 -- Label
@@ -34,7 +36,8 @@ instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read la
 -------------------------------------------------------------------------------
 -- Model
 
-class Model model label | model -> label where
+class (Label label) => Model model label | model -> label where
+--     params :: model -> modelparams
     datadesc :: model -> DataDesc label
     
 -------------------------------------------------------------------------------
@@ -43,32 +46,11 @@ class Model model label | model -> label where
 class ModelParams modelparams where
 
 -------------------------------------------------------------------------------
--- Distribution
-          
-class (Monoid dist) => Distribution dist datatype | dist -> datatype where
-    train1sample :: datatype -> dist
-    train1sample dp = add1sample mempty dp
-    
-    add1sample :: dist -> datatype -> dist
-    pdf :: dist -> datatype -> LogFloat
-    cdf :: dist -> datatype -> LogFloat
-    cdfInverse :: dist -> LogFloat -> datatype
-    
-    drawSample :: (RandomGen g) => dist -> Rand g datatype
-    drawSample dist = do
-        x <- getRandomR (0,1)
-        return $ cdfInverse dist $ logFloat (x::Double)
-
-class IntersectableDistribution dist datatype where
-    intersection :: dist -> dist -> [datatype]
-    intersection d1 d2 = intersectionScaled (1,d1) (1,d2)
-    
-    intersectionScaled :: (Double,dist) -> (Double,dist) -> [datatype]
-
--------------------------------------------------------------------------------
 -- Training
 
-class (Label label) => 
+class 
+    (Label label) => 
+--     (Model model label) => 
     BatchTrainer modelparams model datatype label | modelparams -> model, model -> label 
         where
     
@@ -79,14 +61,6 @@ class (Label label) =>
         , DataSparse label ds label
         ) =>
         modelparams -> ds (Labeled datatype label) -> HMine model
---     trainBatch :: 
---         ( DataSparse label ds (WLDPS label)
---         , DataSparse label ds (LDPS label)
---         , DataSparse label ds DPS
---         , DataSparse label ds label
---         ) =>
---         modelparams -> ds (LDPS label) -> HMine model
-
 
 class (Label label) =>
     BatchTrainerSS modelparams model datatype label | modelparams -> model, model -> label
@@ -180,17 +154,20 @@ class (Label label) =>
 -- Classification
 
 class (Label label) => ProbabilityClassifier model datatype label | model -> label where
-    probabilityClassify :: model -> datatype -> [(label,Probability)]
+--     probabilityClassify :: model -> datatype -> [(label,Probability)]
+--     probabilityClassify :: (Distribution dist label) => model -> datatype -> dist
+    probabilityClassify :: model -> datatype -> Categorical label
     
-    straightClassify :: model -> datatype -> label
-    straightClassify model dp = classificationLabel $ probabilityClassify model dp
+--     straightClassify :: model -> datatype -> label
+--     straightClassify = mean . probabilityClassify
+--     straightClassify model dp = classificationLabel $ probabilityClassify model dp
 --     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
     
 class (Label label) => Classifier model datatype label | model -> label where
     classify :: model -> datatype -> label
 
-classificationLabel :: [(label,Probability)] -> label
-classificationLabel = fst . argmax snd 
+-- instance (ProbabilityClassifier model datatype label) => Classifier model datatype label where
+--     classify model dp = mean $ probabilityClassify model dp
 
 classificationEntropy :: [(label,Probability)] -> Double
 classificationEntropy = sum . map (\(l,p) -> (fromLogFloat p)*(logFromLogFloat p)) 

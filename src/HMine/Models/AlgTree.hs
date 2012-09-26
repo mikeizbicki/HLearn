@@ -14,6 +14,7 @@ import Data.List
 import Data.List.Extras
 import Data.Number.LogFloat
 import Data.Semigroup
+import Debug.Trace
 
 import HMine.Base
 import HMine.DataContainers
@@ -30,7 +31,7 @@ import HMine.Models.NBayes
 data AlgTreeParams = AlgTreeParams
     {
     }
-    deriving (Show, Read)
+    deriving (Show, Read, Eq)
     
 defAlgTreeParams = AlgTreeParams
 
@@ -91,7 +92,7 @@ instance BatchTrainer AlgTreeParams (AlgTree Int) DPS Int where
 instance EmptyTrainer AlgTreeParams (AlgTree Int) Int where
     emptyModel desc modelparams = AlgTree 
         { nbayes = emptyModel desc defNBayesParams
-        , splitAttr = error "AlgTree.EmptyTrainer: no splitAttr yet"
+        , splitAttr = trace "WARNING: AlgTree.EmptyTrainer: no splitAttr yet" $ 0
         }
 
 instance OnlineTrainer AlgTreeParams (AlgTree Int) DPS Int where

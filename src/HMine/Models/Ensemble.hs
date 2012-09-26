@@ -28,10 +28,10 @@ import HMine.MiscUtils
 -------------------------------------------------------------------------------
 -- Ensemble
 
-data Ensemble modelparams model label = Ensemble 
-    { ensembleL :: [(Double,model)]
+data Ensemble ensparams basemodel label = Ensemble 
+    { ensembleL :: [(Double,basemodel)]
     , ensembleDataDesc :: DataDesc label
-    , ensembleParams :: modelparams
+    , ensembleParams :: ensparams
     }
     deriving (Show,Read,Eq)
 
@@ -60,11 +60,12 @@ instance (Label label, Eq modelparams, Semigroup model) => Semigroup (Ensemble m
     
     (<>) (Ensemble ens1 desc1 params1) (Ensemble ens2 desc2 params2) = Ensemble ens' desc' params'
         where
-            ens' = map merge $ zip (sort' ens1) (sort' ens2)
-            sort' = sortBy (\(w1,_) (w2,_) -> compare w1 w2)
-            merge ((w1,m1),(w2,m2)) = (e2w $ ((w2e w1)+(w2e w2))/2,m1<>m2)
-                where e2w e = (1/2)*(log $ (1-e)/e)
-                      w2e w = 1/((exp $ 2*w)+1)
+            ens' = ens1 <> ens2
+--             ens' = map merge $ zip (sort' ens1) (sort' ens2)
+--             sort' = sortBy (\(w1,_) (w2,_) -> compare w1 w2)
+--             merge ((w1,m1),(w2,m2)) = (e2w $ ((w2e w1)+(w2e w2))/2,m1<>m2)
+--                 where e2w e = (1/2)*(log $ (1-e)/e)
+--                       w2e w = 1/((exp $ 2*w)+1)
 --             merge ((w1,m1),(w2,m2)) = ((w1+w2)/2,m1<>m2)
             params' = if params1/=params2
                          then error "Ensemble.semigroup <>: different modelparams"
@@ -76,13 +77,34 @@ instance (Label label, Eq modelparams, Semigroup model) => Semigroup (Ensemble m
 -------------------------------------------------------------------------------
 -- EnsembleAppender
 
-newtype EnsembleAppender modelparams model label = EnsembleAppender (Ensemble modelparams model label)
+newtype EnsembleAppenderParams ensparams = EnsembleAppenderParams ensparams
     deriving (Read,Show,Eq)
 
-instance (NFData (Ensemble modelparams model label)) => NFData (EnsembleAppender modelparams model label) where
+instance 
+    ( BatchTrainer baseparams basemodel datatype label 
+    , BatchTrainer ensparams (Ensemble baseparams basemodel label) datatype label 
+    ) =>
+    BatchTrainer (EnsembleAppenderParams ensparams) (Ensemble{-Appender-} baseparams basemodel label) datatype label 
+        where
+        
+    trainBatch (EnsembleAppenderParams modelparams) datatype = {-liftM EnsembleAppender $-} trainBatch modelparams datatype
+
+-- instance 
+--     ( BatchTrainerSS baseparams basemodel datatype label 
+--     , BatchTrainerSS ensparams (Ensemble baseparams basemodel label) datatype label 
+--     ) =>
+--     BatchTrainerSS (EnsembleAppenderParams ensparams) (EnsembleAppender baseparams basemodel label) datatype label 
+--         where
+--         
+--     trainBatchSS (EnsembleAppenderParams modelparams) lds uds = liftM EnsembleAppender $ trainBatchSS modelparams lds uds
+
+newtype EnsembleAppender ensparams basemodel label = EnsembleAppender (Ensemble ensparams basemodel label)
+    deriving (Read,Show,Eq)
+
+instance (NFData (Ensemble ensparams basemodel label)) => NFData (EnsembleAppender ensparams basemodel label) where
     rnf (EnsembleAppender ens) = rnf ens
 
-instance (Label label, Eq modelparams) => Semigroup (EnsembleAppender modelparams model label) where
+instance (Label label, Eq ensparams) => Semigroup (EnsembleAppender ensparams basemodel label) where
     (<>) (EnsembleAppender (Ensemble ens1 desc1 params1)) (EnsembleAppender (Ensemble ens2 desc2 params2)) = EnsembleAppender $ Ensemble ens' desc' params'
         where 
             ens' = ens1 <> ens2
@@ -92,6 +114,14 @@ instance (Label label, Eq modelparams) => Semigroup (EnsembleAppender modelparam
             desc' = if desc1 /= desc2
                        then error "EnsembleAppender.semigroup <>: different DataDesc"
                        else desc1
+
+instance 
+    ( Classifier (Ensemble ensparams basemodel label) datatype label
+    ) => 
+    Classifier (EnsembleAppender ensparams basemodel label) datatype label
+        where
+    
+    classify (EnsembleAppender ens) = classify ens
 
 -------------------------------------------------------------------------------
 -- Classification
