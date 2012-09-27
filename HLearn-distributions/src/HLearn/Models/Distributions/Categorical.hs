@@ -6,19 +6,18 @@
 module HLearn.Models.Distributions.Categorical
     where
 
-import Control.DeepSeq
+import Control.Monad.Random
 import Data.List.Extras
-import Data.Number.LogFloat
-import Data.Semigroup
 import Debug.Trace
 
 import qualified Data.Map as Map
 import qualified Data.Foldable as F
 
-import HLearn.Base
-import HLearn.DataContainers
-import HLearn.Math.Algebra
+import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+
+-- import HLearn.Base
+-- import HLearn.DataContainers
 
 -------------------------------------------------------------------------------
 -- CategoricalParams
@@ -29,37 +28,32 @@ data CategoricalParams = CategoricalParams
 instance NFData CategoricalParams where
     rnf x = ()
 
+instance ModelParams CategoricalParams
+
 -------------------------------------------------------------------------------
 -- Categorical
 
 data Categorical label = Categorical 
-        { pdfmap :: Map.Map label LogFloat
-        , desc :: Maybe (DataDesc label)
+        { pdfmap :: Map.Map label Double
         } 
     deriving (Show,Read,Eq)
 
 instance (NFData label) => NFData (Categorical label) where
     rnf d = rnf $ pdfmap d
 
-instance NFData LogFloat where
-    rnf x = ()
+instance (NFData label) => Model CategoricalParams (Categorical label) where
+    params model = CategoricalParams
 
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (Ord label) => DistributionEstimator (Categorical label) (label,LogFloat) where
-    {-# INLINE add1sample #-}
-    add1sample dist (label,weight) = dist { pdfmap=Map.insertWith (+) label weight (pdfmap dist) }
+instance (NFData label) => Trainer CategoricalParams (Weighted label) (Categorical label) where
+    train params (label,weight) = Categorical $ Map.singleton label weight
 
-instance (Ord label) => DistributionEstimator (Categorical label) (Weighted label) where
-    {-# INLINE add1sample #-}
-    add1sample dist (label,weight) = add1sample dist (label,logFloat weight)
-    
-instance (DistributionEstimator (Categorical label) (Weighted label)) => DistributionEstimator (Categorical label)  label where
-    {-# INLINE add1sample #-}
-    add1sample dist label = add1sample dist (label,1::Double)
+instance (NFData label) => Trainer CategoricalParams label (Categorical label) where
+    train params label = Categorical $ Map.singleton label 1
 
-instance (Ord label) => Distribution (Categorical label) label where
+instance (Ord label) => Distribution (Categorical label) label Double where
 
     {-# INLINE pdf #-}
     pdf dist label = 0.0001+(val/tot)
@@ -71,35 +65,50 @@ instance (Ord label) => Distribution (Categorical label) label where
 
     {-# INLINE cdf #-}
     cdf dist label = (Map.foldl' (+) 0 $ Map.filterWithKey (\k a -> k<=label) $ pdfmap dist) 
-                     / (Map.foldl' (+) 0 $ pdfmap dist)
+                   / (Map.foldl' (+) 0 $ pdfmap dist)
                    
     {-# INLINE cdfInverse #-}
-    cdfInverse dist prob = argmax (cdf dist) $ Map.keys $ pdfmap dist
+    cdfInverse dist prob = go prob pdfL
+        where
+            pdfL = map (\k -> (k,pdf dist k)) $ Map.keys $ pdfmap dist
+            go prob []     = fst $ last pdfL
+            go prob (x:xs) = if prob < snd x && prob > (snd $ head xs)
+                then fst x
+                else go (prob-snd x) xs
+--     cdfInverse dist prob = argmax (cdf dist) $ Map.keys $ pdfmap dist
 
     {-# INLINE mean #-}
-    mean dist = fst $ argmax (snd) $ Map.toList $ pdfmap dist
+    mean dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 
+    {-# INLINE drawSample #-}
+    drawSample dist = do
+        x <- getRandomR (0,1)
+        return $ cdfInverse dist (x::Double)
+        
 -------------------------------------------------------------------------------
 -- Algebra
 
 instance (Ord label) => Semigroup (Categorical label) where
-    (<>) d1 d2 = if (desc d1)==(desc d2)
+{-    (<>) d1 d2 = if (desc d1)==(desc d2)
         then d1 {pdfmap=Map.unionWith (+) (pdfmap d1) (pdfmap d2)}
-        else error "Categorical.(<>): different DataDesc"
-    
-instance (Ord label) => Monoid (Categorical label) where
-    mempty = Categorical mempty Nothing
-    mappend = (<>)
+        else error "Categorical.(<>): different DataDesc"-}
+    (<>) d1 d2 = Categorical $ Map.unionWith (+) (pdfmap d1) (pdfmap d2)
+
+instance HasIdentity (Categorical label) where
+    identity = Categorical Map.empty
 
 instance (Ord label) => Invertible (Categorical label) where
     inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
 
+instance (Ord label) => Monoid (Categorical label) where
+    mempty = identity
+    mappend = (<>)
 
 -------------------------------------------------------------------------------
 -- Helpers
 
 -- list2dist :: (DistributionEstimator (Categorical label) (Weighted label), Semigroup (Categorical label)) => 
 --     [(Probability,label)] -> Categorical label
-list2dist xs = foldl1 (<>) $ map train1sample xs
+-- list2dist xs = foldl1 (<>) $ map train1sample xs
 -- list2dist xs = foldl1 (<>) $ map (\(l,p) -> train1sample (l,fromLogFloat p::Double)) xs
-dist2list dist = {-map (\(l,d) -> (l,logFloat d)) $-} Map.toList $ pdfmap dist
+-- dist2list dist = {-map (\(l,d) -> (l,logFloat d)) $-} Map.toList $ pdfmap dist

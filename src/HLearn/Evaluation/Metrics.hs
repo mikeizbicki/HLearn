@@ -10,8 +10,6 @@ module HLearn.Evaluation.Metrics
     where
           
 import Data.List
-import Data.Number.LogFloat hiding (log)
-import Data.Semigroup
           
 import qualified Data.Map as Map
           
@@ -24,7 +22,8 @@ import HLearn.Models.Ensemble
 -------------------------------------------------------------------------------
 -- ConfusionMatrix
           
-data ConfusionMatrix
+-- data ConfusionMatrix
+
 newtype CM label = CM [(label,(Int,Int))]
     deriving (Show,Read,Eq)
     

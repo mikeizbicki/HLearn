@@ -7,13 +7,8 @@
 module HLearn.Models.DTree
     where
 
-import Control.DeepSeq
-import Control.Monad
-import Data.Binary
 import Data.List
 import Data.List.Extras
-import Data.Semigroup
-import Data.Number.LogFloat hiding (log)
 import Debug.Trace
 
 import qualified Data.Foldable as F
@@ -21,9 +16,7 @@ import qualified Data.Map as Map
 
 import HLearn.Base
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
-import HLearn.MiscUtils
 import HLearn.Models.Distributions
 
 -------------------------------------------------------------------------------
@@ -177,7 +170,7 @@ info xs = sum $ map (\x -> -(x/tot)*(lg $ x/tot)) xs'
           tot = sum xs'
 
 lg :: Double -> Double -- base 2 logarithm
-lg x = log x / log 2
+lg x = Prelude.log x / Prelude.log 2
 
 -------------------------------------------------------------------------------
 -- Classifying

@@ -14,7 +14,7 @@ import System.IO.Unsafe
 
 import qualified Data.Foldable as F
 
-import HLearn.MiscUtils
+-- import HLearn.MiscUtils
 
 
 {-poisson :: (Random a, Ord a, Floating a, Num b, RandomGen g) => a -> Rand g b
@@ -135,28 +135,28 @@ randSplitL factor xs = do
 -- --     let ret= (l1,l2)
 --     return {-$ deepseq l1 $ deepseq l2 $-}(l1,l2)
 -- 
-randSplitLUnsafe :: (RandomGen g) => Double -> [a] -> Rand g ([a],[a])
-randSplitLUnsafe factor xs = do
-    randL <- mapM (\x -> fmap (<factor) $ getRandomR (0,1)) xs
---     randL <- sequence $ replicate (length xs) $ fmap (<factor) $ getRandomR (0,1)
-    let (fileL1,fileL2) = unsafePerformIO $ do
-        randNum <- getRandom
-        let tmpFile = "tmp/randL."++show (randNum::Word32)
-        putStrLn "encodeFile randL"
---         putStrLn $ "randL = "++(show randL)
-        encodeFile tmpFile $ Stream randL
-        putStrLn "done."
-        fileL1 <- {-liftM unstream $-} lazyDecodeFile tmpFile :: IO [Bool]
-        fileL2 <- {-liftM unstream $ -}lazyDecodeFile tmpFile :: IO [Bool]
-        putStrLn "handles acquired"
-        return (fileL1,fileL2)
-    let l1 = map snd $ filter fst $ zip fileL1 xs
-    let l2 = map snd $ filter (not . fst) $ zip fileL2 xs
-    return (l1,[])
---     return (l1,l2)
-    where
-        xs' = xsThunk (1::Int)
-        xsThunk (a) = xs
+-- randSplitLUnsafe :: (RandomGen g) => Double -> [a] -> Rand g ([a],[a])
+-- randSplitLUnsafe factor xs = do
+--     randL <- mapM (\x -> fmap (<factor) $ getRandomR (0,1)) xs
+-- --     randL <- sequence $ replicate (length xs) $ fmap (<factor) $ getRandomR (0,1)
+--     let (fileL1,fileL2) = unsafePerformIO $ do
+--         randNum <- getRandom
+--         let tmpFile = "tmp/randL."++show (randNum::Word32)
+--         putStrLn "encodeFile randL"
+-- --         putStrLn $ "randL = "++(show randL)
+--         encodeFile tmpFile $ Stream randL
+--         putStrLn "done."
+--         fileL1 <- {-liftM unstream $-} lazyDecodeFile tmpFile :: IO [Bool]
+--         fileL2 <- {-liftM unstream $ -}lazyDecodeFile tmpFile :: IO [Bool]
+--         putStrLn "handles acquired"
+--         return (fileL1,fileL2)
+--     let l1 = map snd $ filter fst $ zip fileL1 xs
+--     let l2 = map snd $ filter (not . fst) $ zip fileL2 xs
+--     return (l1,[])
+-- --     return (l1,l2)
+--     where
+--         xs' = xsThunk (1::Int)
+--         xsThunk (a) = xs
 
 -- randSplitCrash :: (RandomGen g) => Double -> [a] -> Rand g ([a],[a])
 -- randSplitCrash factor xs = foldM listItr ([],[]) xs

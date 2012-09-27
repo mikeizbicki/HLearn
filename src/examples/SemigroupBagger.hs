@@ -1,6 +1,3 @@
-import Control.DeepSeq
-import Control.Monad
-import Data.Monoid
 import System.IO
 
 import HLearn.Base
@@ -11,16 +8,15 @@ import HLearn.Evaluation.Metrics
 import HLearn.Math.Functors
 import HLearn.Math.TypeClasses
 import HLearn.Models.AlgTree
-import HLearn.Models.Distributions.Dirichlet
+-- import HLearn.Models.Distributions.Categorical
+import HLearn.Models.Distributions
 import HLearn.Models.Distributions.Gaussian as Gaussian
 import HLearn.Models.DTree
 import HLearn.Models.KNN
 import HLearn.Models.NBayes
 import HLearn.Models.Ensemble
 import HLearn.Models.Ensemble.ASSEMBLE
-import HLearn.Models.Ensemble.AdaBoost
 import HLearn.Models.Ensemble.Bagging
-import HLearn.Models.Ensemble.SemiBoost
             
 main = do
 {-    let datafileL = 
@@ -118,8 +114,8 @@ main = do
         
         let gaussianSG = runHLearn 0 $ crossValidation Accuracy (Trainer2TrainerSS paramsSG) dsint 0.8 1 100
         let gaussianD = runHLearn 0 $ crossValidation Accuracy (Trainer2TrainerSS paramsD) dsint 0.8 1 100
-        let (accSG,acc_stddevSG) = (Gaussian.mean gaussianSG, Gaussian.varianceSample gaussianSG)
-        let (accD,acc_stddevD) = (Gaussian.mean gaussianD, Gaussian.varianceSample gaussianD)
+        let (accSG,acc_stddevSG) = (mean gaussianSG, Gaussian.varianceSample gaussianSG)
+        let (accD,acc_stddevD) = (mean gaussianD, Gaussian.varianceSample gaussianD)
         putStrLn $ 
             "i="++show i++
             ", accSG = " ++ show accSG ++ 

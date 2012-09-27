@@ -5,12 +5,10 @@ module HLearn.DataContainers.DS_List
     where
 
 import Control.Applicative
-import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Data.Binary
 import Data.List
-import Data.Semigroup
 import Debug.Trace
 import Safe
 import Test.QuickCheck
@@ -18,9 +16,10 @@ import Test.QuickCheck
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T
 
+import HLearn.Algebra
 import HLearn.DataContainers
 import HLearn.DataContainers.CSVParser
-import HLearn.MiscUtils
+import HLearn.Misc.LazyDecodeList
 import HLearn.RandUtils
 
 -------------------------------------------------------------------------------

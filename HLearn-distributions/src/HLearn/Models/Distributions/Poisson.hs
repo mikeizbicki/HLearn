@@ -4,12 +4,6 @@
 module HLearn.Models.Distributions.Poisson
     where
 
-import Control.Monad
-import Control.DeepSeq
-import Data.Binary
-import Data.Hashable
-import Data.Semigroup
-import Data.Number.LogFloat
 import Debug.Trace
 import Numeric.SpecFunctions (logFactorial)
 import Test.QuickCheck
@@ -17,7 +11,6 @@ import Test.QuickCheck
 import Prelude hiding (log)
 
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
 
 -------------------------------------------------------------------------------

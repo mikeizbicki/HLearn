@@ -3,47 +3,17 @@
 module HLearn.Math.TypeClasses
     where
 
-import Control.DeepSeq
-import Control.Monad
 import Control.Monad.ST
--- import Control.Monad.ST.Trans
-import Control.Monad.Random
-import Data.Binary
-import Data.Hashable
 import Data.List
 import Data.List.Extras
-import Data.Number.LogFloat
-import Data.Semigroup
 import Debug.Trace
 
 import qualified Data.Foldable as F
 
 import HLearn.Base
 import HLearn.DataContainers
-import HLearn.DataContainers.DS_List
-import HLearn.MiscUtils
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Categorical
-
--------------------------------------------------------------------------------
--- Label
-
--- | I only ever expect labels of type Bool, Int, and String, but it may be convenient to use other types as well for something.  This class and instance exist so that we have some reasonable assumptions about what properties labels should have for our other classes to work with.
-class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
-
-instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
-
--------------------------------------------------------------------------------
--- Model
-
-{-class (Label label) => Model model label | model -> label where
---     params :: model -> modelparams
-    datadesc :: model -> DataDesc label-}
-    
--------------------------------------------------------------------------------
--- ModelParams
-
-class ModelParams modelparams where
 
 -------------------------------------------------------------------------------
 -- Training
@@ -145,10 +115,10 @@ class (Label label) =>
 
     trainST :: (DataSparse label ds (LDPS label)) => 
         modelparams -> ds (LDPS label) -> model
-    trainST modelparams ds = {-return $ -}runST $ do
-        modelst <- mkST modelparams $ getDataDesc ds
-        foldlMTrace (add1dpST) modelst ds
-        freeze modelst
+--     trainST modelparams ds = {-return $ -}runST $ do
+--         modelst <- mkST modelparams $ getDataDesc ds
+--         foldlMTrace (add1dpST) modelst ds
+--         freeze modelst
 
 -------------------------------------------------------------------------------
 -- Classification

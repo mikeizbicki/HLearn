@@ -7,20 +7,13 @@
 module HLearn.Models.AlgTree
     where
 
-import Control.DeepSeq
-import Control.Monad
-import Control.Monad.Random
 import Data.List
 import Data.List.Extras
-import Data.Number.LogFloat
-import Data.Semigroup
 import Debug.Trace
 
 import HLearn.Base
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
-import HLearn.MiscUtils
 import HLearn.Models.Distributions
 import HLearn.Models.NBayes
 

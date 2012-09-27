@@ -5,13 +5,8 @@
 module HLearn.Models.Ensemble.Bagging
     where
 
-import Control.DeepSeq
-import Control.Monad
-import Control.Monad.Random
-import Data.Hashable
-
+import HLearn.Base
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
 import HLearn.Models.Ensemble
 

@@ -1,0 +1,23 @@
+Name:                HLearn-algebra
+Version:             0.0.1
+Description:         This module contains the algebraic basis for the HLearn library.  It is separated out in it's own library because it contains routines that may be useful to others.  In particular, it contains methods for automatically converting algorithms into online/parallel versions, and its structure is slightly more modular (although much less complete) than other algebra packages.
+Category:            Data Mining
+License:             GPL
+--License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+
+Library
+    Build-Depends:      base        >= 3 && < 5,
+                        semigroups  >= 0.8.4,
+                        parallel    >= 3.2,
+                        deepseq     >= 1.3
+    hs-source-dirs:     src
+    ghc-options:        -rtsopts -auto-all -caf-all -O2 
+    Exposed-modules:
+        HLearn.Algebra
+        HLearn.Algebra.Models
+        HLearn.Algebra.Structures
+        HLearn.Algebra.Functions

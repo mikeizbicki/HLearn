@@ -7,13 +7,6 @@
 module HLearn.Distribution
     where
 
-import Control.DeepSeq
-import Control.Monad
-import Control.Monad.Random
-import Data.Binary
-import Data.Semigroup
-import Data.Number.LogFloat
-import Data.VectorSpace
 import Debug.Trace
 import GHC.Float (double2Float, float2Double)
 import Numeric.SpecFunctions (logFactorial)
@@ -26,7 +19,6 @@ import Prelude hiding (log)
 
 import HLearn.Base 
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
 import HLearn.Models.Distributions
 

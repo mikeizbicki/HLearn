@@ -8,15 +8,10 @@ module HLearn.Models.NBayes
     )
     where
          
-import Control.DeepSeq
-import Control.Monad
 import Control.Monad.ST.Strict
 import Control.Monad.Primitive
-import Data.Binary
 import Data.List
 import Data.List.Extras
-import Data.Semigroup
-import Data.Number.LogFloat
 import Data.STRef
 -- import Data.Vector.Binary
 import qualified Data.Vector as V
@@ -33,11 +28,12 @@ import Test.QuickCheck
 import HLearn.Base
 import HLearn.DataContainers
 import HLearn.Distribution
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
-import HLearn.MiscUtils
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Categorical
+
+instance NFData a => NFData (V.Vector a) where
+    rnf v = V.foldl' (\x y -> y `deepseq` x) () v
 
 -------------------------------------------------------------------------------
 -- NBayesParams
