@@ -11,14 +11,10 @@ import qualified Data.Map as Map
 import qualified Data.Set as S
 -- import qualified Data.Vector as V
 
-import Control.DeepSeq
 import Control.Exception
-import Control.Monad
 import Control.Monad.ST
 import Data.Array.ST
-import Data.Binary
 import Data.List
-import Data.Semigroup
 import Debug.Trace
 import System.IO
 import System.IO.Unsafe
@@ -27,7 +23,6 @@ import HLearn.Base
 import HLearn.DataContainers
 import HLearn.Evaluation.Metrics
 import HLearn.Math.TypeClasses
-import HLearn.MiscUtils
 import HLearn.Models.Ensemble
 
 -------------------------------------------------------------------------------

@@ -3,18 +3,30 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module HLearn.Base
+    ( HLearn, runHLearn
+    , fi
+    , Probability
+    , indicator, bool2num, num2bool
+    , histogram, normalizeL
+    , module HLearn.Algebra
+    , module Control.Monad
+    , module Control.Monad.Random
+    , module Data.Binary
+    , module Data.Hashable
+    , module Data.Number.LogFloat
+    )
     where
 
-import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
-import Control.Parallel.Strategies
 import Data.Binary
 import Data.Hashable
-import Data.Number.LogFloat
-import Data.Semigroup
+import Data.Number.LogFloat hiding (log)
 import Data.List
 
+import qualified Data.Map as Map
+
+import HLearn.Algebra
 
 -------------------------------------------------------------------------------
 -- HLearn monad
@@ -24,20 +36,20 @@ type HLearn a = Rand StdGen a
 runHLearn :: Int -> (HLearn a) -> a
 runHLearn seed hmine = evalRand hmine (mkStdGen seed)
 
--- instance (Semigroup a) => Semigroup (HLearn a) where
---     (<>) a1 a2 = do
---         seed1 <- getRandom
---         seed2 <- getRandom
---         return $ (runHLearn seed1 a1) <> (runHLearn seed2 a2)
-
-instance (Semigroup a, NFData a) => Semigroup (HLearn a) where
+instance (Semigroup a) => Semigroup (HLearn a) where
     (<>) a1 a2 = do
         seed1 <- getRandom
         seed2 <- getRandom
-        return $ runEval $ do
-            a1' <- rpar $ runHLearn seed1 a1
-            a2' <- rseq $ runHLearn seed2 a2
-            return $ a1' <> a2'
+        return $ (runHLearn seed1 a1) <> (runHLearn seed2 a2)
+
+-- instance (Semigroup a, NFData a) => Semigroup (HLearn a) where
+--     (<>) a1 a2 = do
+--         seed1 <- getRandom
+--         seed2 <- getRandom
+--         return $ runEval $ do
+--             a1' <- rpar $ runHLearn seed1 a1
+--             a2' <- rseq $ runHLearn seed2 a2
+--             return $ a1' <> a2'
 
 -------------------------------------------------------------------------------
 
@@ -78,6 +90,24 @@ num2bool a =
         then False
         else True 
         
+      
+-------------------------------------------------------------------------------
+-- Just some list functions
+
+histogram :: (Ord label) => [label] -> [(label,Int)]
+histogram = Map.assocs . go Map.empty {-. map (\x -> (x,1))-}
+    where
+        go :: (Ord label) => Map.Map label Int -> [label] -> Map.Map label Int
+        go !m ![]     = m
+        go !m !(x:xs) = go (Map.insertWith (+) x 1 m) xs
+
+
+normalizeL :: (Fractional a) => [a] -> [a]
+normalizeL xs = map (/s) xs
+    where
+        s = sum xs
+
+
 -------------------------------------------------------------------------------
 -- From the hstats package
 

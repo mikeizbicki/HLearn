@@ -8,8 +8,6 @@
 module HLearn.Math.Functors
     where
           
-import Control.DeepSeq
-import Control.Monad
 import Control.Parallel.Strategies
 import Data.List
 import Data.List.Extras
@@ -17,9 +15,7 @@ import Debug.Trace
           
 import HLearn.Base
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
-import HLearn.MiscUtils
 import HLearn.Models.Ensemble
 
 -------------------------------------------------------------------------------

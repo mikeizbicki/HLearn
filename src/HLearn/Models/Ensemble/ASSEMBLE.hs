@@ -7,11 +7,7 @@
 module HLearn.Models.Ensemble.ASSEMBLE
     where
 
-import Control.DeepSeq
-import Control.Monad
-import Control.Monad.Random
 import Data.List
-import Data.Semigroup
 import Debug.Trace
 
 import qualified Data.Foldable as F
@@ -23,7 +19,6 @@ import HLearn.Math.TypeClasses
 import HLearn.Math.Functors
 import HLearn.DataContainers
 import HLearn.Evaluation.Metrics
-import HLearn.MiscUtils
 import HLearn.Models.Distributions
 import HLearn.Models.DTree
 import HLearn.Models.KNN

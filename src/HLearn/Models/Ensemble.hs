@@ -8,22 +8,13 @@
 module HLearn.Models.Ensemble
     where
 
-import Control.DeepSeq
-import Control.Monad
-import Control.Monad.Random
-import Data.Binary
-import Data.Hashable
 import Data.List
 import Data.List.Extras
-import Data.Semigroup
-import Data.Number.LogFloat hiding (log)
 import Debug.Trace
       
 import HLearn.Base
 import HLearn.DataContainers
-import HLearn.Math.Algebra
 import HLearn.Math.TypeClasses
-import HLearn.MiscUtils
 
 -------------------------------------------------------------------------------
 -- Ensemble

@@ -1,9 +1,12 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HLearn.DataContainers
     where
 
-import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Data.Binary
@@ -11,15 +14,14 @@ import Data.Functor
 import Data.Hashable
 import Data.List
 import Data.List.Split
-import Data.Semigroup
 import Debug.Trace
 import Test.QuickCheck
 
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T
 
+import HLearn.Algebra
 import HLearn.Base
-import HLearn.MiscUtils
 
 -------------------------------------------------------------------------------
 -- DataItem
@@ -63,6 +65,13 @@ instance Arbitrary DataItem where
             1 -> Discrete $ show x
             2 -> Continuous x
 
+-------------------------------------------------------------------------------
+-- Label
+
+-- | I only ever expect labels of type Bool, Int, and String, but it may be convenient to use other types as well for something.  This class and instance exist so that we have some reasonable assumptions about what properties labels should have for our other classes to work with.
+class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
+
+instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
 
 -------------------------------------------------------------------------------
 -- DataDesc
@@ -129,9 +138,6 @@ type LDPS label  = Labeled DPS label -- ^ LDPS = Labeled DataPointSparse
 -- type LDPS label  = (label,DPS) -- ^ LDPS = Labeled DataPointSparse
 type WLDPS label = (Weighted (LDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
 type WUDPS label = (Weighted (UDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
-
-type Labeled var label = (label,var)
-type Weighted var = (var,Double)
 
 fetchAttr :: Int -> DPS -> DataItem
 fetchAttr attrI dps = 

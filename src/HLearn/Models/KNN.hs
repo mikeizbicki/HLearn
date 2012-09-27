@@ -14,10 +14,9 @@ module HLearn.Models.KNN
     )
     where
 
-import Control.DeepSeq
 import Data.List
 import Data.List.Extras
-import Data.Trees.KdTree
+import Data.Trees.KdTree as KD
 
 import HLearn.Base
 import HLearn.DataContainers
@@ -77,14 +76,14 @@ instance (Label label) => BatchTrainer KNNParams (KNN label) DPS label where
 --     trainBatch :: (DataSparse label ds (WDPS label),DataSparse label ds (LDPS label)) =>
 --         modelparams -> ds (LDPS label) -> HLearn model
     trainBatch modelparams ds = return $ KNN
-        { kdtree = fromList $ getDataL ds
+        { kdtree = KD.fromList $ getDataL ds
         , kddesc = getDataDesc ds
         , knnparams = modelparams
         }
 
 instance (Label label) => EmptyTrainer KNNParams (KNN label) label where
     emptyModel desc modelparams = KNN
-        { kdtree = fromList []
+        { kdtree = KD.fromList []
         , kddesc = desc
         , knnparams = modelparams
         }
@@ -92,7 +91,7 @@ instance (Label label) => EmptyTrainer KNNParams (KNN label) label where
 
 instance (Label label) => OnlineTrainer KNNParams (KNN label) DPS label where
     add1dp desc modelparams model dps = return $ model
-        { kdtree = fromList $ dps:(toList $ kdtree model)
+        { kdtree = KD.fromList $ dps:(toList $ kdtree model)
         }
 
 -------------------------------------------------------------------------------
