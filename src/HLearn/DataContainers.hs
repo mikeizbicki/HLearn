@@ -66,14 +66,6 @@ instance Arbitrary DataItem where
             2 -> Continuous x
 
 -------------------------------------------------------------------------------
--- Label
-
--- | I only ever expect labels of type Bool, Int, and String, but it may be convenient to use other types as well for something.  This class and instance exist so that we have some reasonable assumptions about what properties labels should have for our other classes to work with.
-class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
-
-instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
-
--------------------------------------------------------------------------------
 -- DataDesc
 
 data DataDesc label = DataDesc
