@@ -39,4 +39,3 @@ class HasIdentity i where
 class (InverseSemigroup g, HasIdentity g) => Group g
 
 instance (InverseSemigroup g, HasIdentity g) => Group g
-

@@ -4,9 +4,13 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module HLearn.Models.Distributions.Categorical
+    ( CategoricalParams(..)
+    , Categorical (..)
+    )
     where
 
 import Control.Monad.Random
+import Data.List
 import Data.List.Extras
 import Debug.Trace
 
@@ -47,11 +51,17 @@ instance (NFData label) => Model CategoricalParams (Categorical label) where
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (NFData label) => Trainer CategoricalParams (Weighted label) (Categorical label) where
-    train params (label,weight) = Categorical $ Map.singleton label weight
+instance (NFData label) => WeightedSingletonTrainer CategoricalParams label (Categorical label) where
+    trainW params (label,weight) = Categorical $ Map.singleton label weight
 
-instance (NFData label) => Trainer CategoricalParams label (Categorical label) where
-    train params label = Categorical $ Map.singleton label 1
+-- instance (Label label, Semigroup [datapoint]) => Homomorphism Semigroup [datapoint] (Categorical label) trainW 
+
+-- instance (NFData label) => Trainer CategoricalParams Int (Categorical Int) where
+--     train params label = Categorical $ Map.singleton label 1
+-- 
+-- instance {-(Ord label, NFData label) => -}Trainer CategoricalParams [Int] (Categorical Int) where
+--     train params xs = foldl' (<>) identity $ map (train params) xs
+-- --     train params xs = foldl' train identity xs
 
 instance (Ord label) => Distribution (Categorical label) label Double where
 
