@@ -51,8 +51,8 @@ instance (NFData label) => Model CategoricalParams (Categorical label) where
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (NFData label) => WeightedSingletonTrainer CategoricalParams label (Categorical label) where
-    trainW params (label,weight) = Categorical $ Map.singleton label weight
+-- instance (NFData label) => WeightedSingletonTrainer CategoricalParams label (Categorical label) where
+--     trainW params (label,weight) = Categorical $ Map.singleton label weight
 
 -- instance (Label label, Semigroup [datapoint]) => Homomorphism Semigroup [datapoint] (Categorical label) trainW 
 

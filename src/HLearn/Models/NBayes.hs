@@ -50,9 +50,9 @@ defNBayesParams = NBayesParams
 -- NBayes
 
 data NBayes label = NBayes
-    { dataDesc :: !(DataDesc label)
+    { dataDesc  :: !(DataDesc label)
     , labelDist :: !(Categorical label)
-    , attrDist :: !(V.Vector (V.Vector DistContainer)) -- ^ The inner vector corresponds to attributes and the outer vector labels
+    , attrDist  :: !(V.Vector (V.Vector DistContainer)) -- ^ The inner vector corresponds to attributes and the outer vector labels
     }
     deriving (Read,Show,Eq)
     

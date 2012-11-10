@@ -9,45 +9,56 @@ module HLearn.Algebra.Functions
     where
 
 import qualified Control.ConstraintKinds as CK
-import Control.Applicative
+-- import Control.Applicative
+import Control.Concurrent
 import Control.Parallel.Strategies
-import Data.Traversable
-import qualified Data.Foldable as F
+-- import Data.Traversable
+-- import qualified Data.Foldable as F
 import GHC.Exts (Constraint)
+import Prelude hiding (filter)
+import System.IO.Unsafe
 
-import HLearn.Algebra.Models
 import HLearn.Algebra.Structures
 
 -------------------------------------------------------------------------------
 -- Functions
 
--- class Surjective input output function
--- class Injective input output function
--- class (Surjective input output function, Injective input output function) => 
---     Bijective input output function
--- 
--- class (objtype input, objtype output) => 
---     Homomorphism (objtype :: * -> Constraint) input output function
--- 
--- class ( Surjective input output function, Homomorphism objtype input output function) => 
---     Epimorphism objtype input output function
--- 
--- class PseudoInverse inverse function
--- class Inverse inverse function
--- 
--- instance (Inverse inverse function) => PseudoInverse inverse function
+reduce :: 
+    ( Semigroup sg
+    , CK.Foldable container
+    , CK.FoldableConstraint container sg
+    , CK.FoldableConstraint container [sg]
+    ) => container sg -> sg
+reduce = reduceL . CK.toList
+
+reduceL :: (Semigroup sg) => [sg] -> sg
+reduceL []  = error "reduce: cannot reduce empty list"
+reduceL [x] = x
+reduceL xs  = reduceL $ itr xs
+    where
+        itr :: (Semigroup sg) => [sg] -> [sg]
+        itr []            = []
+        itr [x]           = [x]
+        itr (x1:x2:xs)    = (x1<>x2):(itr xs)
+
+instance Semigroup Integer where
+    (<>) = (+)
 
 -------------------------------------------------------------------------------
 -- higher order functions
 
 -- | if `train` is a semigroup homomorphism, then `online train` = `train`
 online :: 
-    ( Model modelparams model
-    , Semigroup model
-    ) => 
-    (modelparams -> datapoint -> model) -- ^ trains single data point
-        -> (model -> datapoint -> model) -- ^ trains in online mode
-online train = \model datapoint -> model <> (train (params model) datapoint)
+    ( Semigroup model
+    ) => (datapoint -> model) -- ^ trains single data point
+      -> (model -> datapoint -> model) -- ^ trains in online mode
+online train = \model datapoint -> model <> (train datapoint)
+
+offline :: 
+    ( HasIdentity model
+    ) => (model -> datapoint -> model) 
+      -> (datapoint -> model)
+offline train = \dp -> train identity dp
 
 batch ::
     ( Monoid model
@@ -56,33 +67,35 @@ batch ::
     , CK.FunctorConstraint container datapoint
     , CK.Foldable container
     , CK.FoldableConstraint container model
-    , Model modelparams model
-    ) =>
-    (modelparams -> datapoint -> model) -- ^ trains single data point
-        -> (modelparams -> container datapoint -> model) -- ^ trains in batch mode
-batch train = \modelparams dps -> CK.foldl' mappend mempty $ CK.fmap (train modelparams) dps
+    ) => (datapoint -> model) -- ^ trains single data point
+      -> (container datapoint -> model) -- ^ trains in batch mode
+batch train = \dps -> CK.foldl' mappend mempty $ CK.fmap train dps
 
--- single :: (Applicative container, F.Foldable container, Functor container) =>
---     (modelparams -> container datapoint -> model) -> (modelparams -> datapoint -> model)
--- single batchTrain = \modelparams datapoint -> batchTrain modelparams $ pure datapoint
+unbatch :: ([datapoint] -> model) -> (datapoint -> model)
+unbatch train = \datapoint -> train [datapoint]
 
-batchInv :: (modelparams -> [datapoint] -> model) -> (modelparams -> datapoint -> model)
-batchInv batchTrain = \modelparams datapoint -> batchTrain modelparams [datapoint]
-
-semigroup :: 
---     ( Semigroup datapoint
---     , PseudoInverse (model -> datapoint) (modelparams -> datapoint -> model)
---     ) =>
-    (model -> datapoint -> model) -> (model -> datapoint) -> (model -> model -> model)
+semigroup :: (model -> datapoint -> model) -> (model -> datapoint) -> (model -> model -> model)
 semigroup trainonline pseudoinverse = \model1 model2 -> trainonline model1 (pseudoinverse model2)
+    
 
 parallel :: 
     ( Semigroup model
-    , Applicative container
-    , Traversable container
-    ) => 
-    Strategy model 
-        -> (modelparams -> container datapoint -> model) 
-        -> (modelparams -> container datapoint -> model)        
-parallel strat train = \modelparams datapoint -> 
-    F.foldl1 (<>) $ (withStrategy (parTraversable strat) . fmap (train modelparams . pure)) datapoint
+    , NFData model
+    , CK.Partitionable container
+    , CK.PartitionableConstraint container datapoint
+    , CK.FoldableConstraint container model
+    , CK.Functor container
+    , CK.FunctorConstraint container model
+    , CK.FunctorConstraint container datapoint
+    , CK.Applicative container
+    , CK.ApplicativeConstraint container datapoint
+    , CK.Traversable container
+    , CK.TraversableConstraint container model
+    , CK.TraversableConstraint container datapoint
+    ) => (container datapoint -> model) -> (container datapoint -> model)
+parallel train = \datapoint ->
+--     F.foldl' (mappend) mempty $ parMap strat train (CK.partition n datapoint)
+    reduce $ parMap strat train (CK.partition n datapoint)
+    where
+        strat = rdeepseq
+        n = unsafePerformIO $ getNumCapabilities

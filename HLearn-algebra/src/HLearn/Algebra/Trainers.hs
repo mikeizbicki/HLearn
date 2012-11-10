@@ -23,28 +23,28 @@ import HLearn.Algebra.Functions
 class SingletonTrainer modelparams datapoint model | modelparams datapoint -> model where
     train :: modelparams -> datapoint -> model
 
-class WeightedSingletonTrainer modelparams datapoint model | modelparams datapoint -> model where
-    trainW :: modelparams -> Weighted datapoint -> model
-
-class BatchTrainer modelparams datapoint model | modelparams datapoint -> model where
-    trainBatch :: (Functor container, F.Foldable container) => modelparams -> container datapoint -> model
-
-class WeightedBatchTrainer modelparams datapoint model | modelparams datapoint -> model where
-    trainBatchW :: (Functor container, F.Foldable container) => modelparams -> container (Weighted datapoint) -> model
-
-class OnlineTrainer datapoint model where
-    trainOnline :: model -> datapoint -> model
-
-class WeightedOnlineTrainer datapoint model where
-    trainOnlineW :: model -> Weighted datapoint -> model
+-- class WeightedSingletonTrainer modelparams datapoint model | modelparams datapoint -> model where
+--     trainW :: modelparams -> Weighted datapoint -> model
+-- 
+-- class BatchTrainer modelparams datapoint model | modelparams datapoint -> model where
+--     trainBatch :: (Functor container, F.Foldable container) => modelparams -> container datapoint -> model
+-- 
+-- class WeightedBatchTrainer modelparams datapoint model | modelparams datapoint -> model where
+--     trainBatchW :: (Functor container, F.Foldable container) => modelparams -> container (Weighted datapoint) -> model
+-- 
+-- class OnlineTrainer datapoint model where
+--     trainOnline :: model -> datapoint -> model
+-- 
+-- class WeightedOnlineTrainer datapoint model where
+--     trainOnlineW :: model -> Weighted datapoint -> model
 
 -------------------------------------------------------------------------------
 -- Instances
 
 -- weighted -> normal
 
-instance (WeightedSingletonTrainer modelparams datapoint model) => SingletonTrainer modelparams datapoint model where
-    train modelparams dp = trainW modelparams (dp,1)
+-- instance (WeightedSingletonTrainer modelparams datapoint model) => SingletonTrainer modelparams datapoint model where
+--     train modelparams dp = trainW modelparams (dp,1)
 
 {-
 -- These result in duplicate instance declarations with the ones below

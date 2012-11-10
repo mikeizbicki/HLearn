@@ -25,6 +25,7 @@ Michael Izbicki
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 
@@ -32,6 +33,7 @@ module HLearn.Models.Markov.MarkovChain
     where
     
 import Data.List
+import Debug.Trace
 import GHC.TypeLits
 
 import HLearn.Algebra
@@ -48,46 +50,64 @@ import HLearn.Models.Distributions.Categorical
 We define the Markov chain with the data type:
 \begin{code}
 
-data MarkovChain {-(order::Nat)-} datatype = MarkovChain
+data MarkovChain (order::Nat) datatype = MarkovChain
     { transition :: Categorical [datatype]
     , startchain :: [datatype]
     , endchain :: [datatype]
-    , order :: Int
     }
     deriving (Show,Read,Eq)
+    
+order :: forall n. forall datatype. SingI n => MarkovChain n datatype -> Int
+order _ = fromInteger $ fromSing (sing :: Sing n)
 \end{code}
 
 We define the singleton trainer as:
 \begin{code}
-trainMC :: (NFData datatype) => Int -> datatype -> MarkovChain datatype
-trainMC order dp = MarkovChain
+trainMC :: forall order. forall datatype. (SingI order, NFData datatype) => datatype -> MarkovChain order datatype
+trainMC dp = MarkovChain
     { transition = train CategoricalParams [dp]
-    , startchain = [dp]
-    , endchain = [dp]
-    , order = order
+    , startchain = chain
+    , endchain = chain
     }
+    where
+        chain = if (fromSing (sing :: Sing order)) == 0
+            then []
+            else [dp]
 \end{code}
 
 We define the semigroup instance as:
 \begin{code}
-instance (NFData datatype, Label datatype) => Semigroup (MarkovChain datatype) where
+instance (SingI order, NFData datatype, Label datatype) => Semigroup (MarkovChain order datatype) where
     mc1 <> mc2 = MarkovChain
         { transition = (transition mc1) <> (transition mc2) <> mergetransitions
-        , startchain = if (length $ startchain mc1) >= order'
-            then startchain mc1
-            else (startchain mc1)++(take (order' - (length $ startchain mc1)) $ startchain mc2)
-        , endchain = if (length $ endchain mc2) >= order'
-            then endchain mc2
-            else (endchain mc2)++(take (order' - (length $ endchain mc2)) $ endchain mc1)
-        , order = order'
+        , startchain = (startchain mc1)++(take (order' - (length $ startchain mc1)) $ startchain mc2)
+        , endchain = (takeLast (order' - (length $ endchain mc2)) $ endchain mc1)++(endchain mc2)
         }
         where
-            order' = if (order mc1) == (order mc2)
-                then order mc1
-                else error "MarkovChain.(<>): non-matching orders"
-            mergetransitions = batch train CategoricalParams
-                [ x++y
-                | x <- drop 0 $ init $ tails $ endchain mc1
-                , y <- take 1 $ tail $ inits $ startchain mc2
-                ]
+            order' = order mc1
+            mergetransitions = batch (train CategoricalParams) $ transL $ endchain mc1
+            transL []     = []
+            transL startL = 
+                [ startL ++ end
+                | end <- take (order' - length startL) $ tail $ inits $ startchain mc2
+                ] ++ (transL $ tail startL)
+
+takeLast :: Int -> [a] -> [a]
+takeLast n xs = drop ((length xs)-n) xs
+
+x=batch trainMC "ab" :: MarkovChain 3 Char
+ 
+instance HasIdentity (MarkovChain n datatype) where
+    identity = MarkovChain 
+        { transition = identity
+        , startchain = []
+        , endchain = []
+        }
+        
+instance 
+    ( Semigroup (MarkovChain order datatype)
+    ) => Monoid (MarkovChain order datatype)
+    where
+        mempty  = identity
+        mappend = (<>)
 \end{code}
