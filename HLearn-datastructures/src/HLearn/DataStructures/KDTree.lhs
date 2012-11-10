@@ -29,7 +29,7 @@ Michael Izbicki
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 
-module HLearn.Models.Markov.MarkovChain
+module HLearn.DataStructures.KDTree
     where
     
 import Data.List

@@ -9,21 +9,23 @@ Maintainer:          mike@izbicki.me
 Build-Type:          Simple
 Cabal-Version:       >=1.8
 
-Executable HLearn-Distributions-SpaceTests
-    Main-is: src/examples/SpaceTests.hs
+Executable HLearn-Distributions-Criterion
+    Main-is: src/examples/Criterion.hs
     Build-Depends:      
-        HLearn-algebra            >= 0.0.1,
+        HLearn-algebra              >= 0.0.1,
         --HLearn-algebra              ,
+        ConstraintKinds,
+        
         HLearn-distributions        ,
         base                        >= 3 && < 5,
+        criterion                   >= 0.6.1.1,
         parallel,
         vector,
         logfloat                , 
         statistics
-    ghc-options:        
+    ghc-options: 
+        -threaded
         -rtsopts 
-        -auto-all 
-        -caf-all 
         -O2 
         -funbox-strict-fields
         -- -fllvm
@@ -49,11 +51,19 @@ Library
 
         
     hs-source-dirs:     src
-    ghc-options:        -rtsopts -auto-all -caf-all -O2 
+    ghc-options:        
+        -rtsopts 
+        -- -auto-all 
+        -- -caf-all 
+        -funbox-strict-fields
+        -O2 
+        -- -fllvm
     Exposed-modules:
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Categorical
         HLearn.Models.Distributions.Gaussian
+        HLearn.Models.Distributions.GaussianOld
+        HLearn.Models.Distributions.GaussianOld2
         --HLearn.Models.Distributions.Poisson
         

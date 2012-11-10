@@ -13,8 +13,8 @@ Library
     Build-Depends:      
         base                >= 3 && < 5,
         ghc-prim,
-        -- ConstraintKinds     >= 0.0.1,
-        ConstraintKinds     ,
+        ConstraintKinds     >= 0.0.1,
+        --ConstraintKinds     ,
         
         semigroups          >= 0.8,
         parallel            >= 3.2,

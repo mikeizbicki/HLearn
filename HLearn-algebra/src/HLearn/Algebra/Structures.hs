@@ -14,6 +14,23 @@ module HLearn.Algebra.Structures
 import Data.Semigroup
 
 -------------------------------------------------------------------------------
+-- Free Group
+
+instance Invertible Bool where
+    inverse b 
+        | b==True   = False
+        | otherwise = True
+
+newtype Invert datatype = Invert (Bool,datatype)
+
+instance Invertible (Invert datatype) where
+    inverse (Invert (bool,datatype)) = Invert (inverse bool, datatype)
+
+data FreeGroup datatype = FreeGroup [datatype]
+
+
+
+-------------------------------------------------------------------------------
 -- Inverse Semigroups
 
 class Invertible i where

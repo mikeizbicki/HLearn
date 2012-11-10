@@ -16,6 +16,11 @@
 \newtheorem*{namedtheorem}{Theorem}
 \newtheorem*{namedcorollary}{Corollary}
 
+\newtheoremstyle{nameddefinition2}{}{}{}{}{\bfseries}{}{.5em}{#1\thmnote{#3}.}
+\theoremstyle{nameddefinition2}
+\newtheorem*{nnote}{}
+
+
 \long\def\ignore#1{}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,6 +62,7 @@ Michael Izbicki
 
 %format ^ = "^"
 %format <> = "\diamond"
+%format <> = "\diamond"
 %format Infinity = "\infty"
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -70,11 +76,16 @@ Michael Izbicki
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE BangPatterns #-}
 
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module HLearn.Models.Distributions.Gaussian2
+module HLearn.Models.Distributions.Gaussian
+    ( Gaussian (..)
+    , GaussianParams (..)
+    , trainSG
+    )
     where
     
 import Control.Monad
@@ -84,27 +95,20 @@ import Debug.Trace
 import Numeric.SpecFunctions (logFactorial)
 import Test.QuickCheck
 
+import Data.Vector.Generic.Base
+import Data.Vector.Generic.Mutable
+import qualified Data.Vector.Unboxed as U
+import Data.Vector.Unboxed.Deriving
+
 import qualified Statistics.Distribution as D
 import qualified Statistics.Distribution.Normal as N
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
+{-# INLINE fi #-}
 fi :: (Integral a, Num b) => a -> b
 fi=fromIntegral
-
-data GaussianParams = GaussianParams
-
-instance ModelParams GaussianParams
-
-instance NFData GaussianParams where
-    rnf params = ()
-
-instance (NFData datapoint) => Model GaussianParams (Gaussian datapoint) where
-    params model = GaussianParams
-
-instance (NFData datapoint) => NFData (Gaussian datapoint) where
-    rnf (Gaussian m1 m2 n) = seq (rnf m1) $ seq (rnf m2) (rnf n)
 
 \end{code}
 }
@@ -123,36 +127,70 @@ Finally, the HLearn library was written using literate Haskell, so this file is 
 The Gaussian distribution (also called the Normal distribution) is one of the most common distributions in statistics and machine learning.
 
 \section{Data Types}
-A Gaussian distribution is uniquely determined from its mean and variance.  In order to estimate these quantities from a sample, we must also know the number of data points in the sample.  Therefore, we define a Gaussian distribution as the following 3-tuple:
+A Gaussian distribution is uniquely determined from its mean and variance.  In order to estimate these quantities from a sample, we must also know the number of data points in the sample.  Therefore, we define a Gaussian distribution as the following 4-tuple:
 
 \begin{code}
-data Gaussian datatype = Gaussian
-        { n   :: {-# UNPACK #-} !Int    -- the number of samples seen
-        , m1  :: !datatype              -- equal to the first moment (mean)
-        , m2  :: !datatype              -- equal to the second moment (pop. variance) times n
-        } 
+
+data Gaussian datapoint = Gaussian
+    { n  :: {-# UNPACK #-} !Int
+    , m1 :: !datapoint
+    , m2 :: !datapoint
+    , dc :: {-# UNPACK #-} !Int
+    } 
     deriving (Show,Read)
 
+-- data Gaussian = Gaussian
+--     { n   :: {-# UNPACK #-} !Int         -- the number of samples seen
+--     , m1  :: {-# UNPACK #-} !Double      -- the first moment (mean)
+--     , m2  :: {-# UNPACK #-} !Double      -- the second moment (pop. variance) times n
+--     , dc  :: {-# UNPACK #-} !Int         -- the number of "dummy" points that have been added to the Gaussian
+--     }
+--     deriving (Show,Read)
+
 \end{code}
+
 There are several important notes to make about this data structure:
 \begin{enumerate}
 \item Normally a Gaussian distribution would have non-negative values for both the standard deviation and the number of samples.  We make no such assumption.  The normal operations we perform on a distribution (e.g. the pdf) will only be well defined in these circumstances, but the algebraic properties of the distribution require that all parameters can be negative.
 
-\item We do not specify the base data type to store our estimates of the parameters.  Normally, we will use the |Double| type to do this, but if we have millions of estimated Gaussians, we may want to use the |Float| type instead.  Similarly, if we require extra precision we may use the |LogFloat| data type at the expense of performance.
+\item We have introduced a fourth variable called |dc|.  This will be necessary to track how many "dummy datapoints" we have added to the Gaussian for numerical stability reasons.  See section \ref{sec:dummy}.
+
+%\item We do not specify the base data type to store our estimates of the parameters.  Normally, we will use the |Double| type to do this, but if we have millions of estimated Gaussians, we may want to use the |Float| type instead.  Similarly, if we require extra precision we may use the |LogFloat| data type at the expense of performance.
 \end{enumerate}
 
 For convenience, we also define the following accessor functions to the sample mean and sample variance:
 \begin{code}
 
--- mean :: (Floating datatype) => Gaussian datatype -> datatype
--- mean (Gaussian n m1 m2) = m1
--- 
--- var :: (Floating datatype) => Gaussian datatype -> datatype
--- var (Gaussian n m1 m2) = m2/(fi $ n-1)
+-- mean :: Gaussian -> Double
+-- mean (Gaussian n m1 m2 dc) = m1
+--  
+-- var :: Gaussian -> Double
+-- var (Gaussian n m1 m2 dc) = m2/(fi $ n-1)
+
+\end{code}
+
+Finally, we make our Gaussian type capable of being unboxed:
+\begin{code}
+
+-- derivingUnbox "Gaussian"
+--     [d| instance Unbox' (Gaussian) (Int, Double, Double, Int) |]
+--     [| \ (Gaussian n m1 m2 f) -> (n,m1,m2,f) |]
+--     [| \ (n,m1,m2,f) -> (Gaussian n m1 m2 f) |]
+
+derivingUnbox "Gaussian"
+    [d| instance (U.Unbox a) => Unbox' (Gaussian a) (Int, a, a, Int) |]
+    [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
+    [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]
+
+-- instance NFData Gaussian where
+instance (NFData datapoint) => NFData (Gaussian datapoint) where
+    rnf (Gaussian n m1 m2 dc) = seq (rnf m1) $ seq (rnf m2) $ seq (rnf dc) (rnf n)
 
 \end{code}
 
 \section{Algebra}
+
+We are following the homomorphic learning framework.  In this section, we will concern ourselves with algebraic manipulations of fully trained Gaussian models.  In particular, we will see how to convert them into other fully trained Gaussian models.
 
 %We will do this by working backwards from a known batch trainer for the Gaussian distribution.  Knuth presents the %following recurrence relations in pg 232 of Vol2 AoCP:
 %\begin{align*}
@@ -185,19 +223,8 @@ m_1' &= \frac{1}{n'}\left(\sum_{i=1}^{n_a} x_{ia} + \sum_{i=1}^{n_b} x_{ib}\righ
 &= \frac{1}{n'}\left(n_a m_{1a} + n_b m_{1b}\right)\\
 &= m_{1a}\frac{n_a}{n'} + m_{1b}\frac{n_b}{n'}
 \end{align}
-Notice that equation \ref{eq:m1'} is simply the weighted average of the two means.  This makes intuitive sense.  But there is a slight problem with this definition: When implemented on a computer with floating point arithmetic, we will get |Infinity| whenever |n'| is 0.  This would break the associativity of the semigroup operator, which is not allowed.  
-%We solve this problem by handling it as a special case.  We can preserve associativity by defining |m1'| as:
-%\begin{align}
-%m_1' = 
-%\left\{
-%    \begin{array}{ll}
-%      m_{1a}\frac{n_a}{n'} + m_{1b}\frac{n_b}{n'}   & \text{if |n' /= 0| } \\ 
-%      m_{1a}n_a + m_{1b}n_b                         & \text{otherwise} \\
-%    \end{array}
-%  \right.
-%\label{eq:m1'}
-%\end{align}
-%The pdf is undefined if |n < 1|, so we don't need to worry about if this definition makes sense from a probabilistic point of view.  We only need to worry about associativity.
+Notice that equation \ref{eq:m1'} is simply the weighted average of the two means.  This makes intuitive sense.  But there is a slight problem with this definition: When implemented on a computer with floating point arithmetic, we will get |Infinity| whenever |n'| is 0.  
+We will solve this problem by adding a ``dummy'' element into the Gaussian whenever |n'| would be zero.  This prevents the division by zero and maintains our associativity.  See section \ref{dummy} for more info. 
 
 Finally, we must calculate the new variance |m2'|.  We start with the definition that:
 \begin{align}
@@ -209,185 +236,175 @@ Then, we substitute with equation \ref{eq}, split the summations, and substitute
 m_2' &= \sum_{i=1}^{n'}(x_i^2 - m_1'^2)\\
 &= \sum_{i=1}^{n_a}(x_{ia}^2) + \sum_{i=1}^{n_b}(x_{ib}^2) - n'm_1'^2\\
 \label{eq:m2'}
-&= m_{2a} + n_a m_{1a}^2 + m_{2b} + n_b m_{2b}^2 - n' m_1'^2
+&= m_{2a} + n_a m_{1a}^2 + m_{2b} + n_b m_{1b}^2 - n' m_1'^2
 %&= m_{2a} + \frac{m_{1a}^2}{n_a} + m_{2b} + \frac{m_{2b}^2}{n_b} - \frac{m_1'^2}{n'}
 %m_2' = m_{2a}+m_{2b}+\frac{n_an_b}{n'}(m_{1a}-m_{2a})^2
 \end{align}
 We combine equations \ref{eq:n'}, \ref{eq:m1'} and \ref{eq:m2'} to get the semigroup instance for the |Gaussian| data type:
 
-\begin{code}
+\subsubsection{Proof of Validity}
 
-fakeGaussian = Gaussian 1 0 1 
+For this to form a valid semigroup instance, we must satisfy the associativity law by showing that for any three |g_a, g_b, g_c :: Gaussian|:
+\begin{align}
+(g_a \diamond g_b) \diamond g_c  = g_a \diamond (g_b \diamond g_c)
+\end{align}
 
-instance (Floating datapoint) => Semigroup (Gaussian datapoint) where
-    {-# INLINE (<>) #-}
-    Gaussian na m1a m2a <> Gaussian nb m1b m2b = Gaussian n' m1' m2'
-        where
-            n'  = na+nb
-            m1' = m1a*(fi na)/(fi n')+m1b*(fi nb)/(fi n')
-            m2' = m2a + m2b + (m1a^2)*(fi na) + (m1b^2)*(fi nb) - (m1'^2)*(fi n')
-            -- (m1a^2)/(fi na) + (m1b^2)/(fi nb) - (m1'^2)/(fi n')
-
-mean :: (Floating datatype) => Gaussian datatype -> datatype
-mean (Gaussian n m1 m2) = m1
-
-var :: (Floating datatype) => Gaussian datatype -> datatype
-var (Gaussian n m1 m2) = m2/(fi $ n-1)
-
-
--- instance (Floating datapoint) => Semigroup (Gaussian datapoint) where
---     {-# INLINE (<>) #-}
---     Gaussian na m1a m2a <> Gaussian nb m1b m2b = Gaussian n' m1' m2'
---         where
---             n'  = na+nb
---             m1' = if n' == 0
---                 then 0 -- m1a*(fi na)+m1b*(fi nb)
---                 else m1a*(fi na)/(fi n')+m1b*(fi nb)/(fi n')
---             m2' = m2a+m2b+ (fi na)*m1a^2+(fi nb)*m1b^2-(fi n')*m1'^2
-
-
-data SafeGaussian = SafeGaussian {q :: Int, w1 :: Double, w2 :: Double, dummycount :: Int }
-    deriving (Show,Eq)
-
-instance Invertible SafeGaussian where
-    {-# INLINE inverse #-}
-    inverse (SafeGaussian n m1 m2 f) = SafeGaussian (-n) m1 (-m2) (-f)
-
-instance HasIdentity SafeGaussian where
-    {-# INLINE identity #-}
-    identity = SafeGaussian 0 0 0 0 
-
-trainSG :: Double -> SafeGaussian
-trainSG x = SafeGaussian 1 x 0 0
-
--- It's possible there is a numerically optimal distribution to use here to maintain best accuracy, however, this seems to work pretty well in practice.
-dummy :: SafeGaussian
-dummy = SafeGaussian 2 2 2 1
-
-instance Semigroup SafeGaussian where
-    {-# INLINE (<>) #-}
-    ga@(SafeGaussian na m1a m2a fa) <> gb@(SafeGaussian nb m1b m2b fb)
-        | ga == inverse gb              = identity
-        | n'==0 && fa >0                = (inverse dummy `merge` ga)<>gb
-        | n'==0 && fb >0                = (inverse dummy `merge` ga)<>gb
-        | n'==0                         = (dummy `merge` ga) `merge` gb
-        | n' >0 && (fa >0 || fb>0)      = (ga `merge` gb) `merge` inverse dummy
-        | otherwise                     = merge ga gb
-            where n' = na+nb
-        
-merge :: SafeGaussian -> SafeGaussian -> SafeGaussian
-merge ga@(SafeGaussian na m1a m2a fa) gb@(SafeGaussian nb m1b m2b fb) = SafeGaussian n' m1' m2' f'
-    where
-        n'  = na+nb
-        m1' = m1a*(fi na)/(fi n')+m1b*(fi nb)/(fi n')
-        m2' = m2a+m2b+ (fi $ na*nb)/(fi n')*(m1a - m1b)^2
-        f' = fa+fb
-        
-\end{code}
-
-\begin{theorem}
-The Gaussian semigroup instance is valid because it satisfies the associativity law.
-\end{theorem}
-\begin{proof}
-We must show that for any three |g_a, g_b, g_c :: Gaussian|, we can calculate:
-\begin{spec}
-g_l = (g_a <> g_b) <> g_c 
-g_r = g_a <> (g_b <> g_c)
-\end{spec}
-
-Then we must show that |g_l| and |g_r| are equal by showing that each field is equals.  We can easily see this for |n| because:
+We do this by showing that each field in the left side of the equation ($g_l$) equals the corresponding field in the right side ($g_r$).  We can easily see this for |n| because:
 $$
 n_l = (n_a + n_b) + n_c = n_a + (n_b + n_c) = n_r
 $$
 
-For |m2|, we have:
-\begin{align*}
-m_{2l} &= m_{2a} + n_a m_{1a}^2 + m_{2b} + n_b m_{2b}^2 - n' m_1'^2
-\end{align*}
+%For |m2|, we have:
+%\begin{align*}
+%m_{2l} &= m_{2a} + n_a m_{1a}^2 + m_{2b} + n_b m_{2b}^2 - n' m_1'^2
+%\end{align*}
 
 %\begin{align*}
 %%((m_{1a}, m_{2a}, n_a) \diamond (m_{1b}, m_{2b}, n_b)) \diamond (m_{1c}, m_{2c}, n_c)
 %\end{align*}
-\end{proof}
 
 \todo{Finish proof}
 
-\section{Monoid}
 
-A monoid $M$ is just a semigroup that has a unique identity $\epsilon$ such that for all $x \in M$:
-$$
-x \diamond \epsilon = \epsilon \diamond x = x
-$$
-The identity for Gaussians can very simply be defined as:
+\subsubsection{The Dummy Point}
+\label{dummy}
+Then, when we add another Gaussian, taking the non-adjusted |n'| away from zero, we can remove the dummy element to restore the Gaussian to its original condition.  We actually depend on the group inverse to perform this operation.
+
+We define an equivalence relation over the Gaussians that takes this into account:
+\begin{align}
+g_a \sim g_b \iff g_a \diamond d^i = g_b \diamond d^j
+\end{align}
+
+\subsubsection{Performance Notes}
+For some reason, the commented out line results in |(<>)| an almost 10% decrease in speed.  None of the other lines cause any performance hit at all.  The commented line is not actually necessary for consistency, it's just a nicety.
+
+The commented out line in |merge| also results in a huge performance hit.  The division must eat up a serious amount of time.
+% ga == inverse gb              = identity                 -- See below.
+
+\subsubsection{The Code}
+Finally we are ready to see the actual code:
+
 \begin{code}
-instance (Floating datapoint) => HasIdentity (Gaussian datapoint) where
-    {-# INLINE identity #-}
-    identity = Gaussian 0 0 0
+
+-- instance Semigroup Gaussian where
+instance (Fractional datapoint) => Semigroup (Gaussian datapoint) where
+    {-# INLINE (<>) #-}
+    (<>) ga@(Gaussian na m1a m2a fa) gb@(Gaussian nb m1b m2b fb)
+        | n'==0 && fa >0                = (inverse dummy `merge` ga) `merge` gb
+        | n'==0 && fb >0                = (inverse dummy `merge` gb) `merge` ga
+        | n'==0                         = (dummy `merge` ga) `merge` gb
+        | n' >1 && (fa >0 || fb>0)      = (ga `merge` gb) `merge` inverse dummy
+        | otherwise                     = merge ga gb
+            where n' = na+nb
+        
+{-# INLINE dummy #-}
+-- dummy :: Gaussian
+dummy :: (Num datatype) => Gaussian datatype
+dummy = Gaussian 2 2 2 1
+
+{-# INLINE merge #-}
+-- merge :: Gaussian -> Gaussian -> Gaussian
+merge :: (Fractional datatype) => Gaussian datatype -> Gaussian datatype -> Gaussian datatype
+merge !ga@(Gaussian na m1a m2a fa) !gb@(Gaussian nb m1b m2b fb) = Gaussian n' m1' m2' f'
+    where
+        n'  = na+nb
+        m1' = (m1a*(fi na)+m1b*(fi nb))/(fi n')
+        m2' = m2a + m2b + (m1a^2)*(fi na) + (m1b^2)*(fi nb) - (m1'^2)*(fi n')
+        f' = fa+fb        
+
 \end{code}
+And our dummy data point is:
+\begin{code}
+\end{code}
+It's possible there is a numerically optimal distribution to use for best accuracy, however, this seems to work pretty well enough in practice.
 
-\begin{theorem} 
-The Gaussian data type has a valid identity.
-\end{theorem}
-\begin{proof}
 
-\begin{spec}
-identity <> Gaussian nb m1b m2b = Gaussian n' m1' m2'
-\end{spec}
-We easily show that the identity doesn't effect |n|:
-$$
-n' = 0 + n_b = n_b
-$$
-Next we show that the identity doesn't affect |m1|, but we must be more careful here due to our if statement.  If |nb /= 0|, then we get:
-$$
-m_1' = 0 \frac {0}{n_b} + m_{1b}\frac{n_b}{n_b} = m_{1b}
-$$
-And, if |nb == 0| we get:
-$$
-m_1' = 0 * 0 + m_{1b}*n_b = m_{1b}*0 = 0
-$$
-\end{proof}
+\subsection{Monoid}
+The identity for Gaussians is defined as:
+\begin{code}
 
+-- instance HasIdentity Gaussian where
+instance (Fractional datapoint) => HasIdentity (Gaussian datapoint) where
+    {-# INLINE identity #-}
+    identity = Gaussian 0 0 0 0
+
+  
+\end{code}
+We will show that this is a valid left identity (the right identity is similar) by showing:
+\begin{align}
+%identity <> Gaussian nb m1b m2b = Gaussian n' m1' m2'
+\epsilon \diamond g_b = g' \Rightarrow g_b = g'
+\end{align}
+This is straightforward:
+\begin{align}
+n' & = 0 + n_b = n_b\\
+m_1' &= 0 \frac {0}{n_b} + m_{1b}\frac{n_b}{n_b} = m_{1b} \\
+m_2' &= 0 + 0 + m_{2b} + n_b m_{1b}^2 - n' m_1'^2 = m_{2b} + n_b m_{1b}^2 - n_b m_{1b}^2 = m_{2b}
+\end{align}
+
+\ignore{
 Now, we must explicitly define a Monoid instance for our class as:
 \begin{code}
-instance (Floating datapoint) => Monoid (Gaussian datapoint) where
+
+-- instance Monoid Gaussian where
+instance (Fractional datapoint) => Monoid (Gaussian datapoint) where
     {-# INLINE mempty #-}
     mempty = identity
     {-# INLINE mappend #-}
     mappend = (<>)
+
 \end{code}
+}
 
-\section{Group}
+\subsection{Group}
 
-A group is a monoid where every element x has an inverse such that:
-$$
-xx^{-1} = x^{-1}x = 1
-$$
-
+The inverse operation for the Gaussian is defined as:
 \begin{code}
-instance (Floating datapoint) => Invertible (Gaussian datapoint) where
+  
+-- instance Invertible Gaussian where    
+instance (Num datapoint) => Invertible (Gaussian datapoint) where
     {-# INLINE inverse #-}
-    inverse (Gaussian n m1 m2) = Gaussian (-n) m1 (-m2)
+    inverse (Gaussian n m1 m2 dc) = Gaussian (-n) m1 (-m2) (-dc)
+
 \end{code}
+We will show this is a valid left inverse (the right inverse is similar) by showing:
+\begin{align}
+g^{-1}\diamond g = \epsilon
+\end{align}
+This is straightforward:
+\begin{align}
+n' &= n + (-n) = 0 \\
+m_1' &= 0 \text{     Only true after factoring in the dummy elements} \\
+m_2' &=
+\end{align}
+
+\section{Model Training}
+We use the homomorphic learning method to define the training routines for our Gaussian distribution.  That means we need to define only a single training method.  The singleton trainer is particularly simple:
+\begin{code}
+{-# INLINE trainSG #-}
+
+data GaussianParams= GaussianParams
+
+instance ModelParams GaussianParams
+
+instance NFData GaussianParams where
+    rnf params = ()
+   
+-- instance SingletonTrainer GaussianParams Double Gaussian where
+instance (Fractional datapoint) => SingletonTrainer GaussianParams datapoint (Gaussian datapoint) where
+    {-# INLINE train #-}
+    train GaussianParams x = Gaussian 1 x 0 0
+
+-- trainSG :: Double -> Gaussian
+trainSG :: Double -> Gaussian Double
+trainSG x = Gaussian 1 x 0 0
+
+\end{code}
+
+\section{Model Use}
 
 \section{Misc}
 \begin{code}
-untrain :: (Eq datatype, Floating datatype) => Gaussian datatype -> [datatype]
-untrain (Gaussian 0  0  0) = []
-untrain (Gaussian 1 m1  0) = [m1]
-untrain (Gaussian n m1 m2) = trace ("WARNING Gaussian.untrain: need better data input types") $ [m1+x,m1-x]
-    where x=sqrt $ m2
-
-instance (Floating datapoint) => SingletonTrainer GaussianParams datapoint (Gaussian datapoint) where
-    {-# INLINE train #-}
-    train GaussianParams x = Gaussian 1 x 0
-
-
-
--- g1=batch train GaussianParams [1,2,3::Double]
--- g2=batch train GaussianParams [3.414213562373095,0.5857864376269049::Double]
--- g2'=batch train GaussianParams [3.414213562373095,0.5857864376269049,10::Double]
-
-
 
 \end{code}
 
