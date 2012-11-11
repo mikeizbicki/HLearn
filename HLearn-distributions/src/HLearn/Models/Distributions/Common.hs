@@ -26,7 +26,7 @@ import HLearn.Algebra
 -- instance (DistributionEstimator dist (Weighted label)) => DistributionEstimator dist label where
 --     add1sample dist label = add1sample dist (label,1::Double)
     
-class Distribution dist sample probtype | dist -> sample, dist -> probtype where
+class Distribution dist sample probtype | dist -> sample{-, dist -> probtype-} where
     pdf :: dist -> sample -> probtype 
     cdf :: dist -> sample -> probtype 
     cdfInverse :: dist -> probtype -> sample

@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module HLearn.Models.Distributions.Categorical
     ( CategoricalParams(..)
@@ -32,24 +33,32 @@ data CategoricalParams = CategoricalParams
 instance NFData CategoricalParams where
     rnf x = ()
 
-instance ModelParams CategoricalParams
+instance Model CategoricalParams (Categorical label probtype) where
+    getparams model = CategoricalParams
 
 -------------------------------------------------------------------------------
 -- Categorical
 
-data Categorical label = Categorical 
-        { pdfmap :: Map.Map label Double
+data Categorical sampletype probtype = Categorical 
+        { pdfmap :: Map.Map sampletype probtype 
         } 
     deriving (Show,Read,Eq)
 
-instance (NFData label) => NFData (Categorical label) where
+instance (NFData sampletype, NFData probtype) => NFData (Categorical sampletype probtype) where
     rnf d = rnf $ pdfmap d
 
-instance (NFData label) => Model CategoricalParams (Categorical label) where
-    params model = CategoricalParams
+-- instance (NFData label) => Model CategoricalParams (Categorical label) where
+--     params model = CategoricalParams
 
 -------------------------------------------------------------------------------
--- Distribution
+-- Training
+
+-- instance (Ord label) => HomTrainer CategoricalParams label (Categorical label) where
+--     trainSingle params dp = Categorical $ Map.singleton dp 1
+
+instance (Ord label, Num probtype) => HomTrainer CategoricalParams (label,probtype) (Categorical label probtype) where
+    trainSingle params (dp,w) = Categorical $ Map.singleton dp w
+
 
 -- instance (NFData label) => WeightedSingletonTrainer CategoricalParams label (Categorical label) where
 --     trainW params (label,weight) = Categorical $ Map.singleton label weight
@@ -63,7 +72,10 @@ instance (NFData label) => Model CategoricalParams (Categorical label) where
 --     train params xs = foldl' (<>) identity $ map (train params) xs
 -- --     train params xs = foldl' train identity xs
 
-instance (Ord label) => Distribution (Categorical label) label Double where
+-------------------------------------------------------------------------------
+-- Distribution
+
+instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Categorical label prob) label prob where
 
     {-# INLINE pdf #-}
     pdf dist label = 0.0001+(val/tot)
@@ -93,24 +105,24 @@ instance (Ord label) => Distribution (Categorical label) label Double where
     {-# INLINE drawSample #-}
     drawSample dist = do
         x <- getRandomR (0,1)
-        return $ cdfInverse dist (x::Double)
+        return $ cdfInverse dist (x::prob)
         
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label) => Semigroup (Categorical label) where
+instance (Ord label, Num probtype) => Semigroup (Categorical label probtype) where
 {-    (<>) d1 d2 = if (desc d1)==(desc d2)
         then d1 {pdfmap=Map.unionWith (+) (pdfmap d1) (pdfmap d2)}
         else error "Categorical.(<>): different DataDesc"-}
     (<>) d1 d2 = Categorical $ Map.unionWith (+) (pdfmap d1) (pdfmap d2)
 
-instance HasIdentity (Categorical label) where
+instance HasIdentity (Categorical label probtype) where
     identity = Categorical Map.empty
 
-instance (Ord label) => Invertible (Categorical label) where
+instance (Ord label, Num probtype) => Invertible (Categorical label probtype) where
     inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
 
-instance (Ord label) => Monoid (Categorical label) where
+instance (Ord label, Num probtype) => Monoid (Categorical label probtype) where
     mempty = identity
     mappend = (<>)
 
