@@ -5,7 +5,8 @@
 module HLearn.Algebra.Structures
     ( Invertible (..)
     , InverseSemigroup (..)
-    , HasIdentity(..)
+    , HasIdentity (..)
+    , SG2Monoid (..)
     , Group(..)
     , module Data.Semigroup
     )
@@ -49,6 +50,17 @@ class HasIdentity i where
 -- instance (HasIdentity m, Semigroup m) => Monoid m where
 --     mempty = identity
 --     mappend = (<>)
+
+data (Semigroup sg) => SG2Monoid sg = SGNothing | SGJust sg
+
+instance (Semigroup sg) => Monoid (SG2Monoid sg) where
+    mempty = SGNothing
+    mappend SGNothing m = m
+    mappend m SGNothing = m
+    mappend (SGJust sg1) (SGJust sg2) = SGJust $ sg1<>sg2
+
+instance (Semigroup sg) => Semigroup (SG2Monoid sg) where
+    (<>) = mappend
 
 -------------------------------------------------------------------------------
 -- Groups

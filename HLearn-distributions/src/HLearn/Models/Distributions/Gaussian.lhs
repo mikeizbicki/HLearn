@@ -83,7 +83,7 @@ Michael Izbicki
 
 module HLearn.Models.Distributions.Gaussian
     ( Gaussian (..)
-    , GaussianParams (..)
+--     , GaussianParams (..)
     , trainSG
     )
     where
@@ -161,11 +161,14 @@ There are several important notes to make about this data structure:
 For convenience, we also define the following accessor functions to the sample mean and sample variance:
 \begin{code}
 
--- mean :: Gaussian -> Double
--- mean (Gaussian n m1 m2 dc) = m1
---  
--- var :: Gaussian -> Double
--- var (Gaussian n m1 m2 dc) = m2/(fi $ n-1)
+mean :: (Floating datatype) => Gaussian datatype -> datatype
+mean (Gaussian n m1 m2 dc) = m1
+ 
+var :: (Floating datatype) => Gaussian datatype -> datatype
+var (Gaussian n m1 m2 dc) = m2/(fi $ n-1)
+
+stddev :: (Floating  datapoint, Ord datapoint) => (Gaussian datapoint) -> datapoint
+stddev = sqrt . var
 
 \end{code}
 
@@ -383,17 +386,17 @@ We use the homomorphic learning method to define the training routines for our G
 \begin{code}
 {-# INLINE trainSG #-}
 
-data GaussianParams= GaussianParams
-
-instance ModelParams GaussianParams
-
-instance NFData GaussianParams where
-    rnf params = ()
-   
--- instance SingletonTrainer GaussianParams Double Gaussian where
-instance (Fractional datapoint) => SingletonTrainer GaussianParams datapoint (Gaussian datapoint) where
-    {-# INLINE train #-}
-    train GaussianParams x = Gaussian 1 x 0 0
+-- data GaussianParams= GaussianParams
+-- 
+-- instance ModelParams GaussianParams
+-- 
+-- instance NFData GaussianParams where
+--     rnf params = ()
+--    
+-- -- instance SingletonTrainer GaussianParams Double Gaussian where
+-- instance (Fractional datapoint) => SingletonTrainer GaussianParams datapoint (Gaussian datapoint) where
+--     {-# INLINE train #-}
+--     train GaussianParams x = Gaussian 1 x 0 0
 
 -- trainSG :: Double -> Gaussian
 trainSG :: Double -> Gaussian Double
@@ -402,6 +405,20 @@ trainSG x = Gaussian 1 x 0 0
 \end{code}
 
 \section{Model Use}
+\begin{code}
+convdistr :: Gaussian Double -> N.NormalDistribution
+convdistr g = N.normalDistr (mean g) (stddev g)
+
+instance Distribution (Gaussian Double) Double Double where
+    pdf g x = D.density (convdistr g) x
+    cdf g x = D.cumulative (convdistr g) x
+    cdfInverse g x = D.quantile (convdistr g) x
+    mean g = m1 g
+    drawSample g = do
+        seed <- getRandom
+        let (ret,_) = normal' (mean g,stddev g) (mkStdGen seed)
+        return ret
+\end{code}
 
 \section{Misc}
 \begin{code}

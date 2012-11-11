@@ -10,6 +10,7 @@ module HLearn.Algebra.Models
     , Weighted
     , Model (..)
     , Label (..)
+    , HomTrainer (..)
     , module Control.DeepSeq
     , module Data.Hashable
     , module Data.Binary
@@ -18,7 +19,7 @@ module HLearn.Algebra.Models
           
 import HLearn.Algebra.Structures
 import HLearn.Algebra.Functions
-          
+
 import Control.DeepSeq
 import Data.Hashable
 import Data.Binary

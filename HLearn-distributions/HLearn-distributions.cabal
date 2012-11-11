@@ -63,7 +63,7 @@ Library
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Categorical
         HLearn.Models.Distributions.Gaussian
-        HLearn.Models.Distributions.GaussianOld
-        HLearn.Models.Distributions.GaussianOld2
+        --HLearn.Models.Distributions.GaussianOld
+        --HLearn.Models.Distributions.GaussianOld2
         --HLearn.Models.Distributions.Poisson
         

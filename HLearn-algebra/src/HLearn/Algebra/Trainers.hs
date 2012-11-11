@@ -20,8 +20,8 @@ import HLearn.Algebra.Functions
 -------------------------------------------------------------------------------
 -- Classes
 
-class SingletonTrainer modelparams datapoint model | modelparams datapoint -> model where
-    train :: modelparams -> datapoint -> model
+-- class SingletonTrainer modelparams datapoint model | modelparams datapoint -> model where
+--     train :: modelparams -> datapoint -> model
 
 -- class WeightedSingletonTrainer modelparams datapoint model | modelparams datapoint -> model where
 --     trainW :: modelparams -> Weighted datapoint -> model
