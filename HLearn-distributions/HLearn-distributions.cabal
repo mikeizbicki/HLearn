@@ -28,8 +28,31 @@ Executable HLearn-Distributions-Criterion
         -rtsopts 
         -O2 
         -funbox-strict-fields
+        -prof
         -- -fllvm
+
+Executable HLearn-Distributions-SpaceTests
+    Main-is: src/examples/SpaceTests.hs
+    Build-Depends:      
+        HLearn-algebra              >= 0.0.1,
+        --HLearn-algebra              ,
+        ConstraintKinds,
         
+        HLearn-distributions        ,
+        base                        >= 3 && < 5,
+        criterion                   >= 0.6.1.1,
+        parallel,
+        vector,
+        logfloat                , 
+        statistics
+    ghc-options: 
+        -threaded
+        -rtsopts 
+        -O2 
+        -funbox-strict-fields
+        -prof
+        -- -fllvm
+
 Library
     Build-Depends:      
         --HLearn-algebra          >= 0.0.1,

@@ -28,6 +28,7 @@ Michael Izbicki
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module HLearn.DataStructures.KDTree
     where
@@ -39,6 +40,8 @@ import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.Models.Distributions.Categorical
 
+import HLearn.DataStructures.BinarySearchTree
+
 \end{code}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,8 +51,11 @@ import HLearn.Models.Distributions.Categorical
 \section{Data Types}
 
 \begin{code}
-class KDPoint kdp where
-    bin :: kdp -> [Int]
+class (Eq kdp) => KDPoint kdp where
+    bin :: kdp -> [Bool]
+    
+instance KDPoint [Double] where
+    bin = binkd
     
 binkd :: [Double] -> [Bool]
 binkd = (concat . transpose . map bin1d)
@@ -78,17 +84,29 @@ log10 x = (log x)/(log 10)
 
 We define the kD-Tree with the data type:
 \begin{code}
+newtype KDPointBox a = KDPointBox a
+    deriving (Read,Show,Eq)
+    
+instance (KDPoint a) => Ord (KDPointBox a) where
+    compare (KDPointBox a) (KDPointBox b) = compare (bin a) (bin b)
 
-data KDTree = KDTree
-    {
-    }
-
+newtype KDTree a = KDTree (BST (KDPointBox a))
+    deriving (Read,Show,Semigroup,Monoid)
 \end{code}
+Notice how the semigroup and monoid instances are inherited directly from he BST.
 
 We define the singleton trainer as:
 \begin{code}
+data KDTreeParams a = KDTreeParams
+instance Model (KDTreeParams a) (KDTree a) where
+    getparams model = KDTreeParams
+    defparams = KDTreeParams
+    
+instance (KDPoint a) => HomTrainer (KDTreeParams a) a (KDTree a) where
+    train1dp' KDTreeParams dp = KDTree $ train1dp $ KDPointBox dp
 \end{code}
 
-We define the semigroup instance as:
+Now, we define how to perform a nearest neighbor search:
 \begin{code}
+
 \end{code}

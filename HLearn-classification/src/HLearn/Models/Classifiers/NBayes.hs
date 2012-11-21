@@ -2,6 +2,7 @@
 
 module HLearn.Models.Classifiers.NBayes
     ( NBayes (..)
+    , NaiveBayes
     , NBayesParams (..), defNBayesParams
 --     , file2nbayes, nbayes2file
     , getDist, labelProb
@@ -37,10 +38,13 @@ instance NFData a => NFData (V.Vector a) where
 -------------------------------------------------------------------------------
 -- NBayesParams
 
-data NBayesParams = NBayesParams
+data NBayesParams datatype = NBayesParams
     deriving (Read,Show,Eq)
+    
+instance (Label label) => Model (ClassificationParams label (NBayesParams label)) (NaiveBayes label) where
+    getparams (SGJust model) = ClassificationParams NBayesParams (dataDesc model)
 
-instance NFData NBayesParams where
+instance NFData (NBayesParams datatype) where
     rnf params = ()
 
 defNBayesParams = NBayesParams
@@ -48,7 +52,7 @@ defNBayesParams = NBayesParams
 -------------------------------------------------------------------------------
 -- NBayes
 
-type NaiveBayes label = SG2Monoid (NBayes label)
+type NaiveBayes label = RegSG2Group (NBayes label)
 
 data NBayes label = NBayes
     { dataDesc  :: !(DataDesc label)
@@ -73,12 +77,6 @@ instance (NFData label) => NFData (NBayes label) where
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Label label) => Invertible (NBayes label) where
-    inverse nb = nb
-        { labelDist = inverse $ labelDist nb
-        , attrDist = V.map (V.map inverse) $ attrDist nb
-        }
-
 instance (Label label) => Semigroup (NBayes label) where
 --     (<>) a NBayesUndefined = a
 --     (<>) NBayesUndefined b = b
@@ -91,18 +89,32 @@ instance (Label label) => Semigroup (NBayes label) where
                     , attrDist = V.zipWith (V.zipWith mappend) (attrDist a) (attrDist b)
                     }
 
+instance (Label label) => RegularSemigroup (NBayes label) where
+    inverse nb = nb
+        { labelDist = inverse $ labelDist nb
+        , attrDist = V.map (V.map inverse) $ attrDist nb
+        }
+
 -------------------------------------------------------------------------------
 -- Training
 
-instance Model (NBayesParams,DataDesc label) (NaiveBayes label) where
-    getparams model = (NBayesParams,undefined)
-
-instance (Label label) => HomTrainer (NBayesParams,DataDesc label) (label,DPF) (NaiveBayes label) where
-    trainSingle (NBayesParams,desc) (label,dps) = SGJust $ NBayes
+-- instance (Label label) => HomTrainer (NBayesParams,DataDesc label) (LDPS label) (NaiveBayes label) where
+instance (Label label) => HomTrainer (ClassificationParams Int (NBayesParams Int)) (LDPS Int) (NaiveBayes Int) where
+    train1dp' (ClassificationParams NBayesParams desc) (label,dp) = SGJust $ NBayes
         { dataDesc = desc
-        , labelDist = mempty
-        , attrDist = V.fromList [V.fromList [mempty | y<-[1..numAttr desc]] | x<-[1..numLabels desc]]
+        , labelDist = train1dp label
+        , attrDist = emptyvecs V.// [(label,newLabelVec)] 
         }
+        where
+            emptyvecs = V.fromList [V.fromList [mempty | y<-[1..numAttr desc]] | x<-[1..numLabels desc]]
+            newLabelVec = V.accum add1dp (emptyvecs V.! label) dp
+
+emptyNBayes :: (Ord label) => DataDesc label -> NBayes label
+emptyNBayes desc = NBayes
+    { dataDesc = desc
+    , labelDist = mempty
+    , attrDist = V.fromList [V.fromList [mempty | y<-[1..numAttr desc]] | x<-[1..numLabels desc]]
+    }
 
 {-instance (OnlineTrainer NBayesParams (NBayes label) datatype label) => 
     BatchTrainer NBayesParams (NBayes label) datatype label 
@@ -135,7 +147,7 @@ instance OnlineTrainer NBayesParams (NBayes Int) DPS Int where
 --     classify model dp = mean $ probabilityClassify model dp
 
 instance ProbabilityClassifier (NBayes Int) DPS Int where
-    probabilityClassify nb dp = train CategoricalParams answer
+    probabilityClassify nb dp = train {-CategoricalParams -}answer
         {-normedAnswer-}
         where
             labelProbGivenDp label = (labelProbGivenNothing label)*(dpProbGivenLabel label)

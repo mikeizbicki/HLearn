@@ -81,10 +81,11 @@ Michael Izbicki
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- | The Gaussian distribution is an instance of 'HomTrainer.'  For technical details, view the extended documentation <todo>.
+
 module HLearn.Models.Distributions.Gaussian
     ( Gaussian (..)
---     , GaussianParams (..)
-    , trainSG
+    , GaussianParams (..)
     )
     where
     
@@ -132,20 +133,22 @@ A Gaussian distribution is uniquely determined from its mean and variance.  In o
 \begin{code}
 
 data Gaussian datapoint = Gaussian
-    { n  :: {-# UNPACK #-} !Int
-    , m1 :: !datapoint
-    , m2 :: !datapoint
-    , dc :: {-# UNPACK #-} !Int
+    { n  :: {-# UNPACK #-} !Int     -- ^ The number of samples  trained on
+    , m1 :: !datapoint              -- ^ The mean (first moment) of the trained distribution
+    , m2 :: !datapoint              -- ^ The variance (second moment) of the trained distribution times (n-1)
+    , dc :: {-# UNPACK #-} !Int     -- ^ The number of \"dummy points\" that have been added to the distribution.  Required for numerical stability reasons.
     } 
     deriving (Show,Read)
 
--- data Gaussian = Gaussian
---     { n   :: {-# UNPACK #-} !Int         -- the number of samples seen
---     , m1  :: {-# UNPACK #-} !Double      -- the first moment (mean)
---     , m2  :: {-# UNPACK #-} !Double      -- the second moment (pop. variance) times n
---     , dc  :: {-# UNPACK #-} !Int         -- the number of "dummy" points that have been added to the Gaussian
---     }
---     deriving (Show,Read)
+{-
+data Gaussian = Gaussian
+    { n   :: {- UNPACK -} !Int         -- the number of samples seen
+    , m1  :: {- UNPACK -} !Double      -- the first moment (mean)
+    , m2  :: {- UNPACK -} !Double      -- the second moment (pop. variance) times n
+    , dc  :: {- UNPACK -} !Int         -- the number of "dummy" points that have been added to the Gaussian
+    }
+    deriving (Show,Read)
+-}
 
 \end{code}
 
@@ -323,15 +326,16 @@ It's possible there is a numerically optimal distribution to use for best accura
 
 
 \subsection{Monoid}
-The identity for Gaussians is defined as:
+Now, we must explicitly define a Monoid instance for our class as:
 \begin{code}
 
--- instance HasIdentity Gaussian where
-instance (Fractional datapoint) => HasIdentity (Gaussian datapoint) where
-    {-# INLINE identity #-}
-    identity = Gaussian 0 0 0 0
+-- instance Monoid Gaussian where
+instance (Fractional datapoint) => Monoid (Gaussian datapoint) where
+    {-# INLINE mempty #-}
+    mempty = Gaussian 0 0 0 0
+    {-# INLINE mappend #-}
+    mappend = (<>)
 
-  
 \end{code}
 We will show that this is a valid left identity (the right identity is similar) by showing:
 \begin{align}
@@ -345,30 +349,17 @@ m_1' &= 0 \frac {0}{n_b} + m_{1b}\frac{n_b}{n_b} = m_{1b} \\
 m_2' &= 0 + 0 + m_{2b} + n_b m_{1b}^2 - n' m_1'^2 = m_{2b} + n_b m_{1b}^2 - n_b m_{1b}^2 = m_{2b}
 \end{align}
 
-\ignore{
-Now, we must explicitly define a Monoid instance for our class as:
-\begin{code}
-
--- instance Monoid Gaussian where
-instance (Fractional datapoint) => Monoid (Gaussian datapoint) where
-    {-# INLINE mempty #-}
-    mempty = identity
-    {-# INLINE mappend #-}
-    mappend = (<>)
-
-\end{code}
-}
-
 \subsection{Group}
 
 The inverse operation for the Gaussian is defined as:
 \begin{code}
   
 -- instance Invertible Gaussian where    
-instance (Num datapoint) => Invertible (Gaussian datapoint) where
+instance (Fractional datapoint) => RegularSemigroup (Gaussian datapoint) where
     {-# INLINE inverse #-}
     inverse (Gaussian n m1 m2 dc) = Gaussian (-n) m1 (-m2) (-dc)
 
+instance (Fractional datapoint) => Group (Gaussian datapoint)
 \end{code}
 We will show this is a valid left inverse (the right inverse is similar) by showing:
 \begin{align}
@@ -384,23 +375,21 @@ m_2' &=
 \section{Model Training}
 We use the homomorphic learning method to define the training routines for our Gaussian distribution.  That means we need to define only a single training method.  The singleton trainer is particularly simple:
 \begin{code}
-{-# INLINE trainSG #-}
 
--- data GaussianParams= GaussianParams
--- 
--- instance ModelParams GaussianParams
--- 
--- instance NFData GaussianParams where
---     rnf params = ()
---    
--- -- instance SingletonTrainer GaussianParams Double Gaussian where
--- instance (Fractional datapoint) => SingletonTrainer GaussianParams datapoint (Gaussian datapoint) where
---     {-# INLINE train #-}
---     train GaussianParams x = Gaussian 1 x 0 0
+-- | Training a Gaussian distribution takes no parameters
+data GaussianParams datatype = GaussianParams
 
--- trainSG :: Double -> Gaussian
-trainSG :: Double -> Gaussian Double
-trainSG x = Gaussian 1 x 0 0
+instance Model (GaussianParams datatype) (Gaussian datatype) where
+    getparams _ = GaussianParams
+    
+instance DefaultModel (GaussianParams datatype) (Gaussian datatype) where
+    defparams = GaussianParams
+
+instance NFData (GaussianParams datatype) where
+    rnf params = ()
+
+instance HomTrainer (GaussianParams Double) Double (Gaussian Double) where
+    train1dp' GaussianParams x = Gaussian 1 x 0 0
 
 \end{code}
 
@@ -413,11 +402,40 @@ instance Distribution (Gaussian Double) Double Double where
     pdf g x = D.density (convdistr g) x
     cdf g x = D.cumulative (convdistr g) x
     cdfInverse g x = D.quantile (convdistr g) x
-    mean g = m1 g
-    drawSample g = do
-        seed <- getRandom
-        let (ret,_) = normal' (mean g,stddev g) (mkStdGen seed)
-        return ret
+\end{code}
+
+\section{Distribution Functions}
+
+\subsection{Probability Density Function (PDF)}
+
+The PDF for a Gaussian distribution is defined as:
+$$
+P(x) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x-\mu)^2}{2\sigma^2}}
+$$
+\begin{code}
+data GaussianPDF = GaussianPDF
+    { prob :: Double
+    , weight :: Double
+    }
+    
+data GaussianPDFParams = GaussianPDFParams
+
+instance Model GaussianPDFParams GaussianPDF where
+    getparams _ = GaussianPDFParams
+    
+instance DefaultModel GaussianPDFParams GaussianPDF where
+    defparams = GaussianPDFParams
+
+instance Semigroup GaussianPDF where
+    (<>) = undefined
+    
+instance Monoid GaussianPDF where
+    mempty = GaussianPDF 0 0
+    mappend = (<>)
+
+instance HomTrainer GaussianPDFParams (Gaussian Double) GaussianPDF where
+    train' GaussianPDFParams = undefined
+    
 \end{code}
 
 \section{Misc}

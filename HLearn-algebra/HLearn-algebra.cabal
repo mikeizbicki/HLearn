@@ -28,5 +28,4 @@ Library
         HLearn.Algebra
         HLearn.Algebra.Models
         HLearn.Algebra.Structures
-        HLearn.Algebra.Trainers
         HLearn.Algebra.Functions
