@@ -11,7 +11,14 @@ import HLearn.Models.Classifiers.NBayes
 
 import HLearn.DataContainers
 
-dp = (1,[Discrete "poop",Continuous 5])
+dp = (1::Int,[(0::Int,Discrete "poop"), (1::Int,Continuous 5)])
+
+desc = DataDesc
+    { numLabels = 3
+    , labelL = [0,1,2]
+    , numAttr = 5
+    }
+    
 
 -- main = defaultMain 
 --     [ 

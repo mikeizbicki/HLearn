@@ -3,10 +3,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns #-}
 
 module HLearn.Models.Distributions.Categorical
-    ( CategoricalParams(..)
-    , Categorical (..)
+    ( Categorical (..)
+    , CategoricalParams(..)
+    , dist2list
     )
     where
 
@@ -15,18 +17,16 @@ import Data.List
 import Data.List.Extras
 import Debug.Trace
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Foldable as F
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
--- import HLearn.Base
--- import HLearn.DataContainers
-
 -------------------------------------------------------------------------------
 -- CategoricalParams
 
+-- | The Categorical distribution takes no parameters
 data CategoricalParams = CategoricalParams
     deriving (Read,Show,Eq)
 
@@ -36,41 +36,31 @@ instance NFData CategoricalParams where
 instance Model CategoricalParams (Categorical label probtype) where
     getparams model = CategoricalParams
 
+instance DefaultModel CategoricalParams (Categorical label probtype) where
+    defparams = CategoricalParams
+
 -------------------------------------------------------------------------------
 -- Categorical
 
 data Categorical sampletype probtype = Categorical 
-        { pdfmap :: Map.Map sampletype probtype 
+        { pdfmap :: !(Map.Map sampletype probtype)
         } 
     deriving (Show,Read,Eq)
+
+dist2list :: Categorical sampletype probtype -> [(sampletype,probtype)]
+dist2list (Categorical pdfmap) = Map.toList pdfmap
 
 instance (NFData sampletype, NFData probtype) => NFData (Categorical sampletype probtype) where
     rnf d = rnf $ pdfmap d
 
--- instance (NFData label) => Model CategoricalParams (Categorical label) where
---     params model = CategoricalParams
-
 -------------------------------------------------------------------------------
 -- Training
 
--- instance (Ord label) => HomTrainer CategoricalParams label (Categorical label) where
---     trainSingle params dp = Categorical $ Map.singleton dp 1
-
 instance (Ord label, Num probtype) => HomTrainer CategoricalParams (label,probtype) (Categorical label probtype) where
-    trainSingle params (dp,w) = Categorical $ Map.singleton dp w
+    train1dp' params (dp,w) = Categorical $ Map.singleton dp w
 
-
--- instance (NFData label) => WeightedSingletonTrainer CategoricalParams label (Categorical label) where
---     trainW params (label,weight) = Categorical $ Map.singleton label weight
-
--- instance (Label label, Semigroup [datapoint]) => Homomorphism Semigroup [datapoint] (Categorical label) trainW 
-
--- instance (NFData label) => Trainer CategoricalParams Int (Categorical Int) where
---     train params label = Categorical $ Map.singleton label 1
--- 
--- instance {-(Ord label, NFData label) => -}Trainer CategoricalParams [Int] (Categorical Int) where
---     train params xs = foldl' (<>) identity $ map (train params) xs
--- --     train params xs = foldl' train identity xs
+instance (Ord label, Num probtype) => HomTrainer CategoricalParams label (Categorical label probtype) where
+    train1dp' params dp = Categorical $ Map.singleton dp 1
 
 -------------------------------------------------------------------------------
 -- Distribution
@@ -99,38 +89,28 @@ instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Cate
                 else go (prob-snd x) xs
 --     cdfInverse dist prob = argmax (cdf dist) $ Map.keys $ pdfmap dist
 
-    {-# INLINE mean #-}
+{-    {-# INLINE mean #-}
     mean dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 
     {-# INLINE drawSample #-}
     drawSample dist = do
         x <- getRandomR (0,1)
         return $ cdfInverse dist (x::prob)
+-}
         
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num probtype) => Semigroup (Categorical label probtype) where
-{-    (<>) d1 d2 = if (desc d1)==(desc d2)
-        then d1 {pdfmap=Map.unionWith (+) (pdfmap d1) (pdfmap d2)}
-        else error "Categorical.(<>): different DataDesc"-}
-    (<>) d1 d2 = Categorical $ Map.unionWith (+) (pdfmap d1) (pdfmap d2)
+instance (Ord label, Num probtype{-, NFData probtype-}) => Semigroup (Categorical label probtype) where
+    (<>) !d1 !d2 = {-deepseq res $-} Categorical $ res
+        where
+            res = Map.unionWith (+) (pdfmap d1) (pdfmap d2)
 
-instance HasIdentity (Categorical label probtype) where
-    identity = Categorical Map.empty
-
-instance (Ord label, Num probtype) => Invertible (Categorical label probtype) where
+instance (Ord label, Num probtype) => RegularSemigroup (Categorical label probtype) where
     inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
 
 instance (Ord label, Num probtype) => Monoid (Categorical label probtype) where
-    mempty = identity
+    mempty = Categorical Map.empty
     mappend = (<>)
 
--------------------------------------------------------------------------------
--- Helpers
-
--- list2dist :: (DistributionEstimator (Categorical label) (Weighted label), Semigroup (Categorical label)) => 
---     [(Probability,label)] -> Categorical label
--- list2dist xs = foldl1 (<>) $ map train1sample xs
--- list2dist xs = foldl1 (<>) $ map (\(l,p) -> train1sample (l,fromLogFloat p::Double)) xs
--- dist2list dist = {-map (\(l,d) -> (l,logFloat d)) $-} Map.toList $ pdfmap dist
+instance (Ord label, Num probtype) => Group (Categorical label probtype)

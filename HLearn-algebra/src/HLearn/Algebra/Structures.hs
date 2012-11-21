@@ -2,12 +2,17 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | These algebraic structures have sacrificed generality in favor of being easily used with the standard Haskell Prelude.  The fact that monoids are not guaranteed to be semigroups makes this difficult.
+
 module HLearn.Algebra.Structures
-    ( Invertible (..)
-    , InverseSemigroup (..)
-    , HasIdentity (..)
-    , SG2Monoid (..)
+    ( 
+    -- * Type classes
+    RegularSemigroup (..)
     , Group(..)
+    
+    -- * Free Structures
+    , RegSG2Group (..)
+
     , module Data.Semigroup
     )
     where
@@ -15,56 +20,52 @@ module HLearn.Algebra.Structures
 import Data.Semigroup
 
 -------------------------------------------------------------------------------
--- Free Group
+-- Inverses
 
-instance Invertible Bool where
-    inverse b 
-        | b==True   = False
-        | otherwise = True
+-- | Semigroups that also have an inverse.  See <https://en.wikipedia.org/wiki/Regular_semigroup>
+class (Semigroup g) => RegularSemigroup g where
+    inverse :: g -> g
 
-newtype Invert datatype = Invert (Bool,datatype)
+-- -- | Semigroups where a unique inverse exists for each element.  See <https://en.wikipedia.org/wiki/Inverse_semigroup>
+-- class (RegularSemigroup g) => InverseSemigroup g
 
-instance Invertible (Invert datatype) where
-    inverse (Invert (bool,datatype)) = Invert (inverse bool, datatype)
-
-data FreeGroup datatype = FreeGroup [datatype]
-
-
+-- | Regular semigroups that also have an identity; alternatively, monoids where every element has a unique inverse.  See <https://en.wikipedia.org/wiki/Group_(mathematics)>
+class (RegularSemigroup g, Monoid g) => Group g
 
 -------------------------------------------------------------------------------
--- Inverse Semigroups
+-- RegSG2Group
 
-class Invertible i where
-    inverse :: i -> i
 
-class (Invertible isg, Semigroup isg) => InverseSemigroup isg
+-- | Convert any regular semigroup into a group (and thus also a monoid) by adding a unique identity element
+data (RegularSemigroup sg) => RegSG2Group sg = SGNothing | SGJust sg
+    deriving (Show,Read,Ord,Eq)
 
-instance (Invertible isg, Semigroup isg) => InverseSemigroup isg
+instance (RegularSemigroup sg) => Semigroup (RegSG2Group sg) where
+    SGNothing <> m = m
+    m <> SGNothing = m
+    (SGJust sg1) <> (SGJust sg2) = SGJust $ sg1<>sg2
 
--------------------------------------------------------------------------------
--- Monoids
+instance (RegularSemigroup sg) => RegularSemigroup (RegSG2Group sg) where
+    inverse SGNothing = SGNothing
+    inverse (SGJust x) = SGJust $ inverse x
 
-class HasIdentity i where
-    identity :: i
-
--- instance (HasIdentity m, Semigroup m) => Monoid m where
---     mempty = identity
---     mappend = (<>)
-
-data (Semigroup sg) => SG2Monoid sg = SGNothing | SGJust sg
-
-instance (Semigroup sg) => Monoid (SG2Monoid sg) where
+instance (RegularSemigroup sg) => Monoid (RegSG2Group sg) where
     mempty = SGNothing
-    mappend SGNothing m = m
-    mappend m SGNothing = m
-    mappend (SGJust sg1) (SGJust sg2) = SGJust $ sg1<>sg2
+    mappend = (<>)
+    
+instance (RegularSemigroup sg) => Group (RegSG2Group sg)
 
-instance (Semigroup sg) => Semigroup (SG2Monoid sg) where
-    (<>) = mappend
-
--------------------------------------------------------------------------------
--- Groups
-
-class (InverseSemigroup g, HasIdentity g) => Group g
-
-instance (InverseSemigroup g, HasIdentity g) => Group g
+-- -------------------------------------------------------------------------------
+-- -- SG2Monoid
+-- 
+-- data (Semigroup sg) => SG2Monoid sg = SGNothing | SGJust sg
+--     deriving (Show,Read)
+-- 
+-- instance (Semigroup sg) => Monoid (SG2Monoid sg) where
+--     mempty = SGNothing
+--     mappend SGNothing m = m
+--     mappend m SGNothing = m
+--     mappend (SGJust sg1) (SGJust sg2) = SGJust $ sg1<>sg2
+-- 
+-- instance (Semigroup sg) => Semigroup (SG2Monoid sg) where
+--     (<>) = mappend

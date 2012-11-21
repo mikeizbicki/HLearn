@@ -51,3 +51,5 @@ Library
         HLearn.DataContainers
         HLearn.DataContainers.CSVParser
         HLearn.DataContainers.DS_List
+        HLearn.Evaluation.CrossValidation
+        HLearn.Evaluation.Metrics
