@@ -28,7 +28,7 @@ Executable HLearn-Distributions-Criterion
         -rtsopts 
         -O2 
         -funbox-strict-fields
-        -prof
+        -- -prof
         -- -fllvm
 
 Executable HLearn-Distributions-SpaceTests
@@ -51,6 +51,7 @@ Executable HLearn-Distributions-SpaceTests
         -O2 
         -funbox-strict-fields
         -prof
+        --enable-executable-profiling
         -- -fllvm
 
 Library

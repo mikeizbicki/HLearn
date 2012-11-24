@@ -295,7 +295,7 @@ Finally we are ready to see the actual code:
 -- instance Semigroup Gaussian where
 instance (Fractional datapoint) => Semigroup (Gaussian datapoint) where
     {-# INLINE (<>) #-}
-    (<>) ga@(Gaussian na m1a m2a fa) gb@(Gaussian nb m1b m2b fb)
+    (<>) !ga@(Gaussian na m1a m2a fa) !gb@(Gaussian nb m1b m2b fb)
         | n'==0 && fa >0                = (inverse dummy `merge` ga) `merge` gb
         | n'==0 && fb >0                = (inverse dummy `merge` gb) `merge` ga
         | n'==0                         = (dummy `merge` ga) `merge` gb
@@ -357,7 +357,7 @@ The inverse operation for the Gaussian is defined as:
 -- instance Invertible Gaussian where    
 instance (Fractional datapoint) => RegularSemigroup (Gaussian datapoint) where
     {-# INLINE inverse #-}
-    inverse (Gaussian n m1 m2 dc) = Gaussian (-n) m1 (-m2) (-dc)
+    inverse !(Gaussian n m1 m2 dc) = Gaussian (-n) m1 (-m2) (-dc)
 
 instance (Fractional datapoint) => Group (Gaussian datapoint)
 \end{code}
@@ -380,9 +380,11 @@ We use the homomorphic learning method to define the training routines for our G
 data GaussianParams datatype = GaussianParams
 
 instance Model (GaussianParams datatype) (Gaussian datatype) where
+    {-# INLINE getparams #-}
     getparams _ = GaussianParams
     
 instance DefaultModel (GaussianParams datatype) (Gaussian datatype) where
+    {-# INLINE defparams #-}
     defparams = GaussianParams
 
 instance NFData (GaussianParams datatype) where
