@@ -70,12 +70,12 @@ class
         where
 
     -- | The singleton trainer
-    {-# INLINABLE train1dp' #-}
+    {-# INLINE train1dp' #-}
     train1dp' :: modelparams -> datapoint -> model
     train1dp' modelparams = unbatch (train' modelparams)
     
     -- | The batch trainer
-    {-# INLINABLE train' #-}
+    {-# INLINE train' #-}
     train' ::     
         ( CK.Functor container
         , CK.FunctorConstraint container model
@@ -86,12 +86,12 @@ class
     train' modelparams = batch (train1dp' modelparams)
     
     -- | The online trainer
-    {-# INLINABLE add1dp #-}
+    {-# INLINE add1dp #-}
     add1dp :: model -> datapoint -> model
     add1dp model = online (train1dp' (getparams model :: modelparams)) model
     
     -- | The batch online trainer; will be more efficient than simply calling 'add1dp' for each element being added
-    {-# INLINABLE addBatch #-}
+    {-# INLINE addBatch #-}
     addBatch ::
         ( CK.Functor container
         , CK.FunctorConstraint container model
