@@ -9,6 +9,7 @@ import HLearn.Algebra
 import HLearn.Models.Distributions.Categorical
 import HLearn.DataContainers
 
+
 -------------------------------------------------------------------------------
 -- bool <-> int
 
@@ -41,7 +42,7 @@ data ClassificationParams label params = ClassificationParams
 -------------------------------------------------------------------------------
 -- Classification
 
-class (Label label) => ProbabilityClassifier model datatype label | model -> label where
+class {-(Label label) =>-} ProbabilityClassifier model datatype label | model -> label where
     probabilityClassify :: model -> datatype -> Categorical label Double
     
 --     straightClassify :: model -> datatype -> label
@@ -49,7 +50,7 @@ class (Label label) => ProbabilityClassifier model datatype label | model -> lab
 --     straightClassify model dp = classificationLabel $ probabilityClassify model dp
 --     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
     
-class (Label label) => Classifier model datatype label | model -> label where
+class {-(Label label) =>-} Classifier model datatype label | model -> label where
     classify :: model -> datatype -> label
 
 -- instance (ProbabilityClassifier model datatype label) => Classifier model datatype label where

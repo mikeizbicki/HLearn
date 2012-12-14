@@ -9,6 +9,7 @@ module HLearn.Models.Distributions.Categorical
     ( Categorical (..)
     , CategoricalParams(..)
     , dist2list
+    , mostLikely
     )
     where
 
@@ -97,7 +98,11 @@ instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Cate
         x <- getRandomR (0,1)
         return $ cdfInverse dist (x::prob)
 -}
-        
+
+mostLikely :: Ord prob => Categorical label prob -> label
+mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
+
+
 -------------------------------------------------------------------------------
 -- Algebra
 

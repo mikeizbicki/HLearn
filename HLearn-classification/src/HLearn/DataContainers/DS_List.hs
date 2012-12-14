@@ -21,6 +21,8 @@ import HLearn.DataContainers.CSVParser
 -- import HLearn.Misc.LazyDecodeList
 -- import HLearn.RandUtils
 
+import qualified Control.ConstraintKinds as CK
+
 -------------------------------------------------------------------------------
 -- DS_List
 
@@ -31,11 +33,16 @@ data DS_List label dataType = DS_List
     }
     deriving (Read,Show)
     
+    
 instance (Eq label) => Semigroup (DS_List label dataType) where
     (<>) (DS_List dsDesc1 dsL1 dsLen1) (DS_List dsDesc2 dsL2 dsLen2) = 
         if (dsDesc1 /= dsDesc2)
            then error "DS_List.(<>): adding two elements of different dimensions"
            else DS_List dsDesc1 (dsL1++dsL2) (dsLen1+dsLen2)
+           
+-- instance (Eq label) => Monoid (DS_List label datatype) where
+--     mappend = (<>)
+--     mempty = DS_List undefined mempty 0
 
 -- arbitraryDS_List :: DataDesc -> Gen (DS_List Int (LDPS Int))
 -- arbitraryDS_List desc = do
@@ -48,10 +55,23 @@ instance (Eq label) => Semigroup (DS_List label dataType) where
 --         , dsLabelL = [0..numLabels desc]
 --         }
 
+instance CK.Partitionable (DS_List label) where
+    partition k ds = [ ds {dsL = dsL'} | dsL' <- CK.partition k (dsL ds)]
+
 instance F.Foldable (DS_List label) where
     foldr f model0 ds = foldr f model0 (dsL ds)
 
+instance CK.Foldable (DS_List label) where
+    foldr f model0 ds = F.foldr f model0 (dsL ds)
+    foldl f model0 ds = F.foldl f model0 (dsL ds)
+    foldl' f model0 ds = F.foldl' f model0 (dsL ds)
+    foldl1 model0 ds = F.foldl1 model0 (dsL ds)
+    foldr1 model0 ds = F.foldr1 model0 (dsL ds)
+
 instance Functor (DS_List label) where
+    fmap f ds = ds { dsL = fmap f $ dsL ds }
+
+instance CK.Functor (DS_List label) where
     fmap f ds = ds { dsL = fmap f $ dsL ds }
 
 instance T.Traversable (DS_List label) where

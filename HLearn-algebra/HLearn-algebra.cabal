@@ -1,7 +1,8 @@
 Name:                HLearn-algebra
-Version:             0.0.1
+Version:             0.1.1
+Synopsis:            Algebraic foundation for the homomorphic learning
 Description:         This module contains the algebraic basis for the HLearn library.  It is separated out in it's own library because it contains routines that may be useful to others.  In particular, it contains methods for automatically converting algorithms into online/parallel versions, and its structure is slightly more modular (although much less complete) than other algebra packages.
-Category:            Data Mining
+Category:            Data Mining, Machine Learning
 License:             GPL
 --License-file:        LICENSE
 Author:              Mike izbicki
@@ -14,7 +15,6 @@ Library
         base                >= 3 && < 5,
         ghc-prim,
         ConstraintKinds     >= 0.0.1,
-        --ConstraintKinds     ,
         
         semigroups          >= 0.8,
         parallel            >= 3.2,
