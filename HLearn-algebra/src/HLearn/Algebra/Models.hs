@@ -21,9 +21,9 @@ module HLearn.Algebra.Models
     , DefaultHomTrainer (..)
     
     -- * Type synonyms
-    , Labeled
-    , Weighted
-    , Label (..)
+--     , Labeled
+--     , Weighted
+--     , Label (..)
 
     , module Control.DeepSeq
     , module Data.Hashable
@@ -39,16 +39,6 @@ import HLearn.Algebra.Functions
 import Control.DeepSeq
 import Data.Hashable
 import Data.Binary
-
--------------------------------------------------------------------------------
--- Idioms
-
-type Labeled var label  = (label,var)
-type Weighted var       = (var,Double)
-
--- | I only ever expect labels of type Bool, Int, and String, but it may be convenient to use other types as well for something.  This class and instance exist so that we have some reasonable assumptions about what properties labels should have for our other classes to work with.  It also keeps us from writing so many constraints.
-class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
-instance (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
 
 -------------------------------------------------------------------------------
 -- Model

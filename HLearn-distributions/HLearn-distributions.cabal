@@ -1,7 +1,8 @@
 Name:                HLearn-distributions
-Version:             0.0.1
+Version:             0.0.2.0
+Synopsis:            Distributions for use with the HLearn library
 Description:         This module is used to estimate statistical distributions from data.  The focus is a clean interface inspired by algebra.
-Category:            Data Mining
+Category:            Data Mining, Machine Learning, Statistics
 License:             GPL
 --License-file:        LICENSE
 Author:              Mike izbicki
@@ -13,15 +14,13 @@ Executable HLearn-Distributions-Criterion
     Main-is: src/examples/Criterion.hs
     Build-Depends:      
         HLearn-algebra              >= 0.0.1,
-        --HLearn-algebra              ,
-        ConstraintKinds,
+        ConstraintKinds             >= 0.0.1,
+        HLearn-distributions        >= 0.0.1,
         
-        HLearn-distributions        ,
         base                        >= 3 && < 5,
         criterion                   >= 0.6.1.1,
-        parallel,
         vector,
-        logfloat                , 
+--        logfloat                , 
         statistics
     ghc-options: 
         -threaded
@@ -41,7 +40,6 @@ Executable HLearn-Distributions-SpaceTests
         HLearn-distributions        ,
         base                        >= 3 && < 5,
         criterion                   >= 0.6.1.1,
-        parallel,
         vector,
         logfloat                , 
         statistics
@@ -50,8 +48,8 @@ Executable HLearn-Distributions-SpaceTests
         -rtsopts 
         -O2 
         -funbox-strict-fields
-        -prof
         --enable-executable-profiling
+        -- -prof
         -- -fllvm
 
 Library
@@ -65,7 +63,7 @@ Library
         
         QuickCheck              >= 2.5.1,
         vector                  >= 0.9,
-        vector-th-unbox         >= 0.1,
+        vector-th-unbox         >= 0.2,
         
         -- are these really necessary?
         MonadRandom             >= 0.1.6,

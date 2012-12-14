@@ -78,8 +78,6 @@ instance (NFData label) => NFData (NBayes label) where
 -- Algebra
 
 instance (Label label) => Semigroup (NBayes label) where
---     (<>) a NBayesUndefined = a
---     (<>) NBayesUndefined b = b
     (<>) a b =
         if (dataDesc a)/=(dataDesc b)
            then error $ "mappend.NBayes: cannot combine nbayes with different sizes! lhs="++(show $ dataDesc a)++"; rhs="++(show $ dataDesc b)
@@ -99,7 +97,7 @@ instance (Label label) => RegularSemigroup (NBayes label) where
 -- Training
 
 -- instance (Label label) => HomTrainer (NBayesParams,DataDesc label) (LDPS label) (NaiveBayes label) where
-instance (Label label) => HomTrainer (ClassificationParams Int (NBayesParams Int)) (LDPS Int) (NaiveBayes Int) where
+instance HomTrainer (ClassificationParams Int (NBayesParams Int)) (LDPS Int) (NaiveBayes Int) where
     train1dp' (ClassificationParams NBayesParams desc) (label,dp) = SGJust $ NBayes
         { dataDesc = desc
         , labelDist = train1dp label
@@ -142,9 +140,9 @@ instance OnlineTrainer NBayesParams (NBayes Int) DPS Int where
 -------------------------------------------------------------------------------
 -- Classification
 
--- instance Classifier (NBayes Int) DPS Int where
+instance Classifier (NaiveBayes Int) DPS Int where
 --     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
---     classify model dp = mean $ probabilityClassify model dp
+    classify (SGJust model) dp = mostLikely $ probabilityClassify model dp
 
 instance ProbabilityClassifier (NBayes Int) DPS Int where
     probabilityClassify nb dp = train {-CategoricalParams -}answer

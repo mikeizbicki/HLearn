@@ -81,7 +81,7 @@ Michael Izbicki
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | The Gaussian distribution is an instance of 'HomTrainer.'  For technical details, view the extended documentation <todo>.
+-- | The Gaussian distribution is an instance of 'HomTrainer.'  For examples of how to use this type, and the math behind it, see: <http://izbicki.me/blog/gausian-distributions-are-monoids>.
 
 module HLearn.Models.Distributions.Gaussian
     ( Gaussian (..)
@@ -183,8 +183,13 @@ Finally, we make our Gaussian type capable of being unboxed:
 --     [| \ (Gaussian n m1 m2 f) -> (n,m1,m2,f) |]
 --     [| \ (n,m1,m2,f) -> (Gaussian n m1 m2 f) |]
 
+-- derivingUnbox "Gaussian"
+--     [d| instance (U.Unbox a) => Unbox' (Gaussian a) (Int, a, a, Int) |]
+--     [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
+--     [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]
+
 derivingUnbox "Gaussian"
-    [d| instance (U.Unbox a) => Unbox' (Gaussian a) (Int, a, a, Int) |]
+    [t| (U.Unbox a) => (Gaussian a) -> (Int, a, a, Int) |]
     [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
     [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]
 
