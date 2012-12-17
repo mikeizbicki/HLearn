@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- | These algebraic structures have sacrificed generality in favor of being easily used with the standard Haskell Prelude.  The fact that monoids are not guaranteed to be semigroups makes this difficult.
 
@@ -17,6 +18,8 @@ module HLearn.Algebra.Structures
     )
     where
 
+import Control.DeepSeq
+import Data.Binary
 import Data.Semigroup
 
 -------------------------------------------------------------------------------
@@ -54,6 +57,10 @@ instance (RegularSemigroup sg) => Monoid (RegSG2Group sg) where
     mappend = (<>)
     
 instance (RegularSemigroup sg) => Group (RegSG2Group sg)
+
+instance (RegularSemigroup sg, NFData sg) => NFData (RegSG2Group sg) where
+    rnf SGNothing = ()
+    rnf (SGJust sg) = rnf sg
 
 -- -------------------------------------------------------------------------------
 -- -- SG2Monoid

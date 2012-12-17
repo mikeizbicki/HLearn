@@ -163,6 +163,7 @@ instance Monoid DistContainer where
 instance RegularSemigroup DistContainer where
     inverse UnknownDist = UnknownDist
     inverse (DistContainer x) = DistContainer $ inverse x
+    inverse (DistDiscrete x) = DistDiscrete $ inverse x
 
 instance Model DistContainerParams DistContainer where
     getparams _ = DistContainerParams
