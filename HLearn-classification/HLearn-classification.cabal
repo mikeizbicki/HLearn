@@ -1,7 +1,7 @@
 Name:                HLearn-classification
 Version:             0.0.1
-Description:         This module is for unsupervised, supervised, and semi-supervised classification tasks.
-Category:            Data Mining
+Description:         This module is for unsupervised, supervised, and semi-supervised classification tasks.  It is in desperate need of documentation and refactoring.
+Category:            Data Mining, Machine Learning
 License:             GPL
 --License-file:        LICENSE
 Author:              Mike izbicki
@@ -23,7 +23,7 @@ Executable HLearn-Classification-Demo
         -threaded
         -rtsopts 
         -O2
-        -prof
+        -- -prof
         -funbox-strict-fields
         -- -prof
         -- -fllvm
@@ -74,4 +74,4 @@ Library
         HLearn.DataContainers.CSVParser
         HLearn.DataContainers.DS_List
         HLearn.Evaluation.CrossValidation
-        HLearn.Evaluation.Metrics
+        --HLearn.Evaluation.Metrics

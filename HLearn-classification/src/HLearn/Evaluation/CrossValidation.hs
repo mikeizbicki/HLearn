@@ -72,7 +72,15 @@ crossValidation modelparams dataset perfmeasure k = reduce $ do
     where
         datasetL = CK.partition k dataset
 
-crossValidation_monoidal :: 
+crossValidation_par modelparams dataset perfmeasure k = (parallel reduce) $ do
+    (testdata, trainingdata) <- genTestList datasetL
+    let model = train' modelparams trainingdata
+    let score = perfmeasure model testdata
+    return score
+    where
+        datasetL = CK.partition k dataset
+
+crossValidation_monoid :: 
     ( HomTrainer modelparams datapoint model
     , Semigroup model
     , Semigroup ret
@@ -86,7 +94,15 @@ crossValidation_monoidal ::
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
     ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-crossValidation_monoidal modelparams dataset perfmeasure k = reduce $ do
+crossValidation_monoid modelparams dataset perfmeasure k = reduce $ do
+    (testdata,model) <- zip datasetL $ listAllBut modelL
+    let score = perfmeasure model testdata
+    return score
+    where
+        modelL = fmap (train' modelparams) datasetL
+        datasetL = CK.partition k dataset
+
+crossValidation_monoid_par modelparams dataset perfmeasure k = (parallel reduce) $ do
     (testdata,model) <- zip datasetL $ listAllBut modelL
     let score = perfmeasure model testdata
     return score
@@ -113,10 +129,19 @@ crossValidation_group modelparams dataset perfmeasure k = reduce $ do
     testdata <- datasetL
     let model = fullModel <> (inverse $ train' modelparams testdata)
     let score = perfmeasure model testdata
-    return score
-    
+    return score    
     where
         fullModel = reduce modelL
+        modelL = fmap (train' modelparams) datasetL
+        datasetL = CK.partition k dataset
+
+crossValidation_group_par modelparams dataset perfmeasure k = (parallel reduce) $ do
+    testdata <- datasetL
+    let model = fullModel <> (inverse $ train' modelparams testdata)
+    let score = perfmeasure model testdata
+    return score    
+    where
+        fullModel = (parallel reduce) modelL
         modelL = fmap (train' modelparams) datasetL
         datasetL = CK.partition k dataset
 
