@@ -5,9 +5,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
+
+{-# LANGUAGE DatatypeContexts #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module HLearn.Models.Distributions.Moments
     ( MomentsParams (..)
@@ -25,7 +29,7 @@ import HLearn.Models.Distributions.Common
 -------------------------------------------------------------------------------
 --
 
-data MomentsParams prob (n::Nat) = MomentsParams
+data MomentsParams = MomentsParams
 
 newtype Moments prob (n::Nat) = Moments (VU.Vector prob)
     deriving (Read,Show)
@@ -47,12 +51,79 @@ instance (Num prob, VU.Unbox prob) => RegularSemigroup (Moments prob n) where
 -------------------------------------------------------------------------------
 -- Training
     
-instance Model (MomentsParams prob n) (Moments prob n) where
+instance Model MomentsParams (Moments prob n) where
     getparams _ = MomentsParams
 
-instance DefaultModel (MomentsParams prob n) (Moments prob n) where
+instance DefaultModel MomentsParams (Moments prob n) where
     defparams = MomentsParams
 
-instance (VU.Unbox prob, Fractional prob, SingI n) => HomTrainer (MomentsParams prob n) prob (Moments prob n) where
+instance (VU.Unbox prob, Fractional prob, SingI n) => HomTrainer MomentsParams prob (Moments prob n) where
     train1dp' _ dp = Moments $ VU.fromList [dp^^i | i <- [0..n]]
         where n=fromIntegral $ fromSing (sing :: Sing n)
+              
+              
+-------------------------------------------------------------------------------
+
+-- class Morphism domain params codomain | params -> codomain where
+--     morph :: domain -> params -> codomain
+--     morph = ($>)
+--     
+--     ($>) :: domain -> params -> codomain
+--     ($>) = morph
+
+data NormalParams prob = NormalParams
+              
+data Normal prob = Normal
+    { n :: prob
+    , mean :: prob
+    , stddev :: prob
+    }
+    deriving (Read,Show)
+    
+instance Semigroup (Normal prob)
+instance Monoid (Normal prob)
+    
+instance Model (NormalParams prob) (Normal prob) where
+    getparams normal = NormalParams
+    
+instance DefaultModel (NormalParams prob) (Normal prob) where
+    defparams = NormalParams
+    
+instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) (NormalParams prob) (Normal prob) where
+-- instance Morphism (Moments prob 2) NormalParams (Normal prob) where
+    (Moments v) `morph` NormalParams = Normal
+        { n         = m0
+        , mean      = m1 / m0
+        , stddev    = (1/(m0-1))*m2-(m0/(m0-1))*(m1/m0)^^2
+        }
+        where
+            m0 = v VU.! 0
+            m1 = v VU.! 1
+            m2 = v VU.! 2
+            
+instance (VU.Unbox prob, Fractional prob) => Morphism (Normal prob) MomentsParams (Moments prob 2) where
+    (Normal n mean stddev) `morph` MomentsParams = Moments $ VU.fromList
+        [ n
+        , mean * n
+        , (stddev+(n/(n-1))*(mean)^^2)*(n-1)
+        ]
+
+foo = ((train' MomentsParams [1,2,3::Double] :: Moments Double 2)
+    $> NormalParams :: Normal Double)
+    $> MomentsParams
+
+{-foo' = train' 
+    ( (MomentsParams :: MomentsParams)
+    ) [1,2,3]
+    $> NormalParams :: Normal Double-}
+    
+foo2 = (train' 
+    ( ((NormalParams :: NormalParams Double)
+    :. (MomentsParams :: MomentsParams))
+        :: (MorphismComposition
+                          [Double]
+                          (MomentsParams)
+                          (Moments Double 2)
+                          (NormalParams Double)
+                          (Normal Double))
+    ) [1,2,3::Double]) :: Normal Double
