@@ -44,7 +44,7 @@ import Data.Binary
 -- Model
 
 -- | Every model has at least one data type that that fully describes its parameters.  Many models do not actually *need* any parameters, in which case they will simply use an empty data type for modelparams.
-class Model modelparams model | modelparams -> model, model -> modelparams where
+class Model modelparams model | modelparams -> model{-, model -> modelparams-} where
     getparams :: model -> modelparams
     
 -- | For those algorithms that do not require parameters (or that have reasonable default parameters), this class lets us use a more convenient calling notation.
