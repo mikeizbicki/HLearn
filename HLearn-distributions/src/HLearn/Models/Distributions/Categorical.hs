@@ -13,6 +13,7 @@ module HLearn.Models.Distributions.Categorical
     )
     where
 
+import Control.DeepSeq
 import Control.Monad.Random
 import Data.List
 import Data.List.Extras
@@ -76,7 +77,7 @@ instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Cate
                 Just x  -> x
             tot = F.foldl' (+) 0 $ pdfmap dist
 
-    {-# INLINE cdf #-}
+{-    {-# INLINE cdf #-}
     cdf dist label = (Map.foldl' (+) 0 $ Map.filterWithKey (\k a -> k<=label) $ pdfmap dist) 
                    / (Map.foldl' (+) 0 $ pdfmap dist)
                    
@@ -90,7 +91,7 @@ instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Cate
                 else go (prob-snd x) xs
 --     cdfInverse dist prob = argmax (cdf dist) $ Map.keys $ pdfmap dist
 
-{-    {-# INLINE mean #-}
+    {-# INLINE mean #-}
     mean dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 
     {-# INLINE drawSample #-}
