@@ -6,12 +6,14 @@
 module HLearn.Models.Distributions
     ( module HLearn.Models.Distributions.Common
     , module HLearn.Models.Distributions.Categorical
+    , module HLearn.Models.Distributions.KernelDensityEstimator
 --     , module HLearn.Models.Distributions.Gaussian
     )
     where
 
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Categorical
+import HLearn.Models.Distributions.KernelDensityEstimator
 -- import HLearn.Models.Distributions.Gaussian
 -- import HLearn.DataContainers
 -- import HLearn.Math.TypeClasses

@@ -14,6 +14,16 @@
 module HLearn.Models.Distributions.KernelDensityEstimator
     ( KDEParams (..)
     , KDE (..)
+    
+    , Uniform (..)
+    , Triangular (..)
+    , Epanechnikov (..)
+    , Quartic (..)
+    , Triweight (..)
+    , Tricube (..)
+    , Gaussian (..)
+    , Cosine (..)
+    , KernelBox (..)
     )
     where
           
@@ -80,16 +90,6 @@ instance (Eq prob, Fractional prob, VU.Unbox prob) => HomTrainer (KDEParams prob
 -------------------------------------------------------------------------------
 -- Distribution
     
-    
-testL = [1,1.1,1.2,0,5,-3,2,1,2.5,2.9::Double]
-kde = train' (KDEParams 1 (VU.fromList [-5..5::Double]) (KernelBox Triangular)) testL :: KDE Double
-
-pdfL = sequence_ $ do
-    x <- map (/10) [-50..50]
-    let y = pdf kde x :: Double
-    seq y (return ())
-    return $ putStrLn $ (show (x::Double)) ++ " " ++ show y
-
 instance (Ord prob, Fractional prob, VU.Unbox prob) => Distribution (KDE prob) prob prob where
     pdf (SGJust kde) dp 
         | dp <= (samplePoints $ params kde) VU.! 0 = 0 -- (sampleVals kde) VU.! 0
@@ -116,6 +116,7 @@ binsearch vec dp = go 0 (VU.length vec-1)
 -------------------------------------------------------------------------------
 -- Kernels
 
+-- | This list of kernels is take from wikipedia's: https://en.wikipedia.org/wiki/Uniform_kernel#Kernel_functions_in_common_use
 class Kernel kernel num where
     evalkernel :: kernel -> num -> num
 
@@ -137,4 +138,40 @@ data Triangular = Triangular deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Triangular num where
     evalkernel Triangular u = if abs u<1
         then 1-abs u
+        else 0
+        
+data Epanechnikov = Epanechnikov deriving (Read,Show)
+instance (Fractional num, Ord num) => Kernel Epanechnikov num where
+    evalkernel Epanechnikov u = if abs u<1
+        then (3/4)*(1-u^^2)
+        else 0
+
+data Quartic = Quartic deriving (Read,Show)
+instance (Fractional num, Ord num) => Kernel Quartic num where
+    evalkernel Quartic u = if abs u<1
+        then (15/16)*(1-u^^2)^^2
+        else 0
+        
+data Triweight = Triweight deriving (Read,Show)
+instance (Fractional num, Ord num) => Kernel Triweight num where
+    evalkernel Triweight u = if abs u<1
+        then (35/32)*(1-u^^2)^^3
+        else 0
+
+data Tricube = Tricube deriving (Read,Show)
+instance (Fractional num, Ord num) => Kernel Tricube num where
+    evalkernel Tricube u = if abs u<1
+        then (70/81)*(1-u^^3)^^3
+        else 0
+        
+data Cosine = Cosine deriving (Read,Show)
+instance (Floating num, Ord num) => Kernel Cosine num where
+    evalkernel Cosine u = if abs u<1
+        then (pi/4)*(cos $ (pi/2)*u)
+        else 0
+        
+data Gaussian = Gaussian deriving (Read,Show)
+instance (Floating num, Ord num) => Kernel Gaussian num where
+    evalkernel Gaussian u = if abs u<1
+        then (1/(2*pi))*(exp $ (-1/2)*u^^2)
         else 0
