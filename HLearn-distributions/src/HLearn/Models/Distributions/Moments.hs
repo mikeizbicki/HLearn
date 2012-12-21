@@ -18,9 +18,8 @@ module HLearn.Models.Distributions.Moments
     , Moments (..)
     )
     where
-
+          
 import GHC.TypeLits
-
 import qualified Data.Vector.Unboxed as VU
 
 import HLearn.Algebra
@@ -63,15 +62,36 @@ instance (VU.Unbox prob, Fractional prob, SingI n) => HomTrainer MomentsParams p
               
               
 -------------------------------------------------------------------------------
+--
 
--- class Morphism domain params codomain | params -> codomain where
---     morph :: domain -> params -> codomain
---     morph = ($>)
---     
---     ($>) :: domain -> params -> codomain
---     ($>) = morph
+data BetaParams = BetaParams
 
-data NormalParams prob = NormalParams
+data Beta prob = Beta
+    { alpha :: prob
+    , beta :: prob
+    }
+    deriving (Read,Show)
+
+instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) (BetaParams) (Beta prob) where
+    (Moments v) `morph` BetaParams = Beta
+        { alpha = alpha
+        , beta  = beta
+        }
+        where
+            alpha = (k-1)/(l*(1+k))
+            beta  = k*alpha
+            
+            k = (mean-1)/mean
+            l = ((k+1)^^2)*var
+            
+            mean = 1
+            var = 1
+
+-------------------------------------------------------------------------------
+--
+
+
+data NormalParams = NormalParams
               
 data Normal prob = Normal
     { n :: prob
@@ -83,13 +103,13 @@ data Normal prob = Normal
 instance Semigroup (Normal prob)
 instance Monoid (Normal prob)
     
-instance Model (NormalParams prob) (Normal prob) where
+instance Model NormalParams (Normal prob) where
     getparams normal = NormalParams
     
-instance DefaultModel (NormalParams prob) (Normal prob) where
+instance DefaultModel NormalParams (Normal prob) where
     defparams = NormalParams
     
-instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) (NormalParams prob) (Normal prob) where
+instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) NormalParams (Normal prob) where
 -- instance Morphism (Moments prob 2) NormalParams (Normal prob) where
     (Moments v) `morph` NormalParams = Normal
         { n         = m0
@@ -118,12 +138,12 @@ foo = ((train' MomentsParams [1,2,3::Double] :: Moments Double 2)
     $> NormalParams :: Normal Double-}
     
 foo2 = (train' 
-    ( ((NormalParams :: NormalParams Double)
+    ( ((NormalParams :: NormalParams)
     :. (MomentsParams :: MomentsParams))
         :: (MorphismComposition
                           [Double]
                           (MomentsParams)
                           (Moments Double 2)
-                          (NormalParams Double)
+                          (NormalParams)
                           (Normal Double))
     ) [1,2,3::Double]) :: Normal Double
