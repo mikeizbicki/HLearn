@@ -6,7 +6,6 @@ module HLearn.Models.Distributions.Common
     )
     where
 
-import Control.Monad.Random
 import HLearn.Algebra
 
 -------------------------------------------------------------------------------

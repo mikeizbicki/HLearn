@@ -24,10 +24,6 @@ module HLearn.Algebra.Models
 --     , Labeled
 --     , Weighted
 --     , Label (..)
-
-    , module Control.DeepSeq
-    , module Data.Hashable
-    , module Data.Binary
     )
     where
           
@@ -37,8 +33,8 @@ import HLearn.Algebra.Structures
 import HLearn.Algebra.Functions
 
 import Control.DeepSeq
-import Data.Hashable
-import Data.Binary
+-- import Data.Hashable
+-- import Data.Binary
 
 -------------------------------------------------------------------------------
 -- Model

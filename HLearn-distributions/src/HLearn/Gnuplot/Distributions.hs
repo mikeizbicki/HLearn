@@ -48,7 +48,7 @@ plotDistribution params dist = do
     return ()
     
 testL = [1,1.1,1.2,0,5,-3,2,1,2.5,2.9::Double]
-kde = train' (KDEParams 2 (VU.fromList $ map (/10) [-50..50::Double]) (KernelBox Triangular)) testL :: KDE Double
+kde = train' (KDEParams 1 (VU.fromList $ map (/10) [-50..50::Double]) (KernelBox Gaussian)) testL :: KDE Double
 
 pdfL = sequence_ $ do
     x <- map (/10) [-50..50]
