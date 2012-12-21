@@ -172,6 +172,4 @@ instance (Floating num, Ord num) => Kernel Cosine num where
         
 data Gaussian = Gaussian deriving (Read,Show)
 instance (Floating num, Ord num) => Kernel Gaussian num where
-    evalkernel Gaussian u = if abs u<1
-        then (1/(2*pi))*(exp $ (-1/2)*u^^2)
-        else 0
+    evalkernel Gaussian u = (1/(2*pi))*(exp $ (-1/2)*u^^2)

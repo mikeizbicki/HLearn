@@ -19,11 +19,10 @@ import HLearn.Algebra.Structures
 
 class Morphism domain params codomain | params -> codomain where
     morph :: domain -> params -> codomain
-    morph = ($>>)
+    morph = ($>)
 
-    infixr 0 $>>
-    ($>>) :: Morphism domain params codomain => domain -> params -> codomain
-    ($>>) = morph
+    ($>) :: domain -> params -> codomain
+    ($>) = morph
         
     (<.>) :: params -> domain -> codomain
     (<.>) = flip morph
@@ -39,6 +38,13 @@ instance
     ) => Morphism domain (MorphismComposition domain params1 interdomain params2 codomain) codomain
     where
         morph x (params2 :. params1) = morph (morph x params1) params2
+
+-------------------------------------------------------------------------------
+
+-- data HLearn params domain codomain = HLearn params
+-- instance Category (MorphismComposition' params1 interdomain params2) where
+--     id a = a
+--     (.) = 
 
 -------------------------------------------------------------------------------
 -- Properties

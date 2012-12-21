@@ -19,7 +19,6 @@ module HLearn.Algebra.Structures
     where
 
 import Control.DeepSeq
-import Data.Binary
 import Data.Semigroup
 
 -------------------------------------------------------------------------------
