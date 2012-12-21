@@ -20,7 +20,6 @@ module HLearn.Models.Distributions.KernelDensityEstimator
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
-import Debug.Trace
 import qualified Data.Vector.Unboxed as VU
 
 -------------------------------------------------------------------------------
@@ -95,10 +94,9 @@ instance (Ord prob, Fractional prob, VU.Unbox prob) => Distribution (KDE prob) p
     pdf (SGJust kde) dp 
         | dp <= (samplePoints $ params kde) VU.! 0 = 0 -- (sampleVals kde) VU.! 0
         | dp >= (samplePoints $ params kde) VU.! l = 0 -- (sampleVals kde) VU.! l
-        | otherwise = {-trace (show dp++":"++show x1++","++show x2)-} y
+        | otherwise = (y2-y1)/(x2-x1)*(dp-x1)+y1
         where
             index = binsearch (samplePoints $ params kde) dp
-            y = (y2-y1)/(x2-x1)*(dp-x1)+y1
             x1 = (samplePoints $ params kde) VU.! (index-1)
             x2 = (samplePoints $ params kde) VU.! (index)
             y1 = ((sampleVals kde) VU.! (index-1)) / (fromIntegral $ n kde)
