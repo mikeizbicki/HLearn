@@ -30,7 +30,7 @@ import GHC.Exts (Constraint)
 import Prelude hiding (filter)
 import System.IO.Unsafe
 
-import HLearn.Algebra.Structures
+import HLearn.Algebra.Structures.Groups
 
 -------------------------------------------------------------------------------
 -- higher order functions

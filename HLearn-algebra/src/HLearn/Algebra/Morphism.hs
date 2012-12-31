@@ -15,7 +15,7 @@ module HLearn.Algebra.Morphism
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra.Models
-import HLearn.Algebra.Structures
+import HLearn.Algebra.Structures.Groups
 
 class Morphism domain params codomain | params -> codomain where
     morph :: domain -> params -> codomain
