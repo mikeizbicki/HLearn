@@ -4,6 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DatatypeContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 -- | Modules are a generalization of vector spaces
 
@@ -20,11 +21,13 @@ import HLearn.Algebra.Structures.Groups
 class (LeftOperator r m, RightOperator r m) => Operator r m
 instance (LeftOperator r m, RightOperator r m) => Operator r m
 
-class LeftOperator r m where
-    (<|) :: r -> m -> m
+class LeftOperator r m | m -> r where
+    infixl 7 .*
+    (.*) :: r -> m -> m
 
-class RightOperator r m where
-    (|>) :: m -> r -> m
+class RightOperator r m | m -> r where
+    infixl 7 *.
+    (*.) :: m -> r -> m
 
 -------------------------------------------------------------------------------
 -- FreeOp
@@ -65,9 +68,10 @@ instance (RightOperator r g, Num r, Group g, Abelian g) => RightModule r g
 -------------------------------------------------------------------------------
 -- FreeModule
 
-newtype (Num r) => FreeMod r a = FreeMod (Map.Map a r)
+newtype (Num r, Ord a) => FreeMod r a = FreeMod (Map.Map a r)
     deriving (Read,Show,Eq)
 
+instance (Num r, Ord a) => Abelian (FreeMod r a)
 instance (Num r, Ord a) => Semigroup (FreeMod r a) where
     (FreeMod m1) <> (FreeMod m2) = FreeMod $ Map.unionWith (+) m1 m2
 
@@ -78,11 +82,13 @@ instance (Num r, Ord a) => Monoid (FreeMod r a) where
 instance (Num r, Ord a) => RegularSemigroup (FreeMod r a) where
     inverse (FreeMod m) = FreeMod $ Map.map negate m
 
-instance (Num r) => LeftOperator r (FreeMod r m) where
-    r <| (FreeMod m) = FreeMod $ Map.map (r*) m
+instance (Num r, Ord a) => LeftModule r (FreeMod r a)
+instance (Num r, Ord a) => LeftOperator r (FreeMod r a) where
+    r .* (FreeMod m) = FreeMod $ Map.map (r*) m
     
-instance (Num r) => RightOperator r (FreeMod r m) where
-    m |> r = r <| m
+instance (Num r, Ord a) => RightModule r (FreeMod r a)
+instance (Num r, Ord a) => RightOperator r (FreeMod r a) where
+    a *. r = r .* a
 
 list2module :: (Num r, Ord r, Ord a) => [a] -> FreeMod r a
 list2module xs = FreeMod $ Map.fromList $ go 0 (head sorted) [] sorted

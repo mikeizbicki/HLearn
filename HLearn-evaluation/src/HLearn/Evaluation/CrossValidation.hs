@@ -28,28 +28,9 @@ import qualified Control.ConstraintKinds as CK
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
--- crossValidation :: 
---     ( HomTrainer modelparams datapoint model
---     , PerformanceMeasure perfmeasure model container datapoint ret
---     , Semigroup ret
---     , CK.Functor container
---     , CK.FunctorConstraint container datapoint
---     , CK.FunctorConstraint container model
---     , CK.Foldable container
---     , CK.FoldableConstraint container model
---     , CK.FoldableConstraint container datapoint
---     , CK.Partitionable container
---     , CK.PartitionableConstraint container datapoint
---     )
---     => modelparams -> container datapoint -> perfmeasure -> Int -> ret
--- crossValidation modelparams dataset perfmeasure k = reduce $ do
---     testdata <- datasetL
---     let trainingdata = testdata
---     let model = train' modelparams trainingdata
---     let score = measure perfmeasure model testdata
---     return score
---     where
---         datasetL = CK.partition k dataset
+-- data CrossValidation modelparams datapoint model (k :: Nat) where CrossValidation
+--     { dataset :: 
+--     }
 
 crossValidation :: 
     ( HomTrainer modelparams datapoint model
