@@ -42,9 +42,23 @@ data KDEParams prob = KDEParams
     }
     deriving (Show,Eq)
 
-data KDE' prob = KDE
+paramsFromData :: (Floating prob, Ord prob, Enum prob, VU.Unbox prob) => [prob] -> KDEParams prob
+paramsFromData xs = KDEParams
+    { bandwidth = ((4*sigma^^5)/(3*n))**(1/5)
+    , samplePoints = VU.fromList samplePointsL
+    , kernel = KernelBox Epanechnikov
+    }
+    where
+        size = 100
+        margin = 10
+        step = ((maximum xs)-(minimum xs))/size
+        samplePointsL = map (\i -> (minimum xs) + i*step) [(-margin)..(size+margin)]
+        n = fromIntegral $ length xs
+        sigma = 1
+
+data KDE' prob = KDE'
     { params :: KDEParams prob
-    , n :: Int
+    , n :: prob
     , sampleVals :: VU.Vector prob
     }
     deriving (Show)
@@ -68,17 +82,20 @@ instance (Eq prob, Num prob, VU.Unbox prob) => RegularSemigroup (KDE' prob) wher
         , sampleVals = VU.map negate $ sampleVals kde
         }
 
+instance (Num prob, VU.Unbox prob) => LeftOperator prob (KDE' prob) where
+    p .* kde = kde
+        { n = p * (n kde)
+        , sampleVals = VU.map (*p) (sampleVals kde)
+        }
+
 -------------------------------------------------------------------------------
 -- Training
     
 instance (Eq prob, Num prob, VU.Unbox prob) => Model (KDEParams prob) (KDE prob) where
     getparams (SGJust kde) = params kde
 
--- instance DefaultModel MomentsParams (Moments prob n) where
---     defparams = MomentsParams
-
 instance (Eq prob, Fractional prob, VU.Unbox prob) => HomTrainer (KDEParams prob) prob (KDE prob) where
-    train1dp' params dp = SGJust $ KDE
+    train1dp' params dp = SGJust $ KDE'
         { params = params
         , n = 1
         , sampleVals = VU.map (\x -> k ((x-dp)/h)) (samplePoints params)
@@ -99,8 +116,8 @@ instance (Ord prob, Fractional prob, VU.Unbox prob) => Distribution (KDE prob) p
             index = binsearch (samplePoints $ params kde) dp
             x1 = (samplePoints $ params kde) VU.! (index-1)
             x2 = (samplePoints $ params kde) VU.! (index)
-            y1 = ((sampleVals kde) VU.! (index-1)) / (fromIntegral $ n kde)
-            y2 = ((sampleVals kde) VU.! (index  )) / (fromIntegral $ n kde)
+            y1 = ((sampleVals kde) VU.! (index-1)) / (n kde)
+            y2 = ((sampleVals kde) VU.! (index  )) / (n kde)
             l = (VU.length $ samplePoints $ params kde)-1
 
 binsearch :: (Ord a, VU.Unbox a) => VU.Vector a -> a -> Int
