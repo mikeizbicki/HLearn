@@ -26,7 +26,7 @@ import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
 -------------------------------------------------------------------------------
---
+-- Moments
 
 data MomentsParams = MomentsParams
 
@@ -46,6 +46,12 @@ instance (Num prob, VU.Unbox prob, SingI n) => Monoid (Moments prob n) where
     
 instance (Num prob, VU.Unbox prob) => RegularSemigroup (Moments prob n) where
     inverse (Moments m) = Moments $ VU.map negate m
+    
+instance (Fractional prob, VU.Unbox prob) => LeftOperator prob (Moments prob n) where
+    p .* (Moments vec) = Moments $ VU.map (*p) vec
+
+instance (Fractional prob, VU.Unbox prob) => RightOperator prob (Moments prob n) where
+    (*.) = flip (.*)
     
 -------------------------------------------------------------------------------
 -- Training
