@@ -54,8 +54,7 @@ Executable HLearn-Distributions-SpaceTests
 
 Library
     Build-Depends:      
-        --HLearn-algebra          >= 0.0.1,
-        HLearn-algebra          ,
+        HLearn-algebra          >= 0.1.0,
         base                    >= 3 && < 5,
         
         deepseq                 >= 1.3.0.1,
