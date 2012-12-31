@@ -29,8 +29,8 @@ module HLearn.Algebra.Models
           
 import qualified Control.ConstraintKinds as CK
           
-import HLearn.Algebra.Structures
 import HLearn.Algebra.Functions
+import HLearn.Algebra.Structures.Groups
 
 import Control.DeepSeq
 -- import Data.Hashable

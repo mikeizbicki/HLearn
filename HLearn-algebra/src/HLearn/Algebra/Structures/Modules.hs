@@ -7,12 +7,12 @@
 
 -- | Modules are a generalization of vector spaces
 
-module HLearn.Algebra.Modules
+module HLearn.Algebra.Structures.Modules
     where
 
 import Data.List
 import qualified Data.Map as Map
-import HLearn.Algebra.Structures
+import HLearn.Algebra.Structures.Groups
 
 -------------------------------------------------------------------------------
 -- Operators
@@ -31,20 +31,20 @@ class RightOperator r m where
 
 -- | Bug: Technically, the free operator should just require that r be a semigroup and use (<>) to chain the r's together.  But this would make things awkward because the number types aren't instances of semigroup.  Constraining r to be of type Num reduces our generality but makes FreeOp easier to work with in most practical use cases.
 
-newtype (Num r) => FreeOp r a = FreeOp [(r,a)]
-    deriving (Read,Show)
-
-instance (Num r) => Functor (FreeOp r) where
-    fmap f (FreeOp xs) = FreeOp $ map (\(r,a) -> (r,f a)) xs
-
-instance (Num r) => LeftOperator r (FreeOp r m) where
-    r <| (FreeOp xs) = FreeOp $ map (\(r2,m) -> (r*r2,m)) xs
-    
-instance (Num r) => RightOperator r (FreeOp r m) where
-    m |> r = r <| m
-    
-list2freeop :: (Num r) => [a] -> FreeOp r a
-list2freeop = FreeOp . map (\x -> (1,x))
+-- newtype (Num r) => FreeOp r a = FreeOp [(r,a)]
+--     deriving (Read,Show)
+-- 
+-- instance (Num r) => Functor (FreeOp r) where
+--     fmap f (FreeOp xs) = FreeOp $ map (\(r,a) -> (r,f a)) xs
+-- 
+-- instance (Num r) => LeftOperator r (FreeOp r m) where
+--     r <| (FreeOp xs) = FreeOp $ map (\(r2,m) -> (r*r2,m)) xs
+--     
+-- instance (Num r) => RightOperator r (FreeOp r m) where
+--     m |> r = r <| m
+--     
+-- list2freeop :: (Num r) => [a] -> FreeOp r a
+-- list2freeop = FreeOp . map (\x -> (1,x))
 
 
 
