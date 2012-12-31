@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DatatypeContexts #-}
 
 -- | These algebraic structures have sacrificed generality in favor of being easily used with the standard Haskell Prelude.  The fact that monoids are not guaranteed to be semigroups makes this difficult.
 
@@ -10,6 +11,7 @@ module HLearn.Algebra.Structures
     -- * Type classes
     RegularSemigroup (..)
     , Group(..)
+    , Abelian (..)
     
     -- * Free Structures
     , RegSG2Group (..)
@@ -20,6 +22,14 @@ module HLearn.Algebra.Structures
 
 import Control.DeepSeq
 import Data.Semigroup
+import GHC.Exts (Constraint)
+
+-------------------------------------------------------------------------------
+
+-- class (c a) => Abelian (a :: *) (c :: * -> Constraint) where
+--     op :: a -> a -> a
+
+class (Semigroup sg) => Abelian sg
 
 -------------------------------------------------------------------------------
 -- Inverses
@@ -33,10 +43,10 @@ class (Semigroup g) => RegularSemigroup g where
 
 -- | Regular semigroups that also have an identity; alternatively, monoids where every element has a unique inverse.  See <https://en.wikipedia.org/wiki/Group_(mathematics)>
 class (RegularSemigroup g, Monoid g) => Group g
+instance (RegularSemigroup g, Monoid g) => Group g
 
 -------------------------------------------------------------------------------
 -- RegSG2Group
-
 
 -- | Convert any regular semigroup into a group (and thus also a monoid) by adding a unique identity element
 data (RegularSemigroup sg) => RegSG2Group sg = SGNothing | SGJust sg
@@ -60,18 +70,3 @@ instance (RegularSemigroup sg) => Group (RegSG2Group sg)
 instance (RegularSemigroup sg, NFData sg) => NFData (RegSG2Group sg) where
     rnf SGNothing = ()
     rnf (SGJust sg) = rnf sg
-
--- -------------------------------------------------------------------------------
--- -- SG2Monoid
--- 
--- data (Semigroup sg) => SG2Monoid sg = SGNothing | SGJust sg
---     deriving (Show,Read)
--- 
--- instance (Semigroup sg) => Monoid (SG2Monoid sg) where
---     mempty = SGNothing
---     mappend SGNothing m = m
---     mappend m SGNothing = m
---     mappend (SGJust sg1) (SGJust sg2) = SGJust $ sg1<>sg2
--- 
--- instance (Semigroup sg) => Semigroup (SG2Monoid sg) where
---     (<>) = mappend

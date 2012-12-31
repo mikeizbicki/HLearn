@@ -3,6 +3,7 @@
 module HLearn.Algebra
     ( module HLearn.Algebra.Functions
     , module HLearn.Algebra.Models
+    , module HLearn.Algebra.Modules
     , module HLearn.Algebra.Morphism
     , module HLearn.Algebra.Structures
     )
@@ -10,5 +11,6 @@ module HLearn.Algebra
           
 import HLearn.Algebra.Functions
 import HLearn.Algebra.Models
+import HLearn.Algebra.Modules
 import HLearn.Algebra.Morphism
 import HLearn.Algebra.Structures
