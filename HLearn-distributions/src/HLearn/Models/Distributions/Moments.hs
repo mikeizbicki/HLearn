@@ -33,6 +33,12 @@ data MomentsParams = MomentsParams
 newtype Moments prob (n::Nat) = Moments (VU.Vector prob)
     deriving (Read,Show)
 
+instance (Eq prob, VU.Unbox prob) => Eq (Moments prob n) where
+    (Moments v1) == (Moments v2) = v1 == v2
+
+instance (Ord prob, VU.Unbox prob) => Ord (Moments prob n) where
+    compare (Moments v1) (Moments v2) = compare v1 v2
+
 -------------------------------------------------------------------------------
 -- Algebra
 
@@ -65,7 +71,6 @@ instance DefaultModel MomentsParams (Moments prob n) where
 instance (VU.Unbox prob, Fractional prob, SingI n) => HomTrainer MomentsParams prob (Moments prob n) where
     train1dp' _ dp = Moments $ VU.fromList [dp^^i | i <- [0..n]]
         where n=fromIntegral $ fromSing (sing :: Sing n)
-              
               
 -------------------------------------------------------------------------------
 --

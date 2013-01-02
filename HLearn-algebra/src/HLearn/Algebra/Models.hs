@@ -31,8 +31,9 @@ import qualified Control.ConstraintKinds as CK
           
 import HLearn.Algebra.Functions
 import HLearn.Algebra.Structures.Groups
+import HLearn.Algebra.Structures.Modules
 
-import Control.DeepSeq
+-- import Control.DeepSeq
 -- import Data.Hashable
 -- import Data.Binary
 
@@ -87,12 +88,18 @@ class
         ) =>  model -> container datapoint -> model
     addBatch model = online (train' (getparams model :: modelparams)) model
     
-    
+instance 
+    ( HomTrainer modelparams datapoint model
+    , LeftOperator r model
+    ) => HomTrainer modelparams (r,datapoint) model where
+        train1dp' modelparams (r,dp) = r .* (train1dp' modelparams dp)
+
+
 -- | Provides parameterless functions for those training algorithms that do not require parameters
 class 
     ( DefaultModel modelparams model
     , HomTrainer modelparams datapoint model
-    ) => DefaultHomTrainer modelparams datapoint model
+    ) => DefaultHomTrainer modelparams datapoint model | model -> modelparams
         where
               
     -- | A singleton trainer that doesn't require parameters (uses 'defparams')
@@ -115,3 +122,5 @@ instance
     ( DefaultModel modelparams model
     , HomTrainer modelparams datapoint model
     ) => DefaultHomTrainer modelparams datapoint model
+    
+    
