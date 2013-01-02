@@ -5,12 +5,14 @@
 {-# LANGUAGE DatatypeContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Modules are a generalization of vector spaces
 
 module HLearn.Algebra.Structures.Modules
     where
 
+import qualified Control.ConstraintKinds as CK
 import Data.List
 import qualified Data.Map as Map
 import HLearn.Algebra.Structures.Groups
@@ -28,6 +30,9 @@ class LeftOperator r m | m -> r where
 class RightOperator r m | m -> r where
     infixl 7 *.
     (*.) :: m -> r -> m
+
+instance RightOperator Integer Integer where (*.) = (*)
+instance LeftOperator Integer Integer where (.*) = (*)
 
 -------------------------------------------------------------------------------
 -- FreeOp
@@ -71,6 +76,20 @@ instance (RightOperator r g, Num r, Group g, Abelian g) => RightModule r g
 newtype (Num r, Ord a) => FreeMod r a = FreeMod (Map.Map a r)
     deriving (Read,Show,Eq)
 
+instance CK.Functor (FreeMod r) where
+    type FunctorConstraint (FreeMod r) a = (Num r, Ord a)
+    fmap f (FreeMod m) = FreeMod $ Map.mapKeysWith (+) f m
+
+instance CK.Foldable (FreeMod r) where
+    type FoldableConstraint (FreeMod r) a = (Num r, Ord a, Operator r a)
+--     foldr f b (FreeMod m) = Map.foldrWithKey (\a r b -> f (r .* a) b) b m
+    foldr f b (FreeMod m) = foldr (\(a,r) b -> f (r .* a) b) b $ Map.toList m
+    foldl f b (FreeMod m) = foldl (\b (a,r) -> f b (r .* a)) b $ Map.toList m
+    foldl' f b (FreeMod m) = foldl' (\b (a,r) -> f b (r .* a)) b $ Map.toList m
+    
+    foldr1 f (FreeMod m) = foldr1 f $ map (\(a,r) -> r.*a) $ Map.toList m
+    foldl1 f (FreeMod m) = foldl1 f $ map (\(a,r) -> r.*a) $ Map.toList m
+
 instance (Num r, Ord a) => Abelian (FreeMod r a)
 instance (Num r, Ord a) => Semigroup (FreeMod r a) where
     (FreeMod m1) <> (FreeMod m2) = FreeMod $ Map.unionWith (+) m1 m2
@@ -99,3 +118,4 @@ list2module xs = FreeMod $ Map.fromList $ go 0 (head sorted) [] sorted
         go n x retL xs = if (head xs) == x
             then go (n+1) x retL (tail xs)
             else go 1 (head xs) ((x,n):retL) (tail xs)
+
