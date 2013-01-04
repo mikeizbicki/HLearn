@@ -6,6 +6,7 @@ module HLearn.Algebra
     , module HLearn.Algebra.Morphism
     , module HLearn.Algebra.Structures.Groups
     , module HLearn.Algebra.Structures.Modules
+    , module HLearn.Algebra.Structures.Free.RegSG2Group
     )
     where
           
@@ -14,3 +15,4 @@ import HLearn.Algebra.Models
 import HLearn.Algebra.Morphism
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.Modules
+import HLearn.Algebra.Structures.Free.RegSG2Group

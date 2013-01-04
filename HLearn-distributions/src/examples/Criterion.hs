@@ -13,12 +13,13 @@ import HLearn.Models.Distributions
 import qualified Control.ConstraintKinds as CK
 
 size = 10^8
-main = defaultMain 
+main = putStrLn "done."
+{-main = defaultMain 
     [ bench "HLearn-Gaussian" $ nf ((train :: VU.Vector Double -> Gaussian Double)) (VU.enumFromN (0::Double) size)
     , bench "HLearn-Gaussian-Parallel" $ whnf (parallel $ (train :: VU.Vector Double -> Gaussian Double)) (VU.enumFromN (0::Double) size)
 --     , bench "HLearn-Gaussian-List" $ nf (train :: [Double] -> Gaussian Double) [0..fromIntegral size]
     , bench "statistics-Gaussian" $ whnf (normalFromSample . VU.enumFromN 0) (size)
-    ]
+    ]-}
     
     {-bench "batch train [] 1e6" $ nf ((batch train) GaussianParams) [0..1e6::Double]
 --     , bench "batch train V 1e6"  $ nf ((batch train) GaussianParams) (V.enumFromN (0::Double) (10^6))

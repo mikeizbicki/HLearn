@@ -75,6 +75,25 @@ instance (VU.Unbox prob, Fractional prob, SingI n) => HomTrainer MomentsParams p
 -------------------------------------------------------------------------------
 --
 
+data MomentsConverterParams params = MomentsConverterParams params
+
+data MomentsConverter prob (n::Nat) dist = MomentsConverter
+    { moments       :: !(Moments prob n)
+    , dist          :: dist
+    }
+    deriving (Read,Show)
+
+instance 
+    ( DefaultMorphism (Moments prob n) params dist
+    , Num prob, VU.Unbox prob
+    ) => Semigroup (MomentsConverter prob n dist) where
+    mc1 <> mc2 = MomentsConverter m (morph m)
+        where
+            m = (moments mc1) <> (moments mc2)
+
+-------------------------------------------------------------------------------
+--
+
 data BetaParams = BetaParams
 
 data Beta prob = Beta
@@ -84,7 +103,7 @@ data Beta prob = Beta
     deriving (Read,Show)
 
 instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) (BetaParams) (Beta prob) where
-    (Moments v) `morph` BetaParams = Beta
+    (Moments v) $> BetaParams = Beta
         { alpha = alpha
         , beta  = beta
         }
@@ -111,18 +130,18 @@ data Normal prob = Normal
     }
     deriving (Read,Show)
     
-instance Semigroup (Normal prob)
+{-instance Semigroup (Normal prob)
 instance Monoid (Normal prob)
     
 instance Model NormalParams (Normal prob) where
     getparams normal = NormalParams
     
 instance DefaultModel NormalParams (Normal prob) where
-    defparams = NormalParams
+    defparams = NormalParams-}
     
 instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) NormalParams (Normal prob) where
 -- instance Morphism (Moments prob 2) NormalParams (Normal prob) where
-    (Moments v) `morph` NormalParams = Normal
+    (Moments v) $> NormalParams = Normal
         { n         = m0
         , mean      = m1 / m0
         , stddev    = (1/(m0-1))*m2-(m0/(m0-1))*(m1/m0)^^2
@@ -133,7 +152,7 @@ instance (VU.Unbox prob, Fractional prob) => Morphism (Moments prob 2) NormalPar
             m2 = v VU.! 2
             
 instance (VU.Unbox prob, Fractional prob) => Morphism (Normal prob) MomentsParams (Moments prob 2) where
-    (Normal n mean stddev) `morph` MomentsParams = Moments $ VU.fromList
+    (Normal n mean stddev) $> MomentsParams = Moments $ VU.fromList
         [ n
         , mean * n
         , (stddev+(n/(n-1))*(mean)^^2)*(n-1)
@@ -141,20 +160,19 @@ instance (VU.Unbox prob, Fractional prob) => Morphism (Normal prob) MomentsParam
 
 foo = ((train' MomentsParams [1,2,3::Double] :: Moments Double 2)
     $> NormalParams :: Normal Double)
-    $> MomentsParams
 
 {-foo' = train' 
     ( (MomentsParams :: MomentsParams)
     ) [1,2,3]
     $> NormalParams :: Normal Double-}
     
-foo2 = (train' 
-    ( ((NormalParams :: NormalParams)
-    :. (MomentsParams :: MomentsParams))
-        :: (MorphismComposition
-                          [Double]
-                          (MomentsParams)
-                          (Moments Double 2)
-                          (NormalParams)
-                          (Normal Double))
-    ) [1,2,3::Double]) :: Normal Double
+-- foo2 = (train' 
+--     ( ((NormalParams :: NormalParams)
+--     :. (MomentsParams :: MomentsParams))
+--         :: (MorphismComposition
+--                           [Double]
+--                           (MomentsParams)
+--                           (Moments Double 2)
+--                           (NormalParams)
+--                           (Normal Double))
+--     ) [1,2,3::Double]) :: Normal Double

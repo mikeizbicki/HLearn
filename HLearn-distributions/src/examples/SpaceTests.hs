@@ -18,6 +18,7 @@ import qualified Data.Foldable as F
 size=10^8
 main = do
 --     print $ (train (concat $ replicate (10^6) ["a","b"]) :: Categorical String Double)
-    print $ (train [1..fromIntegral size::Double] :: Gaussian Double)
-    print $ (train (VU.enumFromN (0::Double) size) :: Gaussian Double)
+--     print $ (train [1..fromIntegral size::Double] :: Gaussian Double)
+--     print $ (train (VU.enumFromN (0::Double) size) :: Gaussian Double)
 --     print $ normalFromSample $ VU.enumFromN 0 size
+    putStrLn "done."
