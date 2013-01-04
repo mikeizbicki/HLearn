@@ -45,7 +45,7 @@ class Model modelparams model | modelparams -> model{-, model -> modelparams-} w
     getparams :: model -> modelparams
     
 -- | For those algorithms that do not require parameters (or that have reasonable default parameters), this class lets us use a more convenient calling notation.
-class (Model modelparams model) => DefaultModel modelparams model where
+class (Model modelparams model) => DefaultModel modelparams model | model -> modelparams where
     defparams :: modelparams
 
 -- | A minimal complete definition of the class is the singleton trainer 'train1dp\''

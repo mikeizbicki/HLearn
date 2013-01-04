@@ -10,6 +10,7 @@
 module HLearn.Algebra.Morphism
     ( Morphism (..)
     , MorphismComposition (..)
+    , DefaultMorphism (..)
     )
     where
 
@@ -18,14 +19,14 @@ import HLearn.Algebra.Models
 import HLearn.Algebra.Structures.Groups
 
 class Morphism domain params codomain | params -> codomain where
-    morph :: domain -> params -> codomain
-    morph = ($>)
+    morph' :: domain -> params -> codomain
+    morph' = ($>)
 
     ($>) :: domain -> params -> codomain
-    ($>) = morph
+    ($>) = morph'
         
     (<.>) :: params -> domain -> codomain
-    (<.>) = flip morph
+    (<.>) = flip morph'
 
 data 
     ( Morphism domain params1 interdomain
@@ -37,7 +38,13 @@ instance
     , Morphism interdomain params2 codomain
     ) => Morphism domain (MorphismComposition domain params1 interdomain params2 codomain) codomain
     where
-        morph x (params2 :. params1) = morph (morph x params1) params2
+        morph' x (params2 :. params1) = morph' (morph' x params1) params2
+
+class (Morphism domain params codomain) => DefaultMorphism domain params codomain | domain codomain -> params  where
+    defMorphParams :: domain -> codomain -> params
+    
+    morph :: domain -> codomain
+    morph domain = (morph' :: domain -> params -> codomain) domain (defMorphParams (undefined :: domain) (undefined :: codomain))
 
 -------------------------------------------------------------------------------
 
@@ -70,23 +77,23 @@ instance
 -------------------------------------------------------------------------------
 -- Training
 
-instance 
-    ( HomTrainer modelparams datapoint model
-    , CK.Foldable container
-    , CK.FoldableConstraint container model
-    , CK.Functor container
-    , CK.FunctorConstraint container datapoint
-    , CK.FunctorConstraint container model
-    ) => Morphism (container datapoint) modelparams model
-    where
-        morph input params = train' params input
-    
-instance 
-    ( Model params1 interdomain
-    , Model params2 codomain
-    ) => Model (MorphismComposition domain params1 interdomain params2 codomain) codomain
-    where
-        getparams model = undefined
+-- instance 
+--     ( HomTrainer modelparams datapoint model
+--     , CK.Foldable container
+--     , CK.FoldableConstraint container model
+--     , CK.Functor container
+--     , CK.FunctorConstraint container datapoint
+--     , CK.FunctorConstraint container model
+--     ) => Morphism (container datapoint) modelparams model
+--     where
+--         morph' input params = train' params input
+--     
+-- instance 
+--     ( Model params1 interdomain
+--     , Model params2 codomain
+--     ) => Model (MorphismComposition domain params1 interdomain params2 codomain) codomain
+--     where
+--         getparams model = undefined
 
 -- instance 
 --     ( DefaultModel params1 interdomain

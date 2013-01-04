@@ -13,7 +13,10 @@
 
 module HLearn.Models.Distributions.KernelDensityEstimator
     ( KDEParams (..)
+    , KDEBandwidth (..)
     , KDE (..)
+    , KDE' (..)
+    , genSamplePoints
     
     , Uniform (..)
     , Triangular (..)
@@ -29,39 +32,84 @@ module HLearn.Models.Distributions.KernelDensityEstimator
           
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Categorical
 
+import qualified Control.ConstraintKinds as CK
+import Control.DeepSeq
 import qualified Data.Vector.Unboxed as VU
 
 -------------------------------------------------------------------------------
 --
 
+data KDEBandwidth prob = Constant prob | Variable (prob -> prob)
+
+instance (Show prob) => Show (KDEBandwidth prob) where
+    show (Constant x) = "Constant " ++ show x
+
+instance (Eq prob) => Eq (KDEBandwidth prob) where
+    Constant x1 == Constant x2 = x1==x2
+    Variable f1 == Variable f2 = True
+    _ == _ = False
+
+instance (Ord prob) => Ord (KDEBandwidth prob) where
+    Variable _ `compare` Variable _ = EQ
+    Constant _ `compare` Variable _ = LT
+    Variable _ `compare` Constant _ = GT
+    Constant x `compare` Constant y = x `compare` y
+
+instance (NFData prob) => NFData (KDEBandwidth prob) where
+    rnf (Constant x) = rnf x
+    rnf (Variable f) = seq f ()
+    
+{-# INLINE calcBandwidth #-}
+calcBandwidth :: (KDEBandwidth prob) -> prob -> prob
+calcBandwidth (Constant h) _ = h
+calcBandwidth (Variable f) x = f x
+
 data KDEParams prob = KDEParams
-    { bandwidth :: prob
+    { bandwidth :: KDEBandwidth prob
     , samplePoints :: VU.Vector prob -- ^ These data points must be sorted from smallest to largest
     , kernel :: KernelBox prob
     }
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
-paramsFromData :: (Floating prob, Ord prob, Enum prob, VU.Unbox prob) => [prob] -> KDEParams prob
-paramsFromData xs = KDEParams
-    { bandwidth = ((4*sigma^^5)/(3*n))**(1/5)
-    , samplePoints = VU.fromList samplePointsL
-    , kernel = KernelBox Epanechnikov
-    }
+instance (NFData prob) => NFData (KDEParams prob) where
+    rnf kdeparams = deepseq (bandwidth kdeparams)
+                  $ deepseq (kernel kdeparams)
+                  $ seq (samplePoints kdeparams)
+                  $ ()
+
+genSamplePoints :: (Fractional prob, VU.Unbox prob) => Int -> Int -> Int -> VU.Vector prob
+genSamplePoints min max samples = VU.fromList $ map (\i -> (fromIntegral min) + (fromIntegral i)*step) [0..samples]
     where
-        size = 100
-        margin = 10
-        step = ((maximum xs)-(minimum xs))/size
-        samplePointsL = map (\i -> (minimum xs) + i*step) [(-margin)..(size+margin)]
-        n = fromIntegral $ length xs
-        sigma = 1
+        step = (fromIntegral $ max-min)/(fromIntegral $ samples)
+
+-- paramsFromData :: (Floating prob, Ord prob, Enum prob, VU.Unbox prob) => [prob] -> KDEParams prob
+-- paramsFromData xs = KDEParams
+--     { bandwidth = ((4*sigma^^5)/(3*n))**(1/5)
+--     , samplePoints = VU.fromList samplePointsL
+--     , kernel = KernelBox Epanechnikov
+--     }
+--     where
+--         size = 100
+--         margin = 10
+--         step = ((maximum xs)-(minimum xs))/size
+--         samplePointsL = map (\i -> (minimum xs) + i*step) [(-margin)..(size+margin)]
+--         n = fromIntegral $ length xs
+--         sigma = 1
 
 data KDE' prob = KDE'
     { params :: KDEParams prob
     , n :: prob
     , sampleVals :: VU.Vector prob
     }
-    deriving (Show)
+    deriving (Show,Eq,Ord)
+
+instance (NFData prob) => NFData (KDE' prob) where
+    rnf kde = deepseq (params kde)
+            $ deepseq (n kde)
+            $ seq (sampleVals kde)
+            $ ()
 
 type KDE prob = RegSG2Group (KDE' prob)
 
@@ -88,21 +136,27 @@ instance (Num prob, VU.Unbox prob) => LeftOperator prob (KDE' prob) where
         , sampleVals = VU.map (*p) (sampleVals kde)
         }
 
+instance (Num prob, VU.Unbox prob) => RightOperator prob (KDE' prob) where
+    (*.) = flip (.*)
+    
 -------------------------------------------------------------------------------
 -- Training
     
 instance (Eq prob, Num prob, VU.Unbox prob) => Model (KDEParams prob) (KDE prob) where
     getparams (SGJust kde) = params kde
 
+instance HomTrainer (KDEParams Double) Int (KDE Double) where
+    train1dp' params dp = train1dp' params (fromIntegral dp :: Double)
+
 instance (Eq prob, Fractional prob, VU.Unbox prob) => HomTrainer (KDEParams prob) prob (KDE prob) where
     train1dp' params dp = SGJust $ KDE'
         { params = params
         , n = 1
-        , sampleVals = VU.map (\x -> k ((x-dp)/h)) (samplePoints params)
+        , sampleVals = VU.map (\x -> k ((x-dp)/(h x))) (samplePoints params)
         }
         where
-            k u = (evalkernel (kernel params) u)/h
-            h   = bandwidth params
+            k u = (evalkernel (kernel params) u)/(h u)
+            h   = calcBandwidth (bandwidth params)
 
 -------------------------------------------------------------------------------
 -- Distribution
@@ -131,6 +185,12 @@ binsearch vec dp = go 0 (VU.length vec-1)
                 mid = floor $ (fromIntegral $ low+high)/2
 
 -------------------------------------------------------------------------------
+-- Morphisms
+
+instance Morphism (Categorical Int Double) (KDEParams Double) (KDE Double) where
+    cat $> kdeparams = train' kdeparams $ CK.fmap (fromIntegral :: Int -> Double) (cat $> FreeModParams)
+
+-------------------------------------------------------------------------------
 -- Kernels
 
 -- | This list of kernels is take from wikipedia's: https://en.wikipedia.org/wiki/Uniform_kernel#Kernel_functions_in_common_use
@@ -138,12 +198,17 @@ class Kernel kernel num where
     evalkernel :: kernel -> num -> num
 
 data KernelBox num where KernelBox :: (Kernel kernel num, Show kernel) => kernel -> KernelBox num
+
 instance Kernel (KernelBox num) num where
     evalkernel (KernelBox k) p = evalkernel k p
 instance Show (KernelBox num) where
     show (KernelBox k) = "KB "++show k
 instance Eq (KernelBox num) where
     KernelBox k1 == KernelBox k2 = (show k1) == (show k2)
+instance Ord (KernelBox num) where
+    _ `compare` _ = EQ
+instance NFData (KernelBox num) where
+    rnf (KernelBox num)= seq num ()
     
 data Uniform = Uniform deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Uniform num where

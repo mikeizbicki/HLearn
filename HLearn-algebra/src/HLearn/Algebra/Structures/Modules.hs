@@ -34,6 +34,18 @@ class RightOperator r m | m -> r where
 instance RightOperator Integer Integer where (*.) = (*)
 instance LeftOperator Integer Integer where (.*) = (*)
 
+instance RightOperator Int Int where (*.) = (*)
+instance LeftOperator Int Int where (.*) = (*)
+
+instance RightOperator Float Float where (*.) = (*)
+instance LeftOperator Float Float where (.*) = (*)
+
+instance RightOperator Double Double where (*.) = (*)
+instance LeftOperator Double Double where (.*) = (*)
+
+instance (RightOperator a b) => RightOperator a [b] where bs *. a = fmap (*.a) bs
+instance (LeftOperator a b) => LeftOperator a [b] where a .* bs = fmap (a.*) bs
+
 -------------------------------------------------------------------------------
 -- FreeOp
 
@@ -72,6 +84,8 @@ instance (RightOperator r g, Num r, Group g, Abelian g) => RightModule r g
 
 -------------------------------------------------------------------------------
 -- FreeModule
+
+data FreeModParams = FreeModParams
 
 newtype (Num r, Ord a) => FreeMod r a = FreeMod (Map.Map a r)
     deriving (Read,Show,Eq)

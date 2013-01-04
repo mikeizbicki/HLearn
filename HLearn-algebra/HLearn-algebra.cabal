@@ -28,3 +28,4 @@ Library
         HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.Modules
+        HLearn.Algebra.Structures.Free.RegSG2Group

@@ -55,6 +55,7 @@ Executable HLearn-Distributions-SpaceTests
 Library
     Build-Depends:      
         HLearn-algebra          >= 0.1.0,
+        ConstraintKinds         >= 0.0.1,
         base                    >= 3 && < 5,
         
         deepseq                 >= 1.3.0.1,
@@ -80,12 +81,13 @@ Library
         -O2 
         -- -fllvm
     Exposed-modules:
+        HLearn.Gnuplot.Distributions
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Categorical
+        HLearn.Models.Distributions.KernelDensityEstimator
         HLearn.Models.Distributions.Moments
         --HLearn.Models.Distributions.Normal
-        HLearn.Gnuplot.Distributions
         --HLearn.Models.Distributions.Gaussian
         --HLearn.Models.Distributions.GaussianOld
         --HLearn.Models.Distributions.GaussianOld2

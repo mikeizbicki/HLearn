@@ -30,7 +30,7 @@ import HLearn.Models.Distributions.Common
 
 -- | The Categorical distribution takes no parameters
 data CategoricalParams = CategoricalParams
-    deriving (Read,Show,Eq)
+    deriving (Read,Show,Eq,Ord)
 
 instance NFData CategoricalParams where
     rnf x = ()
@@ -38,7 +38,8 @@ instance NFData CategoricalParams where
 instance Model CategoricalParams (Categorical label probtype) where
     getparams model = CategoricalParams
 
-instance DefaultModel CategoricalParams (Categorical label probtype) where
+-- instance DefaultModel CategoricalParams (Categorical label probtype) where
+instance DefaultModel CategoricalParams (Categorical Int Double) where
     defparams = CategoricalParams
 
 -------------------------------------------------------------------------------
@@ -47,7 +48,7 @@ instance DefaultModel CategoricalParams (Categorical label probtype) where
 data Categorical sampletype probtype = Categorical 
         { pdfmap :: !(Map.Map sampletype probtype)
         } 
-    deriving (Show,Read,Eq)
+    deriving (Show,Read,Eq,Ord)
 
 dist2list :: Categorical sampletype probtype -> [(sampletype,probtype)]
 dist2list (Categorical pdfmap) = Map.toList pdfmap
@@ -57,9 +58,6 @@ instance (NFData sampletype, NFData probtype) => NFData (Categorical sampletype 
 
 -------------------------------------------------------------------------------
 -- Training
-
-instance (Ord label, Num probtype) => HomTrainer CategoricalParams (label,probtype) (Categorical label probtype) where
-    train1dp' params (dp,w) = Categorical $ Map.singleton dp w
 
 instance (Ord label, Num probtype) => HomTrainer CategoricalParams label (Categorical label probtype) where
     train1dp' params dp = Categorical $ Map.singleton dp 1
@@ -107,6 +105,7 @@ mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 -------------------------------------------------------------------------------
 -- Algebra
 
+instance (Ord label, Num probtype{-, NFData probtype-}) => Abelian (Categorical label probtype)
 instance (Ord label, Num probtype{-, NFData probtype-}) => Semigroup (Categorical label probtype) where
     (<>) !d1 !d2 = {-deepseq res $-} Categorical $ res
         where
@@ -119,4 +118,22 @@ instance (Ord label, Num probtype) => Monoid (Categorical label probtype) where
     mempty = Categorical Map.empty
     mappend = (<>)
 
-instance (Ord label, Num probtype) => Group (Categorical label probtype)
+-- instance (Ord label, Num probtype) => Group (Categorical label probtype)
+
+instance (Ord label, Num probtype) => LeftModule probtype (Categorical label probtype)
+instance (Ord label, Num probtype) => LeftOperator probtype (Categorical label probtype) where
+    p .* (Categorical pdf) = Categorical $ Map.map (*p) pdf
+
+instance (Ord label, Num probtype) => RightModule probtype (Categorical label probtype)
+instance (Ord label, Num probtype) => RightOperator probtype (Categorical label probtype) where
+    (*.) = flip (.*)
+
+-------------------------------------------------------------------------------
+-- Morphisms
+
+instance 
+    ( Ord label
+    , Num probtype
+    ) => Morphism (Categorical label probtype) FreeModParams (FreeMod probtype label) 
+        where
+    Categorical pdf $> FreeModParams = FreeMod pdf
