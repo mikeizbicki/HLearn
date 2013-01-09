@@ -7,6 +7,7 @@ module HLearn.Algebra
     , module HLearn.Algebra.Structures.Groups
     , module HLearn.Algebra.Structures.Modules
     , module HLearn.Algebra.Structures.Free.RegSG2Group
+    , module HLearn.Algebra.Structures.Triangles
     )
     where
           
@@ -16,3 +17,4 @@ import HLearn.Algebra.Morphism
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.Modules
 import HLearn.Algebra.Structures.Free.RegSG2Group
+import HLearn.Algebra.Structures.Triangles

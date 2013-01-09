@@ -1,0 +1,32 @@
+Name:                HLearn-ensemble
+Version:             0.0.1
+Description:         This module is for ensemble methods.
+Category:            Data Mining, Machine Learning
+License:             GPL
+--License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+
+Library
+    Build-Depends:      
+        base                    >= 3 && < 5,
+        HLearn-algebra          >= 0.0.1,
+        HLearn-distributions    >= 0.0.1,
+        ConstraintKinds         >= 0.0.1
+
+        -- are these really necessary?
+
+        
+    hs-source-dirs:     src
+    ghc-options:        
+        -rtsopts 
+        -- -auto-all 
+        -- -caf-all 
+        -funbox-strict-fields
+        -O2 
+        -- -fllvm
+    Exposed-modules:
+        HLearn.Models.Ensemble
+        HLearn.Models.Ensemble.Common

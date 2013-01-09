@@ -91,6 +91,7 @@ module HLearn.Models.Distributions.Gaussian
     
 import Control.Monad
 import Control.Monad.Random
+import Control.DeepSeq
 import Data.Random.Normal
 import Debug.Trace
 import Numeric.SpecFunctions (logFactorial)
@@ -407,8 +408,8 @@ convdistr g = N.normalDistr (mean g) (stddev g)
 
 instance Distribution (Gaussian Double) Double Double where
     pdf g x = D.density (convdistr g) x
-    cdf g x = D.cumulative (convdistr g) x
-    cdfInverse g x = D.quantile (convdistr g) x
+--     cdf g x = D.cumulative (convdistr g) x
+--     cdfInverse g x = D.quantile (convdistr g) x
 \end{code}
 
 \section{Distribution Functions}

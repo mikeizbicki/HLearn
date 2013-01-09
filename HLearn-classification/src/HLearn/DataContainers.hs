@@ -7,11 +7,12 @@
 module HLearn.DataContainers
     where
 
+import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
--- import Data.Binary
+import Data.Binary
 import Data.Functor
--- import Data.Hashable
+import Data.Hashable
 import Data.List
 import Data.List.Split
 import Debug.Trace

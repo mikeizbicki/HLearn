@@ -8,6 +8,7 @@
 module HLearn.Models.DistributionContainer
     where
 
+import Control.DeepSeq
 import Debug.Trace
 import GHC.Float (double2Float, float2Double)
 import Numeric.SpecFunctions (logFactorial)
@@ -63,12 +64,12 @@ instance
         Nothing -> 1
         Just x  -> pdf basedist x
         
-    cdf (MaybeDistribution basedist) dp = case dp of
+{-    cdf (MaybeDistribution basedist) dp = case dp of
         Nothing -> 0
         Just x  -> cdf basedist x
         
     cdfInverse (MaybeDistribution basedist) prob = Just $ cdfInverse basedist prob
-
+-}
 --     drawSample (MaybeDistribution basedist) = do
 --         sample <- drawSample basedist
 --         return $ Just sample
@@ -112,12 +113,12 @@ instance
         Continuous x -> pdf basedist $ Just x
         Discrete   x -> error "ContinuousDistribution.pdf: cannot sample discrete"
         
-    cdf = error "ContinuousDistribution.cdf: not implemented"
+--     cdf = error "ContinuousDistribution.cdf: not implemented"
 
 --     cdfInverse = error "ContinuousDistribution.cdfInverse: not implemented"
-    cdfInverse (ContinuousDistribution maybedist) prob = case cdfInverse maybedist prob of
-        Nothing -> Missing
-        Just x -> Continuous x
+--     cdfInverse (ContinuousDistribution maybedist) prob = case cdfInverse maybedist prob of
+--         Nothing -> Missing
+--         Just x -> Continuous x
 --     cdfInverse (ContinuousDistribution maybedist) (Discrete x) = error "ContinuousDistribution.cdfInverse: cannot discrete"
 --     cdfInverse (ContinuousDistribution maybedist) (Continuous x) = cdfInverse maybedist $ Just x
 
@@ -194,11 +195,11 @@ instance Distribution DistContainer DataItem Double where
     pdf (DistContainer dist) di = pdf dist di
     pdf (DistDiscrete dist) di = pdf dist di
     
-    cdf (DistContainer dist) = cdf dist
-    cdf (DistDiscrete dist) = cdf dist
+--     cdf (DistContainer dist) = cdf dist
+--     cdf (DistDiscrete dist) = cdf dist
     
-    cdfInverse (DistContainer dist) = cdfInverse dist
-    cdfInverse (DistDiscrete dist)  = cdfInverse dist
+--     cdfInverse (DistContainer dist) = cdfInverse dist
+--     cdfInverse (DistDiscrete dist)  = cdfInverse dist
     
 {-    drawSample (DistContainer dist) = drawSample dist
     drawSample (DistDiscrete dist) = drawSample dist

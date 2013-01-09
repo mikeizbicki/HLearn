@@ -5,6 +5,7 @@ module HLearn.DataContainers.DS_List
     where
 
 import Control.Applicative
+import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Data.List

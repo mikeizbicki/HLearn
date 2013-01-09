@@ -5,9 +5,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
 
+
+-- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/Categorical_distribution>
 module HLearn.Models.Distributions.Categorical
-    ( Categorical (..)
+    ( 
+    -- * Data types
+    Categorical (..)
     , CategoricalParams(..)
+    
+    -- * Helper functions
     , dist2list
     , mostLikely
     )
@@ -38,8 +44,8 @@ instance NFData CategoricalParams where
 instance Model CategoricalParams (Categorical label probtype) where
     getparams model = CategoricalParams
 
--- instance DefaultModel CategoricalParams (Categorical label probtype) where
-instance DefaultModel CategoricalParams (Categorical Int Double) where
+instance DefaultModel CategoricalParams (Categorical label probtype) where
+-- instance DefaultModel CategoricalParams (Categorical Int Double) where
     defparams = CategoricalParams
 
 -------------------------------------------------------------------------------
@@ -50,8 +56,6 @@ data Categorical sampletype probtype = Categorical
         } 
     deriving (Show,Read,Eq,Ord)
 
-dist2list :: Categorical sampletype probtype -> [(sampletype,probtype)]
-dist2list (Categorical pdfmap) = Map.toList pdfmap
 
 instance (NFData sampletype, NFData probtype) => NFData (Categorical sampletype probtype) where
     rnf d = rnf $ pdfmap d
@@ -65,10 +69,10 @@ instance (Ord label, Num probtype) => HomTrainer CategoricalParams label (Catego
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Categorical label prob) label prob where
+instance (Ord label, Ord prob, Fractional prob, Random prob) => Distribution (Categorical label prob) label prob where
 
     {-# INLINE pdf #-}
-    pdf dist label = 0.0001+(val/tot)
+    pdf dist label = {-0.0001+-}(val/tot)
         where
             val = case Map.lookup label (pdfmap dist) of
                 Nothing -> 0
@@ -98,9 +102,13 @@ instance (Ord label, Ord prob, Floating prob, Random prob) => Distribution (Cate
         return $ cdfInverse dist (x::prob)
 -}
 
+-- | Extracts the element in the distribution with the highest probability
 mostLikely :: Ord prob => Categorical label prob -> label
 mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 
+-- | Converts a distribution into a list of (sample,probability) pai
+dist2list :: Categorical sampletype probtype -> [(sampletype,probtype)]
+dist2list (Categorical pdfmap) = Map.toList pdfmap
 
 -------------------------------------------------------------------------------
 -- Algebra

@@ -1,5 +1,5 @@
 Name:                HLearn-distributions
-Version:             0.1.0.0
+Version:             0.2.1
 Synopsis:            Distributions for use with the HLearn library
 Description:         This module is used to estimate statistical distributions from data.  The focus is a clean interface inspired by algebra.
 Category:            Data Mining, Machine Learning, Statistics
@@ -69,7 +69,9 @@ Library
         
         -- are these really necessary?
         process                 >= 1.1.0.2,
-        MonadRandom             >= 0.1.6
+        MonadRandom             >= 0.1.6,
+        math-functions          >= 0.1.1,
+        normaldistribution      >= 1.1.0
 
         
     hs-source-dirs:     src
@@ -86,6 +88,7 @@ Library
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Categorical
         HLearn.Models.Distributions.KernelDensityEstimator
+        HLearn.Models.Distributions.KernelDensityEstimator.Kernels
         HLearn.Models.Distributions.Moments
         --HLearn.Models.Distributions.Normal
         --HLearn.Models.Distributions.Gaussian
