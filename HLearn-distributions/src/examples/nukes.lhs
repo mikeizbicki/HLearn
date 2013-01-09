@@ -42,6 +42,13 @@ List of American nuclear weapons = fromList [335,335,335,335,335,335,335,335,335
 If we want to know how many weapons are in the American arsenal, we can take the length of the list:
 
 >   putStrLn $ "Number of American weapons = " ++ show (length list_usa)
+>   putStrLn $ "Explosive power of American weapons = " ++ show (sum list_usa)
+
+>   putStrLn $ "USA = " ++ show (length list_usa) ++ ","++ show (sum list_usa)
+>   putStrLn $ "UK = " ++ show (length list_uk) ++ ","++ show (sum list_uk)
+>   putStrLn $ "France = " ++ show (length list_france) ++ ","++ show (sum list_france)
+>   putStrLn $ "Russia = " ++ show (length list_russia) ++ ","++ show (sum list_russia)
+>   putStrLn $ "China = " ++ show (length list_china) ++ ","++ show (sum list_china)
 
 We get that there are 1951 American nuclear weapons.  
 
@@ -128,7 +135,8 @@ or we can perform a parallel reduction on the kde's for each country like this:
 
 Now, we'll calculate and plot the parallel version:
 
->   plotDistribution (genPlotParams "kde_all" kde_all_parA) kde_all_parA
+>   plotDistribution (genPlotParams "kde_all" kde_all) kde_all
+>--   plotDistribution (genPlotParams "kde_usa" kde_usa) kde_usa
 
 The parallel computation takes about 16 seconds on my Core2 Duo laptop running on 2 processors, whereas the serial computation takes about 28 seconds.
 

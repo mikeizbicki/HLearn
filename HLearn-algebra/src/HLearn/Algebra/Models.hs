@@ -20,6 +20,10 @@ module HLearn.Algebra.Models
     , HomTrainer (..)
     , DefaultHomTrainer (..)
     
+    -- * Convenience functions
+    , sub1dp
+    , subBatch
+    
     -- * Type synonyms
 --     , Labeled
 --     , Weighted
@@ -41,7 +45,7 @@ import HLearn.Algebra.Structures.Modules
 -- Model
 
 -- | Every model has at least one data type that that fully describes its parameters.  Many models do not actually *need* any parameters, in which case they will simply use an empty data type for modelparams.
-class Model modelparams model | modelparams -> model{-, model -> modelparams-} where
+class Model modelparams model | modelparams -> model, model -> modelparams where
     getparams :: model -> modelparams
     
 -- | For those algorithms that do not require parameters (or that have reasonable default parameters), this class lets us use a more convenient calling notation.
@@ -53,7 +57,7 @@ class
     ( Semigroup model
     , Monoid model
     , Model modelparams model
-    ) => HomTrainer modelparams datapoint model
+    ) => HomTrainer modelparams datapoint model | model -> modelparams
         where
 
     -- | The singleton trainer
@@ -71,7 +75,7 @@ class
         , CK.FoldableConstraint container model
         ) => modelparams -> container datapoint -> model
     train' modelparams = batch (train1dp' modelparams)
-    
+
     -- | The online trainer
     {-# INLINE add1dp #-}
     add1dp :: model -> datapoint -> model
@@ -88,11 +92,40 @@ class
         ) =>  model -> container datapoint -> model
     addBatch model = online (train' (getparams model :: modelparams)) model
     
+
+sub1dp :: 
+    ( RegularSemigroup model
+    , HomTrainer modelparams datapoint model
+    , DefaultModel modelparams model
+    ) => model -> datapoint -> model
+sub1dp model dp = model <> (inverse $ train1dp dp)
+
+-- model -. dp = sub1dp model dp
+-- model -. xs = subBatch model xs
+
+subBatch :: 
+    ( CK.Functor container
+    , CK.FunctorConstraint container model
+    , CK.FunctorConstraint container datapoint
+    , CK.Foldable container
+    , CK.FoldableConstraint container model
+    , RegularSemigroup model
+    , HomTrainer modelparams datapoint model
+    , DefaultModel modelparams model
+    ) => model -> container datapoint -> model
+subBatch model xs = model <> (inverse $ train xs)
+
 instance 
     ( HomTrainer modelparams datapoint model
     , LeftOperator r model
     ) => HomTrainer modelparams (r,datapoint) model where
         train1dp' modelparams (r,dp) = r .* (train1dp' modelparams dp)
+
+-- instance 
+--     ( HomTrainer modelparams datapoint model
+--     , RightOperator r model
+--     ) => HomTrainer modelparams (datapoint,r) model where
+--         train1dp' modelparams (dp,r) = (train1dp' modelparams dp) *. r
 
 
 -- | Provides parameterless functions for those training algorithms that do not require parameters

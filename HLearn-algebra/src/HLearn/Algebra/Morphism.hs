@@ -7,16 +7,31 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | A \"morphism\" is a general term for a function that converts one data structure into another.  The HLearn library uses this module to allow arbitrary morphisms to be declared, chained together, and assigned properties like surjectivity and homomorphic.
+--
+-- NOTE: This module is still under heavy development and will probably change drastically!
+
 module HLearn.Algebra.Morphism
-    ( Morphism (..)
-    , MorphismComposition (..)
+    ( 
+    -- * Morphisms
+    Morphism (..)
     , DefaultMorphism (..)
+    
+    -- * Morphism properties
+    , Surjective (..)
+    , Injective (..)
+    , Homomorphism (..)
+    
+    -- * Chaining morphisms
+    , MorphismComposition (..)
     )
     where
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra.Models
 import HLearn.Algebra.Structures.Groups
+
+-- | A Morphism converts from a domain to a codomain using the given parameters.  We perform the actual conversion using the @$>@ operator.
 
 class Morphism domain params codomain | params -> codomain where
     morph' :: domain -> params -> codomain
@@ -28,6 +43,8 @@ class Morphism domain params codomain | params -> codomain where
     (<.>) :: params -> domain -> codomain
     (<.>) = flip morph'
 
+
+-- | This data structure allow us to chain arbitrary morphisms together to generate a new morphism.
 data 
     ( Morphism domain params1 interdomain
     , Morphism interdomain params2 codomain
@@ -40,6 +57,8 @@ instance
     where
         morph' x (params2 :. params1) = morph' (morph' x params1) params2
 
+
+-- | If there is a reasonable default parameter (or no parameters at all) for performing the morphism, this class provides a shortcut syntax.
 class (Morphism domain params codomain) => DefaultMorphism domain params codomain | domain codomain -> params  where
     defMorphParams :: domain -> codomain -> params
     
@@ -101,7 +120,7 @@ instance
 --     ) => DefaultModel (MorphismComposition domain params1 interdomain params2 codomain) codomain
 --     where
 --         defparams = undefined
-
+{-
 instance 
     ( CK.FunctorConstraint container model
     , CK.FunctorConstraint container datapoint
@@ -117,4 +136,4 @@ instance
     , Model (MorphismComposition domain params1 interdomain params2 codomain) codomain
     ) => HomTrainer (MorphismComposition (container datapoint) params1 interdomain params2 codomain) datapoint codomain
     where
-         train1dp' (params2 :. params1) dp = params2 <.> (train1dp' params1 dp)
+         train1dp' (params2 :. params1) dp = params2 <.> (train1dp' params1 dp)-}

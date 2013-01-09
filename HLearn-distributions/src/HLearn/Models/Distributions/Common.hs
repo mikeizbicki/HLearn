@@ -12,7 +12,7 @@ import HLearn.Algebra
 -- Distribution
     
 -- | We use the same class for both discrete and continuous distributions.  Unfortunately, we cannot use the type classes from the 'statistics' package because we require more generalilty.
-class Distribution dist dp prob | dist -> dp where
+class Distribution dist dp prob | dist -> dp, dist -> prob where
     pdf :: dist -> dp -> prob 
 --     cdf :: dist -> dp -> prob 
 --     cdfInverse :: dist -> prob -> dp

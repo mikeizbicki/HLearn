@@ -11,35 +11,37 @@
 
 {-# LANGUAGE DataKinds #-}
 
+-- | Kernel Density Estimation (KDE) is a generic and powerful method for estimating a probability distribution.  See wikipedia for more information: <http://en.wikipedia.org/wiki/Kernel_density_estimation>
 module HLearn.Models.Distributions.KernelDensityEstimator
-    ( KDEParams (..)
+    ( 
+    -- * Parameters
+    KDEParams (..)
     , KDEBandwidth (..)
+    
+    -- * Data types
     , KDE (..)
     , KDE' (..)
+    
+    -- * Easy creation of parameters
     , genSamplePoints
     
-    , Uniform (..)
-    , Triangular (..)
-    , Epanechnikov (..)
-    , Quartic (..)
-    , Triweight (..)
-    , Tricube (..)
-    , Gaussian (..)
-    , Cosine (..)
-    , KernelBox (..)
+    , module HLearn.Models.Distributions.KernelDensityEstimator.Kernels
     )
     where
           
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Categorical
+import HLearn.Models.Distributions.KernelDensityEstimator.Kernels
 
 import qualified Control.ConstraintKinds as CK
 import Control.DeepSeq
 import qualified Data.Vector.Unboxed as VU
 
 -------------------------------------------------------------------------------
---
+-- Parameters
+
+-- | The bandwidth is a \"free parameter\" that has a large influence on the resulting PDF.  The simplest way to set the bandwidth is using a constant.  However, we can also have a bandwidth that varies over the domain of the distribution.  This is done using the Variable constructor.  For more, see Wikipedia's entry on Variable KDE: <https://en.wikipedia.org/wiki/Variable_kernel_density_estimation>.
 
 data KDEBandwidth prob = Constant prob | Variable (prob -> prob)
 
@@ -79,7 +81,15 @@ instance (NFData prob) => NFData (KDEParams prob) where
                   $ seq (samplePoints kdeparams)
                   $ ()
 
-genSamplePoints :: (Fractional prob, VU.Unbox prob) => Int -> Int -> Int -> VU.Vector prob
+
+-- | Generates a vector of the positions to sample our distribution at to generate the PDF.  It is intended for use with KDEParams only.
+genSamplePoints :: 
+    ( Fractional prob
+    , VU.Unbox prob
+    ) => Int -- minimum point
+      -> Int -- maximum point
+      -> Int -- number of samples
+      -> VU.Vector prob
 genSamplePoints min max samples = VU.fromList $ map (\i -> (fromIntegral min) + (fromIntegral i)*step) [0..samples]
     where
         step = (fromIntegral $ max-min)/(fromIntegral $ samples)
@@ -98,6 +108,10 @@ genSamplePoints min max samples = VU.fromList $ map (\i -> (fromIntegral min) + 
 --         n = fromIntegral $ length xs
 --         sigma = 1
 
+-------------------------------------------------------------------------------
+-- KDE
+
+-- | This is an intermediate data structure used by the KDE data type.  You should NEVER use it directly because it doesn't have an empty element.  It is exported because some other modules in the HLearn library need direct access to it.
 data KDE' prob = KDE'
     { params :: KDEParams prob
     , n :: prob
@@ -111,6 +125,7 @@ instance (NFData prob) => NFData (KDE' prob) where
             $ seq (sampleVals kde)
             $ ()
 
+-- | The data structure that stores our Kernel Density Estimate.  Because KDE' doesn't have an empty element, we use the RegSG2Group free structure to provide one for us.  KDE inherits all the instances of KDE', plus Monoid and Group instances.
 type KDE prob = RegSG2Group (KDE' prob)
 
 -------------------------------------------------------------------------------
@@ -190,68 +205,3 @@ binsearch vec dp = go 0 (VU.length vec-1)
 instance Morphism (Categorical Int Double) (KDEParams Double) (KDE Double) where
     cat $> kdeparams = train' kdeparams $ CK.fmap (fromIntegral :: Int -> Double) (cat $> FreeModParams)
 
--------------------------------------------------------------------------------
--- Kernels
-
--- | This list of kernels is take from wikipedia's: https://en.wikipedia.org/wiki/Uniform_kernel#Kernel_functions_in_common_use
-class Kernel kernel num where
-    evalkernel :: kernel -> num -> num
-
-data KernelBox num where KernelBox :: (Kernel kernel num, Show kernel) => kernel -> KernelBox num
-
-instance Kernel (KernelBox num) num where
-    evalkernel (KernelBox k) p = evalkernel k p
-instance Show (KernelBox num) where
-    show (KernelBox k) = "KB "++show k
-instance Eq (KernelBox num) where
-    KernelBox k1 == KernelBox k2 = (show k1) == (show k2)
-instance Ord (KernelBox num) where
-    _ `compare` _ = EQ
-instance NFData (KernelBox num) where
-    rnf (KernelBox num)= seq num ()
-    
-data Uniform = Uniform deriving (Read,Show)
-instance (Fractional num, Ord num) => Kernel Uniform num where
-    evalkernel Uniform u = if abs u < 1
-        then 1/2
-        else 0
-
-data Triangular = Triangular deriving (Read,Show)
-instance (Fractional num, Ord num) => Kernel Triangular num where
-    evalkernel Triangular u = if abs u<1
-        then 1-abs u
-        else 0
-        
-data Epanechnikov = Epanechnikov deriving (Read,Show)
-instance (Fractional num, Ord num) => Kernel Epanechnikov num where
-    evalkernel Epanechnikov u = if abs u<1
-        then (3/4)*(1-u^^2)
-        else 0
-
-data Quartic = Quartic deriving (Read,Show)
-instance (Fractional num, Ord num) => Kernel Quartic num where
-    evalkernel Quartic u = if abs u<1
-        then (15/16)*(1-u^^2)^^2
-        else 0
-        
-data Triweight = Triweight deriving (Read,Show)
-instance (Fractional num, Ord num) => Kernel Triweight num where
-    evalkernel Triweight u = if abs u<1
-        then (35/32)*(1-u^^2)^^3
-        else 0
-
-data Tricube = Tricube deriving (Read,Show)
-instance (Fractional num, Ord num) => Kernel Tricube num where
-    evalkernel Tricube u = if abs u<1
-        then (70/81)*(1-u^^3)^^3
-        else 0
-        
-data Cosine = Cosine deriving (Read,Show)
-instance (Floating num, Ord num) => Kernel Cosine num where
-    evalkernel Cosine u = if abs u<1
-        then (pi/4)*(cos $ (pi/2)*u)
-        else 0
-        
-data Gaussian = Gaussian deriving (Read,Show)
-instance (Floating num, Ord num) => Kernel Gaussian num where
-    evalkernel Gaussian u = (1/(2*pi))*(exp $ (-1/2)*u^^2)
