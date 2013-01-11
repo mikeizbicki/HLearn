@@ -1,5 +1,5 @@
 Name:                HLearn-algebra
-Version:             0.1.2.0
+Version:             0.1.2.1
 Synopsis:            Algebraic foundation for homomorphic learning
 Description:         This module contains the algebraic basis for the HLearn library.  It is separated out in it's own library because it contains routines that may be useful to others.  In particular, it contains methods for automatically converting algorithms into online/parallel versions, and its structure is slightly more modular (although much less complete) than other algebra packages.
 Category:            Data Mining, Machine Learning
@@ -9,6 +9,8 @@ Author:              Mike izbicki
 Maintainer:          mike@izbicki.me
 Build-Type:          Simple
 Cabal-Version:       >=1.8
+homepage:            http://github.com/mikeizbicki/HLearn/
+bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 
 Library
     Build-Depends:      
@@ -25,6 +27,7 @@ Library
         HLearn.Algebra
         HLearn.Algebra.Functions
         HLearn.Algebra.Models
+        HLearn.Algebra.Models.Lame
         HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.Modules

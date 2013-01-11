@@ -84,7 +84,7 @@ Michael Izbicki
 -- | The Gaussian distribution is an instance of 'HomTrainer.'  For examples of how to use this type, and the math behind it, see: <http://izbicki.me/blog/gausian-distributions-are-monoids>.
 
 module HLearn.Models.Distributions.Gaussian
-    ( Gaussian (..)
+    ( Gaussian 
     , GaussianParams (..)
     )
     where
@@ -139,7 +139,7 @@ data Gaussian datapoint = Gaussian
     , m2 :: !datapoint              -- ^ The variance (second moment) of the trained distribution times (n-1)
     , dc :: {-# UNPACK #-} !Int     -- ^ The number of \"dummy points\" that have been added to the distribution.  Required for numerical stability reasons.
     } 
-    deriving (Show,Read)
+    deriving (Show,Read,Eq,Ord)
 
 {-
 data Gaussian = Gaussian
@@ -384,6 +384,7 @@ We use the homomorphic learning method to define the training routines for our G
 
 -- | Training a Gaussian distribution takes no parameters
 data GaussianParams datatype = GaussianParams
+    deriving (Read,Show,Eq,Ord)
 
 instance Model (GaussianParams datatype) (Gaussian datatype) where
     {-# INLINE getparams #-}

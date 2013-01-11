@@ -15,7 +15,7 @@ import HLearn.Algebra.Structures.Modules
 import Control.DeepSeq
 
 -- | Convert any regular semigroup into a group (and thus also a monoid) by adding a unique identity element
-data (RegularSemigroup sg) => RegSG2Group sg = SGNothing | SGJust sg
+data RegSG2Group sg = SGNothing | SGJust sg
     deriving (Show,Read,Ord,Eq)
 
 instance (RegularSemigroup sg) => Semigroup (RegSG2Group sg) where

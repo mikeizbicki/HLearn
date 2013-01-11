@@ -1,5 +1,5 @@
 Name:                HLearn-distributions
-Version:             0.2.1
+Version:             0.2.2.1
 Synopsis:            Distributions for use with the HLearn library
 Description:         This module is used to estimate statistical distributions from data.  The focus is a clean interface inspired by algebra.
 Category:            Data Mining, Machine Learning, Statistics
@@ -9,6 +9,8 @@ Author:              Mike izbicki
 Maintainer:          mike@izbicki.me
 Build-Type:          Simple
 Cabal-Version:       >=1.8
+homepage:            http://github.com/mikeizbicki/HLearn/
+bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 
 Executable HLearn-Distributions-Criterion
     Main-is: src/examples/Criterion.hs
@@ -54,7 +56,7 @@ Executable HLearn-Distributions-SpaceTests
 
 Library
     Build-Depends:      
-        HLearn-algebra          >= 0.1.0,
+        HLearn-algebra          >= 0.1.2,
         ConstraintKinds         >= 0.0.1,
         base                    >= 3 && < 5,
         
@@ -90,8 +92,9 @@ Library
         HLearn.Models.Distributions.KernelDensityEstimator
         HLearn.Models.Distributions.KernelDensityEstimator.Kernels
         HLearn.Models.Distributions.Moments
+        HLearn.Models.Distributions.Multivariate
         --HLearn.Models.Distributions.Normal
-        --HLearn.Models.Distributions.Gaussian
+        HLearn.Models.Distributions.Gaussian
         --HLearn.Models.Distributions.GaussianOld
         --HLearn.Models.Distributions.GaussianOld2
         --HLearn.Models.Distributions.Poisson

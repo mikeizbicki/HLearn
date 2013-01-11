@@ -8,25 +8,8 @@ Author:              Mike izbicki
 Maintainer:          mike@izbicki.me
 Build-Type:          Simple
 Cabal-Version:       >=1.8
-
-Executable HLearn-Classification-Demo
-    Main-is: src/examples/demo.lhs
-    Build-Depends:      
-        HLearn-algebra              >= 0.0.1,
-        ConstraintKinds             >= 0.0.1,
-        HLearn-distributions        >= 0.0.1,
-        HLearn-classification       >= 0.0.1,
-        
-        base                        >= 3 && < 5,
-        criterion                   >= 0.6.1.1
-    ghc-options: 
-        -threaded
-        -rtsopts 
-        -O2
-        -- -prof
-        -funbox-strict-fields
-        -- -prof
-        -- -fllvm
+homepage:            http://github.com/mikeizbicki/HLearn/
+bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 
 Library
     Build-Depends:      
@@ -70,10 +53,11 @@ Library
         -- -fllvm
     Exposed-modules:
         HLearn.Models.Classification
-        HLearn.Models.Classifiers.NBayes
-        HLearn.Models.DistributionContainer
-        HLearn.DataContainers
-        HLearn.DataContainers.CSVParser
-        HLearn.DataContainers.DS_List
+        HLearn.Models.Classifiers.Bayes
+        --HLearn.Models.Classifiers.NBayes
+        --HLearn.Models.DistributionContainer
+        --HLearn.DataContainers
+        --HLearn.DataContainers.CSVParser
+        --HLearn.DataContainers.DS_List
         --HLearn.Evaluation.CrossValidation
         --HLearn.Evaluation.Metrics
