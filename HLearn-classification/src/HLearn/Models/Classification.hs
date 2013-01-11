@@ -6,8 +6,9 @@ module HLearn.Models.Classification
 import Data.Number.LogFloat
 
 import HLearn.Algebra
-import HLearn.Models.Distributions.Categorical
-import HLearn.DataContainers
+import HLearn.Models.Distributions
+-- import HLearn.Models.Distributions.Categorical
+-- import HLearn.DataContainers
 
 
 -------------------------------------------------------------------------------
@@ -34,24 +35,27 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- ClassificationParams
 
-data ClassificationParams label params = ClassificationParams
-    { cparams :: params
-    , datadesc :: DataDesc label
-    }
+-- data ClassificationParams label params = ClassificationParams
+--     { cparams :: params
+--     , datadesc :: DataDesc label
+--     }
 
 -------------------------------------------------------------------------------
 -- Classification
 
-class {-(Label label) =>-} ProbabilityClassifier model datatype label | model -> label where
-    probabilityClassify :: model -> datatype -> Categorical label Double
+class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
+    probabilityClassify :: model -> datatype -> Categorical label prob
+    classify :: model -> datatype -> label
+    classify model dp = mostLikely $ probabilityClassify model dp
     
 --     straightClassify :: model -> datatype -> label
 --     straightClassify = mean . probabilityClassify
 --     straightClassify model dp = classificationLabel $ probabilityClassify model dp
 --     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
     
-class {-(Label label) =>-} Classifier model datatype label | model -> label where
-    classify :: model -> datatype -> label
-
+-- class {-(Label label) =>-} Classifier model datatype label | model -> label where
+--     classify :: model -> datatype -> label
+--     classify model dp = mostLikely $ probabilityClassify model dp
+-- 
 -- instance (ProbabilityClassifier model datatype label) => Classifier model datatype label where
---     classify model dp = mean $ probabilityClassify model dp
+--     classify model dp = mostLikely $ probabilityClassify model dp

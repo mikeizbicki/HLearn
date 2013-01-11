@@ -57,7 +57,7 @@ class
     ( Semigroup model
     , Monoid model
     , Model modelparams model
-    ) => HomTrainer modelparams datapoint model | model -> modelparams
+    ) => HomTrainer modelparams datapoint model | model -> modelparams datapoint
         where
 
     -- | The singleton trainer
@@ -115,11 +115,11 @@ subBatch ::
     ) => model -> container datapoint -> model
 subBatch model xs = model <> (inverse $ train xs)
 
-instance 
-    ( HomTrainer modelparams datapoint model
-    , LeftOperator r model
-    ) => HomTrainer modelparams (r,datapoint) model where
-        train1dp' modelparams (r,dp) = r .* (train1dp' modelparams dp)
+-- instance 
+--     ( HomTrainer modelparams datapoint model
+--     , LeftOperator r model
+--     ) => HomTrainer modelparams (r,datapoint) model where
+--         train1dp' modelparams (r,dp) = r .* (train1dp' modelparams dp)
 
 -- instance 
 --     ( HomTrainer modelparams datapoint model

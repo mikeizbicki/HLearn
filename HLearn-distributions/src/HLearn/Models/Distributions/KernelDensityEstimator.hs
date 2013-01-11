@@ -19,13 +19,13 @@ module HLearn.Models.Distributions.KernelDensityEstimator
     , KDEBandwidth (..)
     
     -- * Data types
-    , KDE (..)
-    , KDE' (..)
+    , KDE
+--     , KDE'
     
     -- * Easy creation of parameters
     , genSamplePoints
     
-    , module HLearn.Models.Distributions.KernelDensityEstimator.Kernels
+--     , module HLearn.Models.Distributions.KernelDensityEstimator.Kernels
     )
     where
           
@@ -160,8 +160,8 @@ instance (Num prob, VU.Unbox prob) => RightOperator prob (KDE' prob) where
 instance (Eq prob, Num prob, VU.Unbox prob) => Model (KDEParams prob) (KDE prob) where
     getparams (SGJust kde) = params kde
 
-instance HomTrainer (KDEParams Double) Int (KDE Double) where
-    train1dp' params dp = train1dp' params (fromIntegral dp :: Double)
+-- instance HomTrainer (KDEParams Double) Int (KDE Double) where
+--     train1dp' params dp = train1dp' params (fromIntegral dp :: Double)
 
 instance (Eq prob, Fractional prob, VU.Unbox prob) => HomTrainer (KDEParams prob) prob (KDE prob) where
     train1dp' params dp = SGJust $ KDE'

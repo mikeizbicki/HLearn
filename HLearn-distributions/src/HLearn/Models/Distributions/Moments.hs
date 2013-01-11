@@ -17,7 +17,7 @@
 
 module HLearn.Models.Distributions.Moments
     ( MomentsParams (..)
-    , Moments (..)
+    , Moments
     )
     where
           
@@ -162,6 +162,9 @@ instance (VU.Unbox prob, Fractional prob) => Morphism (Normal prob) MomentsParam
 
 foo = ((train' MomentsParams [1,2,3::Double] :: Moments Double 2)
     $> NormalParams :: Normal Double)
+
+-- instance Distribution (Moments Double 2) Double Double where
+--     pdf dist dp = 
 
 {-foo' = train' 
     ( (MomentsParams :: MomentsParams)

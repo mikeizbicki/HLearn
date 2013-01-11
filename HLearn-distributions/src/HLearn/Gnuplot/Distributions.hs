@@ -64,9 +64,9 @@ class PlottableDistribution dist where
     gnuplot  :: PlotParams -> dist -> String
     
 instance PlottableDistribution (KDE Double) where
-    plotdata dist@(SGJust kde) = mconcat [show (x::Double) ++ " " ++ show (pdf dist x::Double) | x <- plotPoints]
+    plotdata dist = mconcat [show (x::Double) ++ " " ++ show (pdf dist x::Double) | x <- plotPoints]
         where
-            plotPoints = VU.toList $ samplePoints $ params kde
+            plotPoints = VU.toList $ samplePoints $ getparams dist
 
     gnuplot params dist
         =  "set terminal postscript \"Times-Roman\" 25"
