@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DatatypeContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | These algebraic structures have sacrificed generality in favor of being easily used with the standard Haskell Prelude.  The fact that monoids are not guaranteed to be semigroups makes this difficult.
@@ -18,20 +17,22 @@ import Control.DeepSeq
 data RegSG2Group sg = SGNothing | SGJust sg
     deriving (Show,Read,Ord,Eq)
 
-instance (RegularSemigroup sg) => Semigroup (RegSG2Group sg) where
+instance (Semigroup sg) => Semigroup (RegSG2Group sg) where
     SGNothing <> m = m
     m <> SGNothing = m
     (SGJust sg1) <> (SGJust sg2) = SGJust $ sg1<>sg2
+
+instance (Abelian sg) => Abelian (RegSG2Group sg)
 
 instance (RegularSemigroup sg) => RegularSemigroup (RegSG2Group sg) where
     inverse SGNothing = SGNothing
     inverse (SGJust x) = SGJust $ inverse x
 
-instance (RegularSemigroup sg) => Monoid (RegSG2Group sg) where
+instance (Semigroup sg) => Monoid (RegSG2Group sg) where
     mempty = SGNothing
     mappend = (<>)
     
-instance (RegularSemigroup sg) => Group (RegSG2Group sg)
+-- instance (RegularSemigroup sg) => Group (RegSG2Group sg)
 
 instance (RegularSemigroup sg, NFData sg) => NFData (RegSG2Group sg) where
     rnf SGNothing = ()

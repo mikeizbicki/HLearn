@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, UndecidableInstances, FlexibleContexts, BangPatterns #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, UndecidableInstances, FlexibleContexts, BangPatterns, ScopedTypeVariables #-}
 
 module HLearn.Models.Classification
     where
@@ -8,7 +8,7 @@ import Data.Number.LogFloat
 import HLearn.Algebra
 import HLearn.Models.Distributions
 -- import HLearn.Models.Distributions.Categorical
--- import HLearn.DataContainers
+import HLearn.DataContainers
 
 
 -------------------------------------------------------------------------------
@@ -35,10 +35,11 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- ClassificationParams
 
--- data ClassificationParams label params = ClassificationParams
---     { cparams :: params
---     , datadesc :: DataDesc label
---     }
+data ClassificationParams label params = ClassificationParams
+    { cparams :: params
+    , datadesc :: DataDesc label
+    }
+    deriving (Read,Show,Eq,Ord)
 
 -------------------------------------------------------------------------------
 -- Classification
@@ -46,7 +47,13 @@ num2bool a =
 class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
     probabilityClassify :: model -> datatype -> Categorical label prob
     classify :: model -> datatype -> label
-    classify model dp = mostLikely $ probabilityClassify model dp
+    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical label prob)
+    
+instance (ProbabilityClassifier model datatype label prob) => 
+    ProbabilityClassifier (Weighted model) datatype label prob 
+        where
+        
+    probabilityClassify (Weighted model) dp = probabilityClassify model dp
     
 --     straightClassify :: model -> datatype -> label
 --     straightClassify = mean . probabilityClassify

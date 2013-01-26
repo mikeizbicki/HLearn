@@ -14,8 +14,8 @@ bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 Library
     Build-Depends:      
         base                    >= 3 && < 5,
-        HLearn-algebra          >= 0.0.1,
-        HLearn-distributions    >= 0.0.1,
+        HLearn-algebra          >= 0.1.2,
+        HLearn-distributions    >= 0.2.2,
         ConstraintKinds         >= 0.0.1,
 
         -- are these really necessary?
@@ -59,5 +59,5 @@ Library
         --HLearn.DataContainers
         --HLearn.DataContainers.CSVParser
         --HLearn.DataContainers.DS_List
-        --HLearn.Evaluation.CrossValidation
+        HLearn.Evaluation.CrossValidation
         --HLearn.Evaluation.Metrics

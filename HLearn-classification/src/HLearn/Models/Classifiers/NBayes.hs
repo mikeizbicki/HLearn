@@ -9,12 +9,14 @@ module HLearn.Models.Classifiers.NBayes
     )
     where
          
+import Control.DeepSeq
 import Control.Monad.ST.Strict
 import Control.Monad.Primitive
 import Data.List
 import Data.List.Extras
 import Data.STRef
 -- import Data.Vector.Binary
+import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Fusion.Stream as Stream
 import qualified Data.Vector.Generic as VG
@@ -140,12 +142,15 @@ instance OnlineTrainer NBayesParams (NBayes Int) DPS Int where
 -------------------------------------------------------------------------------
 -- Classification
 
-instance Classifier (NaiveBayes Int) DPS Int where
---     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
-    classify (SGJust model) dp = mostLikely $ probabilityClassify model dp
+-- instance Classifier (NaiveBayes Int) DPS Int where
+-- --     classify model dp = fst $ argmaxBy compare snd $ probabilityClassify model dp
+--     classify (SGJust model) dp = mostLikely $ probabilityClassify model dp
 
-instance ProbabilityClassifier (NBayes Int) DPS Int where
-    probabilityClassify nb dp = train {-CategoricalParams -}answer
+instance ProbabilityClassifier (NaiveBayes Int) DPS Int Double where
+    probabilityClassify (SGJust nb) dp = probabilityClassify nb dp
+    
+instance ProbabilityClassifier (NBayes Int) DPS Int Double where
+    probabilityClassify nb dp = unweight $ train {-CategoricalParams -}answer
         {-normedAnswer-}
         where
             labelProbGivenDp label = (labelProbGivenNothing label)*(dpProbGivenLabel label)
@@ -153,7 +158,7 @@ instance ProbabilityClassifier (NBayes Int) DPS Int where
             dpProbGivenLabel label = foldl (*) ({-logFloat-} (1::Double)) (attrProbL label)
             attrProbL label = [ pdf (attrDist nb V.! label V.! attrIndex) di | (attrIndex,di) <- dp]
 
-            answer = [ (label, labelProbGivenDp label) | label <- [0..(numLabels $ dataDesc nb)-1]]
+            answer = [ (labelProbGivenDp label, label) | label <- [0..(numLabels $ dataDesc nb)-1]]
             normedAnswer = zip [0..] $ normalizeL [labelProbGivenDp label | label <- [0..(numLabels $ dataDesc nb)-1]]
 
 

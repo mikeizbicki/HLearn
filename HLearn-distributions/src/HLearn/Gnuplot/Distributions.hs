@@ -63,7 +63,7 @@ class PlottableDistribution dist where
     plotdata :: dist -> String
     gnuplot  :: PlotParams -> dist -> String
     
-instance PlottableDistribution (KDE Double) where
+{-instance PlottableDistribution (KDE Double) where
     plotdata dist = mconcat [show (x::Double) ++ " " ++ show (pdf dist x::Double) | x <- plotPoints]
         where
             plotPoints = VU.toList $ samplePoints $ getparams dist
@@ -74,14 +74,14 @@ instance PlottableDistribution (KDE Double) where
         ++ "unset xtics; unset ytics; unset key"
         ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1"
         ++ "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, \\"
-        ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"
+        ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"-}
         
 instance (Show label, Show prob, Num prob, Ord prob) => PlottableDistribution (Categorical label prob) where
-    plotdata dist@(Categorical pdf) = concat $ do
-        (label,prob) <- Map.toList pdf
+    plotdata dist = concat $ do
+        (label,prob) <- dist2list dist
         return $ show label++" "++show prob++"\n"
         
-    gnuplot params (Categorical pdf)
+    gnuplot params dist
         = "set terminal postscript \"Times-Roman\" 25; set output \""++ (picFile params) ++ "\"\n"
         ++"set tics scale 0; set xtics nomirror; unset ytics; unset key\n"
         ++"set border 2; set xzeroaxis lt 1\n"
@@ -91,8 +91,8 @@ instance (Show label, Show prob, Num prob, Ord prob) => PlottableDistribution (C
         ++"set style data histogram; set style histogram cluster gap 1\n"
         ++"plot '"++(dataFile params)++"' using 2:xticlabels(1)\n"
         where
-            positiveSamples = or $ map (\(k,v) -> v>0) $ Map.toList pdf
-            negativeSamples = or $ map (\(k,v) -> v<0) $ Map.toList pdf
+            positiveSamples = or $ map (\(k,v) -> v>0) $ dist2list dist
+            negativeSamples = or $ map (\(k,v) -> v<0) $ dist2list dist
             yrange = if positiveSamples && negativeSamples
                 then ""
                 else if positiveSamples

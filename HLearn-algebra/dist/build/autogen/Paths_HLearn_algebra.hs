@@ -12,12 +12,12 @@ catchIO = Exception.catch
 
 
 version :: Version
-version = Version {versionBranch = [0,1,2,0], versionTags = []}
+version = Version {versionBranch = [0,1,2,1], versionTags = []}
 bindir, libdir, datadir, libexecdir :: FilePath
 
 bindir     = "/home/user/.cabal/bin"
-libdir     = "/home/user/.cabal/lib/HLearn-algebra-0.1.2.0/ghc-7.6.1"
-datadir    = "/home/user/.cabal/share/HLearn-algebra-0.1.2.0"
+libdir     = "/home/user/.cabal/lib/HLearn-algebra-0.1.2.1/ghc-7.6.1"
+datadir    = "/home/user/.cabal/share/HLearn-algebra-0.1.2.1"
 libexecdir = "/home/user/.cabal/libexec"
 
 getBinDir, getLibDir, getDataDir, getLibexecDir :: IO FilePath

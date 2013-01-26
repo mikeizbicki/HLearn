@@ -25,7 +25,7 @@ import qualified Control.ConstraintKinds as CK
 import Control.Concurrent
 import Control.Parallel.Strategies
 -- import Data.Traversable
--- import qualified Data.Foldable as F
+import qualified Data.Foldable as F
 import GHC.Exts (Constraint)
 import Prelude hiding (filter)
 import System.IO.Unsafe
@@ -67,6 +67,14 @@ offline train = \dp -> train mempty dp
 -- | Converts a singleton trainer into a batch trainer, which is also a semigroup homomorphism.
 batch ::
     ( Monoid model
+    , Functor container
+    , F.Foldable container
+    ) => (datapoint -> model) -- ^ singleton trainer
+      -> (container datapoint -> model) -- ^ batch trainer
+batch train = \dps -> F.foldl mappend mempty $ fmap train dps
+
+batch' ::
+    ( Monoid model
     , CK.Functor container
     , CK.FunctorConstraint container model
     , CK.FunctorConstraint container datapoint
@@ -74,7 +82,7 @@ batch ::
     , CK.FoldableConstraint container model
     ) => (datapoint -> model) -- ^ singleton trainer
       -> (container datapoint -> model) -- ^ batch trainer
-batch train = \dps -> CK.foldl' mappend mempty $ CK.fmap train dps
+batch' train = \dps -> CK.foldl' mappend mempty $ CK.fmap train dps
 
 -- | Inverse of 'unbatch'.  Converts a semigroup homomorphism into a singleton trainer.
 unbatch :: 

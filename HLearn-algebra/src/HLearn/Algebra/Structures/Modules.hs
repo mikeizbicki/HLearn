@@ -3,7 +3,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DatatypeContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -88,7 +87,7 @@ instance (RightOperator r g, Num r, Group g, Abelian g) => RightModule r g
 
 data FreeModParams = FreeModParams
 
-newtype (Num r, Ord a) => FreeMod r a = FreeMod (Map.Map a r)
+newtype {-(Num r, Ord a) =>-} FreeMod r a = FreeMod (Map.Map a r)
     deriving (Read,Show,Eq)
 
 instance CK.Functor (FreeMod r) where

@@ -86,6 +86,7 @@ Michael Izbicki
 module HLearn.Models.Distributions.Gaussian
     ( Gaussian 
     , GaussianParams (..)
+    , meanG, varG
     )
     where
     
@@ -165,9 +166,11 @@ There are several important notes to make about this data structure:
 For convenience, we also define the following accessor functions to the sample mean and sample variance:
 \begin{code}
 
+meanG = mean
 mean :: (Floating datatype) => Gaussian datatype -> datatype
 mean (Gaussian n m1 m2 dc) = m1
  
+varG = var
 var :: (Floating datatype) => Gaussian datatype -> datatype
 var (Gaussian n m1 m2 dc) = m2/(fi $ n-1)
 
@@ -183,11 +186,11 @@ Finally, we make our Gaussian type capable of being unboxed:
 --     [d| instance Unbox' (Gaussian) (Int, Double, Double, Int) |]
 --     [| \ (Gaussian n m1 m2 f) -> (n,m1,m2,f) |]
 --     [| \ (n,m1,m2,f) -> (Gaussian n m1 m2 f) |]
-
--- derivingUnbox "Gaussian"
---     [d| instance (U.Unbox a) => Unbox' (Gaussian a) (Int, a, a, Int) |]
---     [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
---     [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]
+{-
+derivingUnbox "Gaussian"
+    [d| instance (U.Unbox a) => Unbox' (Gaussian a) (Int, a, a, Int) |]
+    [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
+    [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]-}
 
 derivingUnbox "Gaussian"
     [t| (U.Unbox a) => (Gaussian a) -> (Int, a, a, Int) |]
@@ -405,12 +408,14 @@ instance HomTrainer (GaussianParams Double) Double (Gaussian Double) where
 \section{Model Use}
 \begin{code}
 convdistr :: Gaussian Double -> N.NormalDistribution
-convdistr g = N.normalDistr (mean g) (stddev g)
+convdistr g = N.normalDistr (mean g) ((stddev g)+0.001)
 
 instance Distribution (Gaussian Double) Double Double where
     pdf g x = D.density (convdistr g) x
---     cdf g x = D.cumulative (convdistr g) x
---     cdfInverse g x = D.quantile (convdistr g) x
+
+instance CDF (Gaussian Double) Double Double where
+    cdf g x = D.cumulative (convdistr g) x
+    cdfInverse g x = D.quantile (convdistr g) x
 \end{code}
 
 \section{Distribution Functions}
@@ -428,6 +433,7 @@ data GaussianPDF = GaussianPDF
     }
     
 data GaussianPDFParams = GaussianPDFParams
+    deriving (Read,Show,Eq,Ord)
 
 instance Model GaussianPDFParams GaussianPDF where
     getparams _ = GaussianPDFParams

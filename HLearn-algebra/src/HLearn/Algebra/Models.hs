@@ -24,6 +24,7 @@ module HLearn.Algebra.Models
     , sub1dp
     , subBatch
     
+    , Weighted (..)
     -- * Type synonyms
 --     , Labeled
 --     , Weighted
@@ -32,6 +33,7 @@ module HLearn.Algebra.Models
     where
           
 import qualified Control.ConstraintKinds as CK
+import Data.Foldable
           
 import HLearn.Algebra.Functions
 import HLearn.Algebra.Structures.Groups
@@ -45,11 +47,11 @@ import HLearn.Algebra.Structures.Modules
 -- Model
 
 -- | Every model has at least one data type that that fully describes its parameters.  Many models do not actually *need* any parameters, in which case they will simply use an empty data type for modelparams.
-class Model modelparams model | modelparams -> model, model -> modelparams where
+class (Eq modelparams) => Model modelparams model | modelparams -> model, model -> modelparams where
     getparams :: model -> modelparams
     
 -- | For those algorithms that do not require parameters (or that have reasonable default parameters), this class lets us use a more convenient calling notation.
-class (Model modelparams model) => DefaultModel modelparams model | model -> modelparams where
+class (Model modelparams model) => DefaultModel modelparams model | model -> modelparams, modelparams -> model where
     defparams :: modelparams
 
 -- | A minimal complete definition of the class is the singleton trainer 'train1dp\''
@@ -57,7 +59,7 @@ class
     ( Semigroup model
     , Monoid model
     , Model modelparams model
-    ) => HomTrainer modelparams datapoint model | model -> modelparams datapoint
+    ) => HomTrainer modelparams datapoint model | model -> modelparams, model -> datapoint, modelparams -> model
         where
 
     -- | The singleton trainer
@@ -68,11 +70,13 @@ class
     -- | The batch trainer
     {-# INLINE train' #-}
     train' ::     
-        ( CK.Functor container
+        ( {-CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
-        , CK.FoldableConstraint container model
+        , CK.FoldableConstraint container model-}
+        Foldable container
+        , Functor container
         ) => modelparams -> container datapoint -> model
     train' modelparams = batch (train1dp' modelparams)
 
@@ -84,11 +88,13 @@ class
     -- | The batch online trainer; will be more efficient than simply calling 'add1dp' for each element being added
     {-# INLINE addBatch #-}
     addBatch ::
-        ( CK.Functor container
+        ( {-CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
-        , CK.FoldableConstraint container model
+        , CK.FoldableConstraint container model-}
+        Foldable container
+        , Functor container
         ) =>  model -> container datapoint -> model
     addBatch model = online (train' (getparams model :: modelparams)) model
     
@@ -109,6 +115,8 @@ subBatch ::
     , CK.FunctorConstraint container datapoint
     , CK.Foldable container
     , CK.FoldableConstraint container model
+    , Functor container
+    , Foldable container
     , RegularSemigroup model
     , HomTrainer modelparams datapoint model
     , DefaultModel modelparams model
@@ -143,11 +151,14 @@ class
     -- | A batch trainer that doesn't require parameters (uses 'defparams')
     {-# INLINE train #-}
     train :: 
-        ( CK.Functor container
+        ( {-CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
-        , CK.FoldableConstraint container model
+        , CK.FoldableConstraint container model-}
+        Foldable container
+        , Functor container
+
         ) => container datapoint -> model
     train = train' (defparams :: modelparams)
     
@@ -157,3 +168,33 @@ instance
     ) => DefaultHomTrainer modelparams datapoint model
     
     
+-------------------------------------------------------------------------------
+
+    
+newtype Weighted model = Weighted { unweight :: model }
+    deriving (Read,Show,Eq,Ord)
+
+instance (Semigroup model) => Semigroup (Weighted model) where
+    Weighted a <> Weighted b = Weighted $ a <> b
+    
+instance (Monoid model) => Monoid (Weighted model) where
+    mempty = Weighted mempty
+    Weighted a `mappend` Weighted b = Weighted $ a `mappend` b
+    
+instance (RegularSemigroup model) => RegularSemigroup (Weighted model) where
+    inverse (Weighted a) = Weighted (inverse a)
+    
+instance (Model modelparams model) => Model (Weighted modelparams) (Weighted model) where
+    getparams (Weighted model) = Weighted $ getparams model
+    
+instance (DefaultModel modelparams model) => DefaultModel (Weighted modelparams) (Weighted model) where
+    defparams = Weighted $ defparams
+
+instance 
+    ( Module ring model
+    , HomTrainer modelparams dp model
+    ) => 
+    HomTrainer (Weighted modelparams) (ring,dp) (Weighted model) 
+        where
+        
+    train1dp' (Weighted params) (ring,dp) = Weighted $ ring .* (train1dp' params dp)
