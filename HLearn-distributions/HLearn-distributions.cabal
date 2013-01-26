@@ -89,8 +89,8 @@ Library
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Categorical
-        HLearn.Models.Distributions.KernelDensityEstimator
-        HLearn.Models.Distributions.KernelDensityEstimator.Kernels
+        --HLearn.Models.Distributions.KernelDensityEstimator
+        --HLearn.Models.Distributions.KernelDensityEstimator.Kernels
         HLearn.Models.Distributions.Moments
         HLearn.Models.Distributions.Multivariate
         --HLearn.Models.Distributions.Normal

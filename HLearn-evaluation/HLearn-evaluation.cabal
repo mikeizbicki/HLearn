@@ -12,10 +12,14 @@ Cabal-Version:       >=1.8
 
 Library
     Build-Depends:      
-        HLearn-algebra          >= 0.0.1,
-        HLearn-distributions    >= 0.0.1,
+        HLearn-algebra          >= 0.1.2,
+        HLearn-distributions    >= 0.2.2,
+        HLearn-classification   >= 0.0.1,
+        ConstraintKinds         >= 0.0.2,
         base                    >= 3 && < 5,
-        ConstraintKinds         >= 0.0.1
+        -- others
+        containers              >= 0.5,
+        dlist                   >= 0.5
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:

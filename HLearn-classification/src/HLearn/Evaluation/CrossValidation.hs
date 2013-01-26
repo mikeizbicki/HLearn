@@ -11,29 +11,26 @@
 module HLearn.Evaluation.CrossValidation
     where
 
+import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Set as S
 -- import qualified Data.Vector as V
 
 import Debug.Trace
-import Data.DList
+
+import qualified Data.DList as D
 
 import HLearn.Algebra
-import HLearn.DataContainers
 -- import HLearn.Evaluation.Metrics
 import HLearn.Models.Classification
-import HLearn.Models.Distributions
+import HLearn.Models.Distributions.Gaussian
 import qualified Control.ConstraintKinds as CK
 
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
--- data CrossValidation modelparams datapoint model (k :: Nat) where CrossValidation
---     { dataset :: 
---     }
-
-crossValidation :: 
-    ( HomTrainer modelparams datapoint model
+lame_crossvalidation :: 
+    ( LameTrainer modelparams container datapoint model
     , Semigroup ret
     , Semigroup (container datapoint)
     , CK.Functor container
@@ -45,23 +42,24 @@ crossValidation ::
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
     ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-crossValidation modelparams dataset perfmeasure k = reduce $ do
+lame_crossvalidation modelparams dataset perfmeasure k = reduce $ do
     (testdata, trainingdata) <- genTestList datasetL
-    let model = train' modelparams trainingdata
+    let model = lame_train' modelparams trainingdata
     let score = perfmeasure model testdata
     return score
     where
         datasetL = CK.partition k dataset
 
-crossValidation_par modelparams dataset perfmeasure k = (parallel reduce) $ do
-    (testdata, trainingdata) <- genTestList datasetL
-    let model = train' modelparams trainingdata
-    let score = perfmeasure model testdata
-    return score
-    where
-        datasetL = CK.partition k dataset
+-- crossValidation_par modelparams dataset perfmeasure k = (parallel reduce) $ do
+--     (testdata, trainingdata) <- genTestList datasetL
+--     let model = train' modelparams trainingdata
+--     let score = perfmeasure model testdata
+--     return score
+--     where
+--         datasetL = CK.partition k dataset
 
-crossValidation_monoid :: 
+-- | This is the standard cross-validation technique for use with the HomTrainer type class.  It is asymptotically faster than standard k-fold cross-validation (implemented with lame_crossvalidation), yet is guaranteed to get the exact same answer.
+crossvalidation :: 
     ( HomTrainer modelparams datapoint model
     , Semigroup model
     , Semigroup ret
@@ -74,8 +72,10 @@ crossValidation_monoid ::
     , CK.FoldableConstraint container datapoint
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
+    , F.Foldable container
+    , Functor container
     ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-crossValidation_monoid modelparams dataset perfmeasure k = reduce $ do
+crossvalidation modelparams dataset perfmeasure k = reduce $ do
     (testdata,model) <- zip datasetL $ listAllBut modelL
     let score = perfmeasure model testdata
     return score
@@ -83,20 +83,19 @@ crossValidation_monoid modelparams dataset perfmeasure k = reduce $ do
         modelL = fmap (train' modelparams) datasetL
         datasetL = CK.partition k dataset
 
-crossValidation_monoid_par modelparams dataset perfmeasure k = (parallel reduce) $ do
-    (testdata,model) <- zip datasetL $ listAllBut modelL
-    let score = perfmeasure model testdata
-    return score
-    where
-        modelL = fmap (train' modelparams) datasetL
-        datasetL = CK.partition k dataset
+-- crossValidation_monoid_par modelparams dataset perfmeasure k = (parallel reduce) $ do
+--     (testdata,model) <- zip datasetL $ listAllBut modelL
+--     let score = perfmeasure model testdata
+--     return score
+--     where
+--         modelL = fmap (train' modelparams) datasetL
+--         datasetL = CK.partition k dataset
 
 
-crossValidation_group :: 
+crossvalidation_group :: 
     ( HomTrainer modelparams datapoint model
     , Group model
     , Semigroup ret
-    , Semigroup (container datapoint)
     , CK.Functor container
     , CK.FunctorConstraint container datapoint
     , CK.FunctorConstraint container model
@@ -105,8 +104,10 @@ crossValidation_group ::
     , CK.FoldableConstraint container datapoint
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
+    , F.Foldable container
+    , Functor container
     ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-crossValidation_group modelparams dataset perfmeasure k = reduce $ do
+crossvalidation_group modelparams dataset perfmeasure k = reduce $ do
     testdata <- datasetL
     let model = fullModel <> (inverse $ train' modelparams testdata)
     let score = perfmeasure model testdata
@@ -137,10 +138,7 @@ listAllBut :: (Semigroup a) => [a] -> [a]
 listAllBut !xs = [reduce $ testL i | i <- itrL]
     where
         itrL = [0..(length xs)-1]
-        testL i = (fromList $ take (i) xs) `mappend` (fromList $ drop (i+1) xs)
-
-instance CK.Foldable DList where
-    foldr = Data.DList.foldr
+        testL i = (D.fromList $ take (i) xs) `mappend` (D.fromList $ drop (i+1) xs)
 
 genTestList :: (Semigroup a) => [a] -> [(a,a)]
 genTestList xs = zip xs $ listAllBut xs
@@ -171,6 +169,8 @@ genTestList xs = zip xs $ listAllBut xs
 --             checkedL = CK.toList $ CK.fmap checkdp testdata
 --             numdp = length $ CK.toList testdata
 
+type Labeled dp label = (label,dp)
+
 accuracy :: 
     ( CK.Functor container
     , CK.FunctorConstraint container Double
@@ -179,9 +179,11 @@ accuracy ::
     , CK.FoldableConstraint container Double
     , CK.FoldableConstraint container [Double]
     , CK.FoldableConstraint container datapoint
+--     , CK.FoldableConstraint container (Labeled datapoint label)
+--     , CK.FoldableConstraint container [Labeled datapoint label]
     , CK.FoldableConstraint container (Labeled datapoint label)
     , CK.FoldableConstraint container [Labeled datapoint label]
-    , Classifier model datapoint label
+    , ProbabilityClassifier model datapoint label Double
     , Eq label
     ) => model -> container (Labeled datapoint label) -> (Gaussian Double)
 accuracy model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)

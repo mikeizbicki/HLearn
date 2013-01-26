@@ -10,7 +10,10 @@ module HLearn.Models.Ensemble
     where
 
 import Data.Sequence hiding ((|>),(<|))
+import qualified Data.Foldable as F
+
 import HLearn.Algebra
+import HLearn.Models.Classification
 
 -------------------------------------------------------------------------------
 -- Ensemble
@@ -20,11 +23,18 @@ data Ensemble' modelparams model prob = Ensemble'
     , models :: Seq (prob,model)
     }
 
-instance Triangle (Ensemble' modelparams model prob) (prob,model) where
-    wm <| ens = ens { models = wm <| (models ens) }
-    ens |> wm = ens { models = (models ens) |> wm }
+instance Triangle (Ensemble modelparams model prob) (prob,model) where
+    wm <| (SGJust ens') = SGJust $ ens' { models = wm <| (models ens') }
+    (SGJust ens') |> wm = SGJust $ ens' { models = (models ens') |> wm }
 
 type Ensemble modelparams model prob = RegSG2Group (Ensemble' modelparams model prob) 
+
+instance (Num prob, Ord label, ProbabilityClassifier model datatype label prob) => 
+    ProbabilityClassifier (Ensemble modelparams model prob) datatype label prob
+        where
+              
+    probabilityClassify (SGJust ens') dp = {-foldl (\(w1,m1) m2 -> (w1.*m1) <> m2) mempty $-} 
+        reduce $ F.toList $ fmap (\(w,m) -> w.* (probabilityClassify m dp)) (models ens')
 
 -------------------------------------------------------------------------------
 -- EnsembleAppender

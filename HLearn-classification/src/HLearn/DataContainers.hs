@@ -28,7 +28,7 @@ import HLearn.Algebra
 -- Idioms
 
 type Labeled var label  = (label,var)
-type Weighted var       = (var,Double)
+-- type Weighted var       = (var,Double)
 
 -- | I only ever expect labels of type Bool, Int, and String, but it may be convenient to use other types as well for something.  This class and instance exist so that we have some reasonable assumptions about what properties labels should have for our other classes to work with.  It also keeps us from writing so many constraints.
 class (Hashable label, Binary label, Ord label, Eq label, Show label, Read label) => Label label
@@ -84,10 +84,10 @@ data DataDesc label = DataDesc
     , labelL :: [label]
     , numAttr :: Int
     }
-    deriving (Eq,Read,Show)
+    deriving (Read,Show,Eq,Ord)
 
--- attrL :: DataDesc label -> [Int]
--- attrL desc = [0..numAttr desc-1]
+attrL :: DataDesc label -> [Int]
+attrL desc = [0..numAttr desc-1]
 
 -- instance (Binary label) => Binary (DataDesc label) where
 --     put desc = do
@@ -136,8 +136,8 @@ type DPF         = [DataItem]
 type DPS         = [(Int,DataItem)] -- ^ DPS = DataPointSparse
 type UDPS label  = DPS -- ^ UDPS = Unabeled DataPointSparse
 type LDPS label  = Labeled DPS label -- ^ LDPS = Labeled DataPointSparse
-type WLDPS label = (Weighted (LDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
-type WUDPS label = (Weighted (UDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
+-- type WLDPS label = (Weighted (LDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
+-- type WUDPS label = (Weighted (UDPS label)) -- ^ WDPS = Weighted labeled DataPointSparse
 
 fetchAttr :: Int -> DPS -> DataItem
 fetchAttr attrI dps = 

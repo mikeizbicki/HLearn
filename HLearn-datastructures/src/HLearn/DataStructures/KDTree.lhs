@@ -36,6 +36,9 @@ module HLearn.DataStructures.KDTree
 import Data.List
 import Debug.Trace
 import GHC.TypeLits
+import Unsafe.Coerce
+import Data.Bits
+import Data.Word
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Categorical
@@ -100,6 +103,8 @@ We define the singleton trainer as:
 data KDTreeParams a = KDTreeParams
 instance Model (KDTreeParams a) (KDTree a) where
     getparams model = KDTreeParams
+    
+instance DefaultModel (KDTreeParams a) (KDTree a) where
     defparams = KDTreeParams
     
 instance (KDPoint a) => HomTrainer (KDTreeParams a) a (KDTree a) where
@@ -108,5 +113,16 @@ instance (KDPoint a) => HomTrainer (KDTreeParams a) a (KDTree a) where
 
 Now, we define how to perform a nearest neighbor search:
 \begin{code}
+
+bindouble :: Word64 -> IO ()
+bindouble d = go 63 -- print (bit 63 :: Int)
+    where  
+        d' = unsafeCoerce d :: Int
+        go (-1) = putStrLn ""
+        go i = do
+            if testBit d' i
+                then putStr "1"
+                else putStr "0"
+            go (i-1)
 
 \end{code}

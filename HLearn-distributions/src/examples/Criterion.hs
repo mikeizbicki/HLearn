@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 import Criterion.Main
 
 import Statistics.Distribution.Normal
@@ -7,13 +9,22 @@ import qualified Data.Vector.Generic as G
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
+import HLearn.Models.Distributions.Moments
 -- import qualified HLearn.Models.Distributions.GaussianOld as GO
 -- import qualified HLearn.Models.Distributions.GaussianOld2 as GO2
 
 import qualified Control.ConstraintKinds as CK
 
-size = 10^8
-main = putStrLn "done."
+
+-- comparing different types
+
+size = 10^6
+main = defaultMain
+    [ bench "Moments 2 Double" $ nf (train :: V.Vector Double -> Moments Double) (V.enumFromN (0::Double) size)
+    , bench "Moments 2 Float" $ nf (train :: V.Vector Float -> Moments Float) (V.enumFromN (0::Float) size)
+    , bench "Moments 2 Rational" $ nf (train :: V.Vector Rational -> Moments Rational) (V.enumFromN (0::Rational) size)
+    ]
+
 {-main = defaultMain 
     [ bench "HLearn-Gaussian" $ nf ((train :: VU.Vector Double -> Gaussian Double)) (VU.enumFromN (0::Double) size)
     , bench "HLearn-Gaussian-Parallel" $ whnf (parallel $ (train :: VU.Vector Double -> Gaussian Double)) (VU.enumFromN (0::Double) size)

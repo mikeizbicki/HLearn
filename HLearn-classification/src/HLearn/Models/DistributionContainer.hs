@@ -27,6 +27,7 @@ import HLearn.Models.Distributions
 -------------------------------------------------------------------------------
 
 data MaybeDistributionParams baseparams = MaybeDistributionParams baseparams
+    deriving (Read,Show,Eq,Ord)
 
 instance (Model baseparams basedist) => Model (MaybeDistributionParams baseparams) (MaybeDistribution basedist) where
     getparams (MaybeDistribution basedist) = MaybeDistributionParams $ getparams basedist
@@ -80,6 +81,7 @@ newtype ContinuousDistribution basedist = ContinuousDistribution (MaybeDistribut
     deriving (Eq,Show,Read,Semigroup)
 
 data ContinuousDistributionParams baseparams = ContinuousDistributionParams 
+    deriving (Read,Show,Eq,Ord)
 
 instance Model (ContinuousDistributionParams baseparams) (ContinuousDistribution basedist) where
     getparams _ = ContinuousDistributionParams
@@ -113,14 +115,22 @@ instance
         Continuous x -> pdf basedist $ Just x
         Discrete   x -> error "ContinuousDistribution.pdf: cannot sample discrete"
         
---     cdf = error "ContinuousDistribution.cdf: not implemented"
 
---     cdfInverse = error "ContinuousDistribution.cdfInverse: not implemented"
+-- instance 
+--     ( CDF (MaybeDistribution basedist) (Maybe Double) Double
+--     , Monoid basedist
+--     ) => 
+--     CDF (ContinuousDistribution basedist) DataItem Double
+--         where
+--               
+--     cdf = error "ContinuousDistribution.cdf: not implemented"
+-- 
+-- --     cdfInverse = error "ContinuousDistribution.cdfInverse: not implemented"
 --     cdfInverse (ContinuousDistribution maybedist) prob = case cdfInverse maybedist prob of
 --         Nothing -> Missing
 --         Just x -> Continuous x
---     cdfInverse (ContinuousDistribution maybedist) (Discrete x) = error "ContinuousDistribution.cdfInverse: cannot discrete"
---     cdfInverse (ContinuousDistribution maybedist) (Continuous x) = cdfInverse maybedist $ Just x
+-- --     cdfInverse (ContinuousDistribution maybedist) (Discrete x) = error "ContinuousDistribution.cdfInverse: cannot discrete"
+--     cdfInverse (ContinuousDistribution maybedist) ({-Continuous -}x) = cdfInverse maybedist {-$ Just-} x
 
 --     drawSample (ContinuousDistribution basedist) = do
 --         sample <- drawSample basedist
@@ -144,12 +154,13 @@ instance (Monoid basedist) => Monoid (ContinuousDistribution basedist) where
 -- DistContainer
    
 data DistContainer = UnknownDist
-                   | DistContainer (ContinuousDistribution (Gaussian Double))
+                   | DistContainer ({-ContinuousDistribution-} (Gaussian Double))
                    | DistDiscrete (Categorical DataItem Double)
 --                    | DistContainer Poisson
     deriving (Show{-,Read,Eq-})
 
 data DistContainerParams = DistContainerParams
+    deriving (Read,Show,Eq,Ord)
 
 instance Semigroup DistContainer where
     (<>) = mappend 
@@ -176,7 +187,7 @@ instance HomTrainer DistContainerParams DataItem DistContainer where
 --     train1dp' DistContainerParams (Gaussian x) = 
     train1dp' DistContainerParams Missing = trace "Distribution.add1sample: Warning, cannot determine which type of distribution to select." UnknownDist
     train1dp' DistContainerParams di@(Discrete x) = DistDiscrete $ train1dp di
-    train1dp' DistContainerParams di@(Continuous x) = DistContainer $ train1dp di
+    train1dp' DistContainerParams di@(Continuous x) = DistContainer $ train1dp x
 
 -- instance DistributionEstimator DistContainer DataItem where
 --     {-# INLINE add1sample #-}
@@ -192,14 +203,18 @@ instance Distribution DistContainer DataItem Double where
 
     {-# INLINE pdf #-}
     pdf UnknownDist _ = trace "Distribution.pdf: Warning sampling from an UnkownDist" 0.3
-    pdf (DistContainer dist) di = pdf dist di
+    pdf (DistContainer dist) (Continuous di) = pdf dist di
     pdf (DistDiscrete dist) di = pdf dist di
+    pdf _ Missing = 1
+    pdf x y = error $ "PDF: x=" ++ (show x) ++ "; y="++(show y)
+
+instance CDF DistContainer DataItem Double where
+    cdf (DistContainer dist) (Continuous x) = cdf dist x
+    cdf (DistDiscrete dist) x =  cdf dist x
     
---     cdf (DistContainer dist) = cdf dist
---     cdf (DistDiscrete dist) = cdf dist
-    
---     cdfInverse (DistContainer dist) = cdfInverse dist
---     cdfInverse (DistDiscrete dist)  = cdfInverse dist
+    cdfInverse (DistContainer dist) = Continuous . cdfInverse dist
+    cdfInverse (DistDiscrete dist)  = cdfInverse dist
+    cdfInverse UnknownDist          = \x -> Missing
     
 {-    drawSample (DistContainer dist) = drawSample dist
     drawSample (DistDiscrete dist) = drawSample dist
