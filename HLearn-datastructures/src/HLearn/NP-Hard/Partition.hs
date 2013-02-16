@@ -19,7 +19,7 @@ import HLearn.Algebra
 import HLearn.DataStructures.BinarySearchTree
 
 -------------------------------------------------------------------------------
--- useless helpers
+-- CountingSeq
 
 data CountingSeq a = CountingSeq 
     { total :: Double
@@ -46,24 +46,11 @@ instance Semigroup (CountingSeq a) where
 instance Monoid (CountingSeq a) where
     mempty = CountingSeq 0 mempty
     mappend = (<>)
-    
-newtype Partition' a (n::Nat) = Partition' { sets' :: (Map.Map Int (CountingSeq a)) }
-    deriving (Read,Show,Eq,Ord)
-    
-partition2bst :: (Ord a) => Partition' a n -> BST (Double,a)
-partition2bst p = train . F.toList $ countingseq $ Map.foldr (<>) mempty (sets' p) 
-
-bst2partition' :: (Ord a) => BST (Double,a) -> Partition' a n
-bst2partition' = F.foldr go (Partition' mempty)
-    where
-        go (w,a) (Partition' sets) = Partition' $  Map.insertWith (<>) 0 (singletoncs (w,a)) sets
-
 
 -------------------------------------------------------------------------------
--- data types
-    
+-- data types    
 
-data Partition a (n::Nat) = Partition
+data Partition a r (n::Nat) = Partition
     { bst :: !(BST (Double,a))
     , sets :: Map.Map Int [(Double,a)]
     }
@@ -71,11 +58,9 @@ data Partition a (n::Nat) = Partition
     
 testp = train [(4,"poop"),(3,"the"),(1,"fart"),(1,"fart")] :: Partition String 30
     
--- bst2partition :: forall n a. (SingI n) => BST (Double,a) -> Partition a n
 bst2partition :: forall n a. (SingI n) => BST (Double,a) -> Partition a n
 bst2partition bst = Partition
     { bst = bst
---     , sets = undefined
     , sets = bst2sets (fromIntegral $ fromSing (sing :: Sing n)) bst
     }
     
@@ -83,39 +68,13 @@ bst2sets :: Int -> BST (Double,a) -> Map.Map Int [(Double,a)]
 bst2sets n bst = Map.map cs2list $ F.foldr go base bst
     where
         base = Map.fromList [(i,mempty) | i<-[0..n-1]]
---         base = Map.fromList [(i,(0::Double,[]::[a])) | i<-[0..fromIntegral $ fromSing (sing :: Sing n)-1]]
         go (w,a) sets = Map.insertWith (<>) minindex (singletoncs (w,a)) sets
             where
                 minindex = fst $ argmin (\(k,p) -> total p) $ Map.toList sets
---                 minindex = 0
     
 data PartitionParams = PartitionParams
     deriving (Read,Show,Eq,Ord)
 
--- 
--- data PartitionedSet a (n::Nat) = PartitionedSet
---     { getsets :: Map.Map Int (Double,[a])
---     }
---     deriving (Read,Show,Eq,Ord)
---     
--- emptypartionedset :: forall n a. (SingI n) => PartitionedSet a (n::Nat)
--- emptypartionedset = PartitionedSet $ Map.fromList [(i,(0::Double,[]::[a])) | i<-[0..fromIntegral $ fromSing (sing :: Sing n)-1]]
---     
--- data PartitionedSetParams = PartitionedSetParams
---     deriving (Read,Show,Eq,Ord)
---     
--- instance Model PartitionedSetParams (PartitionedSet a n) where
---     getparams _ = PartitionedSetParams
---     
--- instance (Show a)=>LameTrainerOnline PartitionedSetParams (Double,a) (PartitionedSet a n) where
---     lame_add1dp model (size,dp) = model
---         { getsets = Map.insertWith (\(size1,x:[]) (size2,xs) -> (size1+size2,x:xs)) minindex (size,[dp]) (getsets model)
---         }
---         where
---             minindex = fst $ argmin (\(k,(w,dp)) -> w) $ Map.toList $ getsets model
--- 
--- testm = lame_addBatch (emptypartionedset :: PartitionedSet Int 2) 
---     [(2::Double,2::Int), (3,3), (4,4)]
 
 -------------------------------------------------------------------------------
 -- Algebra

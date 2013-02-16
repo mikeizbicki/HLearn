@@ -84,3 +84,41 @@ instance (SingI n) => Monoid (MPSchedule (n::Nat)) where
 
 instance (SingI n) => HomTrainer (MPScheduleParams n) Task (MPSchedule n) where
     train1dp' _ dp = MPSchedule $ Heap.singleton $ mempty |> dp
+    
+-------------------------------------------------------------------------------
+-- useless helpers
+newtype Partition' a (n::Nat) = Partition' { sets' :: (Map.Map Int (CountingSeq a)) }
+    deriving (Read,Show,Eq,Ord)
+    
+partition2bst :: (Ord a) => Partition' a n -> BST (Double,a)
+partition2bst p = train . F.toList $ countingseq $ Map.foldr (<>) mempty (sets' p) 
+
+bst2partition' :: (Ord a) => BST (Double,a) -> Partition' a n
+bst2partition' = F.foldr go (Partition' mempty)
+    where
+        go (w,a) (Partition' sets) = Partition' $  Map.insertWith (<>) 0 (singletoncs (w,a)) sets
+
+-- 
+-- data PartitionedSet a (n::Nat) = PartitionedSet
+--     { getsets :: Map.Map Int (Double,[a])
+--     }
+--     deriving (Read,Show,Eq,Ord)
+--     
+-- emptypartionedset :: forall n a. (SingI n) => PartitionedSet a (n::Nat)
+-- emptypartionedset = PartitionedSet $ Map.fromList [(i,(0::Double,[]::[a])) | i<-[0..fromIntegral $ fromSing (sing :: Sing n)-1]]
+--     
+-- data PartitionedSetParams = PartitionedSetParams
+--     deriving (Read,Show,Eq,Ord)
+--     
+-- instance Model PartitionedSetParams (PartitionedSet a n) where
+--     getparams _ = PartitionedSetParams
+--     
+-- instance (Show a)=>LameTrainerOnline PartitionedSetParams (Double,a) (PartitionedSet a n) where
+--     lame_add1dp model (size,dp) = model
+--         { getsets = Map.insertWith (\(size1,x:[]) (size2,xs) -> (size1+size2,x:xs)) minindex (size,[dp]) (getsets model)
+--         }
+--         where
+--             minindex = fst $ argmin (\(k,(w,dp)) -> w) $ Map.toList $ getsets model
+-- 
+-- testm = lame_addBatch (emptypartionedset :: PartitionedSet Int 2) 
+--     [(2::Double,2::Int), (3,3), (4,4)]
