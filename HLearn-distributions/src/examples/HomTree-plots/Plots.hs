@@ -7,7 +7,7 @@ g2 = train [2,3,4,5] :: Gaussian Double
 g3 = train [4,5,6,7] :: Gaussian Double
 g4 = train [7,8,9,10] :: Gaussian Double
 
-gfat = train [-3,8] :: Gaussian Double
+gfat = train [0.5,4.5] :: Gaussian Double
 
 main = do
     plotDistributionL (plotFile "g-highoverlap") [g1,g2]
