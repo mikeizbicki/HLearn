@@ -48,3 +48,11 @@ class (Model modelparams model) => LameTrainer modelparams container datapoint m
     
 class (Model modelparams model) => LameTrainerOnline modelparams datapoint model where
     lame_add1dp :: model -> datapoint -> model
+    
+    lame_addBatch :: model -> [datapoint] -> model
+    lame_addBatch = add1dp2addBatch lame_add1dp
+        
+add1dp2addBatch :: (model -> dp -> model) -> (model -> [dp] -> model)
+add1dp2addBatch add1dp = \model xs -> case xs of
+    []   -> model
+    x:xs -> (add1dp2addBatch add1dp) (add1dp model x) xs

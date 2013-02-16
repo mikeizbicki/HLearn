@@ -30,6 +30,7 @@ Library
         HLearn.Algebra.Models.Lame
         HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups
+        HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules
         HLearn.Algebra.Structures.Free.RegSG2Group
         HLearn.Algebra.Structures.Triangles
