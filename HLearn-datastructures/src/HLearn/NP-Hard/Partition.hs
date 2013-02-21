@@ -20,6 +20,60 @@ import HLearn.Algebra
 import HLearn.DataStructures.BinarySearchTree
 
 -------------------------------------------------------------------------------
+-- data types    
+
+data Partition a (n::Nat) = Partition
+    { bst :: !(BST a)
+    , sets :: Map.Map Int [a]
+    }
+    deriving (Read,Show,Eq,Ord)
+
+bst2partition :: forall a r n. (Norm a r, SingI n) => BST a -> Partition a n
+bst2partition bst = Partition
+    { bst = bst
+    , sets = bst2sets (fromIntegral $ fromSing (sing :: Sing n)) bst
+    }
+    
+bst2sets :: (Norm a r) => Int -> BST a -> Map.Map Int [a]
+bst2sets n bst = Map.map cs2list $ F.foldr go base bst
+    where
+        base = Map.fromList [(i,mempty) | i<-[0..n-1]]
+        go a sets = Map.insertWith (<>) minindex (cseq_singleton a) sets
+            where
+                minindex = fst $ argmin (\(k,p) -> total p) $ Map.toList sets
+
+maxpartition :: (Norm a r) => Partition a n -> r
+maxpartition p = maximum $ map magnitude $ Map.elems $ sets p
+
+minpartition :: (Norm a r) => Partition a n -> r
+minpartition p = minimum $ map magnitude $ Map.elems $ sets p
+
+spread :: (Norm a r) => Partition a n -> r
+spread p = (maxpartition p)-(minpartition p)
+
+-------------------------------------------------------------------------------
+-- Algebra
+
+instance (Norm a r, SingI n) => Semigroup (Partition a n) where
+    p1 <> p2 = bst2partition $ (bst p1) <> (bst p2)
+
+instance (Norm a r, SingI n) => Monoid (Partition a n) where
+    mempty = bst2partition mempty
+    mappend = (<>)
+
+-------------------------------------------------------------------------------
+-- Training
+
+instance Model (NoParams (Partition a n)) (Partition a n) where
+    getparams _ = NoParams
+    
+instance (Norm a r, SingI n) => DefaultModel (NoParams (Partition a n)) (Partition a n) where
+    defparams = NoParams
+    
+instance (Norm a r, SingI n) => HomTrainer (NoParams (Partition a n)) a (Partition a n) where
+    train1dp' _ dp = bst2partition $ train1dp dp
+    
+-------------------------------------------------------------------------------
 -- CountingSeq
 
 data CountingSeq r a = CountingSeq 
@@ -47,55 +101,3 @@ instance (Num r) => Semigroup (CountingSeq r a) where
 instance (Num r) => Monoid (CountingSeq r a) where
     mempty = CountingSeq 0 mempty
     mappend = (<>)
-
--------------------------------------------------------------------------------
--- data types    
-
-data Partition a (n::Nat) = Partition
-    { bst :: !(BST a)
-    , sets :: Map.Map Int [a]
-    }
-    deriving (Read,Show,Eq,Ord)
-    
--- testp = train [(4,"poop"),(3,"the"),(1,"fart"),(1,"fart")] :: Partition String 30
-testp = train [1..100] :: Partition Double 3
-    
-bst2partition :: forall a r n. (Norm a r, Num r, Ord r, SingI n) => BST a -> Partition a n
-bst2partition bst = Partition
-    { bst = bst
-    , sets = bst2sets (fromIntegral $ fromSing (sing :: Sing n)) bst
-    }
-    
-bst2sets :: (Norm a r, Num r, Ord r) => Int -> BST a -> Map.Map Int [a]
-bst2sets n bst = Map.map cs2list $ F.foldr go base bst
-    where
-        base = Map.fromList [(i,mempty) | i<-[0..n-1]]
-        go a sets = Map.insertWith (<>) minindex (cseq_singleton a) sets
-            where
-                minindex = fst $ argmin (\(k,p) -> total p) $ Map.toList sets
-    
-data PartitionParams = PartitionParams
-    deriving (Read,Show,Eq,Ord)
-
-
--------------------------------------------------------------------------------
--- Algebra
-
-instance (Norm a r, Ord r, Num r, SingI n) => Semigroup (Partition a n) where
-    p1 <> p2 = bst2partition $ (bst p1) <> (bst p2)
-
-instance (Norm a r, Ord r, Num r, SingI n) => Monoid (Partition a n) where
-    mempty = bst2partition mempty
-    mappend = (<>)
-
--------------------------------------------------------------------------------
--- Training
-
-instance Model PartitionParams (Partition a n) where
-    getparams _ = PartitionParams
-    
-instance (Norm a r, SingI n) => DefaultModel PartitionParams (Partition a n) where
-    defparams = PartitionParams
-    
-instance (Norm a r, Ord r, Num r, SingI n) => HomTrainer PartitionParams a (Partition a n) where
-    train1dp' _ dp = bst2partition $ train1dp dp
