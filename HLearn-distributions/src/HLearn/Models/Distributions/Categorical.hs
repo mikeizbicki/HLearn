@@ -147,3 +147,4 @@ instance
     ) => Morphism (Categorical label prob) FreeModParams (FreeMod prob label) 
         where
     Categorical pdf $> FreeModParams = FreeMod pdf
+    
