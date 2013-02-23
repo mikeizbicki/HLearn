@@ -1,15 +1,19 @@
 {-# LANGUAGE DataKinds #-}
 
 import Criterion.Main
+import Statistics.Distribution.Normal
 
 import Statistics.Distribution.Normal
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as G
 
+import Data.Array.Unboxed
+
 import HLearn.Algebra
 import HLearn.Models.Distributions
 import HLearn.Models.Distributions.Moments
+import HLearn.Models.Distributions.MultiNormal
 -- import qualified HLearn.Models.Distributions.GaussianOld as GO
 -- import qualified HLearn.Models.Distributions.GaussianOld2 as GO2
 
@@ -18,12 +22,28 @@ import qualified Control.ConstraintKinds as CK
 
 -- comparing different types
 
+{-size = 10^6
+main = defaultMain
+    [ bench "Moments Double" $ nf (train :: [Double] -> Moments Double) [(0::Double)..size]
+    ]-}
 size = 10^6
 main = defaultMain
-    [ bench "Moments 2 Double" $ nf (train :: V.Vector Double -> Moments Double) (V.enumFromN (0::Double) size)
-    , bench "Moments 2 Float" $ nf (train :: V.Vector Float -> Moments Float) (V.enumFromN (0::Float) size)
-    , bench "Moments 2 Rational" $ nf (train :: V.Vector Rational -> Moments Rational) (V.enumFromN (0::Rational) size)
+    [ bench "HLearn-Gaussian" $ whnf
+        (train :: VU.Vector Double -> Gaussian Double)
+        (VU.enumFromN (0::Double) size)
+    , bench "HLearn-Moments" $ whnf
+        ((train :: VU.Vector Double -> Moments Double))
+        (VU.enumFromN (0::Double) size)
+    , bench "HLearn-MultiNormal" $ whnf
+        ((train :: [UArray Int Double] -> MultiNormal Double 1))
+        $ map (\x -> listArray (0,0) [x]) [(0::Double)..fromIntegral size]
     ]
+-- size = 10^6
+-- main = defaultMain
+--     [ bench "Moments 2 Double" $ nf (train :: V.Vector Double -> Moments Double) (V.enumFromN (0::Double) size)
+--     , bench "Moments 2 Float" $ nf (train :: V.Vector Float -> Moments Float) (V.enumFromN (0::Float) size)
+--     , bench "Moments 2 Rational" $ nf (train :: V.Vector Rational -> Moments Rational) (V.enumFromN (0::Rational) size)
+--     ]
 
 {-main = defaultMain 
     [ bench "HLearn-Gaussian" $ nf ((train :: VU.Vector Double -> Gaussian Double)) (VU.enumFromN (0::Double) size)

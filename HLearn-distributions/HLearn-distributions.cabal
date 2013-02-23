@@ -70,6 +70,7 @@ Library
         vector-th-unbox         >= 0.2,
         
         -- are these really necessary?
+        array                   >= 0.2.2.1,
         process                 >= 1.1.0.2,
         MonadRandom             >= 0.1.6,
         math-functions          >= 0.1.1,
@@ -93,6 +94,7 @@ Library
         --HLearn.Models.Distributions.KernelDensityEstimator.Kernels
         HLearn.Models.Distributions.Moments
         HLearn.Models.Distributions.Multivariate
+        HLearn.Models.Distributions.MultiNormal
         --HLearn.Models.Distributions.Normal
         HLearn.Models.Distributions.Gaussian
         --HLearn.Models.Distributions.GaussianOld

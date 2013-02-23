@@ -205,6 +205,7 @@ ds= [ (1,(1,()))
     , (2,(2,()))
     ] :: [(Int,(Int,()))]
     
+    
 type family Cat label prob basedist :: *
 -- type instance Cat (label,()) prob = CatContainer label prob (NoParams (Unital prob)) (Unital prob)
 type instance Cat label prob basedist = CatContainer label prob (Params basedist) basedist

@@ -13,7 +13,7 @@ module HLearn.Algebra.Functions
     parallel
     -- * Manipulating homomorphisms
     , online, offline
-    , batch, unbatch
+    , batch, batchCK, unbatch
     , semigroup
     -- * Helper functions
     , reduce
@@ -73,7 +73,7 @@ batch ::
       -> (container datapoint -> model) -- ^ batch trainer
 batch train = \dps -> F.foldl mappend mempty $ fmap train dps
 
-batch' ::
+batchCK ::
     ( Monoid model
     , CK.Functor container
     , CK.FunctorConstraint container model
@@ -82,7 +82,7 @@ batch' ::
     , CK.FoldableConstraint container model
     ) => (datapoint -> model) -- ^ singleton trainer
       -> (container datapoint -> model) -- ^ batch trainer
-batch' train = \dps -> CK.foldl' mappend mempty $ CK.fmap train dps
+batchCK train = \dps -> CK.foldl' mappend mempty $ CK.fmap train dps
 
 -- | Inverse of 'unbatch'.  Converts a semigroup homomorphism into a singleton trainer.
 unbatch :: 

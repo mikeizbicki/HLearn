@@ -110,6 +110,13 @@ type instance (:!!) (a:::b) (Succ n) = a :!! n
 -- -- getmargin :: (n::Nat) -> Int
 -- -- getmargin = undefined
 
+-- type family Replicate (n::Nat1) prob
+-- type instance Replicate Zero prob = ()
+-- type instance Replicate (FromNat1 n) prob = prob ::: (Replicate  prob)
+
+{-type family FromNat1 (n :: Nat1) :: Nat
+type instance FromNat1 Zero     = 0
+type instance FromNat1 (Succ n) = 1 + FromNat1 n-}
 -------------------------------------------------------------------------------
 -- Crazy Tuple
 
