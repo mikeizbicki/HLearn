@@ -80,15 +80,13 @@ class
     -- | The batch trainer
     {-# INLINE train' #-}
     train' ::     
-        ( {-CK.Functor container
+        ( CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
-        , CK.FoldableConstraint container model-}
-        Foldable container
-        , Functor container
+        , CK.FoldableConstraint container model
         ) => modelparams -> container datapoint -> model
-    train' modelparams = batch (train1dp' modelparams)
+    train' modelparams = batchCK (train1dp' modelparams)
 
     -- | The online trainer
     {-# INLINE add1dp #-}
@@ -98,13 +96,13 @@ class
     -- | The batch online trainer; will be more efficient than simply calling 'add1dp' for each element being added
     {-# INLINE addBatch #-}
     addBatch ::
-        ( {-CK.Functor container
+        ( CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
-        , CK.FoldableConstraint container model-}
-        Foldable container
-        , Functor container
+        , CK.FoldableConstraint container model
+--         Foldable container
+--         , Functor container
         ) =>  model -> container datapoint -> model
     addBatch model = online (train' (getparams model :: modelparams)) model
     
@@ -161,13 +159,13 @@ class
     -- | A batch trainer that doesn't require parameters (uses 'defparams')
     {-# INLINE train #-}
     train :: 
-        ( {-CK.Functor container
+        ( CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
-        , CK.FoldableConstraint container model-}
-        Foldable container
-        , Functor container
+        , CK.FoldableConstraint container model
+--         Foldable container
+--         , Functor container
 
         ) => container datapoint -> model
     train = train' (defparams :: modelparams)

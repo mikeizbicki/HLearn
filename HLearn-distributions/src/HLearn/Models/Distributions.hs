@@ -21,3 +21,4 @@ import HLearn.Models.Distributions.Gaussian
 -- import HLearn.Models.Distributions.KernelDensityEstimator
 import HLearn.Models.Distributions.Moments
 import HLearn.Models.Distributions.Multivariate
+import HLearn.Models.Distributions.MultiNormal
