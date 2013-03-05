@@ -1,5 +1,9 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+import Criterion.Config
 import Criterion.Main
 import Statistics.Distribution.Normal
 
@@ -26,18 +30,66 @@ import qualified Control.ConstraintKinds as CK
 main = defaultMain
     [ bench "Moments Double" $ nf (train :: [Double] -> Moments Double) [(0::Double)..size]
     ]-}
+    
+myConfig = defaultConfig 
+    { cfgPerformGC = ljust True
+    , cfgSamples = ljust 5
+    }
+    
 size = 10^6
-main = defaultMain
-    [ bench "HLearn-Gaussian" $ whnf
-        (train :: VU.Vector Double -> Gaussian Double)
-        (VU.enumFromN (0::Double) size)
+main = defaultMainWith myConfig (return ())
+-- main = defaultMain
+    [ bench "HLearn-MultiNormalVec 1" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 1 Double) $ map VU.fromList [ [l] | l <- [(0::Double)..fromIntegral size]]
+    , bench "HLearn-MultiNormalVec 2" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 2 Double) $ map VU.fromList [ [l..l+1] | l <- [(0::Double)..fromIntegral size]]
+    , bench "HLearn-MultiNormalVec 3" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 3 Double) $ map VU.fromList [ [l..l+2] | l <- [(0::Double)..fromIntegral size]]
+    , bench "HLearn-MultiNormalVec 4" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 4 Double) $ map VU.fromList [ [l..l+3] | l <- [(0::Double)..fromIntegral size]]
+    , bench "HLearn-MultiNormalVec 5" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 5 Double) $ map VU.fromList [ [l..l+4] | l <- [(0::Double)..fromIntegral size]]
+    , bench "HLearn-MultiNormalVec 10" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 10 Double) $ map VU.fromList [ [l..l+9] | l <- [(0::Double)..fromIntegral size]]
+    , bench "HLearn-MultiNormalVec 100" $ whnf (train :: [VU.Vector Double] -> MultiNormalVec 100 Double) $ map VU.fromList [ [l..l+99] | l <- [(0::Double)..fromIntegral size]]
+    ]
+-- [ bench "HLearn-MultiNormal-Vector" $ whnf
+--         ((train :: [VU.Vector Double] -> MultiNormalVec 1 Double))
+--         $ map VU.singleton [(0::Double)..fromIntegral size]
+--     , bench "HLearn-MultiNormal" $ whnf
+--         ((train :: [UArray Int Double] -> MultiNormal Double 1))
+--         $ map (\x -> listArray (0,0) [x]) [(0::Double)..fromIntegral size]
+--     ]
+
+{-main = defaultMain
+    [ bench "HLearn-GaussianCK" $ whnf
+        (trainCK :: V.Vector Double -> Gaussian Double)
+--         [(0::Double)..fromIntegral size]
+        (V.enumFromN (0::Double) size)
+    , bench "HLearn-Gaussian" $ whnf
+        (train :: V.Vector Double -> Gaussian Double)
+--         [(0::Double)..fromIntegral size]
+        (V.enumFromN (0::Double) size)
     , bench "HLearn-Moments" $ whnf
-        ((train :: VU.Vector Double -> Moments Double))
-        (VU.enumFromN (0::Double) size)
+        ((train :: V.Vector Double -> Moments Double))
+        (V.enumFromN (0::Double) size)
+    , bench "HLearn-MomentsSingleton" $ whnf
+        ((train :: [VU.Vector Double] -> NormSingle Double))
+        $ map VU.singleton [(0::Double)..fromIntegral size]
+    , bench "HLearn-MultiNormal-Vector" $ whnf
+        ((train :: [VU.Vector Double] -> MultiNormal2 1 Double))
+        $ map VU.singleton [(0::Double)..fromIntegral size]
     , bench "HLearn-MultiNormal" $ whnf
         ((train :: [UArray Int Double] -> MultiNormal Double 1))
         $ map (\x -> listArray (0,0) [x]) [(0::Double)..fromIntegral size]
     ]
+
+newtype NormSingle a = NormSingle (Moments a)
+    deriving (Read,Show,Eq,Ord,Semigroup,Monoid)
+    
+instance Model (NoParams (NormSingle a)) (NormSingle a) where
+    getparams _ = NoParams
+    
+instance DefaultModel (NoParams (NormSingle a)) (NormSingle a) where
+    defparams = NoParams
+
+instance (Num a, VU.Unbox a) => HomTrainer (NoParams (NormSingle a)) (VU.Vector a) (NormSingle a) where
+    train1dp' params dp = NormSingle $ train1dp (dp VU.! 0)-}
+    
 -- size = 10^6
 -- main = defaultMain
 --     [ bench "Moments 2 Double" $ nf (train :: V.Vector Double -> Moments Double) (V.enumFromN (0::Double) size)
