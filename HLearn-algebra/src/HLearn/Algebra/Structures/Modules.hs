@@ -24,11 +24,11 @@ class (LeftOperator r m, RightOperator r m) => Operator r m
 instance (LeftOperator r m, RightOperator r m) => Operator r m
 
 class LeftOperator r m | m -> r where
-    infixl 7 .*
+    infix 7 .*
     (.*) :: r -> m -> m
 
 class RightOperator r m | m -> r where
-    infixl 7 *.
+    infix 7 *.
     (*.) :: m -> r -> m
 
 instance RightOperator Integer Integer where (*.) = (*)

@@ -2,6 +2,7 @@
 
 module HLearn.Algebra
     ( module HLearn.Algebra.Functions
+    , module HLearn.Algebra.HVector
     , module HLearn.Algebra.Models
     , module HLearn.Algebra.Models.Lame
     , module HLearn.Algebra.Morphism
@@ -14,6 +15,7 @@ module HLearn.Algebra
     where
           
 import HLearn.Algebra.Functions
+import HLearn.Algebra.HVector
 import HLearn.Algebra.Models
 import HLearn.Algebra.Models.Lame
 import HLearn.Algebra.Morphism

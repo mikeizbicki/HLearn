@@ -9,18 +9,49 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module HLearn.Models.Distributions.MultiNormal
     where
 
+-- import qualified Control.ConstraintKinds as CK
+import qualified Data.Foldable as F
+import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
+import Data.Vector.Unboxed.Deriving
+
 import Control.DeepSeq
 import Data.Array.Unboxed
+import Data.Array.ST
+import GHC.ST
 import GHC.TypeLits
 
 import HLearn.Algebra
 
 -------------------------------------------------------------------------------
 -- data types
+
+data StrictBox a = StrictBox a
+
+-- derivingUnbox "Gaussian"
+--     [t| (U.Unbox a) => (Gaussian a) -> (Int, a, a, Int) |]
+--     [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
+--     [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]
+
+{-derivingUnbox "StrictBox"
+    [t| forall a. (StrictBox a) -> (a,()) |]
+    [| \ (StrictBox a) -> (a,()) |]
+    [| \ (a,()) -> (StrictBox a) |]-}
+    
+    
+data MultiNormalVec (n::Nat) prob = MultiNormalVec
+    { q0 :: !prob
+    , q1 :: !(VU.Vector prob)
+    , q2 :: !(V.Vector (VU.Vector prob))
+    }
+    deriving (Read,Show,Eq,Ord)
 
 data MultiNormal prob (n::Nat) = MultiNormal
     { m0 :: !prob
@@ -37,6 +68,23 @@ instance NFData (MultiNormal prob n) where
 
 -------------------------------------------------------------------------------
 -- algebra
+
+instance (Num prob, VU.Unbox prob) => Semigroup (MultiNormalVec n prob) where
+    mn1 <> mn2 = MultiNormalVec
+        { q0 = (q0 mn1) + (q0 mn2)
+        , q1 = VU.zipWith (+) (q1 mn1) (q1 mn2)
+        , q2 = V.zipWith (VU.zipWith (+)) (q2 mn1) (q2 mn2)
+        }
+        
+instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) where
+    mappend = (<>)
+    mempty = MultiNormalVec
+        { q0 = 0
+        , q1 = VU.replicate n 0
+        , q2 = V.replicate n (VU.replicate n 0)
+        }
+        where
+            n = fromIntegral $ fromSing (sing :: Sing n)
 
 instance (Num prob, SingI n, IArray UArray prob) => Semigroup (MultiNormal prob n) where
     mn1 <> mn2 = MultiNormal
@@ -60,13 +108,35 @@ instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormal prob n) 
 -------------------------------------------------------------------------------
 -- training
 
+instance Model (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
+    getparams _ = NoParams
+
+instance DefaultModel (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
+    defparams = NoParams
+
+instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (NoParams (MultiNormalVec n prob)) (VU.Vector prob) (MultiNormalVec n prob) where
+    train1dp' _ dp = MultiNormalVec
+        { q0 = 1
+        , q1 = dp
+        , q2 = V.generate n (\i -> VU.generate n (\j -> (dp VU.! i)*(dp VU.! j)))
+        }
+        where
+            n = fromIntegral $ fromSing (sing :: Sing n)
+
 instance Model (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
     getparams _ = NoParams
     
 instance DefaultModel  (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
     defparams = NoParams
 
-instance (Num prob, SingI n, IArray UArray prob) => HomTrainer (NoParams (MultiNormal prob n)) (UArray Int prob) (MultiNormal prob n) where
+instance 
+    ( Num prob
+    , SingI n
+    , IArray UArray prob
+--     , MArray (STUArray s) prob (ST s)
+    ) => HomTrainer (NoParams (MultiNormal prob n)) (UArray Int prob) (MultiNormal prob n) 
+        where
+              
     train1dp' _ dp = MultiNormal
         { m0 = 1
         , m1 = dp
@@ -74,6 +144,17 @@ instance (Num prob, SingI n, IArray UArray prob) => HomTrainer (NoParams (MultiN
         }
         where
             k = fromIntegral $ fromSing (sing :: Sing n)
+
+-- trainST' _ dps = MultiNormal
+--     { m0 = F.foldl (+) 0 $ fmap (\x->1) dps
+--     , m1 = runSTUArray $ do
+--         arr <- newArray (0,k-1) 0
+--         return arr -- (arr::STUArray s Int prob)
+-- --             listArray (0,k-1) $ repeat 0
+--     , m2 = listArray ((0,0),(k-1,k-1)) $ repeat 0
+--     }
+--     where
+--         k = 1--fromIntegral $ fromSing (sing :: Sing n)
 
 -------------------------------------------------------------------------------
 -- distribution
@@ -99,5 +180,13 @@ ds = map (listArray (0,2))
     ,[2,5,6]
     ,[3,1,1]
     ]
-    
+
 test = train ds :: MultiNormal Double 3
+
+ds2 = map VU.fromList
+    [[1,2,4]
+    ,[2,5,6]
+    ,[3,1,1]
+    ]
+
+test2 = train ds2 :: MultiNormalVec 3 Double

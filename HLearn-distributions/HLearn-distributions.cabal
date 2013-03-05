@@ -23,7 +23,8 @@ Executable HLearn-Distributions-Criterion
         criterion                   >= 0.6.1.1,
         vector,
 --        logfloat                , 
-        statistics
+        statistics,
+        array
     ghc-options: 
         -threaded
         -rtsopts 
@@ -70,7 +71,7 @@ Library
         vector-th-unbox         >= 0.2,
         
         -- are these really necessary?
-        array                   >= 0.2.2.1,
+        array                   >= 0.4.0,
         process                 >= 1.1.0.2,
         MonadRandom             >= 0.1.6,
         math-functions          >= 0.1.1,

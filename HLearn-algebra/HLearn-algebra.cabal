@@ -26,6 +26,7 @@ Library
     Exposed-modules:
         HLearn.Algebra
         HLearn.Algebra.Functions
+        HLearn.Algebra.HVector
         HLearn.Algebra.Models
         HLearn.Algebra.Models.Lame
         HLearn.Algebra.Morphism

@@ -80,13 +80,21 @@ class
     -- | The batch trainer
     {-# INLINE train' #-}
     train' ::     
+        ( Functor container
+        , Foldable container
+        ) => modelparams -> container datapoint -> model
+    train' modelparams = batch (train1dp' modelparams)
+
+    {-# INLINE trainCK' #-}
+    trainCK' ::     
         ( CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
         , CK.FoldableConstraint container model
+        , CK.FoldableConstraint container datapoint
         ) => modelparams -> container datapoint -> model
-    train' modelparams = batchCK (train1dp' modelparams)
+    trainCK' modelparams = batchCK (train1dp' modelparams)
 
     -- | The online trainer
     {-# INLINE add1dp #-}
@@ -101,10 +109,11 @@ class
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
         , CK.FoldableConstraint container model
+        , CK.FoldableConstraint container datapoint
 --         Foldable container
 --         , Functor container
         ) =>  model -> container datapoint -> model
-    addBatch model = online (train' (getparams model :: modelparams)) model
+    addBatch model = online (trainCK' (getparams model :: modelparams)) model
     
 
 sub1dp :: 
@@ -159,17 +168,30 @@ class
     -- | A batch trainer that doesn't require parameters (uses 'defparams')
     {-# INLINE train #-}
     train :: 
+        ( {-CK.Functor container
+        , CK.FunctorConstraint container model
+        , CK.FunctorConstraint container datapoint
+        , CK.Foldable container
+        , CK.FoldableConstraint container model-}
+        Foldable container
+        , Functor container
+
+        ) => container datapoint -> model
+    train = train' (defparams :: modelparams)
+
+    {-# INLINE trainCK #-}
+    trainCK :: 
         ( CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
         , CK.Foldable container
         , CK.FoldableConstraint container model
+        , CK.FoldableConstraint container datapoint
 --         Foldable container
 --         , Functor container
-
         ) => container datapoint -> model
-    train = train' (defparams :: modelparams)
-    
+    trainCK = trainCK' (defparams :: modelparams)
+
 instance 
     ( DefaultModel modelparams model
     , HomTrainer modelparams datapoint model
