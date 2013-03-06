@@ -20,7 +20,8 @@ Library
         semigroups          >= 0.8,
         parallel            >= 3.2,
         deepseq             >= 1.3,
-        containers          >= 0.5
+        containers          >= 0.5,
+        vector-heterogenous >= 0.0.1
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:

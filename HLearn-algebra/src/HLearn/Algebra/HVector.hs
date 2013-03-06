@@ -6,28 +6,21 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-- | Algebraic instances for the HVector type.  These form the data points used for much of the library.
 module HLearn.Algebra.HVector
+    ( module Data.Vector.Heterogenous
+    )
     where
 
 import Data.Vector.Heterogenous
 
+import HLearn.Algebra.Models
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.Modules
 import HLearn.Algebra.Structures.Triangles
 
-class 
-    ( Downcast (HList xs) box
-    , HLength (HList xs)
-    , HListBuilder (Indexer (HVector box xs))  (HList xs)
-    ) => ValidHVector box xs
-
-instance 
-    ( Downcast (HList xs) box
-    , HLength (HList xs)
-    , HListBuilder (Indexer (HVector box xs))  (HList xs)
-    ) => ValidHVector box xs
-
 -------------------------------------------------------------------------------
+-- Algebra
 
 instance Semigroup (HList '[]) where
     HNil <> HNil = HNil
@@ -80,3 +73,56 @@ instance (RightOperator r (HList xs), ValidHVector box xs) => RightOperator r (H
 instance (Num r) => RightModule r (HList '[])
 instance (RightModule r x, RightModule r (HList xs)) => RightModule r (HList (x ': xs))
 instance (RightModule r (HList xs), ValidHVector box xs) => RightModule r (HVector box xs)
+
+-------------------------------------------------------------------------------
+-- Training
+
+instance Model (HList '[]) (HList '[]) where
+    getparams _ = HNil
+
+instance 
+    ( Model params model
+    , Model (HList paramsL) (HList modelL)
+    ) => Model (HList (params ': paramsL)) (HList (model ': modelL))
+        where
+    getparams (model:::modelL) = (getparams model):::(getparams modelL)
+
+instance DefaultModel (HList '[]) (HList '[]) where
+    defparams = HNil
+    
+instance 
+    ( DefaultModel params model
+    , DefaultModel (HList paramsL) (HList modelL)
+    ) => DefaultModel (HList (params ': paramsL)) (HList (model ': modelL)) 
+        where
+    defparams = defparams:::defparams
+
+instance HomTrainer (HList '[]) (HList '[]) (HList '[]) where
+    train1dp' HNil HNil = HNil
+
+instance 
+    ( HomTrainer params dp model
+    , HomTrainer (HList paramsL) (HList dpL) (HList modelL)
+    , Semigroup model
+    , Semigroup (HList modelL)
+    , Monoid model
+    , Monoid (HList modelL)
+    ) => HomTrainer (HList (params ': paramsL)) (HList (dp ': dpL)) (HList (model ': modelL))
+    where
+        train1dp' (params:::paramsL) (dp:::dpL) = train1dp' params dp ::: train1dp' paramsL dpL
+        
+        
+        
+-- instance Model (NoParams (HVector box xs)) (HVector box xs) where
+--     getparams _ = NoParams
+--     
+-- instance DefaultModel (NoParams (HVector box xs)) (HVector box xs) where
+--     defparams = NoParams
+--     
+-- instance 
+--     ( Semigroup (HList xs)
+--     , Monoid (HList xs)
+--     , ValidHVector box xs
+--     ) => HomTrainer (NoParams (HVector box xs)) (HVector box xs) (HVector box xs) 
+--         where
+--     train1dp' params dp = undefined
