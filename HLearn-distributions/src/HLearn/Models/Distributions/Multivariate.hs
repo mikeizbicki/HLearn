@@ -88,7 +88,7 @@ data UniformParams prob = UniformParams
 
 data Uniform prob = Uniform
 
-instance (Num prob) => Distribution (Uniform prob) dp prob where
+instance (Num prob) => PDF (Uniform prob) dp prob where
     pdf _ _ = 1
 
 instance Semigroup (Uniform prob) where

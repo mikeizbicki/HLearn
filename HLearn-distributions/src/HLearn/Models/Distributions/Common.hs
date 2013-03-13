@@ -2,7 +2,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
 module HLearn.Models.Distributions.Common
-    ( Distribution(..)
+    ( PDF(..)
     , CDF(..)
     , nonoverlap
     )
@@ -14,7 +14,7 @@ import HLearn.Algebra
 -------------------------------------------------------------------------------
 -- Distribution
     
-class Distribution dist dp prob | dist -> dp, dist -> prob where
+class PDF dist dp prob | dist -> dp, dist -> prob where
     pdf :: dist -> dp -> prob 
     
 -- | We use the same class for both discrete and continuous distributions.  Unfortunately, we cannot use the type classes from the 'statistics' package because we require more generalilty.
@@ -34,7 +34,7 @@ class CDF dist dp prob | dist -> dp, dist -> prob where
 --     overlap xs = fmap (sort . (flip pdf) [-10..10]) xs
 
 
-nonoverlap :: (Enum prob, Fractional prob, Ord prob, Distribution dist dp prob, CDF dist dp prob) => [dist] -> prob
+nonoverlap :: (Enum prob, Fractional prob, Ord prob, PDF dist dp prob, CDF dist dp prob) => [dist] -> prob
 nonoverlap xs = (sum scoreL)/(fromIntegral $ length scoreL)
     where
         scoreL = fmap (diffscore . reverse . sort . normalizeL) $ transpose $ fmap ((flip fmap) sampleL . pdf) xs

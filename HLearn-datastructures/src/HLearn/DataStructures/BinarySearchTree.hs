@@ -80,5 +80,9 @@ instance (Ord a) => Monoid (BST a) where
     {-# INLINE mappend #-}
     mappend = (<>)
 
+instance (Ord a, Invertible a) => RegularSemigroup (BST a) where
+    {-# INLINE inverse #-}
+    inverse (BST vec) = BST $ V.map mkinverse vec
+
 instance F.Foldable BST where
     foldr f b (BST vec) = V.foldr f b vec

@@ -83,8 +83,24 @@ class
         ( Functor container
         , Foldable container
         ) => modelparams -> container datapoint -> model
+--     train' modelparams = addBatch (train1dp' modelparams)
     train' modelparams = batch (train1dp' modelparams)
 
+    -- | The online trainer
+    {-# INLINE add1dp #-}
+    add1dp :: model -> datapoint -> model
+--     add1dp = online $ unbatch $ offline addBatch
+    add1dp model = online (train1dp' (getparams model :: modelparams)) model
+    
+    -- | The batch online trainer; will be more efficient than simply calling 'add1dp' for each element being added
+    addBatch ::
+        ( Functor container
+        , Foldable container
+        ) =>  model -> container datapoint -> model
+--     addBatch model = online (batch $ train1dp' $ getparams model) model
+    addBatch model = online (train' $ getparams model) model
+
+    -- | CK methods take advantage of the ContraintKinds extension to allow containers that require constraints.  In particular, they allow the use of Unboxed Vectors, which can improve performance.
     {-# INLINE trainCK' #-}
     trainCK' ::     
         ( CK.Functor container
@@ -96,14 +112,8 @@ class
         ) => modelparams -> container datapoint -> model
     trainCK' modelparams = batchCK (train1dp' modelparams)
 
-    -- | The online trainer
-    {-# INLINE add1dp #-}
-    add1dp :: model -> datapoint -> model
-    add1dp model = online (train1dp' (getparams model :: modelparams)) model
-    
-    -- | The batch online trainer; will be more efficient than simply calling 'add1dp' for each element being added
-    {-# INLINE addBatch #-}
-    addBatch ::
+    {-# INLINE addBatchCK #-}
+    addBatchCK ::
         ( CK.Functor container
         , CK.FunctorConstraint container model
         , CK.FunctorConstraint container datapoint
@@ -113,7 +123,7 @@ class
 --         Foldable container
 --         , Functor container
         ) =>  model -> container datapoint -> model
-    addBatch model = online (trainCK' (getparams model :: modelparams)) model
+    addBatchCK model = online (trainCK' (getparams model :: modelparams)) model
     
 
 sub1dp :: 
@@ -127,12 +137,7 @@ sub1dp model dp = model <> (inverse $ train1dp dp)
 -- model -. xs = subBatch model xs
 
 subBatch :: 
-    ( CK.Functor container
-    , CK.FunctorConstraint container model
-    , CK.FunctorConstraint container datapoint
-    , CK.Foldable container
-    , CK.FoldableConstraint container model
-    , Functor container
+    ( Functor container
     , Foldable container
     , RegularSemigroup model
     , HomTrainer modelparams datapoint model
@@ -168,14 +173,8 @@ class
     -- | A batch trainer that doesn't require parameters (uses 'defparams')
     {-# INLINE train #-}
     train :: 
-        ( {-CK.Functor container
-        , CK.FunctorConstraint container model
-        , CK.FunctorConstraint container datapoint
-        , CK.Foldable container
-        , CK.FoldableConstraint container model-}
-        Foldable container
+        ( Foldable container
         , Functor container
-
         ) => container datapoint -> model
     train = train' (defparams :: modelparams)
 

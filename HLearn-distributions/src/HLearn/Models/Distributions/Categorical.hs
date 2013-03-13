@@ -69,7 +69,7 @@ instance (Ord label, Num prob) => HomTrainer (CategoricalParams prob) label (Cat
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (Ord label, Ord prob, Fractional prob) => Distribution (Categorical label prob) label prob where
+instance (Ord label, Ord prob, Fractional prob) => PDF (Categorical label prob) label prob where
 
     {-# INLINE pdf #-}
     pdf dist label = {-0.0001+-}(val/tot)

@@ -53,7 +53,7 @@ instance PlottableDataPoint Double where
 class 
     ( Show dp, Ord dp
     , Show prob
-    , Distribution dist dp prob
+    , PDF dist dp prob
     , PlottableDataPoint dp
     ) => PlottableDistribution dist dp prob | dist -> dp where
     
