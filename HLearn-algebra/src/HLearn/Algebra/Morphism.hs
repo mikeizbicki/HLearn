@@ -45,9 +45,9 @@ class Morphism domain params codomain | params -> codomain where
 
 -- | This data structure allow us to chain arbitrary morphisms together to generate a new morphism.
 data 
-    ( Morphism domain params1 interdomain
+    {-( Morphism domain params1 interdomain
     , Morphism interdomain params2 codomain
-    ) => MorphismComposition domain params1 interdomain params2 codomain = (:.) params2 params1
+    ) =>-} MorphismComposition domain params1 interdomain params2 codomain = (:.) params2 params1
 
 instance 
     ( Morphism domain params1 interdomain

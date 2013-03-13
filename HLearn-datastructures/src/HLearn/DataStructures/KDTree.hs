@@ -1,24 +1,3 @@
-\documentclass{article}
-%include polycode.fmt
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Document info
-% 
-
-\title{k-Dimensional Trees}
-
-\author{
-Michael Izbicki
-}
-
-% 
-% Document
-% 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Code Header
-%
-\begin{code}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -45,15 +24,21 @@ import HLearn.Models.Distributions.Categorical
 
 import HLearn.DataStructures.BinarySearchTree
 
-\end{code}
+-------------------------------------------------------------------------------
+-- data types
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Document Begins Here
-%
+newtype KDPointBox a = KDPointBox a
+    deriving (Read,Show,Eq)
+    
+instance (KDPoint a) => Ord (KDPointBox a) where
+    compare (KDPointBox a) (KDPointBox b) = compare (bin a) (bin b)
 
-\section{Data Types}
+newtype KDTree a = KDTree (BST (KDPointBox a))
+    deriving (Read,Show,Semigroup,Monoid)
 
-\begin{code}
+-------------------------------------------------------------------------------
+-- kdtree classes
+
 class (Eq kdp) => KDPoint kdp where
     bin :: kdp -> [Bool]
     
@@ -83,39 +68,25 @@ bin1d x =
             where split = (upper+lower)/2
         
 log10 x = (log x)/(log 10)
-\end{code}
 
-We define the kD-Tree with the data type:
-\begin{code}
-newtype KDPointBox a = KDPointBox a
-    deriving (Read,Show,Eq)
+-------------------------------------------------------------------------------
+-- algebra
+
+
+-------------------------------------------------------------------------------
+-- model
+
+instance Model (NoParams (KDTree a)) (KDTree a) where
+    getparams model = NoParams
+
+instance DefaultModel (NoParams (KDTree a)) (KDTree a) where
+    defparams = NoParams
     
-instance (KDPoint a) => Ord (KDPointBox a) where
-    compare (KDPointBox a) (KDPointBox b) = compare (bin a) (bin b)
-
-newtype KDTree a = KDTree (BST (KDPointBox a))
-    deriving (Read,Show,Semigroup,Monoid)
-\end{code}
-Notice how the semigroup and monoid instances are inherited directly from he BST.
-
-We define the singleton trainer as:
-\begin{code}
-data KDTreeParams a = KDTreeParams
-instance Model (KDTreeParams a) (KDTree a) where
-    getparams model = KDTreeParams
-    
-instance DefaultModel (KDTreeParams a) (KDTree a) where
-    defparams = KDTreeParams
-    
-instance (KDPoint a) => HomTrainer (KDTreeParams a) a (KDTree a) where
-    train1dp' KDTreeParams dp = KDTree $ train1dp $ KDPointBox dp
-\end{code}
-
-Now, we define how to perform a nearest neighbor search:
-\begin{code}
+instance (KDPoint a) => HomTrainer (NoParams (KDTree a)) a (KDTree a) where
+    train1dp' NoParams dp = KDTree $ train1dp $ KDPointBox dp
 
 bindouble :: Word64 -> IO ()
-bindouble d = go 63 -- print (bit 63 :: Int)
+bindouble d = go 63
     where  
         d' = unsafeCoerce d :: Int
         go (-1) = putStrLn ""
@@ -124,5 +95,3 @@ bindouble d = go 63 -- print (bit 63 :: Int)
                 then putStr "1"
                 else putStr "0"
             go (i-1)
-
-\end{code}

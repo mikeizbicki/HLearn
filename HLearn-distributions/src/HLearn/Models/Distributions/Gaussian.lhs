@@ -410,7 +410,7 @@ instance HomTrainer (GaussianParams Double) Double (Gaussian Double) where
 convdistr :: Gaussian Double -> N.NormalDistribution
 convdistr g = N.normalDistr (mean g) ((stddev g)+0.001)
 
-instance Distribution (Gaussian Double) Double Double where
+instance PDF (Gaussian Double) Double Double where
     pdf g x = D.density (convdistr g) x
 
 instance CDF (Gaussian Double) Double Double where

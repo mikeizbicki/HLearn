@@ -7,11 +7,15 @@
 
 module HLearn.Algebra.Structures.Groups
     ( 
-    -- * Type classes
+    -- * Algebra
     RegularSemigroup (..)
     , Group(..)
     , Abelian (..)
 
+    -- * Non-algebraic
+    , FreeInverse(..)
+    , Invertible(..)
+    
     , module Data.Semigroup
     )
     where
@@ -40,3 +44,35 @@ class (Semigroup g) => RegularSemigroup g where
 -- | Regular semigroups that also have an identity; alternatively, monoids where every element has a unique inverse.  See <https://en.wikipedia.org/wiki/Group_(mathematics)>
 class (RegularSemigroup g, Monoid g) => Group g
 instance (RegularSemigroup g, Monoid g) => Group g
+
+-------------------------------------------------------------------------------
+-- Invertible
+
+data FreeInverse a = FreeInverse !a 
+                   | Negate !a
+    deriving (Read,Show,Eq)
+
+instance (Ord a) => Ord (FreeInverse a) where
+    compare (FreeInverse x) (FreeInverse y) = compare x y
+    compare (Negate x) (Negate y) = compare x y
+    compare (FreeInverse x) (Negate y) = case compare x y of
+                                      LT -> LT
+                                      GT -> GT
+                                      EQ -> LT
+    compare (Negate x) (FreeInverse y) = case compare x y of
+                                      LT -> LT
+                                      GT -> GT
+                                      EQ -> GT
+
+class Invertible a where
+    mkinverse :: a -> a
+    isInverse :: a -> a -> Bool
+    
+instance (Eq a) => Invertible (FreeInverse a) where
+    mkinverse (FreeInverse x) = Negate x
+    mkinverse (Negate x) = FreeInverse x
+    
+    isInverse (FreeInverse x) (FreeInverse y) = False
+    isInverse (Negate x) (Negate y) = False
+    isInverse (FreeInverse x) (Negate y) = x==y
+    isInverse (Negate x) (FreeInverse y) = x==y
