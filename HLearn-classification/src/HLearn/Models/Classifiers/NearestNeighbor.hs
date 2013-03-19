@@ -51,15 +51,20 @@ instance
 -------------------------------------------------------------------------------
 -- classification
 
-neighborList :: (F.Foldable container, MetricSpace dp ring) => dp -> NaiveNN container label dp -> [(label,dp)]
+neighborList :: 
+    ( F.Foldable container
+    , MetricSpace ring dp
+    , Ord ring
+    ) => dp -> NaiveNN container label dp -> [(label,dp)]
 neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
     where
         f (_,dp1) (_,dp2) = compare (dist dp dp1) (dist dp dp2)
 
+
 instance 
     ( Ord prob, Num prob, Ord label
     , F.Foldable container
-    , MetricSpace dp ring
+    , MetricSpace prob dp
     ) => ProbabilityClassifier (NaiveNN container label dp) dp label prob 
         where
               
