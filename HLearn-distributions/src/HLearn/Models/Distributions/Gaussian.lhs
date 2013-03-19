@@ -389,11 +389,11 @@ We use the homomorphic learning method to define the training routines for our G
 data GaussianParams datatype = GaussianParams
     deriving (Read,Show,Eq,Ord)
 
-instance Model (GaussianParams datatype) (Gaussian datatype) where
+instance ModelParams (GaussianParams datatype) (Gaussian datatype) where
     {-# INLINE getparams #-}
     getparams _ = GaussianParams
     
-instance DefaultModel (GaussianParams datatype) (Gaussian datatype) where
+instance DefaultParams (GaussianParams datatype) (Gaussian datatype) where
     {-# INLINE defparams #-}
     defparams = GaussianParams
 
@@ -435,10 +435,10 @@ data GaussianPDF = GaussianPDF
 data GaussianPDFParams = GaussianPDFParams
     deriving (Read,Show,Eq,Ord)
 
-instance Model GaussianPDFParams GaussianPDF where
+instance ModelParams GaussianPDFParams GaussianPDF where
     getparams _ = GaussianPDFParams
     
-instance DefaultModel GaussianPDFParams GaussianPDF where
+instance DefaultParams GaussianPDFParams GaussianPDF where
     defparams = GaussianPDFParams
 
 instance Semigroup GaussianPDF where

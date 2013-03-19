@@ -9,13 +9,13 @@
 
 -- | The 'HomTrainer' class forms the base of the HLearn library.  It represents homomorphisms from a free monoid/group to any other structure.  This captures our intuitive notion of how data mining and machine learning algorithms should behave, but in a way that allows for the easy creation of parallel and online algorithms.
 --
--- Unfortunately, we must slightly complicate the matter by also introducing the 'Model' class.  Many learning algorithms take some sort of parameters, and we need the model class to define what those parameters should look like.  
+-- Unfortunately, we must slightly complicate the matter by also introducing the 'ModelParams' class.  Many learning algorithms take some sort of parameters, and we need the model class to define what those parameters should look like.  
 
 module HLearn.Algebra.Models
     ( 
     -- * Parameters
-    Model (..)
-    , DefaultModel (..)
+    ModelParams (..)
+    , DefaultParams (..)
     , NoParams (..)
     
     -- * HomTrainer
@@ -46,29 +46,29 @@ import HLearn.Algebra.Structures.Modules
 -- import Data.Binary
 
 -------------------------------------------------------------------------------
--- Model
+-- ModelParams
 
 -- | Every model needs a parameters structure.  If our model doesn't require parameters, we can use this wrapper to make that explicit.
 data NoParams model = NoParams
     deriving (Read,Show,Eq,Ord)
 
 -- | current FunctionalDependencies disallow the following:
--- instance (Model (NoParams model) model) => DefaultModel (NoParams model) model where
+-- instance (ModelParams (NoParams model) model) => DefaultParams (NoParams model) model where
 --     defparams = NoParams
 
 -- | Every model has at least one data type that that fully describes its parameters.  Many models do not actually *need* any parameters, in which case they will simply use an empty data type for modelparams.
-class (Eq modelparams) => Model modelparams model | modelparams -> model, model -> modelparams where
+class (Eq modelparams) => ModelParams modelparams model | modelparams -> model, model -> modelparams where
     getparams :: model -> modelparams
     
 -- | For those algorithms that do not require parameters (or that have reasonable default parameters), this class lets us use a more convenient calling notation.
-class (Model modelparams model) => DefaultModel modelparams model | model -> modelparams, modelparams -> model where
+class (ModelParams modelparams model) => DefaultParams modelparams model | model -> modelparams, modelparams -> model where
     defparams :: modelparams
 
 -- | A minimal complete definition of the class is the singleton trainer 'train1dp\''
 class 
     ( Semigroup model
     , Monoid model
-    , Model modelparams model
+    , ModelParams modelparams model
     ) => HomTrainer modelparams datapoint model | model -> modelparams, model -> datapoint, modelparams -> model
         where
 
@@ -129,7 +129,7 @@ class
 sub1dp :: 
     ( RegularSemigroup model
     , HomTrainer modelparams datapoint model
-    , DefaultModel modelparams model
+    , DefaultParams modelparams model
     ) => model -> datapoint -> model
 sub1dp model dp = model <> (inverse $ train1dp dp)
 
@@ -141,7 +141,7 @@ subBatch ::
     , Foldable container
     , RegularSemigroup model
     , HomTrainer modelparams datapoint model
-    , DefaultModel modelparams model
+    , DefaultParams modelparams model
     ) => model -> container datapoint -> model
 subBatch model xs = model <> (inverse $ train xs)
 
@@ -160,7 +160,7 @@ subBatch model xs = model <> (inverse $ train xs)
 
 -- | Provides parameterless functions for those training algorithms that do not require parameters
 class 
-    ( DefaultModel modelparams model
+    ( DefaultParams modelparams model
     , HomTrainer modelparams datapoint model
     ) => DefaultHomTrainer modelparams datapoint model | model -> modelparams
         where
@@ -192,7 +192,7 @@ class
     trainCK = trainCK' (defparams :: modelparams)
 
 instance 
-    ( DefaultModel modelparams model
+    ( DefaultParams modelparams model
     , HomTrainer modelparams datapoint model
     ) => DefaultHomTrainer modelparams datapoint model
     
@@ -213,10 +213,10 @@ instance (Monoid model) => Monoid (Weighted model) where
 instance (RegularSemigroup model) => RegularSemigroup (Weighted model) where
     inverse (Weighted a) = Weighted (inverse a)
     
-instance (Model modelparams model) => Model (Weighted modelparams) (Weighted model) where
+instance (ModelParams modelparams model) => ModelParams (Weighted modelparams) (Weighted model) where
     getparams (Weighted model) = Weighted $ getparams model
     
-instance (DefaultModel modelparams model) => DefaultModel (Weighted modelparams) (Weighted model) where
+instance (DefaultParams modelparams model) => DefaultParams (Weighted modelparams) (Weighted model) where
     defparams = Weighted $ defparams
 
 instance 

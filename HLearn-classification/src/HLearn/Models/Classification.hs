@@ -8,7 +8,7 @@ import Data.Number.LogFloat
 import HLearn.Algebra
 import HLearn.Models.Distributions
 -- import HLearn.Models.Distributions.Categorical
-import HLearn.DataContainers
+-- import HLearn.DataContainers
 
 
 -------------------------------------------------------------------------------
@@ -35,9 +35,16 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- ClassificationParams
 
-data ClassificationParams label params = ClassificationParams
-    { cparams :: params
-    , datadesc :: DataDesc label
+-- data ClassificationParams label params = ClassificationParams
+--     { cparams :: params
+--     , datadesc :: DataDesc label
+--     }
+--     deriving (Read,Show,Eq,Ord)
+
+data DataDesc label = DataDesc
+    { numLabels :: Int
+    , labelL :: [label]
+    , numAttr :: Int
     }
     deriving (Read,Show,Eq,Ord)
 

@@ -77,23 +77,23 @@ instance (RightModule r (HList xs), ValidHVector box xs) => RightModule r (HVect
 -------------------------------------------------------------------------------
 -- Training
 
-instance Model (HList '[]) (HList '[]) where
+instance ModelParams (HList '[]) (HList '[]) where
     getparams _ = HNil
 
 instance 
-    ( Model params model
-    , Model (HList paramsL) (HList modelL)
-    ) => Model (HList (params ': paramsL)) (HList (model ': modelL))
+    ( ModelParams params model
+    , ModelParams (HList paramsL) (HList modelL)
+    ) => ModelParams (HList (params ': paramsL)) (HList (model ': modelL))
         where
     getparams (model:::modelL) = (getparams model):::(getparams modelL)
 
-instance DefaultModel (HList '[]) (HList '[]) where
+instance DefaultParams (HList '[]) (HList '[]) where
     defparams = HNil
     
 instance 
-    ( DefaultModel params model
-    , DefaultModel (HList paramsL) (HList modelL)
-    ) => DefaultModel (HList (params ': paramsL)) (HList (model ': modelL)) 
+    ( DefaultParams params model
+    , DefaultParams (HList paramsL) (HList modelL)
+    ) => DefaultParams (HList (params ': paramsL)) (HList (model ': modelL)) 
         where
     defparams = defparams:::defparams
 

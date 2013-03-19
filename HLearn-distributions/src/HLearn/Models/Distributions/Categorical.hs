@@ -41,10 +41,10 @@ data CategoricalParams prob = CategoricalParams
 instance NFData (CategoricalParams prob) where
     rnf x = ()
 
-instance Model (CategoricalParams prob) (Categorical label prob) where
+instance ModelParams (CategoricalParams prob) (Categorical label prob) where
     getparams model = CategoricalParams
 
-instance DefaultModel (CategoricalParams prob) (Categorical label prob) where
+instance DefaultParams (CategoricalParams prob) (Categorical label prob) where
 -- instance DefaultModel (CategoricalParams prob) (Categorical Int Double) where
     defparams = CategoricalParams
 

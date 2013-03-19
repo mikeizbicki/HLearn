@@ -21,7 +21,7 @@ module HLearn.Algebra.Models.Lame
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra.Models
 
-class (Model modelparams model) => LameTrainer modelparams container datapoint model where
+class (ModelParams modelparams model) => LameTrainer modelparams container datapoint model where
     lame_train' :: modelparams -> container datapoint -> model
 
 -- instance 
@@ -46,7 +46,7 @@ class (Model modelparams model) => LameTrainer modelparams container datapoint m
         , Sizable container
         ) => modelparams -> container datapoint -> model-}
     
-class (Model modelparams model) => LameTrainerOnline modelparams datapoint model where
+class (ModelParams modelparams model) => LameTrainerOnline modelparams datapoint model where
     lame_add1dp :: model -> datapoint -> model
     
     lame_addBatch :: model -> [datapoint] -> model

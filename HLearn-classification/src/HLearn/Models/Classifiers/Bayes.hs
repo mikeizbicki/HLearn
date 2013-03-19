@@ -111,7 +111,9 @@ instance
 --     , Eq distparams
     , RegularSemigroup (dist prob)
     , Distribution (dist prob) attr prob
-    ) => ProbabilityClassifier (Bayes dist label prob) attr label prob where
+    ) => ProbabilityClassifier (Bayes dist label prob) attr label prob 
+        where
+              
     probabilityClassify (SGJust bayes) dp = 
         Categorical $ Map.mapWithKey (\label dist -> (pdf dist dp)*(pdf (labelDist bayes) label)) $ attrDist bayes
         

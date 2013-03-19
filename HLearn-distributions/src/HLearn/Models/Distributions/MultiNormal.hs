@@ -108,10 +108,10 @@ instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormal prob n) 
 -------------------------------------------------------------------------------
 -- training
 
-instance Model (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
+instance ModelParams (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
     getparams _ = NoParams
 
-instance DefaultModel (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
+instance DefaultParams (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
     defparams = NoParams
 
 instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (NoParams (MultiNormalVec n prob)) (VU.Vector prob) (MultiNormalVec n prob) where
@@ -123,10 +123,10 @@ instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (NoParams (MultiNormal
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
 
-instance Model (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
+instance ModelParams (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
     getparams _ = NoParams
     
-instance DefaultModel  (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
+instance DefaultParams  (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
     defparams = NoParams
 
 instance 
