@@ -83,6 +83,26 @@ class (RightOperator r g, Num r, Group g, Abelian g) => RightModule r g
 instance (RightOperator r g, Num r, Group g, Abelian g) => RightModule r g
 
 -------------------------------------------------------------------------------
+-- Vector Spaces
+
+class (Module r m, Fractional r) => VectorSpace r m where
+    infix 7 ./
+    (./) :: r -> m -> m
+
+    infix 7 /.
+    (/.) :: m -> r -> m
+    m /. r = m *. (1/r)
+
+class (VectorSpace r m) => NormedVectorSpace r m where
+    magnitude :: m -> r
+          
+-- instance (Norm a r) => Norm [a] r where
+--     magnitude xs = foldl' (+) 0 $ map magnitude xs
+
+-- instance Norm Double Double where
+--     magnitude x = abs x
+
+-------------------------------------------------------------------------------
 -- FreeModule
 
 data FreeModParams = FreeModParams
