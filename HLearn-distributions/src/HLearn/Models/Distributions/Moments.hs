@@ -84,10 +84,10 @@ instance (Num prob) => RegularSemigroup (Moments prob ) where
 -------------------------------------------------------------------------------
 -- Training
     
-instance Model (MomentsParams prob) (Moments prob) where
+instance ModelParams (MomentsParams prob) (Moments prob) where
     getparams _ = MomentsParams
 
-instance DefaultModel (MomentsParams prob) (Moments prob) where
+instance DefaultParams (MomentsParams prob) (Moments prob) where
     defparams = MomentsParams
 
 instance (Num prob) => HomTrainer (MomentsParams prob) prob (Moments prob) where

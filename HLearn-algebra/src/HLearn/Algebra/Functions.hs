@@ -103,11 +103,17 @@ semigroup trainonline pseudoinverse = \model1 model2 -> trainonline model1 (pseu
 -- | Like fold, but (i) only for use on the semigroup operation (\<\>) and (ii) uses the fan-in reduction strategy which is more efficient when the semigroup operation takes nonconstant time depending on the size of the data structures being reduced.
 reduce :: 
     ( Semigroup sg
+    , F.Foldable container
+    ) => container sg -> sg
+reduce = reduceL . F.toList
+
+reduceCK :: 
+    ( Semigroup sg
     , CK.Foldable container
     , CK.FoldableConstraint container sg
     , CK.FoldableConstraint container [sg]
     ) => container sg -> sg
-reduce = reduceL . CK.toList
+reduceCK = reduceL . CK.toList
 
 reduceL :: (Semigroup sg) => [sg] -> sg
 reduceL []  = error "reduce: cannot reduce empty list"
