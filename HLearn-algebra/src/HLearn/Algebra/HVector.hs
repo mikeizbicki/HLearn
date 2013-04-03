@@ -5,6 +5,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Algebraic instances for the HVector type.  These form the data points used for much of the library.
 module HLearn.Algebra.HVector
@@ -77,38 +78,43 @@ instance (RightModule r (HList xs), ValidHVector box xs) => RightModule r (HVect
 -------------------------------------------------------------------------------
 -- Training
 
-instance ModelParams (HList '[]) (HList '[]) where
+instance ModelParams (HList '[]) where
+    type Params (HList '[]) = HList '[]
     getparams _ = HNil
 
+instance DefaultParams (HList '[]) where
+    defparams = HNil
+
 instance 
-    ( ModelParams params model
-    , ModelParams (HList paramsL) (HList modelL)
-    ) => ModelParams (HList (params ': paramsL)) (HList (model ': modelL))
+    ( ModelParams model
+    , ModelParams (HList modelL)
+    , Params (HList modelL) ~ HList paramsL
+    ) => ModelParams (HList (model ': modelL))
         where
+    type Params (HList (model ': modelL)) = (Params model) `HCons` (Params (HList modelL))
+    
     getparams (model:::modelL) = (getparams model):::(getparams modelL)
 
-instance DefaultParams (HList '[]) (HList '[]) where
-    defparams = HNil
-    
 instance 
-    ( DefaultParams params model
-    , DefaultParams (HList paramsL) (HList modelL)
-    ) => DefaultParams (HList (params ': paramsL)) (HList (model ': modelL)) 
+    ( DefaultParams model
+    , DefaultParams (HList modelL)
+    , Params (HList modelL) ~ HList paramsL
+    ) => DefaultParams (HList (model ': modelL))
         where
     defparams = defparams:::defparams
 
-instance HomTrainer (HList '[]) (HList '[]) (HList '[]) where
+instance HomTrainer (HList '[]) where
+    type Datapoint (HList '[]) = (HList '[])
     train1dp' HNil HNil = HNil
 
 instance 
-    ( HomTrainer params dp model
-    , HomTrainer (HList paramsL) (HList dpL) (HList modelL)
-    , Semigroup model
-    , Semigroup (HList modelL)
-    , Monoid model
-    , Monoid (HList modelL)
-    ) => HomTrainer (HList (params ': paramsL)) (HList (dp ': dpL)) (HList (model ': modelL))
+    ( HomTrainer model
+    , HomTrainer (HList modelL)
+    , Params (HList modelL) ~ HList paramsL
+    , Datapoint (HList modelL) ~ HList datapointL
+    ) => HomTrainer (HList (model ': modelL))
     where
+        type Datapoint (HList (model ': modelL)) = (HList ((Datapoint model) ': (UnHList (Datapoint (HList modelL)))))
         train1dp' (params:::paramsL) (dp:::dpL) = train1dp' params dp ::: train1dp' paramsL dpL
         
         
