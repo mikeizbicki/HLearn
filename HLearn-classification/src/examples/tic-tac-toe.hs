@@ -11,7 +11,7 @@ import HLearn.Algebra
 
 data Square = X | O | Empty
     deriving (Read,Show,Eq,Ord)
-    
+
 data TTT = TTT 
     { board :: A.Array (Int,Int) Square
     }
@@ -48,17 +48,12 @@ instance Morphism TTT (NoParams TTT) (HVector ShowBox [Square,Square,Square,Squa
 
 -- instance Morphism TTT (NoParams TTT) (HVector ShowBox (Replicate Square 9))
 
+data VarType = Discrete | Continuous
+
+-- class 
+
+-- class HVector2Multivariate
+
 -------------------------------------------------------------------------------
 -- junk
 
-class List2HList x xs where
-    list2hlist :: [x] -> HList (x ': xs)
-    
-instance List2HList x '[] where
-    list2hlist []       = error "List2HList x HNil: cannot append empty list"
-    list2hlist (x:[])   = x:::HNil
-    list2hlist _        = error "List2HList x HNil: too many elements in list"
-
-instance (List2HList x xs) => List2HList x (x ': xs) where
-    list2hlist []       = error "List2HList x HNil: cannot append empty list"
-    list2hlist (x:xs)   = x:::(list2hlist xs)

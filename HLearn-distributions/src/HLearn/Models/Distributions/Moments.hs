@@ -11,12 +11,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
--- | The method of moments can be used to estimate a number of commonly used distributions.  This module is still under construction as I work out the best way to handle morphisms from the Moments type to types of other distributions.  For more information, see the wikipedia entry: <https://en.wikipedia.org/wiki/Method_of_moments_(statistics)>
+-- | The method of moments can be used to estimate a number of commonly used distributions.  This module is still under construction as I work out the best way to handle morphisms from the Moments3 type to types of other distributions.  For more information, see the wikipedia entry: <https://en.wikipedia.org/wiki/Method_of_moments_(statistics)>
 
-module HLearn.Models.Distributions.Moments
-    ( MomentsParams (..)
-    , Moments
+module HLearn.Models.Distributions.Moments3
+    ( Moments3
 --     , Normal
     )
     where
@@ -31,64 +31,87 @@ import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
 -------------------------------------------------------------------------------
--- Moments
+-- Moments3
 
-data MomentsParams prob = MomentsParams
-    deriving (Read,Show,Eq,Ord)
-
-data Moments prob = Moments 
+data Moments3 prob = Moments3 
     { m0 :: !prob
     , m1 :: !prob
     , m2 :: !prob
     }
     deriving (Read,Show,Eq,Ord)
-    
-instance (NFData prob) => NFData (Moments prob) where
+
+mean :: (Fractional prob) => Moments3 prob -> prob
+mean dist = m1 dist / m0 dist
+
+variance :: (Fractional prob) => Moments3 prob -> prob
+variance dist = m2 dist / m0 dist - (mean dist)*(mean dist)
+
+instance (NFData prob) => NFData (Moments3 prob) where
     rnf m = deepseq (m0 m) 
           $ deepseq (m1 m) 
           $ deepseq (m2 m)
           $ ()
 
-derivingUnbox "Moments"
-    [t| (U.Unbox a) => (Moments a) -> (a, a, a) |]
-    [| \ (Moments m0 m1 m2) -> (m0,m1,m2) |]
-    [| \ (m0,m1,m2) -> (Moments m0 m1 m2) |]
+derivingUnbox "Moments3"
+    [t| (U.Unbox a) => (Moments3 a) -> (a, a, a) |]
+    [| \ (Moments3 m0 m1 m2) -> (m0,m1,m2) |]
+    [| \ (m0,m1,m2) -> (Moments3 m0 m1 m2) |]
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-
-instance (Num prob) => Abelian (Moments prob)
-instance (Num prob) => Semigroup (Moments prob) where
-    (<>) !ma !mb = Moments 
+instance (Num prob) => Abelian (Moments3 prob)
+instance (Num prob) => Semigroup (Moments3 prob) where
+    (<>) !ma !mb = Moments3 
         { m0 = m0 ma + m0 mb
         , m1 = m1 ma + m1 mb
         , m2 = m2 ma + m2 mb
         }
     
-instance (Num prob) => Monoid (Moments prob) where
+instance (Num prob) => Monoid (Moments3 prob) where
     mappend = (<>)
-    mempty = Moments 0 0 0 
+    mempty = Moments3 0 0 0 
     
-instance (Num prob) => RegularSemigroup (Moments prob ) where
-    inverse !m = Moments (negate $ m0 m) (negate $ m1 m) (negate $ m2 m)
+instance (Num prob) => RegularSemigroup (Moments3 prob ) where
+    inverse !m = Moments3 (negate $ m0 m) (negate $ m1 m) (negate $ m2 m)
 
--- instance (Fractional prob, VU.Unbox prob, SingI n) => LeftModule prob (Moments prob n)
--- instance (Fractional prob, VU.Unbox prob) => LeftOperator prob (Moments prob n) where
---     (.*) !p !(Moments vec) = Moments $ VU.map (*p) vec
+-- instance (Fractional prob, VU.Unbox prob, SingI n) => LeftModule prob (Moments3 prob n)
+-- instance (Fractional prob, VU.Unbox prob) => LeftOperator prob (Moments3 prob n) where
+--     (.*) !p !(Moments3 vec) = Moments3 $ VU.map (*p) vec
 -- 
--- instance (Fractional prob, VU.Unbox prob, SingI n) => RightModule prob (Moments prob n)
--- instance (Fractional prob, VU.Unbox prob) => RightOperator prob (Moments prob n) where
+-- instance (Fractional prob, VU.Unbox prob, SingI n) => RightModule prob (Moments3 prob n)
+-- instance (Fractional prob, VU.Unbox prob) => RightOperator prob (Moments3 prob n) where
 --     (*.) = flip (.*)
 --     
 -------------------------------------------------------------------------------
 -- Training
     
-instance ModelParams (MomentsParams prob) (Moments prob) where
-    getparams _ = MomentsParams
+instance ModelParams (Moments3 prob) where
+    type Params (Moments3 prob) = NoParams
+    getparams _ = NoParams
 
-instance DefaultParams (MomentsParams prob) (Moments prob) where
-    defparams = MomentsParams
+instance (Num prob) => HomTrainer (Moments3 prob) where
+    type Datapoint (Moments3 prob) = prob
+    train1dp' _ dp = Moments3 1 dp (dp*dp)
+    
 
-instance (Num prob) => HomTrainer (MomentsParams prob) prob (Moments prob) where
-    train1dp' _ dp = Moments 1 dp (dp*dp)
+-------------------------------------------------------------------------------
+-- Normal
+
+newtype Normal prob = Normal (Moments3 prob)
+    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    
+instance ModelParams (Normal prob) where
+    type Params (Normal prob) = NoParams
+    getparams _ = NoParams
+
+instance (Num prob) => HomTrainer (Normal prob) where
+    type Datapoint (Normal prob) = prob
+    train1dp' params dp = Normal $ train1dp' params dp
+
+instance (Floating prob) => PDF (Normal prob) prob prob where
+    pdf (Normal dist) dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
+        where
+            sigma2 = variance dist
+            mu = mean dist
+            
