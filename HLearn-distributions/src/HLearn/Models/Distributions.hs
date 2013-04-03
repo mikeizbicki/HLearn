@@ -12,6 +12,7 @@ module HLearn.Models.Distributions
 --     , module HLearn.Models.Distributions.KernelDensityEstimator
     , module HLearn.Models.Distributions.Moments
     , module HLearn.Models.Distributions.Multivariate
+--     , module HLearn.Models.Distributions.Uniform
     )
     where
 
@@ -22,3 +23,4 @@ import HLearn.Models.Distributions.Gaussian
 import HLearn.Models.Distributions.Moments
 import HLearn.Models.Distributions.Multivariate
 import HLearn.Models.Distributions.MultiNormal
+-- import HLearn.Models.Distributions.Uniform

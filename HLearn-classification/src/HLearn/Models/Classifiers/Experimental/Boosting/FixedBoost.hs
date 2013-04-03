@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
-module HLearn.Models.Classifiers.Boosting
+module HLearn.Models.Classifiers.Boosting.FixedBoost
     where
 
 import qualified Data.Map as Map

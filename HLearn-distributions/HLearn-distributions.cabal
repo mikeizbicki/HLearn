@@ -101,4 +101,5 @@ Library
         --HLearn.Models.Distributions.GaussianOld
         --HLearn.Models.Distributions.GaussianOld2
         --HLearn.Models.Distributions.Poisson
+        HLearn.Models.Distributions.Uniform
         
