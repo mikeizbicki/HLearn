@@ -5,7 +5,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds #-}
--- {-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE PolyKinds #-}
 
 -- | The 'HomTrainer' class forms the base of the HLearn library.  It represents homomorphisms from a free monoid/group to any other structure.  This captures our intuitive notion of how data mining and machine learning algorithms should behave, but in a way that allows for the easy creation of parallel and online algorithms.
 --
@@ -49,7 +49,7 @@ import HLearn.Algebra.Structures.Modules
 -- ModelParams
 
 -- | Every model needs a parameters structure.  If our model doesn't require parameters, we can use this wrapper to make that explicit.
-data NoParams model = NoParams
+data NoParams (model::a) = NoParams
     deriving (Read,Show,Eq,Ord)
 
 -- | current FunctionalDependencies disallow the following:

@@ -118,8 +118,31 @@ class
             plotPoints = gensamples (minx dist,maxx dist)
 
     gnuplot  :: PlotParams -> dist -> String
+    gnuplot params dist
+        =  "set terminal postscript \"Times-Roman\" 25 \n"
+        ++ "set output \"" ++ (picFile params) ++ "\" \n"
+        ++ "unset xtics; unset ytics; unset key \n"
+        ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
+        ++ "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
+        ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"
+
     gnuplotL  :: PlotParams -> [dist] -> String
-    
+    gnuplotL params distL
+        =  "set terminal postscript \"Times-Roman\" 25 \n"
+        ++ "set output \"" ++ (picFile params) ++ "\" \n"
+        ++ "unset xtics; unset ytics; unset key \n"
+        ++ "set style fill transparent solid 0.5 noborder\n"
+        ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
+        ++ "plot "
+            -- ++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
+        ++ (mconcat . intersperse ", " $ 
+            [ -- "     '"++(dataFile params)++"' using 1:"++show i++" fs solid 1.0 lc rgb '"++bgcolor++"'" -- "' with filledcurves,"
+            "     '"++(dataFile params)++"' using 1:"++show i++" lt 1 lw 4 lc rgb '"++linecolor++"' with lines"
+            | (i,linecolor,bgcolor,_dist) <- zip4 [2..] linecolorL bgcolorL distL
+            ])
+        where 
+            linecolorL = ["#0000ff", "#00ff00", "#ff0000"]
+            bgcolorL   = ["#ccccff", "#ccffcc", "#ffcccc"]
 {-instance PlottableDistribution (KDE Double) where
     plotdata dist = mconcat [show (x::Double) ++ " " ++ show (pdf dist x::Double) | x <- plotPoints]
         where
@@ -138,30 +161,6 @@ instance PlottableDistribution (Gaussian Double) Double Double where
     minx dist = (meanG dist)-5*(sqrt $ varG dist)
     maxx dist = (meanG dist)+5*(sqrt $ varG dist)
     
-    gnuplot params dist
-        =  "set terminal postscript \"Times-Roman\" 25 \n"
-        ++ "set output \"" ++ (picFile params) ++ "\" \n"
-        ++ "unset xtics; unset ytics; unset key \n"
-        ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
-        ++ "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
-        ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"
-        
-    gnuplotL params distL
-        =  "set terminal postscript \"Times-Roman\" 25 \n"
-        ++ "set output \"" ++ (picFile params) ++ "\" \n"
-        ++ "unset xtics; unset ytics; unset key \n"
-        ++ "set style fill transparent solid 0.5 noborder\n"
-        ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
-        ++ "plot "
-            -- ++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
-        ++ (mconcat . intersperse ", " $ 
-            [ -- "     '"++(dataFile params)++"' using 1:"++show i++" fs solid 1.0 lc rgb '"++bgcolor++"'" -- "' with filledcurves,"
-            "     '"++(dataFile params)++"' using 1:"++show i++" lt 1 lw 4 lc rgb '"++linecolor++"' with lines"
-            | (i,linecolor,bgcolor,_dist) <- zip4 [2..] linecolorL bgcolorL distL
-            ])
-        where 
-            linecolorL = ["#0000ff", "#00ff00", "#ff0000"]
-            bgcolorL   = ["#ccccff", "#ccffcc", "#ffcccc"]
         
 {-instance (Show label, Show prob, Num prob, Ord prob) => PlottableDistribution (Categorical label prob) label where
     plotdata dist = concat $ do

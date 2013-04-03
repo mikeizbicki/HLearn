@@ -50,26 +50,11 @@ lame_crossvalidation modelparams dataset perfmeasure k = reduce $ do
     where
         datasetL = CK.partition k dataset
 
--- crossValidation_par modelparams dataset perfmeasure k = (parallel reduce) $ do
---     (testdata, trainingdata) <- genTestList datasetL
---     let model = train' modelparams trainingdata
---     let score = perfmeasure model testdata
---     return score
---     where
---         datasetL = CK.partition k dataset
-
 -- | This is the standard cross-validation technique for use with the HomTrainer type class.  It is asymptotically faster than standard k-fold cross-validation (implemented with lame_crossvalidation), yet is guaranteed to get the exact same answer.
 crossvalidation :: 
     ( HomTrainer modelparams datapoint model
-    , Semigroup model
     , Semigroup ret
     , Semigroup (container datapoint)
-    , CK.Functor container
-    , CK.FunctorConstraint container datapoint
-    , CK.FunctorConstraint container model
-    , CK.Foldable container
-    , CK.FoldableConstraint container model
-    , CK.FoldableConstraint container datapoint
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
     , F.Foldable container
@@ -138,7 +123,7 @@ listAllBut :: (Semigroup a) => [a] -> [a]
 listAllBut !xs = [reduce $ testL i | i <- itrL]
     where
         itrL = [0..(length xs)-1]
-        testL i = (D.fromList $ take (i) xs) `mappend` (D.fromList $ drop (i+1) xs)
+        testL i = D.toList $ (D.fromList $ take (i) xs) `mappend` (D.fromList $ drop (i+1) xs)
 
 genTestList :: (Semigroup a) => [a] -> [(a,a)]
 genTestList xs = zip xs $ listAllBut xs
