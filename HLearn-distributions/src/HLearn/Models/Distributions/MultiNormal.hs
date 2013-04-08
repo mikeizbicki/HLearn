@@ -12,6 +12,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeOperators #-}
 
 module HLearn.Models.Distributions.MultiNormal
     where
@@ -32,19 +33,6 @@ import HLearn.Algebra
 
 -------------------------------------------------------------------------------
 -- data types
-
-data StrictBox a = StrictBox a
-
--- derivingUnbox "Gaussian"
---     [t| (U.Unbox a) => (Gaussian a) -> (Int, a, a, Int) |]
---     [| \ (Gaussian n m1 m2 dc) -> (n,m1,m2,dc) |]
---     [| \ (n,m1,m2,dc) -> (Gaussian n m1 m2 dc) |]
-
-{-derivingUnbox "StrictBox"
-    [t| forall a. (StrictBox a) -> (a,()) |]
-    [| \ (StrictBox a) -> (a,()) |]
-    [| \ (a,()) -> (StrictBox a) |]-}
-    
     
 data MultiNormalVec (n::Nat) prob = MultiNormalVec
     { q0 :: !prob
@@ -53,17 +41,20 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
     }
     deriving (Read,Show,Eq,Ord)
 
-data MultiNormal prob (n::Nat) = MultiNormal
+newtype MultiNormal (n::Nat) prob = MultiNormal (MultiNormalVec n prob)
+    deriving (Read,Show,Eq,Ord,Semigroup,Monoid{-,RegularSemigroup-})
+
+data MultiNormalArray prob (n::Nat) = MultiNormalArray
     { m0 :: !prob
     , m1 :: !(UArray Int prob)
     , m2 :: !(UArray (Int,Int) prob)
     }
 --     deriving (Show,Eq,Ord)
 
-instance (Show prob, IArray UArray prob) => Show (MultiNormal prob (n::Nat)) where
-    show mn = "MultiNormal { m0="++(show $ m0 mn)++", m1="++(show $ m1 mn)++", m2="++(show $ m2 mn)++" }"
+instance (Show prob, IArray UArray prob) => Show (MultiNormalArray prob (n::Nat)) where
+    show mn = "MultiNormalArray { m0="++(show $ m0 mn)++", m1="++(show $ m1 mn)++", m2="++(show $ m2 mn)++" }"
 
-instance NFData (MultiNormal prob n) where
+instance NFData (MultiNormalArray prob n) where
     rnf mn = seq m0 $ seq m1 $ seq m2 $ ()
 
 -------------------------------------------------------------------------------
@@ -86,8 +77,8 @@ instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) wh
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
 
-instance (Num prob, SingI n, IArray UArray prob) => Semigroup (MultiNormal prob n) where
-    mn1 <> mn2 = MultiNormal
+instance (Num prob, SingI n, IArray UArray prob) => Semigroup (MultiNormalArray prob n) where
+    mn1 <> mn2 = MultiNormalArray
         { m0 = (m0 mn1) + (m0 mn2)
         , m1 = listArray (0,k-1) $ zipWith (+) (elems $ m1 mn1) (elems $ m1 mn2)
         , m2 = listArray ((0,0),(k-1,k-1)) $ zipWith (+) (elems $ m2 mn1) (elems $ m2 mn2)
@@ -95,8 +86,8 @@ instance (Num prob, SingI n, IArray UArray prob) => Semigroup (MultiNormal prob 
         where
             k = fromIntegral $ fromSing (sing :: Sing n)
     
-instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormal prob n) where
-    mempty = MultiNormal
+instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormalArray prob n) where
+    mempty = MultiNormalArray
         { m0 = 0
         , m1 = listArray (0,k-1) $ repeat 0
         , m2 = listArray ((0,0),(k-1,k-1)) $ repeat 0
@@ -108,13 +99,12 @@ instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormal prob n) 
 -------------------------------------------------------------------------------
 -- training
 
-instance ModelParams (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
+instance ModelParams (MultiNormalVec n prob) where
+    type Params (MultiNormalVec n prob) = NoParams
     getparams _ = NoParams
 
-instance DefaultParams (NoParams (MultiNormalVec n prob)) (MultiNormalVec n prob) where
-    defparams = NoParams
-
-instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (NoParams (MultiNormalVec n prob)) (VU.Vector prob) (MultiNormalVec n prob) where
+instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (MultiNormalVec n prob) where
+    type Datapoint (MultiNormalVec n prob) = (VU.Vector prob) 
     train1dp' _ dp = MultiNormalVec
         { q0 = 1
         , q1 = dp
@@ -123,21 +113,41 @@ instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (NoParams (MultiNormal
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
 
-instance ModelParams (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
+instance ModelParams (MultiNormal n prob) where
+    type Params (MultiNormal n prob) = NoParams
     getparams _ = NoParams
     
-instance DefaultParams  (NoParams (MultiNormal prob n)) (MultiNormal prob n) where
-    defparams = NoParams
+class HList2List xs a | xs -> a where
+    hlist2list :: xs -> [a]
+instance HList2List (HList '[]) a where
+    hlist2list xs = []
+instance (HList2List (HList xs) a) => HList2List (HList (a ':xs)) a where
+    hlist2list (x:::xs) = x:(hlist2list xs)
+    
+instance 
+    ( SingI n
+    , Num prob
+    , VU.Unbox prob
+    , HList2List (Datapoint (MultiNormal n prob)) prob
+    ) => HomTrainer (MultiNormal n prob) 
+        where
+    type Datapoint (MultiNormal n prob) = HList (Replicate prob n)
+    train1dp' _ dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
+
+instance ModelParams (MultiNormalArray prob n) where
+    type Params (MultiNormalArray prob n) = NoParams
+    getparams _ = NoParams
 
 instance 
     ( Num prob
     , SingI n
     , IArray UArray prob
 --     , MArray (STUArray s) prob (ST s)
-    ) => HomTrainer (NoParams (MultiNormal prob n)) (UArray Int prob) (MultiNormal prob n) 
+    ) => HomTrainer (MultiNormalArray prob n) 
         where
+    type Datapoint (MultiNormalArray prob n) = (UArray Int prob) 
               
-    train1dp' _ dp = MultiNormal
+    train1dp' _ dp = MultiNormalArray
         { m0 = 1
         , m1 = dp
         , m2 = listArray ((0,0),(k-1,k-1)) [(dp ! i)*(dp ! j) | j<-[0..k-1], i<-[0..k-1]]
@@ -162,7 +172,7 @@ instance
 class Covariance dist prob | dist -> prob where
     covar :: dist -> UArray (Int,Int) prob
 
-instance (Show prob, Fractional prob, SingI k, IArray UArray prob) => Covariance (MultiNormal prob k) prob where
+instance (Show prob, Fractional prob, SingI k, IArray UArray prob) => Covariance (MultiNormalArray prob k) prob where
     covar mn = listArray ((0,0),(k-1,k-1)) $ 
             [ (1/(n-1))*( mij - ((m1 mn ! j)*(m1 mn ! i))/n ) 
             | ((i,j),mij) <- assocs (m2 mn) 
@@ -181,7 +191,7 @@ ds = map (listArray (0,2))
     ,[3,1,1]
     ]
 
-test = train ds :: MultiNormal Double 3
+test = train ds :: MultiNormalArray Double 3
 
 ds2 = map VU.fromList
     [[1,2,4]

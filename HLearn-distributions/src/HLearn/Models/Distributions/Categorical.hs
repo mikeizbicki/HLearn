@@ -4,6 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeFamilies #-}
 
 
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/Categorical_distribution>
@@ -11,7 +12,6 @@ module HLearn.Models.Distributions.Categorical
     ( 
     -- * Data types
     Categorical (Categorical)
-    , CategoricalParams
     
     -- * Helper functions
     , dist2list
@@ -34,28 +34,17 @@ import HLearn.Models.Distributions.Common
 -------------------------------------------------------------------------------
 -- CategoricalParams
 
--- | The Categorical distribution takes no parameters
-data CategoricalParams prob = CategoricalParams
-    deriving (Read,Show,Eq,Ord)
-
-instance NFData (CategoricalParams prob) where
-    rnf x = ()
-
-instance ModelParams (CategoricalParams prob) (Categorical label prob) where
-    getparams model = CategoricalParams
-
-instance DefaultParams (CategoricalParams prob) (Categorical label prob) where
--- instance DefaultModel (CategoricalParams prob) (Categorical Int Double) where
-    defparams = CategoricalParams
+instance ModelParams (Categorical label prob) where
+    type Params (Categorical label prob) = NoParams
+    getparams _ = NoParams
 
 -------------------------------------------------------------------------------
 -- Categorical
 
 data Categorical sampletype prob = Categorical 
-        { pdfmap :: !(Map.Map sampletype prob)
-        } 
+    { pdfmap :: !(Map.Map sampletype prob)
+    } 
     deriving (Show,Read,Eq,Ord)
-
 
 instance (NFData sampletype, NFData prob) => NFData (Categorical sampletype prob) where
     rnf d = rnf $ pdfmap d
@@ -63,7 +52,8 @@ instance (NFData sampletype, NFData prob) => NFData (Categorical sampletype prob
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Ord label, Num prob) => HomTrainer (CategoricalParams prob) label (Categorical label prob) where
+instance (Ord label, Num prob) => HomTrainer (Categorical label prob) where
+    type Datapoint (Categorical label prob) = label
     train1dp' params dp = Categorical $ Map.singleton dp 1
 
 -------------------------------------------------------------------------------

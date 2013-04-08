@@ -13,7 +13,7 @@ import HLearn.Algebra
 
 -------------------------------------------------------------------------------
 -- Distribution
-    
+
 class PDF dist dp prob | dist -> dp, dist -> prob where
     pdf :: dist -> dp -> prob 
     

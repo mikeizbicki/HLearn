@@ -389,19 +389,14 @@ We use the homomorphic learning method to define the training routines for our G
 data GaussianParams datatype = GaussianParams
     deriving (Read,Show,Eq,Ord)
 
-instance ModelParams (GaussianParams datatype) (Gaussian datatype) where
+instance ModelParams (Gaussian datatype) where
+    type Params (Gaussian datatype) = NoParams
     {-# INLINE getparams #-}
-    getparams _ = GaussianParams
-    
-instance DefaultParams (GaussianParams datatype) (Gaussian datatype) where
-    {-# INLINE defparams #-}
-    defparams = GaussianParams
+    getparams _ = NoParams
 
-instance NFData (GaussianParams datatype) where
-    rnf params = ()
-
-instance HomTrainer (GaussianParams Double) Double (Gaussian Double) where
-    train1dp' GaussianParams x = Gaussian 1 x 0 0
+instance (Fractional datapoint) => HomTrainer (Gaussian datapoint) where
+    type Datapoint (Gaussian datapoint) = datapoint
+    train1dp' _ x = Gaussian 1 x 0 0
 
 \end{code}
 
@@ -427,7 +422,8 @@ $$
 P(x) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x-\mu)^2}{2\sigma^2}}
 $$
 \begin{code}
-data GaussianPDF = GaussianPDF
+
+{-data GaussianPDF = GaussianPDF
     { prob :: Double
     , weight :: Double
     }
@@ -449,7 +445,7 @@ instance Monoid GaussianPDF where
     mappend = (<>)
 
 instance HomTrainer GaussianPDFParams (Gaussian Double) GaussianPDF where
-    train' GaussianPDFParams = undefined
+    train' GaussianPDFParams = undefined-}
     
 \end{code}
 

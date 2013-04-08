@@ -4,6 +4,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 
 module HLearn.Models.Distributions.Unital
     where
@@ -33,18 +36,18 @@ instance (Num prob) => RegularSemigroup (Unital prob) where
 -------------------------------------------------------------------------------
 -- training
 
-instance Model (NoParams (Unital prob)) (Unital prob) where
+instance ModelParams (Unital prob) where
+    type Params (Unital prob) = NoParams
     getparams _ = NoParams
     
-instance DefaultModel (NoParams (Unital prob)) (Unital prob) where
-    defparams = NoParams
     
-instance (Num prob) => HomTrainer (NoParams (Unital prob)) () (Unital prob) where
-    train1dp' _ () = Unital 1
+instance (Num prob) => HomTrainer (Unital prob) where
+    type Datapoint (Unital prob) = HList '[]
+    train1dp' _ HNil = Unital 1
     
 -------------------------------------------------------------------------------
 -- distributions
 
-instance Distribution (Unital prob) () prob where
+instance PDF (Unital prob) () prob where
     pdf (Unital prob) () = prob
 

@@ -7,7 +7,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/CatContainer_distribution>
 module HLearn.Models.Distributions.CatContainer
@@ -35,42 +39,73 @@ import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Unital
 
+import HLearn.Models.Distributions.MultiNormal hiding (ds)
+import HLearn.Models.Distributions.Moments
+
 -------------------------------------------------------------------------------
 -- data types
 
-data CatParams sampletype prob baseparams = CatParams
+data CatParams baseparams  = CatParams
     { baseparams :: baseparams 
     }
     deriving (Read,Show,Eq,Ord)
 
-data CatContainer' sampletype prob baseparams basedist = CatContainer'
-    { params :: CatParams sampletype prob baseparams
-    , pdfmap :: !(Map.Map sampletype basedist)
+instance (DefaultParams baseparams) => DefaultParams (CatParams baseparams ) where
+    defparams = CatParams defparams
+
+data CatContainer' label basedist prob = CatContainer'
+    { params :: CatParams (Params basedist)
+    , pdfmap :: !(Map.Map label basedist)
+    , probmap :: !(Map.Map label prob)
     , catnumdp :: prob
     } 
-    deriving (Show,Read,Eq,Ord)
+--     deriving (Show,Read,Eq,Ord)
 
-instance (NFData sampletype, NFData prob, NFData baseparams, NFData basedist) => NFData (CatContainer' sampletype prob baseparams basedist) where
+instance (Show basedist, Show (Params basedist), Show label, Show prob) => Show (CatContainer' label basedist prob) where
+    show dist = "CatContainer' "
+--               ++"{ "++"params="++show (params dist)
+              ++"{ "++"pdfmap="++show (pdfmap dist)
+              ++", catnumdp="++show (catnumdp dist)
+              ++"}"
+
+instance (NFData label, NFData prob, NFData basedist, NFData (Params basedist)) => 
+    NFData (CatContainer' label basedist prob) 
+        where
     rnf d = rnf $ pdfmap d
 
-type CatContainer sampletype prob baseparams basedist = 
-    RegSG2Group (CatContainer' sampletype prob baseparams basedist)
+type CatContainer label basedist prob = RegSG2Group (CatContainer' label basedist prob)
+--     deriving (Show,Semigroup,Monoid,RegularSemigroup)
+
+-- newtype Cat label basedist prob = Cat (RegSG2Group (CatContainer' label basedist prob))
+-- deriving instance (Semigroup (CatContainer label basedist prob)) => 
+--     Semigroup (Cat label basedist prob)
+-- deriving instance (Monoid (CatContainer label basedist prob)) => 
+--     Monoid (Cat label basedist prob)
+-- deriving instance (RegularSemigroup (CatContainer label basedist prob)) => 
+--     RegularSemigroup (Cat label basedist prob)
+
+
+
+-- type family CatContainer label basedist prob
+-- type instance CatContainer label basedist prob = RegSG2Group (CatContainer' label basedist prob)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num prob, Eq baseparams, Semigroup basedist) => Abelian (CatContainer' label prob baseparams basedist)
-instance (Ord label, Num prob, Eq baseparams, Semigroup basedist) => Semigroup (CatContainer' label prob baseparams basedist) where
+instance (Ord label, Num prob, Eq (Params basedist), Semigroup basedist) => Abelian (CatContainer' label basedist prob)
+instance (Ord label, Num prob, Eq (Params basedist), Semigroup basedist) => Semigroup (CatContainer' label basedist prob) where
     d1 <> d2 = if params d1 /= params d2
         then error "CatContainer'.(<>): dart"
         else d1 
             { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
+            , probmap = Map.unionWith (+) (probmap d1) (probmap d2) 
             , catnumdp  = (catnumdp d1)+(catnumdp d2)
             } 
 
-instance (Ord label, Num prob, Eq baseparams, RegularSemigroup basedist) => RegularSemigroup (CatContainer' label prob baseparams basedist) where
+instance (Ord label, Num prob, Eq (Params basedist), RegularSemigroup basedist) => RegularSemigroup (CatContainer' label basedist prob) where
     inverse d1 = d1 
         { pdfmap = Map.map (inverse) (pdfmap d1)
+        , probmap = Map.map negate (probmap d1)
         , catnumdp = -catnumdp d1
         }
 
@@ -85,28 +120,25 @@ instance (Ord label, Num prob, Eq baseparams, RegularSemigroup basedist) => Regu
 -------------------------------------------------------------------------------
 -- Training
 
-instance 
-    ( Eq baseparams
-    ) => Model (CatParams label prob baseparams) (CatContainer label prob baseparams basedist) 
+instance ModelParams (CatContainer label basedist prob) 
         where
+    type Params (CatContainer label basedist prob) = CatParams (Params basedist)
     getparams (SGJust model) = params model
 
 instance 
-    ( Eq baseparams
-    , DefaultModel baseparams basedist
-    ) => DefaultModel (CatParams label prob baseparams) (CatContainer label prob baseparams basedist) 
-        where
-    defparams = CatParams defparams
-    
-instance 
     ( Ord label
     , Num prob
-    , HomTrainer baseparams basedp basedist
-    ) => HomTrainer (CatParams label prob baseparams) (label,basedp) (CatContainer label prob baseparams basedist) 
+    , Eq (Params basedist)
+    , HomTrainer basedist
+    , Datapoint basedist ~ HList t0
+    ) => HomTrainer (CatContainer label basedist prob) 
         where
-    train1dp' params (dp,basedp) = SGJust $ CatContainer' 
+    type Datapoint (CatContainer label basedist prob) = label `HCons` (Datapoint basedist)
+    
+    train1dp' params (dp:::basedp) = SGJust $ CatContainer' 
         { params = params
         , pdfmap = Map.singleton dp $ train1dp' (baseparams params) basedp
+        , probmap = Map.singleton dp 1
         , catnumdp  = 1
         }
 
@@ -119,16 +151,14 @@ class NumDP model dp | model -> dp where
 instance NumDP (Unital prob) prob where
     numdp (Unital prob) = prob
     
-instance NumDP (CatContainer label prob baseparams basedist) prob where
+instance NumDP (CatContainer label basedist prob) prob where
     numdp (SGJust dist) = catnumdp dist
 
--- class Marginalizable dist where
---     marginalizeRight :: 
-
-marginalizeRight :: (NumDP basedist prob) => CatContainer label prob baseparams basedist -> CatContainer label prob (NoParams (Unital prob)) (Unital prob)
+marginalizeRight :: (NumDP basedist prob) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
 marginalizeRight (SGJust dist) = SGJust $ CatContainer'
     { params = CatParams NoParams
     , pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
+    , probmap = error "probmap"
     , catnumdp = catnumdp dist
     }
 -- marginalizeRight (SGJust dist) = Map.foldr mappend mempty (pdfmap dist)
@@ -137,18 +167,23 @@ instance
     ( Ord label
     , Ord prob
     , Fractional prob
-    , Distribution basedist basedp prob
-    ) => Distribution (CatContainer label prob baseparams basedist) (label,basedp) prob 
+    , Show prob
+    , PDF basedist basedp prob
+    ) => PDF (CatContainer label basedist prob) (label,basedp) prob 
         where
 
     {-# INLINE pdf #-}
-    pdf (SGJust dist) (label,basedp) = (val/(catnumdp dist))
+    pdf (SGJust dist) (label,basedp) = val*weight/(catnumdp dist)
         where
+            weight = case Map.lookup label (probmap dist) of
+                Nothing -> 0
+                Just x  -> x
             val = case Map.lookup label (pdfmap dist) of
                 Nothing -> 0
                 Just x  -> pdf x basedp
 
 ---------------------------------------
+
 
 -- instance (Ord label, Ord prob, Fractional prob) => CDF (CatContainer label prob) label prob where
 -- 
@@ -180,7 +215,7 @@ instance
 -- mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 -- 
 -- -- | Converts a distribution into a list of (sample,probability) pai
--- dist2list :: CatContainer sampletype prob -> [(sampletype,prob)]
+-- dist2list :: CatContainer label prob -> [(label,prob)]
 -- dist2list (CatContainer pdfmap) = Map.toList pdfmap
 
 
@@ -200,22 +235,53 @@ instance
 -------------------------------------------------------------------------------
 -- test
 
-ds= [ (1,(1,()))
-    , (1,(2,()))
-    , (2,(2,()))
-    ] :: [(Int,(Int,()))]
+ds= [ "test":::'g':::1:::1:::HNil
+    , "test":::'f':::1:::2:::HNil
+    , "toot":::'f':::2:::2:::HNil
+    ]
     
+-- test  = train ds :: CatContainer Int (CatContainer Int (Unital Double) Double) Double
+test' = train ds :: MultiCategorical' '[String,Char] (MultiNormal 2) Double
+{-
+test = train undefined :: Multivariate 
+    '[ FullCategorical 3
+     , MultiNormal 5
+     ]
+     Double-}
+
+data CatContainerContainer (distL :: [* -> * -> * -> *]) (labelL :: [*]) prob
+
+data MultiCat (labelL :: [*]) basedist prob
+
+-- test = train [] :: MultivariateL
+test = undefined :: MultivariateL
+    '[ CatContainer' Int
+     , CatContainer' String
+     , NormalContainer Double
+     ]
+     Double
+
+data MultivariateL' (xs::[* -> * -> *]) prob = MultivariateL' (MultivariateL xs prob)
+
+data NormalContainer sample basedist prob = NormalContainer (Normal sample)
+
+type family MultivariateL (xs::[* -> * -> *]) prob
+-- type family MultivariateL (xs::a) prob
+type instance MultivariateL '[] prob = Unital prob
+type instance MultivariateL ((NormalContainer prob) ': '[]) prob = 
+    Normal prob
+type instance MultivariateL ((CatContainer' label) ': xs) prob = 
+    CatContainer label (MultivariateL xs prob) prob
+
+type family MultiCategorical (xs :: [*]) prob :: *
+type instance MultiCategorical xs prob = MultiCategorical' xs Unital prob
+
+type family MultiCategorical' (xs :: [*]) (basedist:: * -> *) prob :: *
+type instance MultiCategorical' '[] basedist prob = basedist prob
+type instance MultiCategorical' (x ': xs) basedist prob = 
+    CatContainer x (MultiCategorical' xs basedist prob) prob
     
-type family Cat label prob basedist :: *
--- type instance Cat (label,()) prob = CatContainer label prob (NoParams (Unital prob)) (Unital prob)
-type instance Cat label prob basedist = CatContainer label prob (Params basedist) basedist
-
-type family Categorical labelL prob :: *
-type instance Categorical () prob = Unital prob
-type instance Categorical (label,basedp) prob = CatContainer label prob (Params (Categorical basedp prob)) (Categorical basedp prob)
-
-type family Params model :: *
-type instance Params (CatContainer label prob baseparams basedist) = CatParams label prob baseparams
-type instance Params (Unital prob) = NoParams (Unital prob)
-
-test = train ds :: CatContainer Int Double (CatParams Int Double (NoParams (Unital Double))) (CatContainer Int Double (NoParams (Unital Double)) (Unital Double))
+-- type family MultiCategorical'' (xs :: [*]) :: * -> * -> *
+-- type instance MultiCategorical' '[] = Unital prob
+-- type instance MultiCategorical' (x ': xs) = 
+--     CatContainer x (MultiCategorical' xs basedist prob) prob
