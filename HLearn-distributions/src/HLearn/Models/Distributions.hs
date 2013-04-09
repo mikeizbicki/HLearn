@@ -7,20 +7,19 @@
 
 module HLearn.Models.Distributions
     ( module HLearn.Models.Distributions.Common
-    , module HLearn.Models.Distributions.Categorical
-    , module HLearn.Models.Distributions.Gaussian
+    , module HLearn.Models.Distributions.Univariate.Categorical
+    , module HLearn.Models.Distributions.Univariate.Moments
+    , module HLearn.Models.Distributions.Univariate.Uniform
 --     , module HLearn.Models.Distributions.KernelDensityEstimator
-    , module HLearn.Models.Distributions.Moments
-    , module HLearn.Models.Distributions.Multivariate
---     , module HLearn.Models.Distributions.Uniform
+    , module HLearn.Models.Distributions.Multivariate.MultiNormal
+    , module HLearn.Models.Distributions.Multivariate.Multivariate
     )
     where
 
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Categorical
-import HLearn.Models.Distributions.Gaussian
--- import HLearn.Models.Distributions.KernelDensityEstimator
-import HLearn.Models.Distributions.Moments
-import HLearn.Models.Distributions.Multivariate
-import HLearn.Models.Distributions.MultiNormal
--- import HLearn.Models.Distributions.Uniform
+import HLearn.Models.Distributions.Univariate.Categorical
+import HLearn.Models.Distributions.Univariate.Gaussian
+import HLearn.Models.Distributions.Univariate.Moments
+import HLearn.Models.Distributions.Univariate.Uniform
+import HLearn.Models.Distributions.Multivariate.Multivariate
+import HLearn.Models.Distributions.Multivariate.MultiNormal

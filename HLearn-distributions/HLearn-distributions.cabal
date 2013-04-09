@@ -12,49 +12,6 @@ Cabal-Version:       >=1.8
 homepage:            http://github.com/mikeizbicki/HLearn/
 bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 
-Executable HLearn-Distributions-Criterion
-    Main-is: src/examples/Criterion.hs
-    Build-Depends:      
-        HLearn-algebra              >= 0.0.1,
-        ConstraintKinds             >= 0.0.1,
-        HLearn-distributions        >= 0.0.1,
-        
-        base                        >= 3 && < 5,
-        criterion                   >= 0.6.1.1,
-        vector,
---        logfloat                , 
-        statistics,
-        array
-    ghc-options: 
-        -threaded
-        -rtsopts 
-        -O2 
-        -funbox-strict-fields
-        -- -prof
-        -- -fllvm
-
-Executable HLearn-Distributions-SpaceTests
-    Main-is: src/examples/SpaceTests.hs
-    Build-Depends:      
-        HLearn-algebra              >= 0.0.1,
-        --HLearn-algebra              ,
-        ConstraintKinds,
-        
-        HLearn-distributions        ,
-        base                        >= 3 && < 5,
-        criterion                   >= 0.6.1.1,
-        vector,
-        logfloat                , 
-        statistics
-    ghc-options: 
-        -threaded
-        -rtsopts 
-        -O2 
-        -funbox-strict-fields
-        --enable-executable-profiling
-        -- -prof
-        -- -fllvm
-
 Library
     Build-Depends:      
         HLearn-algebra          >= 0.1.2,
@@ -87,19 +44,12 @@ Library
         -O2 
         -- -fllvm
     Exposed-modules:
-        HLearn.Gnuplot.Distributions
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
-        HLearn.Models.Distributions.Categorical
-        --HLearn.Models.Distributions.KernelDensityEstimator
-        --HLearn.Models.Distributions.KernelDensityEstimator.Kernels
-        HLearn.Models.Distributions.Moments
-        HLearn.Models.Distributions.Multivariate
-        HLearn.Models.Distributions.MultiNormal
-        --HLearn.Models.Distributions.Normal
-        HLearn.Models.Distributions.Gaussian
-        --HLearn.Models.Distributions.GaussianOld
-        --HLearn.Models.Distributions.GaussianOld2
-        --HLearn.Models.Distributions.Poisson
-        HLearn.Models.Distributions.Uniform
+        HLearn.Models.Distributions.Gnuplot
+        HLearn.Models.Distributions.Univariate.Categorical
+        HLearn.Models.Distributions.Univariate.Moments
+        HLearn.Models.Distributions.Univariate.Uniform
+        HLearn.Models.Distributions.Multivariate.Multivariate
+        HLearn.Models.Distributions.Multivariate.MultiNormal
         

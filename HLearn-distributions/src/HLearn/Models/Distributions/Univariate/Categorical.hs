@@ -8,7 +8,7 @@
 
 
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/Categorical_distribution>
-module HLearn.Models.Distributions.Categorical
+module HLearn.Models.Distributions.Univariate.Categorical
     ( 
     -- * Data types
     Categorical (Categorical)

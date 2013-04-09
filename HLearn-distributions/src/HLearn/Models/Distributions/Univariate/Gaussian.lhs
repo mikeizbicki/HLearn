@@ -83,7 +83,7 @@ Michael Izbicki
 
 -- | The Gaussian distribution is an instance of 'HomTrainer.'  For examples of how to use this type, and the math behind it, see: <http://izbicki.me/blog/gausian-distributions-are-monoids>.
 
-module HLearn.Models.Distributions.Gaussian
+module HLearn.Models.Distributions.Univariate.Gaussian
     ( Gaussian 
     , GaussianParams (..)
     , meanG, varG
