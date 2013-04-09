@@ -131,7 +131,7 @@ instance
     , HList2List (Datapoint (MultiNormal n prob)) prob
     ) => HomTrainer (MultiNormal n prob) 
         where
-    type Datapoint (MultiNormal n prob) = HList (Replicate prob n)
+    type Datapoint (MultiNormal n prob) = HList $ Replicate n prob
     train1dp' _ dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
 instance ModelParams (MultiNormalArray prob n) where

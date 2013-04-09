@@ -59,7 +59,10 @@ instance (Ord label, Num prob) => HomTrainer (Categorical label prob) where
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (Ord label, Ord prob, Fractional prob) => PDF (Categorical label prob) label prob where
+instance (Ord label, Ord prob, Fractional prob) => Distribution (Categorical label prob) where
+    type Probability (Categorical label prob) = prob
+
+instance (Ord label, Ord prob, Fractional prob) => PDF (Categorical label prob) where
 
     {-# INLINE pdf #-}
     pdf dist label = {-0.0001+-}(val/tot)
@@ -69,7 +72,7 @@ instance (Ord label, Ord prob, Fractional prob) => PDF (Categorical label prob) 
                 Just x  -> x
             tot = F.foldl' (+) 0 $ pdfmap dist
 
-instance (Ord label, Ord prob, Fractional prob) => CDF (Categorical label prob) label prob where
+instance (Ord label, Ord prob, Fractional prob) => CDF (Categorical label prob) where
 
     {-# INLINE cdf #-}
     cdf dist label = (Map.foldl' (+) 0 $ Map.filterWithKey (\k a -> k<=label) $ pdfmap dist) 

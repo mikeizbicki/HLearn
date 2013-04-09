@@ -51,7 +51,10 @@ instance (Ord datapoint) => HomTrainer (Uniform datapoint) where
 -------------------------------------------------------------------------------
 -- distribution
 
-instance (Ord datapoint, Fractional datapoint) => PDF (Uniform datapoint) datapoint datapoint where
+instance (Ord datapoint) => Distribution (Uniform datapoint) where
+    type Probability (Uniform datapoint) = datapoint
+
+instance (Ord datapoint, Fractional datapoint) => PDF (Uniform datapoint) where
     pdf (SGJust dist) dp = if dp>=mindp dist && dp<=maxdp dist
         then 1/(range dist)
         else 0
@@ -61,6 +64,6 @@ instance
     , Fractional datapoint
     , Show datapoint
     , Ord datapoint
-    ) => PlottableDistribution (Uniform datapoint) datapoint datapoint where    
+    ) => PlottableDistribution (Uniform datapoint) where    
     minx (SGJust dist) = (mindp dist - range dist * 0.2)
     maxx (SGJust dist) = (maxdp dist + range dist * 0.2)

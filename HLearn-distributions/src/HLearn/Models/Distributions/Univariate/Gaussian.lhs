@@ -405,10 +405,13 @@ instance (Fractional datapoint) => HomTrainer (Gaussian datapoint) where
 convdistr :: Gaussian Double -> N.NormalDistribution
 convdistr g = N.normalDistr (mean g) ((stddev g)+0.001)
 
-instance PDF (Gaussian Double) Double Double where
+instance Distribution (Gaussian Double) where
+    type Probability (Gaussian Double) = Double
+
+instance PDF (Gaussian Double) where
     pdf g x = D.density (convdistr g) x
 
-instance CDF (Gaussian Double) Double Double where
+instance CDF (Gaussian Double) where
     cdf g x = D.cumulative (convdistr g) x
     cdfInverse g x = D.quantile (convdistr g) x
 \end{code}
