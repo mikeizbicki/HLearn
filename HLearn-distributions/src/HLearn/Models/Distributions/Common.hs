@@ -1,9 +1,14 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module HLearn.Models.Distributions.Common
-    ( PDF(..)
+    ( 
+    -- * Type classes
+    Distribution(..)
     , CDF(..)
+    , PDF(..)
+    
+    -- * Utility functions
     , nonoverlap
     )
     where
@@ -14,15 +19,23 @@ import HLearn.Algebra
 -------------------------------------------------------------------------------
 -- Distribution
 
-class PDF dist dp prob | dist -> dp, dist -> prob where
-    pdf :: dist -> dp -> prob 
+-- | We use the same class for both discrete and continuous distributions.  Unfortunately, we cannot use the type classes from the 'statistics' package because we require more flexibility than they offer.
+class (HomTrainer dist) => Distribution dist where
+    type Probability dist
+
+-- |  Technically, every distribution has a Cumulative Distribution Function (CDF), and so this type class should be merged with the "Distribution" type class.  However, I haven't had a chance to implement the CDF for most distributions yet, so this type class has been separated out.
+class (Distribution dist) => CDF dist where
+-- class CDF dist dp prob | dist -> dp, dist -> prob where
+    cdf :: dist -> Datapoint dist -> Probability dist
+    cdfInverse :: dist -> Probability dist -> Datapoint dist
+
+-- | Not every distribution has a Probability Density Function (PDF), however most distributions in the HLearn library do.  For many applications, the PDF is much more intuitive and easier to work with than the CDF.  For discrete distributions, this is often called a Probability Mass Function (PMF); however, for simplicity we use the same type class for both continuous and discrete data.
+class (Distribution dist) => PDF dist where
+    pdf :: dist -> Datapoint dist -> Probability dist
+
+-- class PDF dist dp prob | dist -> dp, dist -> prob where
+--     pdf :: dist -> dp -> prob 
     
--- | We use the same class for both discrete and continuous distributions.  Unfortunately, we cannot use the type classes from the 'statistics' package because we require more generalilty.
---
--- Every distribution has a Cummulative Distribution Function (CDF).  Not every distribution has the properties of the other type classes.
-class CDF dist dp prob | dist -> dp, dist -> prob where
-    cdf :: dist -> dp -> prob 
-    cdfInverse :: dist -> prob -> dp
 
 --     mean :: dist -> sample
 --     drawSample :: (RandomGen g) => dist -> Rand g sample
@@ -34,7 +47,11 @@ class CDF dist dp prob | dist -> dp, dist -> prob where
 --     overlap xs = fmap (sort . (flip pdf) [-10..10]) xs
 
 
-nonoverlap :: (Enum prob, Fractional prob, Ord prob, PDF dist dp prob, CDF dist dp prob) => [dist] -> prob
+nonoverlap :: 
+    ( Enum (Probability dist), Fractional (Probability dist), Ord (Probability dist)
+    , PDF dist
+    , CDF dist
+    ) => [dist] -> Probability dist
 nonoverlap xs = (sum scoreL)/(fromIntegral $ length scoreL)
     where
         scoreL = fmap (diffscore . reverse . sort . normalizeL) $ transpose $ fmap ((flip fmap) sampleL . pdf) xs

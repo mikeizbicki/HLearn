@@ -52,14 +52,14 @@ instance PlottableDataPoint Double where
     gensamples (start,stop) = fmap (\x -> start+x*(stop-start)/1000) [0..1000]
 
 class 
-    ( Show dp, Ord dp
-    , Show prob
-    , PDF dist dp prob
-    , PlottableDataPoint dp
-    ) => PlottableDistribution dist dp prob | dist -> dp where
+    ( Show (Datapoint dist), Ord (Datapoint dist)
+    , Show (Probability dist)
+    , PDF dist
+    , PlottableDataPoint (Datapoint dist)
+    ) => PlottableDistribution dist where
     
-    minx :: dist -> dp
-    maxx :: dist -> dp
+    minx :: dist -> Datapoint dist
+    maxx :: dist -> Datapoint dist
     
     plotDistribution :: PlotParams -> dist -> IO ()
     plotDistribution params dist = do
@@ -101,8 +101,8 @@ class
 
     plotdataL :: [dist] -> String
     plotdataL distL = mconcat 
-                            [show (x::dp) ++ (mconcat
-                                [ " " ++ show (pdf dist x::prob) 
+                            [show (x::Datapoint dist) ++ (mconcat
+                                [ " " ++ show (pdf dist x::Probability dist) 
                                 | dist <- distL
                                 ])
                                 ++"\n" 
@@ -114,7 +114,7 @@ class
             plotPoints = gensamples (minpt,maxpt)
 
     plotdata :: dist -> String
-    plotdata dist = mconcat [show (x::dp) ++ " " ++ show (pdf dist x::prob) ++"\n" | x <- plotPoints]
+    plotdata dist = mconcat [show (x::Datapoint dist) ++ " " ++ show (pdf dist x::Probability dist) ++"\n" | x <- plotPoints]
         where
             plotPoints = gensamples (minx dist,maxx dist)
 
@@ -157,7 +157,7 @@ class
         ++ "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, \\"
         ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"-}
         
-instance PlottableDistribution (Gaussian Double) Double Double where
+instance PlottableDistribution (Gaussian Double) where
     
     minx dist = (meanG dist)-5*(sqrt $ varG dist)
     maxx dist = (meanG dist)+5*(sqrt $ varG dist)

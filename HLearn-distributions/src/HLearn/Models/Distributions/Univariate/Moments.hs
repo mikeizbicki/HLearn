@@ -109,7 +109,10 @@ instance (Num prob) => HomTrainer (Normal prob) where
     type Datapoint (Normal prob) = prob
     train1dp' params dp = Normal $ train1dp' params dp
 
-instance (Floating prob) => PDF (Normal prob) prob prob where
+instance (Num prob) => Distribution (Normal prob) where
+    type Probability (Normal prob) = prob
+
+instance (Floating prob) => PDF (Normal prob) where
     pdf (Normal dist) dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
         where
             sigma2 = variance dist
