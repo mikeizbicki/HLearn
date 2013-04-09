@@ -4,96 +4,143 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE ConstraintKinds #-}
-
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
-
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE PolyKinds #-}
--- | 
+{-# LANGUAGE StandaloneDeriving #-}
 
+-- | 
 module HLearn.Models.Distributions.Multivariate
---     ( Multivariate
---     )
     where
+
+import Control.DeepSeq
+import Control.Monad.Random
+import Data.List
+import Data.List.Extras
+import Debug.Trace
+
+import qualified Data.Map.Strict as Map
+import qualified Data.Foldable as F
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Categorical
-import GHC.TypeLits
+import HLearn.Models.Distributions.Unital
+
+import HLearn.Models.Distributions.CatContainer hiding (ds,baseparams)
+import HLearn.Models.Distributions.MultiNormal hiding (ds)
+import HLearn.Models.Distributions.Moments
 
 -------------------------------------------------------------------------------
 -- data types
 
-data MultivariateParams distparams copulaparams = MultivariateParams distparams copulaparams
-    deriving (Read,Show,Eq,Ord)
-
-data Multivariate' distparams copulaparams distL copula prob = Multivariate' 
-    { params :: MultivariateParams distparams copulaparams
-    , distL :: (HList (Distribute distL prob)) 
-    , copula :: copula prob 
+data Container dist sample basedist prob = Container    
+    { dist :: dist prob
+    , basedist :: basedist
     }
---     deriving (Show,Eq,Ord)
-
-type Multivariate distparams copulaparams distL copula prob = 
-    RegSG2Group (Multivariate' distparams copulaparams distL copula prob)
-
-instance 
-    ( Semigroup (HList (Distribute distL prob))
-    , Semigroup (copula prob)
-    , Eq distparams
-    , Eq copulaparams
-    ) => Semigroup (Multivariate' distparams copulaparams distL copula prob) 
-        where
-    (Multivariate' params1 distL1 copula1)<>(Multivariate' params2 distL2 copula2) = 
-        if (params1/=params2)
-            then error "Multivariate.(<>): params not equal"
-            else Multivariate' 
-                { params = params1
-                , distL = (distL1<>distL2) 
-                , copula = (copula1<>copula2)
-                }
-
-instance
-    ( RegularSemigroup (HList (Distribute distL prob))
-    , RegularSemigroup (copula prob)
-    , Eq distparams
-    , Eq copulaparams
-    ) => RegularSemigroup (Multivariate' distparams copulaparams distL copula prob)
-        where
-    inverse mv = mv
-        { distL = inverse $ distL mv
-        , copula = inverse $ copula mv
-        }
-
--- instance 
---     ( Monoid (HList distL)
---     , Monoid copula
---     ) => Monoid (Multivariate' distL copula) 
---         where
---     mempty = Multivariate' mempty mempty
---     mappend (Multivariate' distL1 copula1) (Multivariate' distL2 copula2) = Multivariate' (distL1`mappend`distL2) (copula1`mappend`copula2)
+    
+deriving instance (Show (dist prob), Show (Params basedist), Show basedist) => 
+    Show (Container dist sample basedist prob)
 
 -------------------------------------------------------------------------------
--- Uniform
+-- Algebra
 
-data UniformParams prob = UniformParams
+instance 
+    ( Semigroup (dist prob)
+    , Semigroup basedist
+    ) => Semigroup (Container dist sample basedist prob) 
+        where
+    c1<>c2 = Container
+        { dist = dist c1 <> dist c2
+        , basedist = basedist c1 <> basedist c2
+        }
+        
+instance 
+    ( Monoid (dist prob)
+    , Monoid basedist
+    , Semigroup (Container dist sample basedist prob) 
+    ) => Monoid (Container dist sample basedist prob) 
+        where
+    mempty = Container mempty mempty
+    c1 `mappend` c2 = c1<>c2
 
-data Uniform prob = Uniform
+-------------------------------------------------------------------------------
+-- Training
 
-instance (Num prob) => PDF (Uniform prob) dp prob where
-    pdf _ _ = 1
-
-instance Semigroup (Uniform prob) where
-    Uniform <> Uniform = Uniform
+instance 
+    ( ModelParams (dist prob)
+    , ModelParams (basedist)
+    , Params basedist ~ HList xs
+    ) => ModelParams (Container dist sample basedist prob) 
+        where
+    type Params (Container dist sample basedist prob) = (Params (dist prob)) `HCons` (Params basedist)
+    getparams c = (getparams $ dist c):::(getparams $ basedist c)
     
-instance Monoid (Uniform prob) where
-    mempty = Uniform
-    mappend _ _ = Uniform
+instance 
+    ( HomTrainer (dist prob)
+    , HomTrainer basedist
+    , Params basedist ~ HList xs
+    , Datapoint basedist ~ HList ys
+    ) =>  HomTrainer (Container dist sample basedist prob) 
+        where
+    type Datapoint (Container dist sample basedist prob) = 
+        (Datapoint (dist prob)) `HCons` (Datapoint basedist)
+        
+    train1dp' (distparams:::baseparams) (dp:::basedp) = Container
+        { dist = train1dp' distparams dp
+        , basedist = train1dp' baseparams basedp
+        }
+
+-------------------------------------------------------------------------------
+-- Distribution
+    
+-------------------------------------------------------------------------------
+-- test
+
+ds2=[ "test":::'g':::1:::1:::HNil
+    , "test":::'f':::1:::2:::HNil
+    , "toot":::'f':::2:::2:::HNil
+    ]
+    
+ds= [ "test":::'g':::1:::HNil
+    , "test":::'f':::1:::HNil
+    , "toot":::'f':::2:::HNil
+    ]
+    
+
+    
+-- testds = train ds :: MultiCategorical' '[String,Char] (Container Normal Double (Unital Double)) Double
+
+testds = train ds2 :: MultivariateL
+    '[ CatContainer' String
+     , CatContainer' Char
+     , Container Normal Double
+     , Container Normal Double
+     ]
+     Double
+
+data MultivariateL' (xs::[* -> * -> *]) prob = MultivariateL' (MultivariateL xs prob)
+
+type family MultivariateL (xs::[* -> * -> *]) prob
+-- type family MultivariateL (xs::a) prob
+type instance MultivariateL '[] prob = Unital prob
+type instance MultivariateL ((Container Normal prob) ': xs) prob = 
+    Container Normal prob (MultivariateL xs prob) prob
+type instance MultivariateL ((CatContainer' label) ': xs) prob = 
+    CatContainer label (MultivariateL xs prob) prob
+
+type family MultiCategorical (xs :: [*]) prob :: *
+type instance MultiCategorical xs prob = MultiCategorical' xs Unital prob
+
+type family MultiCategorical' (xs :: [*]) (basedist:: * -> *) prob :: *
+type instance MultiCategorical' '[] basedist prob = basedist prob
+type instance MultiCategorical' (x ': xs) basedist prob = 
+    CatContainer x (MultiCategorical' xs basedist prob) prob
+    
+-- type family MultiCategorical'' (xs :: [*]) :: * -> * -> *
+-- type instance MultiCategorical' '[] = Unital prob
+-- type instance MultiCategorical' (x ': xs) = 
+--     CatContainer x (MultiCategorical' xs basedist prob) prob

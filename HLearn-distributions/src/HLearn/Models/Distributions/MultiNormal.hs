@@ -185,18 +185,18 @@ instance (Show prob, Fractional prob, SingI k, IArray UArray prob) => Covariance
 -------------------------------------------------------------------------------
 -- tests
 
-ds = map (listArray (0,2)) 
-    [[1,2,4]
-    ,[2,5,6]
-    ,[3,1,1]
-    ]
-
-test = train ds :: MultiNormalArray Double 3
-
-ds2 = map VU.fromList
-    [[1,2,4]
-    ,[2,5,6]
-    ,[3,1,1]
-    ]
-
-test2 = train ds2 :: MultiNormalVec 3 Double
+-- ds = map (listArray (0,2)) 
+--     [[1,2,4]
+--     ,[2,5,6]
+--     ,[3,1,1]
+--     ]
+-- 
+-- test = train ds :: MultiNormalArray Double 3
+-- 
+-- ds2 = map VU.fromList
+--     [[1,2,4]
+--     ,[2,5,6]
+--     ,[3,1,1]
+--     ]
+-- 
+-- test2 = train ds2 :: MultiNormalVec 3 Double
