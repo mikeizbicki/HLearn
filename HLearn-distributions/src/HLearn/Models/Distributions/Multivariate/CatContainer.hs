@@ -14,7 +14,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/CatContainer_distribution>
-module HLearn.Models.Distributions.CatContainer
+module HLearn.Models.Distributions.Multivariate.CatContainer
 {-    ( 
     -- * Data types
     CatContainer (CatContainer)
@@ -37,10 +37,7 @@ import qualified Data.Foldable as F
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Unital
-
-import HLearn.Models.Distributions.MultiNormal hiding (ds)
-import HLearn.Models.Distributions.Moments
+import HLearn.Models.Distributions.Multivariate.Unital
 
 -------------------------------------------------------------------------------
 -- data types

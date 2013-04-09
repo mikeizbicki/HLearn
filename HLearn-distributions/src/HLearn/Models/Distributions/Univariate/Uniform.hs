@@ -5,13 +5,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module HLearn.Models.Distributions.Uniform
+module HLearn.Models.Distributions.Univariate.Uniform
     where
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Gnuplot.Distributions
+import HLearn.Models.Distributions.Gnuplot
 
 -------------------------------------------------------------------------------
 -- data types
@@ -39,13 +40,12 @@ instance (Ord datapoint) => Semigroup (Uniform' datapoint) where
 -------------------------------------------------------------------------------
 -- training
 
-instance ModelParams (NoParams (Uniform datapoint)) (Uniform datapoint) where
+instance ModelParams (Uniform datapoint) where
+    type Params (Uniform datapoint) = NoParams
     getparams _ = NoParams
     
-instance DefaultParams (NoParams (Uniform datapoint)) (Uniform datapoint) where
-    defparams = NoParams
-
-instance (Ord datapoint) => HomTrainer (NoParams (Uniform datapoint)) datapoint (Uniform datapoint) where
+instance (Ord datapoint) => HomTrainer (Uniform datapoint) where
+    type Datapoint (Uniform datapoint) = datapoint 
     train1dp' _ dp = SGJust $ Uniform' dp dp
 
 -------------------------------------------------------------------------------

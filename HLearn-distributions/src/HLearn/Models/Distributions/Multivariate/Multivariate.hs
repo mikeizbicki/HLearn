@@ -14,7 +14,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 -- | 
-module HLearn.Models.Distributions.Multivariate
+module HLearn.Models.Distributions.Multivariate.Multivariate
     where
 
 import Control.DeepSeq
@@ -28,11 +28,10 @@ import qualified Data.Foldable as F
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Unital
-
-import HLearn.Models.Distributions.CatContainer hiding (ds,baseparams)
-import HLearn.Models.Distributions.MultiNormal hiding (ds)
-import HLearn.Models.Distributions.Moments
+import HLearn.Models.Distributions.Multivariate.Unital
+import HLearn.Models.Distributions.Multivariate.CatContainer hiding (ds,baseparams)
+import HLearn.Models.Distributions.Multivariate.MultiNormal hiding (ds)
+import HLearn.Models.Distributions.Univariate.Moments
 
 -------------------------------------------------------------------------------
 -- data types
@@ -110,37 +109,42 @@ ds= [ "test":::'g':::1:::HNil
     , "toot":::'f':::2:::HNil
     ]
     
+newtype MultiCat (sampleL :: [*]) (basedist :: *) prob = MultiCat
+    { catL :: MultiCat' sampleL basedist prob
+    }
 
-    
--- testds = train ds :: MultiCategorical' '[String,Char] (Container Normal Double (Unital Double)) Double
+type family MultiCat' (xs :: [*]) (basedist:: *) prob :: *
+type instance MultiCat' '[] basedist prob = basedist
+type instance MultiCat' (x ': xs) basedist prob = 
+    CatContainer x (MultiCat' xs basedist prob) prob
 
-testds = train ds2 :: MultivariateL
-    '[ CatContainer' String
-     , CatContainer' Char
-     , Container Normal Double
-     , Container Normal Double
+type family Multi' (dist :: * -> * -> * -> *) (sampleL :: [*]) (basedist :: *) prob
+type instance Multi' dist '[] basedist prob = basedist
+type instance Multi' dist (x ': xs) basedist prob =
+    dist x (Multi' dist xs basedist prob) prob
+
+newtype MultiContainer (dist :: * -> *) (sampleL :: [*]) (basedist :: *) prob = Multi
+    { multiL :: MultiContainer' dist sampleL basedist prob
+    }
+
+type family MultiContainer' (dist :: * -> *) (sampleL :: [*]) (basedist :: *) prob
+type instance MultiContainer' dist '[] basedist prob = basedist
+type instance MultiContainer' dist (x ': xs) basedist prob =
+    Container dist x (MultiContainer' dist xs basedist prob) prob
+
+testds = {-train ds2-} undefined :: Multivariate
+    '[ MultiCat '[String,Char]
+     , MultiContainer Normal '[Double, Double]
      ]
      Double
 
-data MultivariateL' (xs::[* -> * -> *]) prob = MultivariateL' (MultivariateL xs prob)
+data Multivariate (xs::[* -> * -> *]) prob = Multivariate
+    { multidist :: MultivariateL xs prob
+    }
 
 type family MultivariateL (xs::[* -> * -> *]) prob
--- type family MultivariateL (xs::a) prob
 type instance MultivariateL '[] prob = Unital prob
 type instance MultivariateL ((Container Normal prob) ': xs) prob = 
     Container Normal prob (MultivariateL xs prob) prob
 type instance MultivariateL ((CatContainer' label) ': xs) prob = 
     CatContainer label (MultivariateL xs prob) prob
-
-type family MultiCategorical (xs :: [*]) prob :: *
-type instance MultiCategorical xs prob = MultiCategorical' xs Unital prob
-
-type family MultiCategorical' (xs :: [*]) (basedist:: * -> *) prob :: *
-type instance MultiCategorical' '[] basedist prob = basedist prob
-type instance MultiCategorical' (x ': xs) basedist prob = 
-    CatContainer x (MultiCategorical' xs basedist prob) prob
-    
--- type family MultiCategorical'' (xs :: [*]) :: * -> * -> *
--- type instance MultiCategorical' '[] = Unital prob
--- type instance MultiCategorical' (x ': xs) = 
---     CatContainer x (MultiCategorical' xs basedist prob) prob

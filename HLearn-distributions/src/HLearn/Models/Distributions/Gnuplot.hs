@@ -7,11 +7,12 @@
 
 -- | This file contains the functions for plotting distributions using Gnuplot.  The interface is still under heavy construction, so it's not very well documented as of yet.
 
-module HLearn.Gnuplot.Distributions
+module HLearn.Models.Distributions.Gnuplot
     where
 
 import HLearn.Algebra
-import HLearn.Models.Distributions
+import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Univariate.Gaussian
 
 import qualified Data.Map as Map
 import qualified Data.Vector.Unboxed as VU

@@ -14,7 +14,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeOperators #-}
 
-module HLearn.Models.Distributions.MultiNormal
+module HLearn.Models.Distributions.Multivariate.MultiNormal
     where
 
 -- import qualified Control.ConstraintKinds as CK
