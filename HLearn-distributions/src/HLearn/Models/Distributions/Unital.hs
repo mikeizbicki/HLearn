@@ -37,8 +37,8 @@ instance (Num prob) => RegularSemigroup (Unital prob) where
 -- training
 
 instance ModelParams (Unital prob) where
-    type Params (Unital prob) = NoParams
-    getparams _ = NoParams
+    type Params (Unital prob) = HList '[]
+    getparams _ = HNil
     
     
 instance (Num prob) => HomTrainer (Unital prob) where

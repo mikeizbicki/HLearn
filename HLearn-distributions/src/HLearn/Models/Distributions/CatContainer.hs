@@ -15,15 +15,15 @@
 
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/CatContainer_distribution>
 module HLearn.Models.Distributions.CatContainer
-    ( 
-{-    -- * Data types
+{-    ( 
+    -- * Data types
     CatContainer (CatContainer)
     , CatContainerParams (..)
     
     -- * Helper functions
     , dist2list
-    , mostLikely-}
-    )
+    , mostLikely
+    )-}
     where
 
 import Control.DeepSeq
@@ -154,14 +154,14 @@ instance NumDP (Unital prob) prob where
 instance NumDP (CatContainer label basedist prob) prob where
     numdp (SGJust dist) = catnumdp dist
 
-marginalizeRight :: (NumDP basedist prob) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
-marginalizeRight (SGJust dist) = SGJust $ CatContainer'
-    { params = CatParams NoParams
-    , pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
-    , probmap = error "probmap"
-    , catnumdp = catnumdp dist
-    }
--- marginalizeRight (SGJust dist) = Map.foldr mappend mempty (pdfmap dist)
+-- marginalizeRight :: (NumDP basedist prob) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
+-- marginalizeRight (SGJust dist) = SGJust $ CatContainer'
+--     { params = CatParams NoParams
+--     , pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
+--     , probmap = error "probmap"
+--     , catnumdp = catnumdp dist
+--     }
+-- -- marginalizeRight (SGJust dist) = Map.foldr mappend mempty (pdfmap dist)
 
 instance 
     ( Ord label
@@ -239,49 +239,3 @@ ds= [ "test":::'g':::1:::1:::HNil
     , "test":::'f':::1:::2:::HNil
     , "toot":::'f':::2:::2:::HNil
     ]
-    
--- test  = train ds :: CatContainer Int (CatContainer Int (Unital Double) Double) Double
-test' = train ds :: MultiCategorical' '[String,Char] (MultiNormal 2) Double
-{-
-test = train undefined :: Multivariate 
-    '[ FullCategorical 3
-     , MultiNormal 5
-     ]
-     Double-}
-
-data CatContainerContainer (distL :: [* -> * -> * -> *]) (labelL :: [*]) prob
-
-data MultiCat (labelL :: [*]) basedist prob
-
--- test = train [] :: MultivariateL
-test = undefined :: MultivariateL
-    '[ CatContainer' Int
-     , CatContainer' String
-     , NormalContainer Double
-     ]
-     Double
-
-data MultivariateL' (xs::[* -> * -> *]) prob = MultivariateL' (MultivariateL xs prob)
-
-data NormalContainer sample basedist prob = NormalContainer (Normal sample)
-
-type family MultivariateL (xs::[* -> * -> *]) prob
--- type family MultivariateL (xs::a) prob
-type instance MultivariateL '[] prob = Unital prob
-type instance MultivariateL ((NormalContainer prob) ': '[]) prob = 
-    Normal prob
-type instance MultivariateL ((CatContainer' label) ': xs) prob = 
-    CatContainer label (MultivariateL xs prob) prob
-
-type family MultiCategorical (xs :: [*]) prob :: *
-type instance MultiCategorical xs prob = MultiCategorical' xs Unital prob
-
-type family MultiCategorical' (xs :: [*]) (basedist:: * -> *) prob :: *
-type instance MultiCategorical' '[] basedist prob = basedist prob
-type instance MultiCategorical' (x ': xs) basedist prob = 
-    CatContainer x (MultiCategorical' xs basedist prob) prob
-    
--- type family MultiCategorical'' (xs :: [*]) :: * -> * -> *
--- type instance MultiCategorical' '[] = Unital prob
--- type instance MultiCategorical' (x ': xs) = 
---     CatContainer x (MultiCategorical' xs basedist prob) prob
