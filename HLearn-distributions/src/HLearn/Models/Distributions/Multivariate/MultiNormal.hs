@@ -13,6 +13,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module HLearn.Models.Distributions.Multivariate.MultiNormal
     where
@@ -41,8 +43,12 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
     }
     deriving (Read,Show,Eq,Ord)
 
-newtype MultiNormal (n::Nat) prob = MultiNormal (MultiNormalVec n prob)
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid{-,RegularSemigroup-})
+newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
+    deriving (Read,Show,Eq,Ord{-,Semigroup,Monoid,RegularSemigroup-})
+
+deriving instance (Semigroup (MultiNormalVec (Length xs) prob)) => Semigroup (MultiNormal xs prob)
+deriving instance (Monoid (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
+
 
 data MultiNormalArray prob (n::Nat) = MultiNormalArray
     { m0 :: !prob
@@ -125,13 +131,13 @@ instance (HList2List (HList xs) a) => HList2List (HList (a ':xs)) a where
     hlist2list (x:::xs) = x:(hlist2list xs)
     
 instance 
-    ( SingI n
+    ( SingI (Length xs)
     , Num prob
     , VU.Unbox prob
-    , HList2List (Datapoint (MultiNormal n prob)) prob
-    ) => HomTrainer (MultiNormal n prob) 
+    , HList2List (Datapoint (MultiNormal xs prob)) prob
+    ) => HomTrainer (MultiNormal xs prob) 
         where
-    type Datapoint (MultiNormal n prob) = HList $ Replicate n prob
+    type Datapoint (MultiNormal xs prob) = HList xs
     train1dp' _ dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
 instance ModelParams (MultiNormalArray prob n) where
