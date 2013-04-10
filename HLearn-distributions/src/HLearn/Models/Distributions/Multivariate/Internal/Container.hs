@@ -23,11 +23,14 @@ import HLearn.Models.Distributions.Common
 -------------------------------------------------------------------------------
 -- data types
 
-data Container dist sample basedist prob = Container    
+data Container dist sample basedist (prob:: * ) = Container    
     { dist :: dist prob
     , basedist :: basedist
     }
     deriving (Read,Show,Eq,Ord)
+    
+newtype MultiContainer dist sample basedist prob = MultiContainer (Container dist sample basedist prob)
+    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
 
 -------------------------------------------------------------------------------
 -- Algebra
@@ -108,6 +111,65 @@ instance
         , basedist = train1dp' baseparams basedp
         }
 
+---------------------------------------
+
+instance 
+    ( ModelParams (dist prob)
+    , ModelParams (basedist)
+    , Params basedist ~ HList xs
+    ) => ModelParams (MultiContainer dist sample basedist prob) 
+        where
+    type Params (MultiContainer dist sample basedist prob) = (Params (dist prob)) `HCons` (Params basedist)
+    getparams (MultiContainer c) = (getparams $ dist c):::(getparams $ basedist c)
+    
+-- instance 
+--     ( HomTrainer (dist prob)
+--     , HomTrainer basedist
+--     , Params basedist ~ HList xs
+--     , Datapoint basedist ~ HList ys
+--     , Datapoint (dist prob) ~ HList zs
+--     ) =>  HomTrainer (MultiContainer dist sample basedist prob) 
+--         where
+--     type Datapoint (MultiContainer dist sample basedist prob) = 
+--         (Datapoint (dist prob)) `HAppend` (Datapoint basedist)
+-- 
+--     train1dp' (distparams:::baseparams) (dp:::basedp) = Container
+--         { dist = train1dp' distparams dp
+--         , basedist = train1dp' baseparams basedp
+--         }
+
+type family HAppend xs ys :: *
+type instance HAppend (HList xs) (HList ys) = HList (xs ++ ys)
+
+--     train1dp' (distparams:::baseparams) (dp:::basedp) = Container
+--         { dist = train1dp' distparams dp
+--         , basedist = train1dp' baseparams basedp
+--         }
+
 -------------------------------------------------------------------------------
 -- Distribution
+    
+instance 
+    ( Distribution (dist prob)
+    , Distribution basedist
+    , Probability (dist prob) ~ prob
+    , Probability basedist ~ prob
+    , HomTrainer (Container dist sample basedist prob) 
+    ) => Distribution (Container dist sample basedist prob) 
+        where
+    type Probability (Container dist sample basedist prob) = prob
+    
+instance 
+    ( PDF (dist prob)
+    , PDF basedist
+    , Probability (dist prob) ~ prob
+    , Probability basedist ~ prob
+    , Distribution (Container dist sample basedist prob) 
+    , Datapoint basedist ~ HList ys
+    , Datapoint (dist prob) ~ y
+    , Datapoint (Container dist sample basedist prob) ~ HList (y ': ys)
+    , Num prob
+    ) => PDF (Container dist sample basedist prob) 
+        where
+    pdf container (dp:::basedp) = (pdf (dist container) dp)*(pdf (basedist container) basedp)
     
