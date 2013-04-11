@@ -13,9 +13,9 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
--- | 
+-- | Used for Multivariate distributions
 
-module HLearn.Models.Distributions.Multivariate.Multivariate
+module HLearn.Models.Distributions.Multivariate.Interface
     (
     Trainable (..)
     , Multivariate
@@ -30,13 +30,13 @@ module HLearn.Models.Distributions.Multivariate.Multivariate
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Multivariate.Internal.Container
-import HLearn.Models.Distributions.Multivariate.Unital
-import HLearn.Models.Distributions.Multivariate.CatContainer hiding (ds,baseparams)
+import HLearn.Models.Distributions.Multivariate.Internal.Unital
+import HLearn.Models.Distributions.Multivariate.Internal.CatContainer hiding (ds,baseparams)
 
 -------------------------------------------------------------------------------
 -- data types
 
--- | The "Trainable" class allows us to convert data types into an isomorphic "HList"s.  All of our multivariate distributions work on "HList"s, so they work on all instances of "Trainable" as well.
+-- | The Trainable class allows us to convert data types into an isomorphic "HList"s.  All of our multivariate distributions work on "HList"s, so they work on all instances of "Trainable" as well.
 class Trainable t where
     type GetHList t
     getHList :: t -> GetHList t
@@ -53,6 +53,15 @@ instance (Trainable (HList xs)) => Trainable (HList (x ': xs)) where
 -- Multivariate
 
 newtype Multivariate dp (xs :: [[* -> * -> *]]) prob = Multivariate (MultivariateTF (Concat xs) prob)
+
+type family MultivariateTF (xs::[* -> * -> *]) prob
+type instance MultivariateTF '[] prob = Unital prob
+type instance MultivariateTF ((Container univariate sample) ': xs) prob = 
+    Container univariate sample (MultivariateTF xs prob) prob
+type instance MultivariateTF ((MultiContainer dist sample) ': xs) prob = 
+    MultiContainer dist sample (MultivariateTF xs prob) prob
+type instance MultivariateTF ((CatContainer' label) ': xs) prob = 
+    CatContainer label (MultivariateTF xs prob) prob
 
 deriving instance (Read             (MultivariateTF (Concat xs) prob)) => Read              (Multivariate dp xs prob)
 deriving instance (Show             (MultivariateTF (Concat xs) prob)) => Show              (Multivariate dp xs prob)
@@ -98,22 +107,16 @@ instance
     
 -- type Multivariate (xs::[[* -> * -> *]]) prob = MultivariateTF (Concat xs) prob
 
-type family MultivariateTF (xs::[* -> * -> *]) prob
-type instance MultivariateTF '[] prob = Unital prob
-type instance MultivariateTF ((Container univariate sample) ': xs) prob = 
-    Container univariate sample (MultivariateTF xs prob) prob
-type instance MultivariateTF ((MultiContainer dist sample) ': xs) prob = 
-    MultiContainer dist sample (MultivariateTF xs prob) prob
-type instance MultivariateTF ((CatContainer' label) ': xs) prob = 
-    CatContainer label (MultivariateTF xs prob) prob
-
 type family MultiCategorical (xs :: [*]) :: [* -> * -> *]
 type instance MultiCategorical '[] = ('[])
 type instance MultiCategorical (x ': xs) = (CatContainer' x) ': (MultiCategorical xs)
+
+-- type Dependent dist (xs :: [*]) = '[ MultiContainer (dist xs) xs ]
+type family Dependent (dist::a) (xs :: [*]) :: [* -> * -> *]
+type instance Dependent dist xs = '[ MultiContainer (dist xs) xs ]
 
 type family Independent (dist :: a) (sampleL :: [*]) :: [* -> * -> *]
 type instance Independent dist '[] = '[]
 type instance Independent (dist :: * -> *) (x ': xs) = (Container dist x) ': (Independent dist xs)
 type instance Independent (dist :: * -> * -> *)  (x ': xs) = (Container (dist x) x) ': (Independent dist xs)
 
-type Dependent dist (xs::[*]) = '[ MultiContainer (dist xs) xs ]

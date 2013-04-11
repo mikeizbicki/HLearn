@@ -8,7 +8,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
-module HLearn.Models.Distributions.Multivariate.Unital
+module HLearn.Models.Distributions.Multivariate.Internal.Unital
     where
 
 import HLearn.Algebra

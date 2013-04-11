@@ -1,7 +1,7 @@
 Name:                HLearn-distributions
 Version:             1.0.0
 Synopsis:            Distributions for use with the HLearn library
-Description:         This module is used to estimate statistical distributions from data.  The focus is a clean interface inspired by algebra.
+Description:         This module is used to estimate statistical distributions from data.  It is based on the algebraic properties of the "HomTrainer" type class from the HLearn-algebra package.
 Category:            Data Mining, Machine Learning, Statistics
 License:             GPL
 --License-file:        LICENSE
@@ -44,12 +44,15 @@ Library
         -O2 
         -- -fllvm
     Exposed-modules:
-        --HLearn.Models.Distributions
+        HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
-        --HLearn.Models.Distributions.Gnuplot
-        --HLearn.Models.Distributions.Univariate.Categorical
-        --HLearn.Models.Distributions.Univariate.Normal
-        --HLearn.Models.Distributions.Univariate.Uniform
-        --HLearn.Models.Distributions.Multivariate.Multivariate
-        --HLearn.Models.Distributions.Multivariate.MultiNormal
+        HLearn.Models.Distributions.Gnuplot
+        HLearn.Models.Distributions.Univariate.Categorical
+        HLearn.Models.Distributions.Univariate.Exponential
+        HLearn.Models.Distributions.Univariate.Geometric
+        HLearn.Models.Distributions.Univariate.Normal
+        HLearn.Models.Distributions.Univariate.Poisson
+        HLearn.Models.Distributions.Univariate.Uniform
+        HLearn.Models.Distributions.Multivariate.Interface
+        HLearn.Models.Distributions.Multivariate.MultiNormal
         
