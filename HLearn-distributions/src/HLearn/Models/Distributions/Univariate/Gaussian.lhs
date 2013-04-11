@@ -107,7 +107,7 @@ import qualified Statistics.Distribution as D
 import qualified Statistics.Distribution.Normal as N
 
 import HLearn.Algebra
-import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Common hiding (mean,variance)
 
 {-# INLINE fi #-}
 fi :: (Integral a, Num b) => a -> b

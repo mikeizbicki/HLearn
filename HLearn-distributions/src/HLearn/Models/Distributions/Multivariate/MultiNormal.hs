@@ -49,6 +49,10 @@ newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) pro
 deriving instance (Semigroup (MultiNormalVec (Length xs) prob)) => Semigroup (MultiNormal xs prob)
 deriving instance (Monoid (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
 
+data MultiNormalContainer (sampleL::[*]) basedist prob = MNC 
+    { dist :: MultiNormal sampleL prob
+    , basedist :: basedist
+    }
 
 data MultiNormalArray prob (n::Nat) = MultiNormalArray
     { m0 :: !prob

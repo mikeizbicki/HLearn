@@ -9,9 +9,11 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | The 'HomTrainer' class forms the base of the HLearn library.  It represents homomorphisms from a free monoid/group to any other structure.  This captures our intuitive notion of how data mining and machine learning algorithms should behave, but in a way that allows for the easy creation of parallel and online algorithms.
+-- | Every model in the HLearn library is an instance of the 'HomTrainer' type class.  This ensures that the batch trainer is a monoid homomorphism.  This is a restrictive condition that not all learning models satisfy; however, it is useful for two reasons.  First, this property lets us easily derive three important functions for machine learning algorithms: online trainers, parallel trainers, and fast cross-validation algorithms.  Second, many popular algorithms (or variants on them) satisfy the condition and are implemented in the library.
 --
--- Unfortunately, we must slightly complicate the matter by also introducing the 'ModelParams' class.  Many learning algorithms take some sort of parameters, and we need the model class to define what those parameters should look like.  
+-- For a full theoretical description of the 'HomTrainer' class, see the paper: <INSERT HERE>
+--
+-- Unfortunately, the class hierarchy here is slightly more complicated.  In the paper, we assume that all parameters for a model can be included in the model's type.  Currently, however, this is not possible in Haskell, so every model must also have a data type that describes it's parameters.  This is the purpose of the 'ModelParams' class.  Most models have either no parameters, or reasonable defaults, and so their parameters are instances of the 'DefaultParams' class.
 
 module HLearn.Algebra.Models
     ( 
@@ -24,16 +26,6 @@ module HLearn.Algebra.Models
     , HomTrainer (..)
     , DefaultHomTrainer (..)
     
-    , Counter (..)
-    -- * Convenience functions
---     , sub1dp
---     , subBatch
-    
---     , Weighted (..)
-    -- * Type synonyms
---     , Labeled
---     , Weighted
---     , Label (..)
     )
     where
           
@@ -47,17 +39,18 @@ import HLearn.Algebra.Structures.Modules
 -------------------------------------------------------------------------------
 -- ModelParams
 
--- | Every model has at least one data type that that fully describes its parameters.  Many models do not actually *need* any parameters, in which case they will simply use an empty data type for modelparams.
+-- | Every model has at least one data type that that fully describes its parameters.  Many models do not actually *need* any parameters, in which case they can use the type 'NoParams'.
 class ModelParams model where
-    type Params model
-    getparams :: model -> Params model
+    type Params model 
+    getparams :: model -> Params model -- ^ Given a model, returns the parameters used to generate the model
 
--- | Every model needs a parameters structure.  If our model doesn't require parameters, we can use this wrapper to make that explicit.  This gives us access to the `DefaultHomTrainer` type class.
+-- | This data type can be used to specify that the model requires no parameters.
 data NoParams = NoParams
     deriving (Read,Show,Eq,Ord)
 
+-- | Many models have reasonable default parameters.  By making our parameters instances of 'DefaultParams', our models will become instances of 'DefaultHomTrainer' automatically.
 class DefaultParams params where
-    defparams :: params
+    defparams :: params -- ^ the default parameters
     
 instance DefaultParams NoParams where
     defparams = NoParams
@@ -67,6 +60,7 @@ instance DefaultParams NoParams where
 
 -- | A minimal complete definition of the class is the singleton trainer 'train1dp\''
 class (Semigroup model, Monoid model, ModelParams model) => HomTrainer model where
+    
     type Datapoint model
 
     -- | The singleton trainer
@@ -118,7 +112,6 @@ class (Semigroup model, Monoid model, ModelParams model) => HomTrainer model whe
     addBatchCK model = online (trainCK' (getparams model)) model
     
 -- | Provides parameterless functions for those training algorithms that do not require parameters
--- class ( HomTrainer model, Params model ~ NoParams) => DefaultHomTrainer model where
 class ( HomTrainer model, DefaultParams (Params model)) => DefaultHomTrainer model where
               
     -- | A singleton trainer that doesn't require parameters (uses 'defparams')

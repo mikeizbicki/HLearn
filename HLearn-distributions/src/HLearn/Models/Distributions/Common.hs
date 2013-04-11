@@ -7,6 +7,8 @@ module HLearn.Models.Distributions.Common
     Distribution(..)
     , CDF(..)
     , PDF(..)
+    , Mean(..)
+    , Variance(..)
     
     -- * Utility functions
     , nonoverlap
@@ -32,6 +34,14 @@ class (Distribution dist) => CDF dist where
 -- | Not every distribution has a Probability Density Function (PDF), however most distributions in the HLearn library do.  For many applications, the PDF is much more intuitive and easier to work with than the CDF.  For discrete distributions, this is often called a Probability Mass Function (PMF); however, for simplicity we use the same type class for both continuous and discrete data.
 class (Distribution dist) => PDF dist where
     pdf :: dist -> Datapoint dist -> Probability dist
+
+
+class (Distribution dist) => Mean dist where
+    mean :: dist -> Probability dist
+    
+class (Distribution dist) => Variance dist where
+    variance :: dist -> Probability dist
+
 
 -- class PDF dist dp prob | dist -> dp, dist -> prob where
 --     pdf :: dist -> dp -> prob 

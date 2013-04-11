@@ -14,10 +14,11 @@ import HLearn.Algebra
 -------------------------------------------------------------------------------
 -- data types
 
-data Binomial dp = Binomial
-    { m0 :: Rational
-    , m1 :: Rational
+data Binomial dp prob = Binomial
+    { m0 :: prob
+    , m1 :: prob
     }
+    deriving (Read,Show,Eq,Ord)
 
 -------------------------------------------------------------------------------
 -- algebra

@@ -4,6 +4,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | This file contains the functions for plotting distributions using Gnuplot.  The interface is still under heavy construction, so it's not very well documented as of yet.
 
@@ -12,7 +15,7 @@ module HLearn.Models.Distributions.Gnuplot
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Univariate.Gaussian
+-- import HLearn.Models.Distributions.Univariate.Gaussian
 
 import qualified Data.Map as Map
 import qualified Data.Vector.Unboxed as VU
@@ -21,6 +24,27 @@ import Control.Monad
 import Data.List
 import System.IO
 import System.Process
+
+-------------------------------------------------------------------------------
+-- Continuity
+
+data Discrete 
+data Continuous
+
+type family Continuity t :: *
+type instance Continuity Int = Discrete
+type instance Continuity Integer = Discrete
+type instance Continuity Char = Discrete
+type instance Continuity String = Discrete
+
+type instance Continuity Float = Continuous
+type instance Continuity Double = Continuous
+type instance Continuity Rational = Continuous
+
+-------------------------------------------------------------------------------
+-- data types
+
+data PlotType = Bar | Points | Continuous
 
 data PlotParams = PlotParams
     { dataFile :: FilePath
@@ -39,94 +63,108 @@ plotFile str = PlotParams
 genPlotParams :: String -> a -> PlotParams
 genPlotParams str a = plotFile str
 
-defPlotParams = PlotParams
-    { dataFile = "hlearn-distributions.dat"
-    , gnuFile = "hlearn-distributions.gnu"
-    , picFile = "hlearn-distributions.ps"
-    }
+-------------------------------------------------------------------------------
+-- plotting classes
 
-class PlottableDataPoint dp where
-    gensamples :: (dp,dp) -> [dp]
-    
-instance PlottableDataPoint Double where
-    gensamples (start,stop) = fmap (\x -> start+x*(stop-start)/1000) [0..1000]
+class (Show t, Ord t) => Plottable t
+instance (Show t, Ord t) => Plottable t
 
 class 
-    ( Show (Datapoint dist), Ord (Datapoint dist)
-    , Show (Probability dist)
+    ( Plottable (Datapoint dist)
+    , Plottable (Probability dist), Num (Probability dist)
     , PDF dist
-    , PlottableDataPoint (Datapoint dist)
     ) => PlottableDistribution dist where
-    
-    minx :: dist -> Datapoint dist
-    maxx :: dist -> Datapoint dist
-    
-    plotDistribution :: PlotParams -> dist -> IO ()
-    plotDistribution params dist = do
-        -- Create data file
-        putStrLn "Creating data file..."
-        datah <- openFile (dataFile params) WriteMode
-        hPutStrLn datah $ plotdata dist
-        hClose datah
-        
-        -- Create gnuplot file
-        putStrLn "Plotting data"
-        gnuh <- openFile (gnuFile params) WriteMode
-        hPutStrLn gnuh $ gnuplot params dist
-        hClose gnuh
-        
-        -- Run gnuplot, creating picture
-        system $ "gnuplot "++(gnuFile params)
-        putStrLn "done."
-        return ()
 
-    plotDistributionL :: PlotParams -> [dist] -> IO ()
-    plotDistributionL params distL = do
-        -- Create data file
-        putStrLn "Creating data file..."
-        datah <- openFile (dataFile params) WriteMode
-        hPutStrLn datah $ plotdataL distL
-        hClose datah
-        
-        -- Create gnuplot file
-        putStrLn "Plotting data"
-        gnuh <- openFile (gnuFile params) WriteMode
-        hPutStrLn gnuh $ gnuplotL params distL
-        hClose gnuh
-        
-        -- Run gnuplot, creating picture
-        system $ "gnuplot "++(gnuFile params)
-        putStrLn "done."
-        return ()
-
-    plotdataL :: [dist] -> String
-    plotdataL distL = mconcat 
-                            [show (x::Datapoint dist) ++ (mconcat
-                                [ " " ++ show (pdf dist x::Probability dist) 
-                                | dist <- distL
-                                ])
-                                ++"\n" 
-                            | x <- plotPoints
-                            ]
-        where
-            minpt = minimum $ fmap minx distL
-            maxpt = maximum $ fmap maxx distL
-            plotPoints = gensamples (minpt,maxpt)
+    samplePoints :: dist -> [Datapoint dist]
+    plotType :: dist -> PlotType
+    
+    pdfL :: dist -> [Probability dist]
+    pdfL dist = map (pdf dist) $ samplePoints dist
 
     plotdata :: dist -> String
     plotdata dist = mconcat [show (x::Datapoint dist) ++ " " ++ show (pdf dist x::Probability dist) ++"\n" | x <- plotPoints]
         where
-            plotPoints = gensamples (minx dist,maxx dist)
+            plotPoints = samplePoints dist
 
-    gnuplot  :: PlotParams -> dist -> String
-    gnuplot params dist
-        =  "set terminal postscript \"Times-Roman\" 25 \n"
-        ++ "set output \"" ++ (picFile params) ++ "\" \n"
-        ++ "unset xtics; unset ytics; unset key \n"
-        ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
-        ++ "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
-        ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"
+-------------------------------------------------------------------------------
+-- plotting functions
 
+plotDistribution :: (PlottableDistribution dist) => PlotParams -> dist -> IO ()
+plotDistribution params dist = do
+    -- Create data file
+    putStrLn "Creating data file..."
+    datah <- openFile (dataFile params) WriteMode
+    hPutStrLn datah $ plotdata dist
+    hClose datah
+    
+    -- Create gnuplot file
+    putStrLn "Plotting data"
+    gnuh <- openFile (gnuFile params) WriteMode
+    hPutStrLn gnuh $ gnuplotHeader params
+    hPutStrLn gnuh $ gnuplot params dist
+    hClose gnuh
+    
+    -- Run gnuplot, creating picture
+    system $ "gnuplot "++(gnuFile params)++" &"
+    putStrLn "done."
+    return ()
+
+gnuplotHeader :: PlotParams -> String
+gnuplotHeader params
+    =  "set terminal postscript \"Times-Roman\" 25 \n"
+    ++ "set size 0.81, 1\n"
+    ++ "set output \"" ++ (picFile params) ++ "\" \n"
+    ++ "unset xtics; unset ytics; unset key \n"
+    ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
+    ++ "zero(x)=0\n"
+
+-- class PlotHList t where
+--     plotargs :: t -> [(String,String)] -> [String]
+-- instance PlotHList (HList '[]) where
+--     plotargs HNil _ = []
+-- instance (PlotHList (HList xs)) => PlotHList (HList (x ': xs)) where
+--     plotargs (x:::xs) (linecolor,bgcolor):colorL = 
+--         ["'"++(dataFile params)++"' using 1:"++show i++" lt 1 lw 4 lc rgb '"++linecolor++"' with lines"]
+--         :(plotargs xs colorL)
+
+gnuplot :: (PlottableDistribution dist) => PlotParams -> dist -> String
+gnuplot params dist
+    =  yrange
+    ++ plotcmd
+    where
+        plotcmd = case (plotType dist) of
+            Continuous -> "plot '"++(dataFile params)++"' using 1:2:(zero($2)) lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
+--             Continuous -> "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
+                        ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"
+            Points -> "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with points "
+        positiveSamples = or $ map (>0) $ pdfL dist
+        negativeSamples = or $ map (<0) $ pdfL dist
+        yrange = if positiveSamples && negativeSamples
+            then ""
+            else if positiveSamples
+                then "set yrange [0:]\n"
+                else "set yrange [:0]\n"
+
+
+--     plotDistributionL :: PlotParams -> [dist] -> IO ()
+--     plotDistributionL params distL = do
+--         -- Create data file
+--         putStrLn "Creating data file..."
+--         datah <- openFile (dataFile params) WriteMode
+--         hPutStrLn datah $ plotdataL distL
+--         hClose datah
+--         
+--         -- Create gnuplot file
+--         putStrLn "Plotting data"
+--         gnuh <- openFile (gnuFile params) WriteMode
+--         hPutStrLn gnuh $ gnuplotL params distL
+--         hClose gnuh
+--         
+--         -- Run gnuplot, creating picture
+--         system $ "gnuplot "++(gnuFile params)
+--         putStrLn "done."
+--         return ()
+{-
     gnuplotL  :: PlotParams -> [dist] -> String
     gnuplotL params distL
         =  "set terminal postscript \"Times-Roman\" 25 \n"
@@ -143,7 +181,22 @@ class
             ])
         where 
             linecolorL = ["#0000ff", "#00ff00", "#ff0000"]
-            bgcolorL   = ["#ccccff", "#ccffcc", "#ffcccc"]
+            bgcolorL   = ["#ccccff", "#ccffcc", "#ffcccc"]-}
+--     plotdataL :: [dist] -> String
+--     plotdataL distL = mconcat 
+--                             [show (x::Datapoint dist) ++ (mconcat
+--                                 [ " " ++ show (pdf dist x::Probability dist) 
+--                                 | dist <- distL
+--                                 ])
+--                                 ++"\n" 
+--                             | x <- plotPoints
+--                             ]
+--         where
+--             plotPoints = mconcat $ fmap samplePoints distL
+
+
+
+
 {-instance PlottableDistribution (KDE Double) where
     plotdata dist = mconcat [show (x::Double) ++ " " ++ show (pdf dist x::Double) | x <- plotPoints]
         where
@@ -157,10 +210,10 @@ class
         ++ "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, \\"
         ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"-}
         
-instance PlottableDistribution (Gaussian Double) where
+{-instance PlottableDistribution (Gaussian Double) where
     
     minx dist = (meanG dist)-5*(sqrt $ varG dist)
-    maxx dist = (meanG dist)+5*(sqrt $ varG dist)
+    maxx dist = (meanG dist)+5*(sqrt $ varG dist)-}
     
         
 {-instance (Show label, Show prob, Num prob, Ord prob) => PlottableDistribution (Categorical label prob) label where
@@ -218,3 +271,7 @@ instance PlottableDistribution (Gaussian Double) where
 --     system $ "gnuplot "++(gnuFile params)
 --     putStrLn "done."
 --     return ()
+
+samplesFromMinMax min max = fmap (\x -> x/numsamples*(max-min)+min) [0..numsamples]
+    where 
+        numsamples = 100

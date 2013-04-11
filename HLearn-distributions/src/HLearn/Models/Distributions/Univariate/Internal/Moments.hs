@@ -15,20 +15,22 @@
 
 -- | The method of moments can be used to estimate a number of commonly used distributions.  This module is still under construction as I work out the best way to handle morphisms from the Moments3 type to types of other distributions.  For more information, see the wikipedia entry: <https://en.wikipedia.org/wiki/Method_of_moments_(statistics)>
 
-module HLearn.Models.Distributions.Univariate.Moments
-    ( Moments3
-    , Normal(..)
+module HLearn.Models.Distributions.Univariate.Internal.Moments
+    ( Moments3(..)
     )
     where
 
 import Control.DeepSeq
 import GHC.TypeLits
-
 import qualified Data.Vector.Unboxed as U
 import Data.Vector.Unboxed.Deriving
+import qualified Statistics.Distribution as S
+import Statistics.Distribution.Binomial
+import Statistics.Distribution.Poisson
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Gnuplot
 
 -------------------------------------------------------------------------------
 -- Moments3
@@ -39,12 +41,6 @@ data Moments3 prob = Moments3
     , m2 :: !prob
     }
     deriving (Read,Show,Eq,Ord)
-
-mean :: (Fractional prob) => Moments3 prob -> prob
-mean dist = m1 dist / m0 dist
-
-variance :: (Fractional prob) => Moments3 prob -> prob
-variance dist = m2 dist / m0 dist - (mean dist)*(mean dist)
 
 instance (NFData prob) => NFData (Moments3 prob) where
     rnf m = deepseq (m0 m) 
@@ -95,26 +91,84 @@ instance (Num prob) => HomTrainer (Moments3 prob) where
     train1dp' _ dp = Moments3 1 dp (dp*dp)
     
 
--------------------------------------------------------------------------------
--- Normal
 
-newtype Normal prob = Normal (Moments3 prob)
+-------------------------------------------------------------------------------
+-- LogNormal
+
+-- newtype LogNormal prob = LogNormal (Moments3 prob)
+--     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+--     
+-- instance ModelParams (LogNormal prob) where
+--     type Params (LogNormal prob) = NoParams
+--     getparams _ = NoParams
+-- 
+-- instance (Num prob) => HomTrainer (LogNormal prob) where
+--     type Datapoint (LogNormal prob) = prob
+--     train1dp' params dp = LogNormal $ train1dp' params dp
+-- 
+-- instance (Num prob) => Distribution (LogNormal prob) where
+--     type Probability (LogNormal prob) = prob
+-- 
+-- instance (Eq prob, Floating prob) => PDF (LogNormal prob) where
+--     pdf (LogNormal dist) 0  = 0
+--     pdf (LogNormal dist) dp = (1/(s*dp*(sqrt $ 2*pi)))*(exp $ (-1)*((log dp)-m)**2/(2*s*s))
+--         where
+--             m = 0
+--             s = 1
+
+
+-------------------------------------------------------------------------------
+-- Binomial
+
+newtype Binomial sample prob = Binomial {  bmoments :: (Moments3 sample) }
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
     
-instance ModelParams (Normal prob) where
-    type Params (Normal prob) = NoParams
+instance ModelParams (Binomial sample prob) where
+    type Params (Binomial sample prob) = NoParams
     getparams _ = NoParams
 
-instance (Num prob) => HomTrainer (Normal prob) where
-    type Datapoint (Normal prob) = prob
-    train1dp' params dp = Normal $ train1dp' params dp
+instance (Num sample) => HomTrainer (Binomial sample prob) where
+    type Datapoint (Binomial sample prob) = sample
+    train1dp' params dp = Binomial $ train1dp' params dp
 
-instance (Num prob) => Distribution (Normal prob) where
-    type Probability (Normal prob) = prob
-
-instance (Floating prob) => PDF (Normal prob) where
-    pdf (Normal dist) dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
+instance (Num sample) => Distribution (Binomial sample prob) where
+    type Probability (Binomial sample prob) = prob
+    
+instance (Floating prob) => PDF (Binomial Int Double) where
+    pdf (Binomial dist) dp = S.probability (binomial n p) dp
         where
-            sigma2 = variance dist
-            mu = mean dist
-            
+            n = bin_n $ Binomial dist
+            p = bin_p $ Binomial dist
+
+bin_n :: Binomial Int Double -> Int
+bin_n (Binomial dist) = round $ ((fromIntegral $ m1 dist :: Double) / (fromIntegral $ m0 dist)) / (bin_p $ Binomial dist)
+
+bin_p :: Binomial Int Double -> Double
+bin_p (Binomial dist) = ((fromIntegral $ m1 dist) / (fromIntegral $ m0 dist)) + 1 - (fromIntegral $ m2 dist)/(fromIntegral $ m1 dist)
+
+instance 
+    ( PDF (Binomial sample prob)
+--     , PlottableDataPoint sample
+    , Show prob
+    , Show sample
+    , Ord sample
+    , Ord prob
+    , Num prob
+    , Integral sample
+    ) => PlottableDistribution (Binomial sample prob) 
+-- instance PlottableDistribution (Poisson Int Double) 
+        where
+
+    plotType _ = Points
+
+    samplePoints dist = [min..max]
+        where
+            min = 0
+            max = maximum [20,floor $ 3*mu]
+            mu = 5
+    
+-- instance (Fractional prob) => Mean (Binomial prob) where
+--     mean (Binomial dist) = 
+-- 
+-- instance (Fractional prob) => Variance (Binomiral prob) where
+--     variance dist = mean dist

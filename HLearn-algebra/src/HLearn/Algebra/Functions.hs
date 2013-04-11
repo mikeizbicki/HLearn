@@ -5,7 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | This module contains \"low-level higher order functions\" for manipulating algebraic homomorphisms.  You probably want to use the 'HomTrainer' type-class rather than using these functions directly.
+-- | This module contains \"low-level higher order functions\" for manipulating algebraic homomorphisms.  You probably want to use the "HomTrainer" type-class rather than using these functions directly.
 
 module HLearn.Algebra.Functions
     ( 
