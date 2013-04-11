@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE EmptyDataDecls #-}
 
+-- | This module contains the type classes for manipulating distributions.
 module HLearn.Models.Distributions.Common
     ( 
     -- * Type classes
@@ -56,7 +58,28 @@ class (Distribution dist) => Variance dist where
 -- instance DistributionOverlap dist Double prob where
 --     overlap xs = fmap (sort . (flip pdf) [-10..10]) xs
 
+-------------------------------------------------------------------------------
+-- Continuity
 
+data Discrete 
+data Continuous
+
+type family Continuity t :: *
+type instance Continuity Int = Discrete
+type instance Continuity Integer = Discrete
+type instance Continuity Char = Discrete
+type instance Continuity String = Discrete
+
+type instance Continuity Float = Continuous
+type instance Continuity Double = Continuous
+type instance Continuity Rational = Continuous
+
+-------------------------------------------------------------------------------
+-- Utilities
+
+-- | If you were to plot a list of distributions, nonoverlap returns the amount of area that only a single distribution covers.  That is, it will be equal to number of distributions - the overlap.
+--
+-- This function is used by the HomTree classifier.
 nonoverlap :: 
     ( Enum (Probability dist), Fractional (Probability dist), Ord (Probability dist)
     , PDF dist

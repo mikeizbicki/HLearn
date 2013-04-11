@@ -67,9 +67,9 @@ instance
     ) => PlottableDistribution (Geometric sample prob) 
         where
 
-    plottype _ = Points
+    plotType _ = Points
 
-    gensamples dist = [min..max]
+    samplePoints dist = [min..max]
         where
             min = 0
             max = maximum [20,round $ 3*(mean dist)]

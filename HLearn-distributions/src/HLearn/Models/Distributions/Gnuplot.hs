@@ -5,17 +5,32 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | This file contains the functions for plotting distributions using Gnuplot.  The interface is still under heavy construction, so it's not very well documented as of yet.
+-- | This module contains the functions for plotting distributions using Gnuplot.
 
 module HLearn.Models.Distributions.Gnuplot
+    (
+    -- * Main interface
+    plotDistribution
+    
+    -- ** Plot parameters
+    , PlotParams(..)
+    , plotFile
+    , genPlotParams
+
+    -- * Internal
+    , PlottableDistribution(..)
+    , Plottable(..)
+    , PlotType(..)
+        
+    -- * Utilities
+    , samplesFromMinMax
+    ) 
     where
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
--- import HLearn.Models.Distributions.Univariate.Gaussian
 
 import qualified Data.Map as Map
 import qualified Data.Vector.Unboxed as VU
@@ -24,22 +39,6 @@ import Control.Monad
 import Data.List
 import System.IO
 import System.Process
-
--------------------------------------------------------------------------------
--- Continuity
-
-data Discrete 
-data Continuous
-
-type family Continuity t :: *
-type instance Continuity Int = Discrete
-type instance Continuity Integer = Discrete
-type instance Continuity Char = Discrete
-type instance Continuity String = Discrete
-
-type instance Continuity Float = Continuous
-type instance Continuity Double = Continuous
-type instance Continuity Rational = Continuous
 
 -------------------------------------------------------------------------------
 -- data types
@@ -69,6 +68,7 @@ genPlotParams str a = plotFile str
 class (Show t, Ord t) => Plottable t
 instance (Show t, Ord t) => Plottable t
 
+-- | In order to plot a distribution, it must be an instance of this class.  You shouldn't need to know the details.
 class 
     ( Plottable (Datapoint dist)
     , Plottable (Probability dist), Num (Probability dist)
@@ -88,6 +88,8 @@ class
 
 -------------------------------------------------------------------------------
 -- plotting functions
+
+-- | Call this function to plot your distribution.  You can create the PlotParams manually, or you can use default parameter creating function below.
 
 plotDistribution :: (PlottableDistribution dist) => PlotParams -> dist -> IO ()
 plotDistribution params dist = do
