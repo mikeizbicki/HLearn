@@ -70,10 +70,6 @@ deriving instance (Ord              (MultivariateTF (Concat xs) prob)) => Ord   
 deriving instance (Semigroup        (MultivariateTF (Concat xs) prob)) => Semigroup         (Multivariate dp xs prob)
 deriving instance (Monoid           (MultivariateTF (Concat xs) prob)) => Monoid            (Multivariate dp xs prob)
 deriving instance (RegularSemigroup (MultivariateTF (Concat xs) prob)) => RegularSemigroup  (Multivariate dp xs prob)
-
-instance (ModelParams (MultivariateTF (Concat xs) prob)) => ModelParams (Multivariate dp xs prob) where
-    type Params (Multivariate dp xs prob) = Params (MultivariateTF (Concat xs) prob)
-    getparams (Multivariate d) = getparams d
     
 instance 
     ( HomTrainer (MultivariateTF (Concat xs) prob)
@@ -82,7 +78,7 @@ instance
     ) => HomTrainer (Multivariate dp xs prob) 
         where
     type Datapoint (Multivariate dp xs prob) = dp
-    train1dp' params dp = Multivariate $ train1dp' params $ getHList dp
+    train1dp dp = Multivariate $ train1dp $ getHList dp
     
 instance 
     ( Distribution (MultivariateTF (Concat xs) prob)

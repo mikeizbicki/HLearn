@@ -19,12 +19,10 @@ module HLearn.Algebra.Models.Lame
     where
           
 import qualified Control.ConstraintKinds as CK
-import HLearn.Algebra.Models
-
 
 -- | Provides a non-homomorphic training function
-class (ModelParams model) => LameTrainer modelparams container datapoint model where
-    lame_train' :: Params model -> container datapoint -> model
+class LameTrainer container datapoint model where
+    lame_train' :: container datapoint -> model
 
 -- instance 
 --     ( HomTrainer modelparams datapoint model
@@ -49,7 +47,7 @@ class (ModelParams model) => LameTrainer modelparams container datapoint model w
         ) => modelparams -> container datapoint -> model-}
 
 -- | Provides an online learner
-class (ModelParams model) => LameTrainerOnline datapoint model where
+class LameTrainerOnline datapoint model where
     lame_add1dp :: model -> datapoint -> model
     
     lame_addBatch :: model -> [datapoint] -> model

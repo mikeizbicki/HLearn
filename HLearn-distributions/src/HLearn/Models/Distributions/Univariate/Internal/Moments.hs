@@ -82,13 +82,9 @@ instance (Num prob) => RegularSemigroup (Moments3 prob ) where
 -------------------------------------------------------------------------------
 -- Training
     
-instance ModelParams (Moments3 prob) where
-    type Params (Moments3 prob) = NoParams
-    getparams _ = NoParams
-
 instance (Num prob) => HomTrainer (Moments3 prob) where
     type Datapoint (Moments3 prob) = prob
-    train1dp' _ dp = Moments3 1 dp (dp*dp)
+    train1dp dp = Moments3 1 dp (dp*dp)
     
 
 
@@ -123,13 +119,9 @@ instance (Num prob) => HomTrainer (Moments3 prob) where
 newtype Binomial sample prob = Binomial {  bmoments :: (Moments3 sample) }
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
     
-instance ModelParams (Binomial sample prob) where
-    type Params (Binomial sample prob) = NoParams
-    getparams _ = NoParams
-
 instance (Num sample) => HomTrainer (Binomial sample prob) where
     type Datapoint (Binomial sample prob) = sample
-    train1dp' params dp = Binomial $ train1dp' params dp
+    train1dp dp = Binomial $ train1dp dp
 
 instance (Num sample) => Distribution (Binomial sample prob) where
     type Probability (Binomial sample prob) = prob

@@ -29,7 +29,7 @@ Library
         HLearn.Algebra
         HLearn.Algebra.Functions
         HLearn.Algebra.HVector
-        HLearn.Algebra.Models
+        HLearn.Algebra.HomTrainer
         HLearn.Algebra.Models.Lame
         --HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups

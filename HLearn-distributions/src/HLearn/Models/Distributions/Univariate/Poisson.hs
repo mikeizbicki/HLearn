@@ -39,14 +39,10 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 
 newtype Poisson sample prob = Poisson {  pmoments :: (Moments3 sample) }
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
-    
-instance ModelParams (Poisson sample prob) where
-    type Params (Poisson sample prob) = NoParams
-    getparams _ = NoParams
 
 instance (Num sample) => HomTrainer (Poisson sample prob) where
     type Datapoint (Poisson sample prob) = sample
-    train1dp' params dp = Poisson $ train1dp' params dp
+    train1dp dp = Poisson $ train1dp dp
 
 instance (Num sample) => Distribution (Poisson sample prob) where
     type Probability (Poisson sample prob) = prob

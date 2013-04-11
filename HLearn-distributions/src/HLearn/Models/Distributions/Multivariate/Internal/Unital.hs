@@ -36,14 +36,9 @@ instance (Num prob) => RegularSemigroup (Unital prob) where
 -------------------------------------------------------------------------------
 -- training
 
-instance ModelParams (Unital prob) where
-    type Params (Unital prob) = HList '[]
-    getparams _ = HNil
-    
-    
 instance (Num prob) => HomTrainer (Unital prob) where
     type Datapoint (Unital prob) = HList '[]
-    train1dp' _ HNil = Unital 1
+    train1dp HNil = Unital 1
     
 -------------------------------------------------------------------------------
 -- distributions

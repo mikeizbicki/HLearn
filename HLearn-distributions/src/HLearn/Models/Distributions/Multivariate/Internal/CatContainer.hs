@@ -43,21 +43,20 @@ import HLearn.Models.Distributions.Multivariate.Internal.Unital
 -- data types
 
 data CatContainer' label basedist prob = CatContainer'
-    { params :: NoParams `HCons` (Params basedist)
-    , pdfmap :: !(Map.Map label basedist)
+    { pdfmap :: !(Map.Map label basedist)
     , probmap :: !(Map.Map label prob)
     , catnumdp :: prob
     } 
 --     deriving (Show,Read,Eq,Ord)
 
-instance (Show basedist, Show (Params basedist), Show label, Show prob) => Show (CatContainer' label basedist prob) where
+instance (Show basedist, Show label, Show prob) => Show (CatContainer' label basedist prob) where
     show dist = "CatContainer' "
 --               ++"{ "++"params="++show (params dist)
               ++"{ "++"pdfmap="++show (pdfmap dist)
               ++", catnumdp="++show (catnumdp dist)
               ++"}"
 
-instance (NFData label, NFData prob, NFData basedist, NFData (Params basedist)) => 
+instance (NFData label, NFData prob, NFData basedist) => 
     NFData (CatContainer' label basedist prob) 
         where
     rnf d = rnf $ pdfmap d
@@ -67,17 +66,15 @@ type CatContainer label basedist prob = RegSG2Group (CatContainer' label basedis
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num prob, Eq (Params basedist), (Params basedist)~HList xs, Semigroup basedist) => Abelian (CatContainer' label basedist prob)
-instance (Ord label, Num prob, Eq (Params basedist), (Params basedist)~HList xs, Semigroup basedist) => Semigroup (CatContainer' label basedist prob) where
-    d1 <> d2 = if params d1 /= params d2
-        then error "CatContainer'.(<>): dart"
-        else d1 
-            { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
-            , probmap = Map.unionWith (+) (probmap d1) (probmap d2) 
-            , catnumdp  = (catnumdp d1)+(catnumdp d2)
-            } 
+instance (Ord label, Num prob, Semigroup basedist) => Abelian (CatContainer' label basedist prob)
+instance (Ord label, Num prob, Semigroup basedist) => Semigroup (CatContainer' label basedist prob) where
+    d1 <> d2 = d1 
+        { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
+        , probmap = Map.unionWith (+) (probmap d1) (probmap d2) 
+        , catnumdp  = (catnumdp d1)+(catnumdp d2)
+        } 
 
-instance (Ord label, Num prob, Eq (Params basedist), (Params basedist)~HList xs, RegularSemigroup basedist) => RegularSemigroup (CatContainer' label basedist prob) where
+instance (Ord label, Num prob, RegularSemigroup basedist) => RegularSemigroup (CatContainer' label basedist prob) where
     inverse d1 = d1 
         { pdfmap = Map.map (inverse) (pdfmap d1)
         , probmap = Map.map negate (probmap d1)
@@ -96,26 +93,16 @@ instance (Ord label, Num prob, Eq (Params basedist), (Params basedist)~HList xs,
 -- Training
 
 instance 
-    ( --basedist ~ HList xs
-    ) => ModelParams (CatContainer label basedist prob) 
-        where
-    type Params (CatContainer label basedist prob) = NoParams `HCons` (Params basedist)
-    getparams (SGJust model) = params model
-
-instance 
     ( Ord label
     , Num prob
-    , Eq (Params basedist)
     , HomTrainer basedist
-    , Params basedist ~ HList xs
     , Datapoint basedist ~ HList ys
     ) => HomTrainer (CatContainer label basedist prob) 
         where
     type Datapoint (CatContainer label basedist prob) = label `HCons` (Datapoint basedist)
     
-    train1dp' (params:::baseparams) (dp:::basedp) = SGJust $ CatContainer' 
-        { params = params:::baseparams
-        , pdfmap = Map.singleton dp $ train1dp' baseparams basedp
+    train1dp (dp:::basedp) = SGJust $ CatContainer' 
+        { pdfmap = Map.singleton dp $ train1dp basedp
         , probmap = Map.singleton dp 1
         , catnumdp  = 1
         }
@@ -151,8 +138,6 @@ instance
     ( Ord prob, Fractional prob, Show prob, Probability basedist ~ prob
     , Ord label
     , PDF basedist
-    , Eq (Params basedist)
-    , Params basedist ~ HList xs
     , Datapoint basedist ~ HList ys
     ) => PDF (CatContainer label basedist prob)
         where

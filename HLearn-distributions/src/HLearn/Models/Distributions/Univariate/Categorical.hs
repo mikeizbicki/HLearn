@@ -32,13 +32,6 @@ import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
 -------------------------------------------------------------------------------
--- CategoricalParams
-
-instance ModelParams (Categorical label prob) where
-    type Params (Categorical label prob) = NoParams
-    getparams _ = NoParams
-
--------------------------------------------------------------------------------
 -- Categorical
 
 data Categorical sampletype prob = Categorical 
@@ -54,7 +47,7 @@ instance (NFData sampletype, NFData prob) => NFData (Categorical sampletype prob
 
 instance (Ord label, Num prob) => HomTrainer (Categorical label prob) where
     type Datapoint (Categorical label prob) = label
-    train1dp' params dp = Categorical $ Map.singleton dp 1
+    train1dp dp = Categorical $ Map.singleton dp 1
 
 -------------------------------------------------------------------------------
 -- Distribution
@@ -134,10 +127,10 @@ instance (Ord label, Num prob) => RightOperator prob (Categorical label prob) wh
 -------------------------------------------------------------------------------
 -- Morphisms
 
-instance 
-    ( Ord label
-    , Num prob
-    ) => Morphism (Categorical label prob) FreeModParams (FreeMod prob label) 
-        where
-    Categorical pdf $> FreeModParams = FreeMod pdf
-    
+-- instance 
+--     ( Ord label
+--     , Num prob
+--     ) => Morphism (Categorical label prob) FreeModParams (FreeMod prob label) 
+--         where
+--     Categorical pdf $> FreeModParams = FreeMod pdf
+--     
