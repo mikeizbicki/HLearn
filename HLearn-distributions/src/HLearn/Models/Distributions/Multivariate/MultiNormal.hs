@@ -109,13 +109,9 @@ instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormalArray pro
 -------------------------------------------------------------------------------
 -- training
 
-instance ModelParams (MultiNormalVec n prob) where
-    type Params (MultiNormalVec n prob) = NoParams
-    getparams _ = NoParams
-
 instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (MultiNormalVec n prob) where
     type Datapoint (MultiNormalVec n prob) = (VU.Vector prob) 
-    train1dp' _ dp = MultiNormalVec
+    train1dp dp = MultiNormalVec
         { q0 = 1
         , q1 = dp
         , q2 = V.generate n (\i -> VU.generate n (\j -> (dp VU.! i)*(dp VU.! j)))
@@ -123,10 +119,6 @@ instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (MultiNormalVec n prob
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
 
-instance ModelParams (MultiNormal n prob) where
-    type Params (MultiNormal n prob) = NoParams
-    getparams _ = NoParams
-    
 class HList2List xs a | xs -> a where
     hlist2list :: xs -> [a]
 instance HList2List (HList '[]) a where
@@ -142,22 +134,17 @@ instance
     ) => HomTrainer (MultiNormal xs prob) 
         where
     type Datapoint (MultiNormal xs prob) = HList xs
-    train1dp' _ dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
-
-instance ModelParams (MultiNormalArray prob n) where
-    type Params (MultiNormalArray prob n) = NoParams
-    getparams _ = NoParams
+    train1dp dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
 instance 
     ( Num prob
     , SingI n
     , IArray UArray prob
---     , MArray (STUArray s) prob (ST s)
     ) => HomTrainer (MultiNormalArray prob n) 
         where
     type Datapoint (MultiNormalArray prob n) = (UArray Int prob) 
               
-    train1dp' _ dp = MultiNormalArray
+    train1dp dp = MultiNormalArray
         { m0 = 1
         , m1 = dp
         , m2 = listArray ((0,0),(k-1,k-1)) [(dp ! i)*(dp ! j) | j<-[0..k-1], i<-[0..k-1]]

@@ -39,13 +39,9 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 newtype Geometric sample prob = Geometric {  moments :: (Moments3 sample) }
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
     
-instance ModelParams (Geometric sample prob) where
-    type Params (Geometric sample prob) = NoParams
-    getparams _ = NoParams
-
 instance (Num sample) => HomTrainer (Geometric sample prob) where
     type Datapoint (Geometric sample prob) = sample
-    train1dp' params dp = Geometric $ train1dp' params dp
+    train1dp dp = Geometric $ train1dp dp
 
 instance (Num sample) => Distribution (Geometric sample prob) where
     type Probability (Geometric sample prob) = prob

@@ -88,40 +88,21 @@ instance
 -- Training
 
 instance 
-    ( ModelParams (dist prob)
-    , ModelParams (basedist)
-    , Params basedist ~ HList xs
-    ) => ModelParams (Container dist sample basedist prob) 
-        where
-    type Params (Container dist sample basedist prob) = (Params (dist prob)) `HCons` (Params basedist)
-    getparams c = (getparams $ dist c):::(getparams $ basedist c)
-    
-instance 
     ( HomTrainer (dist prob)
     , HomTrainer basedist
-    , Params basedist ~ HList xs
     , Datapoint basedist ~ HList ys
     ) =>  HomTrainer (Container dist sample basedist prob) 
         where
     type Datapoint (Container dist sample basedist prob) = 
         (Datapoint (dist prob)) `HCons` (Datapoint basedist)
         
-    train1dp' (distparams:::baseparams) (dp:::basedp) = Container
-        { dist = train1dp' distparams dp
-        , basedist = train1dp' baseparams basedp
+    train1dp (dp:::basedp) = Container
+        { dist = train1dp dp
+        , basedist = train1dp basedp
         }
 
 ---------------------------------------
 
-instance 
-    ( ModelParams (dist prob)
-    , ModelParams (basedist)
-    , Params basedist ~ HList xs
-    ) => ModelParams (MultiContainer dist sample basedist prob) 
-        where
-    type Params (MultiContainer dist sample basedist prob) = (Params (dist prob)) `HCons` (Params basedist)
-    getparams (MultiContainer c) = (getparams $ dist c):::(getparams $ basedist c)
-    
 -- instance 
 --     ( HomTrainer (dist prob)
 --     , HomTrainer basedist

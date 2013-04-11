@@ -3,7 +3,7 @@
 module HLearn.Algebra
     ( module HLearn.Algebra.Functions
     , module HLearn.Algebra.HVector
-    , module HLearn.Algebra.Models
+    , module HLearn.Algebra.HomTrainer
     , module HLearn.Algebra.Models.Lame
 --     , module HLearn.Algebra.Morphism
     , module HLearn.Algebra.Structures.Groups
@@ -16,7 +16,7 @@ module HLearn.Algebra
           
 import HLearn.Algebra.Functions
 import HLearn.Algebra.HVector
-import HLearn.Algebra.Models
+import HLearn.Algebra.HomTrainer
 import HLearn.Algebra.Models.Lame
 -- import HLearn.Algebra.Morphism
 import HLearn.Algebra.Structures.Groups

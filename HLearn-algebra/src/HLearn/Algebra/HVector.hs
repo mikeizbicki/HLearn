@@ -15,7 +15,7 @@ module HLearn.Algebra.HVector
 
 import Data.Vector.Heterogenous
 
-import HLearn.Algebra.Models
+import HLearn.Algebra.HomTrainer
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.Modules
 import HLearn.Algebra.Structures.Triangles
@@ -78,57 +78,16 @@ instance (RightModule r (HList xs), ValidHVector box xs) => RightModule r (HVect
 -------------------------------------------------------------------------------
 -- Training
 
-instance ModelParams (HList '[]) where
-    type Params (HList '[]) = HList '[]
-    getparams _ = HNil
-
-instance DefaultParams (HList '[]) where
-    defparams = HNil
-
-instance 
-    ( ModelParams model
-    , ModelParams (HList modelL)
-    , Params (HList modelL) ~ HList paramsL
-    ) => ModelParams (HList (model ': modelL))
-        where
-    type Params (HList (model ': modelL)) = (Params model) `HCons` (Params (HList modelL))
-    
-    getparams (model:::modelL) = (getparams model):::(getparams modelL)
-
-instance 
-    ( DefaultParams model
-    , DefaultParams (HList modelL)
-    , Params (HList modelL) ~ HList paramsL
-    ) => DefaultParams (HList (model ': modelL))
-        where
-    defparams = defparams:::defparams
-
 instance HomTrainer (HList '[]) where
     type Datapoint (HList '[]) = (HList '[])
-    train1dp' HNil HNil = HNil
+    train1dp HNil = HNil
 
 instance 
     ( HomTrainer model
     , HomTrainer (HList modelL)
-    , Params (HList modelL) ~ HList paramsL
     , Datapoint (HList modelL) ~ HList datapointL
     ) => HomTrainer (HList (model ': modelL))
     where
         type Datapoint (HList (model ': modelL)) = (HList ((Datapoint model) ': (UnHList (Datapoint (HList modelL)))))
-        train1dp' (params:::paramsL) (dp:::dpL) = train1dp' params dp ::: train1dp' paramsL dpL
+        train1dp (dp:::dpL) = train1dp dp ::: train1dp dpL
         
-        
-        
--- instance Model (NoParams (HVector box xs)) (HVector box xs) where
---     getparams _ = NoParams
---     
--- instance DefaultModel (NoParams (HVector box xs)) (HVector box xs) where
---     defparams = NoParams
---     
--- instance 
---     ( Semigroup (HList xs)
---     , Monoid (HList xs)
---     , ValidHVector box xs
---     ) => HomTrainer (NoParams (HVector box xs)) (HVector box xs) (HVector box xs) 
---         where
---     train1dp' params dp = undefined

@@ -36,13 +36,9 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 newtype Exponential prob = Exponential (Moments3 prob)
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
     
-instance ModelParams (Exponential prob) where
-    type Params (Exponential prob) = NoParams
-    getparams _ = NoParams
-
 instance (Num prob) => HomTrainer (Exponential prob) where
     type Datapoint (Exponential prob) = prob
-    train1dp' params dp = Exponential $ train1dp' params dp
+    train1dp dp = Exponential $ train1dp dp
 
 instance (Num prob) => Distribution (Exponential prob) where
     type Probability (Exponential prob) = prob

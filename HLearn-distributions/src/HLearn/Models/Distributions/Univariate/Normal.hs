@@ -36,13 +36,9 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 newtype Normal prob = Normal (Moments3 prob)
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
     
-instance ModelParams (Normal prob) where
-    type Params (Normal prob) = NoParams
-    getparams _ = NoParams
-
 instance (Num prob) => HomTrainer (Normal prob) where
     type Datapoint (Normal prob) = prob
-    train1dp' params dp = Normal $ train1dp' params dp
+    train1dp dp = Normal $ train1dp dp
 
 instance (Num prob) => Distribution (Normal prob) where
     type Probability (Normal prob) = prob

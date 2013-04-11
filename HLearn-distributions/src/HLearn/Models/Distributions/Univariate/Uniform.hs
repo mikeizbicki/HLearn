@@ -40,13 +40,9 @@ instance (Ord datapoint) => Semigroup (Uniform' datapoint) where
 -------------------------------------------------------------------------------
 -- training
 
-instance ModelParams (Uniform datapoint) where
-    type Params (Uniform datapoint) = NoParams
-    getparams _ = NoParams
-    
 instance (Ord datapoint) => HomTrainer (Uniform datapoint) where
     type Datapoint (Uniform datapoint) = datapoint 
-    train1dp' _ dp = SGJust $ Uniform' dp dp
+    train1dp dp = SGJust $ Uniform' dp dp
 
 -------------------------------------------------------------------------------
 -- distribution
