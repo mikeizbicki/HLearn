@@ -8,7 +8,7 @@
 
 {-# LANGUAGE OverlappingInstances #-}
 
--- | Lame trainers are trainers that are crippled---They are not instances of Semigroup/Monoid, and training their models is not a homomorphism.  This means we can't do any of the cool manipulations automatically that we can do with the HomTrainer class.
+-- | Lame trainers are trainers that are crippled---They are not instances of Semigroup/Monoid, and training their models is not a homomorphism.  This means we can't do any of the cool manipulations automatically that we can do with the HomTrainer class.  These classes are provided mostly for development and testing purposes.  It is not recommended that you use any of their instances.
 
 module HLearn.Algebra.Models.Lame
     ( 
@@ -21,6 +21,8 @@ module HLearn.Algebra.Models.Lame
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra.Models
 
+
+-- | Provides a non-homomorphic training function
 class (ModelParams model) => LameTrainer modelparams container datapoint model where
     lame_train' :: Params model -> container datapoint -> model
 
@@ -45,7 +47,8 @@ class (ModelParams model) => LameTrainer modelparams container datapoint model w
         , CK.FoldableConstraint container [datapoint]
         , Sizable container
         ) => modelparams -> container datapoint -> model-}
-    
+
+-- | Provides an online learner
 class (ModelParams model) => LameTrainerOnline datapoint model where
     lame_add1dp :: model -> datapoint -> model
     

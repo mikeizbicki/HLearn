@@ -60,10 +60,15 @@ instance (Ord datapoint, Fractional datapoint) => PDF (Uniform datapoint) where
         else 0
 
 instance 
-    ( PlottableDataPoint datapoint
-    , Fractional datapoint
+    ( Fractional datapoint
     , Show datapoint
     , Ord datapoint
+    , Enum datapoint
     ) => PlottableDistribution (Uniform datapoint) where    
-    minx (SGJust dist) = (mindp dist - range dist * 0.2)
-    maxx (SGJust dist) = (maxdp dist + range dist * 0.2)
+        
+    plotType _ = Continuous
+        
+    samplePoints (SGJust dist) = samplesFromMinMax min max
+        where
+            min = (mindp dist - range dist * 0.2)
+            max = (maxdp dist + range dist * 0.2)

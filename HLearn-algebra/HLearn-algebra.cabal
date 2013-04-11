@@ -31,7 +31,7 @@ Library
         HLearn.Algebra.HVector
         HLearn.Algebra.Models
         HLearn.Algebra.Models.Lame
-        HLearn.Algebra.Morphism
+        --HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules

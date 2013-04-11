@@ -5,7 +5,7 @@ module HLearn.Algebra
     , module HLearn.Algebra.HVector
     , module HLearn.Algebra.Models
     , module HLearn.Algebra.Models.Lame
-    , module HLearn.Algebra.Morphism
+--     , module HLearn.Algebra.Morphism
     , module HLearn.Algebra.Structures.Groups
     , module HLearn.Algebra.Structures.MetricSpace
     , module HLearn.Algebra.Structures.Modules
@@ -18,7 +18,7 @@ import HLearn.Algebra.Functions
 import HLearn.Algebra.HVector
 import HLearn.Algebra.Models
 import HLearn.Algebra.Models.Lame
-import HLearn.Algebra.Morphism
+-- import HLearn.Algebra.Morphism
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.MetricSpace
 import HLearn.Algebra.Structures.Modules
