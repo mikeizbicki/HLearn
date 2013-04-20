@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module HLearn.DataStructures.BinarySearchTree
     where
@@ -19,20 +20,13 @@ import GHC.TypeLits
 import qualified Data.Vector as V
 
 import HLearn.Algebra
-import HLearn.Models.Distributions.Categorical
-import qualified Control.ConstraintKinds as CK
+import HLearn.Models.Distributions
 
 -------------------------------------------------------------------------------
 -- data types
 
 newtype BST a = BST (V.Vector a)
     deriving (Read,Show,Eq,Ord)
-
-data BSTParams a = BSTParams
-    deriving (Read,Show,Eq,Ord)
-
--------------------------------------------------------------------------------
--- BST functions
 
 bst2list :: BST a -> [a]
 bst2list (BST vec) = V.toList vec
@@ -46,18 +40,6 @@ elem a (BST vec) = go 0 (V.length vec - 1)
             | a < (vec V.! mid) = go lower (mid-1)
             | otherwise         = True -- a==(vec V.! mid)
             where mid = floor $ (fromIntegral $ lower+upper)/2
-
--------------------------------------------------------------------------------
--- models
-
-instance Model (BSTParams a) (BST a) where
-    getparams model = BSTParams
-    
-instance DefaultModel (BSTParams a) (BST a) where
-    defparams = BSTParams
-
-instance (Ord a) => HomTrainer (BSTParams a) a (BST a) where
-    train1dp' BSTParams dp = BST $ V.singleton dp
     
 -------------------------------------------------------------------------------
 -- Algebra
@@ -86,3 +68,10 @@ instance (Ord a, Invertible a) => RegularSemigroup (BST a) where
 
 instance F.Foldable BST where
     foldr f b (BST vec) = V.foldr f b vec
+
+-------------------------------------------------------------------------------
+-- Training
+
+instance (Ord a) => HomTrainer (BST a) where
+    type Datapoint (BST a) = a
+    train1dp dp = BST $ V.singleton dp

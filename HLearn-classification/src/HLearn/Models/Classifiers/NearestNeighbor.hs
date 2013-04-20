@@ -3,6 +3,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module HLearn.Models.Classifiers.NearestNeighbor
     where
@@ -13,7 +15,7 @@ import Data.List
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
-import HLearn.Models.Classification
+import HLearn.Models.Classifiers.Common
 
 -------------------------------------------------------------------------------
 -- data structures
@@ -21,6 +23,8 @@ import HLearn.Models.Classification
 newtype NaiveNN container label dp = NaiveNN
     { getcontainer :: container (label,dp) }
 --     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    
+deriving instance (Show (container (label,dp))) => Show (NaiveNN container label dp)
     
 -------------------------------------------------------------------------------
 -- algebra
@@ -35,18 +39,14 @@ instance (Monoid (container (label,dp))) => Monoid (NaiveNN container label dp) 
 -------------------------------------------------------------------------------
 -- model
 
-instance ModelParams (NoParams (NaiveNN container label dp)) (NaiveNN container label dp) where
-    getparams _ = NoParams
-    
-instance DefaultParams (NoParams (NaiveNN container label dp)) (NaiveNN container label dp) where
-    defparams = NoParams
-    
 instance 
     ( Applicative container
     , Monoid (container (label,dp))
     , Semigroup (container (label,dp))
-    ) => HomTrainer (NoParams (NaiveNN container label dp)) (label,dp) (NaiveNN container label dp) where
-    train1dp' _ ldp = NaiveNN $ pure ldp
+    ) => HomTrainer (NaiveNN container label dp) 
+        where
+    type Datapoint (NaiveNN container label dp) = (label,dp) 
+    train1dp ldp = NaiveNN $ pure ldp
     
 -------------------------------------------------------------------------------
 -- classification
@@ -58,16 +58,18 @@ neighborList ::
     ) => dp -> NaiveNN container label dp -> [(label,dp)]
 neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
     where
-        f (_,dp1) (_,dp2) = compare (dist dp dp1) (dist dp dp2)
+        f (_,dp1) (_,dp2) = compare (distance dp dp1) (distance dp dp2)
 
 
 instance 
-    ( Ord prob, Num prob, Ord label
+    ( Ord label
     , F.Foldable container
-    , MetricSpace prob dp
-    ) => ProbabilityClassifier (NaiveNN container label dp) dp label prob 
+    , MetricSpace Double dp
+    ) => Classifier (NaiveNN container label dp)
         where
+    type Label (NaiveNN container label dp) = label
+    type UnlabeledDatapoint (NaiveNN container label dp) = dp
               
-    probabilityClassify nn dp = unweight (train (map (\(l,dp) -> (1,l)) $ take k $ neighborList dp nn) :: Weighted (Categorical label prob))
+    probabilityClassify nn dp = trainW (map (\(l,dp) -> (1,l)) $ take k $ neighborList dp nn)
         where
             k = 3

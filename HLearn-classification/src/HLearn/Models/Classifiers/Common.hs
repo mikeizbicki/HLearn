@@ -1,15 +1,17 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, UndecidableInstances, FlexibleContexts, BangPatterns, ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module HLearn.Models.Classification
+module HLearn.Models.Classifiers.Common
     where
-
-import Data.Number.LogFloat
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
--- import HLearn.Models.Distributions.Categorical
--- import HLearn.DataContainers
-
 
 -------------------------------------------------------------------------------
 -- bool <-> int
@@ -33,35 +35,23 @@ num2bool a =
         else True 
 
 -------------------------------------------------------------------------------
--- ClassificationParams
-
--- data ClassificationParams label params = ClassificationParams
---     { cparams :: params
---     , datadesc :: DataDesc label
---     }
---     deriving (Read,Show,Eq,Ord)
-
-data DataDesc label = DataDesc
-    { numLabels :: Int
-    , labelL :: [label]
-    , numAttr :: Int
-    }
-    deriving (Read,Show,Eq,Ord)
-
--------------------------------------------------------------------------------
 -- Classification
 
-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
+class Classifier model where
+    type Label model
+    type UnlabeledDatapoint model
+    
+    probabilityClassify :: model -> UnlabeledDatapoint model -> Categorical (Label model) Double
+    
+    classify :: model -> UnlabeledDatapoint model -> Label model
+    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical (Label model) Double)
+    
+
+{-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
     probabilityClassify :: model -> datatype -> Categorical label prob
     classify :: model -> datatype -> label
     classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical label prob)
-    
-instance (ProbabilityClassifier model datatype label prob) => 
-    ProbabilityClassifier (Weighted model) datatype label prob 
-        where
-        
-    probabilityClassify (Weighted model) dp = probabilityClassify model dp
-    
+    -}
 --     straightClassify :: model -> datatype -> label
 --     straightClassify = mean . probabilityClassify
 --     straightClassify model dp = classificationLabel $ probabilityClassify model dp

@@ -7,6 +7,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module HLearn.Models.Classifiers.Perceptron
     where
@@ -16,7 +17,7 @@ import qualified Data.Vector.Unboxed as VU
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
-import HLearn.Models.Classification
+import HLearn.Models.Classifiers.Common
 import HLearn.Models.Classifiers.NearestNeighbor
 
 -------------------------------------------------------------------------------
@@ -49,7 +50,7 @@ instance
     , VectorSpace weight vector
     ) => MetricSpace weight (Centroid weight vector)
         where
-    dist v1 v2 = dist (vector v1 /. weight v1) (vector v2 /. weight v2)
+    distance v1 v2 = distance (vector v1 /. weight v1) (vector v2 /. weight v2)
     
 ---------------------------------------
         
@@ -65,36 +66,26 @@ instance (Num weight, Ord label, Num dp) => Monoid (Perceptron label weight dp) 
 -------------------------------------------------------------------------------
 -- model
 
-instance ModelParams (NoParams (Centroid weight vector)) (Centroid weight vector) where
-    getparams _ = NoParams
-    
-instance DefaultParams (NoParams (Centroid weight vector)) (Centroid weight vector) where
-    defparams = NoParams
-    
 instance 
     ( Num weight
     , Num vector
-    ) => HomTrainer (NoParams (Centroid weight vector)) vector (Centroid weight vector) 
+    ) => HomTrainer (Centroid weight vector) 
         where
-              
-    train1dp' _ dp = Centroid { weight=1, vector=dp }
+    type Datapoint (Centroid weight vector) = vector
+    
+    train1dp dp = Centroid { weight=1, vector=dp }
     
 ---------------------------------------
 
-instance ModelParams (NoParams (Perceptron label weight dp)) (Perceptron label weight dp) where
-    getparams _ = NoParams
-    
-instance DefaultParams (NoParams (Perceptron label weight dp)) (Perceptron label weight dp) where
-    defparams = NoParams
-    
 instance 
     ( Num weight
     , Ord label
     , Num dp
-    ) => HomTrainer (NoParams (Perceptron label weight dp)) (label,dp) (Perceptron label weight dp) 
+    ) => HomTrainer (Perceptron label weight dp) 
         where
+    type Datapoint (Perceptron label weight dp) = (label,dp)
               
-    train1dp' _ (label,dp) = Perceptron $ Map.singleton label $ train1dp dp
+    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp dp
     
 -------------------------------------------------------------------------------
 -- classification
@@ -105,8 +96,11 @@ instance
     , Num dp
     , Num prob
     , MetricSpace prob (Centroid prob dp)
-    ) => ProbabilityClassifier (Perceptron label prob dp) dp label prob 
+    , prob ~ Double
+    ) => Classifier (Perceptron label prob dp)
         where
+    type Label (Perceptron label prob dp) = label
+    type UnlabeledDatapoint (Perceptron label prob dp) = dp  
               
     probabilityClassify model dp = probabilityClassify nn (train1dp dp :: Centroid prob dp)
         where

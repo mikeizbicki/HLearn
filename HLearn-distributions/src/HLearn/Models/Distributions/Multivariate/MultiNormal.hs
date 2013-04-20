@@ -17,6 +17,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module HLearn.Models.Distributions.Multivariate.MultiNormal
+    ( MultiNormal (..)
+    )
     where
 
 -- import qualified Control.ConstraintKinds as CK
@@ -31,7 +33,11 @@ import Data.Array.ST
 import GHC.ST
 import GHC.TypeLits
 
+import Foreign.Storable
+import Data.Packed.Matrix
+
 import HLearn.Algebra
+import HLearn.Models.Distributions.Common
 
 -------------------------------------------------------------------------------
 -- data types
@@ -44,15 +50,11 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
     deriving (Read,Show,Eq,Ord)
 
 newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
-    deriving (Read,Show,Eq,Ord{-,Semigroup,Monoid,RegularSemigroup-})
+    deriving (Read,Show,Eq,Ord)
 
 deriving instance (Semigroup (MultiNormalVec (Length xs) prob)) => Semigroup (MultiNormal xs prob)
 deriving instance (Monoid (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
 
-data MultiNormalContainer (sampleL::[*]) basedist prob = MNC 
-    { dist :: MultiNormal sampleL prob
-    , basedist :: basedist
-    }
 
 data MultiNormalArray prob (n::Nat) = MultiNormalArray
     { m0 :: !prob
@@ -119,13 +121,6 @@ instance (SingI n, Num prob, VU.Unbox prob) => HomTrainer (MultiNormalVec n prob
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
 
-class HList2List xs a | xs -> a where
-    hlist2list :: xs -> [a]
-instance HList2List (HList '[]) a where
-    hlist2list xs = []
-instance (HList2List (HList xs) a) => HList2List (HList (a ':xs)) a where
-    hlist2list (x:::xs) = x:(hlist2list xs)
-    
 instance 
     ( SingI (Length xs)
     , Num prob
@@ -179,21 +174,45 @@ instance (Show prob, Fractional prob, SingI k, IArray UArray prob) => Covariance
             n = m0 mn
             k = fromIntegral $ fromSing (sing :: Sing k)
 
+instance 
+    ( HList2List (HList dpL) prob
+    , VU.Unbox prob
+    , Num prob
+    , SingI (FromNat1 (Length1 dpL))
+    ) => Distribution (MultiNormal dpL prob) 
+        where
+    type Probability (MultiNormal dpL prob) = prob
+
+instance
+    ( HList2List (HList dpL) prob
+    , VU.Unbox prob
+    , Num prob
+    , SingI (FromNat1 (Length1 dpL))
+    , Covariance (MultiNormal dpL prob) prob
+    , IArray UArray prob
+    , Storable prob
+    ) => PDF (MultiNormal dpL prob) 
+        where
+    pdf dist dpL = undefined
+        where
+            k = fromIntegral $ fromSing (sing :: Sing (Length dpL)) :: Int
+            covarM = (k><k) $ elems $ covar dist
+
 -------------------------------------------------------------------------------
 -- tests
 
--- ds = map (listArray (0,2)) 
---     [[1,2,4]
---     ,[2,5,6]
---     ,[3,1,1]
---     ]
--- 
--- test = train ds :: MultiNormalArray Double 3
--- 
--- ds2 = map VU.fromList
---     [[1,2,4]
---     ,[2,5,6]
---     ,[3,1,1]
---     ]
--- 
--- test2 = train ds2 :: MultiNormalVec 3 Double
+ds = map (listArray (0,2)) 
+    [[1,2,4]
+    ,[2,5,6]
+    ,[3,1,1]
+    ]
+
+test = train ds :: MultiNormalArray Double 3
+
+ds2 = map VU.fromList
+    [[1,2,4]
+    ,[2,5,6]
+    ,[3,1,1]
+    ]
+
+test2 = train ds2 :: MultiNormalVec 3 Double

@@ -21,6 +21,7 @@ module HLearn.Models.Distributions.Multivariate.Interface
     , Multivariate
     
     -- * Type functions
+    , MultiNormalContainer
     , MultiCategorical (..)
     , Independent (..)
     , Dependent (..)
@@ -32,6 +33,7 @@ import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Multivariate.Internal.Container
 import HLearn.Models.Distributions.Multivariate.Internal.Unital
 import HLearn.Models.Distributions.Multivariate.Internal.CatContainer hiding (ds,baseparams)
+import HLearn.Models.Distributions.Multivariate.MultiNormal
 
 -------------------------------------------------------------------------------
 -- data types
@@ -116,3 +118,19 @@ type instance Independent dist '[] = '[]
 type instance Independent (dist :: * -> *) (x ': xs) = (Container dist x) ': (Independent dist xs)
 type instance Independent (dist :: * -> * -> *)  (x ': xs) = (Container (dist x) x) ': (Independent dist xs)
 
+
+data MultiNormalContainer (sampleL::[*]) basedist prob = MultiNormalContainer 
+    { dist :: MultiNormal sampleL prob
+    , basedist :: basedist
+    }
+    deriving (Read,Show,Eq,Ord)
+    
+-- instance Semigroup (MultiNormalContainer sampleL basedist prob) where
+--     mn1 <> mn2 = MultiNormalContainer
+--         { dist = dist mn1 <> dist mn2
+--         , basedist = basedist mn1 <> basedist mn2
+--         }
+--     
+-- instance Monoid (MultiNormalContainer sampleL basedist prob) where
+--     mempty = MultiNormalContainer mempty mempty
+--     mappend = (<>)

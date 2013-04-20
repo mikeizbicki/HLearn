@@ -1,7 +1,7 @@
 Name:                HLearn-datastructures
-Version:             0.0.1
+Version:             1.0.0
 Description:         This module contains commonly used data structures
-Category:            Data Mining
+Category:            Data Mining, Machine Learning, Data Structures
 License:             GPL
 --License-file:        LICENSE
 Author:              Mike izbicki
@@ -11,13 +11,17 @@ Cabal-Version:       >=1.8
 
 Library
     Build-Depends:      
-        --HLearn-algebra          >= 0.0.1,
-        HLearn-algebra          ,
-        --HLearn-distributions    ,
-        base                    >= 3 && < 5
+        HLearn-algebra          >= 1.0.0,
+        HLearn-distributions    >= 1.0.0,
+        base                    >= 3 && < 5,
+        
+        vector                  >= 0.10.0,
+        containers              >= 0.5.0,
+        list-extras             >= 0.4.1
         
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:
-        HLearn.Models.Markov.MarkovChain
+        HLearn.DataStructures.BinarySearchTree
+        HLearn.NPHard.Partition
         
