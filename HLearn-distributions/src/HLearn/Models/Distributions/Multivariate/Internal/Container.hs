@@ -15,8 +15,12 @@
 
 -- | 
 module HLearn.Models.Distributions.Multivariate.Internal.Container
+    ( Container
+    , MultiContainer
+    )
     where
 
+import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 
@@ -103,24 +107,23 @@ instance
 
 ---------------------------------------
 
--- instance 
---     ( HomTrainer (dist prob)
---     , HomTrainer basedist
---     , Params basedist ~ HList xs
---     , Datapoint basedist ~ HList ys
---     , Datapoint (dist prob) ~ HList zs
---     ) =>  HomTrainer (MultiContainer dist sample basedist prob) 
---         where
---     type Datapoint (MultiContainer dist sample basedist prob) = 
---         (Datapoint (dist prob)) `HAppend` (Datapoint basedist)
--- 
---     train1dp' (distparams:::baseparams) (dp:::basedp) = Container
---         { dist = train1dp' distparams dp
---         , basedist = train1dp' baseparams basedp
---         }
+instance 
+    ( HomTrainer (dist prob)
+    , HomTrainer basedist
+    , Datapoint (dist prob) ~ HList zs
+    , Datapoint basedist ~ HList ys
+    , HTake1 (Nat1Box (Length1 zs)) (HList (zs++ys)) (HList zs)
+    , HDrop1 (Nat1Box (Length1 zs)) (HList (zs++ys)) (HList ys)
+    ) =>  HomTrainer (MultiContainer dist sample basedist prob) 
+        where
+    type Datapoint (MultiContainer dist sample basedist prob) = 
+        (Datapoint (dist prob)) `HAppend` (Datapoint basedist)
 
-type family HAppend xs ys :: *
-type instance HAppend (HList xs) (HList ys) = HList (xs ++ ys)
+    train1dp dpL = MultiContainer $ Container 
+        { dist = train1dp $ htake1 (Nat1Box :: Nat1Box (Length1 zs)) dpL
+        , basedist = train1dp $ hdrop1 (Nat1Box :: Nat1Box (Length1 zs)) dpL
+        }
+
 
 --     train1dp' (distparams:::baseparams) (dp:::basedp) = Container
 --         { dist = train1dp' distparams dp

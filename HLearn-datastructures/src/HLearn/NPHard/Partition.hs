@@ -5,6 +5,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module HLearn.NPHard.Partition
     where
@@ -28,13 +29,19 @@ data Partition a (n::Nat) = Partition
     }
     deriving (Read,Show,Eq,Ord)
 
-bst2partition :: forall a r n. (Norm a r, SingI n) => BST a -> Partition a n
+partitions :: Partition a n -> [[a]]
+partitions p = Map.elems $ sets p
+
+getPartition :: Int -> Partition a n -> [a]
+getPartition k p = Map.findWithDefault [] k (sets p)
+
+bst2partition :: forall a r n. (Norm r a, SingI n) => BST a -> Partition a n
 bst2partition bst = Partition
     { bst = bst
     , sets = bst2sets (fromIntegral $ fromSing (sing :: Sing n)) bst
     }
     
-bst2sets :: (Norm a r) => Int -> BST a -> Map.Map Int [a]
+bst2sets :: (Norm r a) => Int -> BST a -> Map.Map Int [a]
 bst2sets n bst = Map.map cs2list $ F.foldr go base bst
     where
         base = Map.fromList [(i,mempty) | i<-[0..n-1]]
@@ -42,36 +49,31 @@ bst2sets n bst = Map.map cs2list $ F.foldr go base bst
             where
                 minindex = fst $ argmin (\(k,p) -> total p) $ Map.toList sets
 
-maxpartition :: (Norm a r) => Partition a n -> r
+maxpartition :: (Norm r a) => Partition a n -> r
 maxpartition p = maximum $ map magnitude $ Map.elems $ sets p
 
-minpartition :: (Norm a r) => Partition a n -> r
+minpartition :: (Norm r a) => Partition a n -> r
 minpartition p = minimum $ map magnitude $ Map.elems $ sets p
 
-spread :: (Norm a r) => Partition a n -> r
+spread :: (Norm r a) => Partition a n -> r
 spread p = (maxpartition p)-(minpartition p)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Norm a r, SingI n) => Semigroup (Partition a n) where
+instance (Ord a, Norm r a, SingI n) => Semigroup (Partition a n) where
     p1 <> p2 = bst2partition $ (bst p1) <> (bst p2)
 
-instance (Norm a r, SingI n) => Monoid (Partition a n) where
+instance (Ord a, Norm r a, SingI n) => Monoid (Partition a n) where
     mempty = bst2partition mempty
     mappend = (<>)
 
 -------------------------------------------------------------------------------
 -- Training
 
-instance Model (NoParams (Partition a n)) (Partition a n) where
-    getparams _ = NoParams
-    
-instance (Norm a r, SingI n) => DefaultModel (NoParams (Partition a n)) (Partition a n) where
-    defparams = NoParams
-    
-instance (Norm a r, SingI n) => HomTrainer (NoParams (Partition a n)) a (Partition a n) where
-    train1dp' _ dp = bst2partition $ train1dp dp
+instance (Norm r a, Ord a, SingI n) => HomTrainer (Partition a n) where
+    type Datapoint (Partition a n) = a
+    train1dp dp = bst2partition $ train1dp dp
     
 -------------------------------------------------------------------------------
 -- CountingSeq
@@ -85,13 +87,13 @@ data CountingSeq r a = CountingSeq
 cs2list :: CountingSeq r a -> [a]
 cs2list = F.toList . countingseq
     
-cseq_singleton :: (Norm a r) => a -> CountingSeq r a
+cseq_singleton :: (Norm r a) => a -> CountingSeq r a
 cseq_singleton a = CountingSeq (magnitude a) $ Seq.singleton a
     
 instance F.Foldable (CountingSeq r) where
     foldr f b (CountingSeq t s) = F.foldr f b s
     
-instance (Num r, Norm a r) => Triangle (CountingSeq r a) a where
+instance (Num r, Norm r a) => Triangle (CountingSeq r a) a where
     (CountingSeq t s) |> a = CountingSeq (t+(magnitude a)) (s|>a)
     a <| (CountingSeq t s) = CountingSeq (t+(magnitude a)) (a<|s)
     

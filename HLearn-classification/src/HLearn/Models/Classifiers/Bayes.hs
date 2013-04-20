@@ -11,12 +11,11 @@
 module HLearn.Models.Classifiers.Bayes
     where
 
-import Unsafe.Coerce
 import qualified Data.Map as Map
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
-import HLearn.Models.Classification
+import HLearn.Models.Classifiers.Common
 
 
 -------------------------------------------------------------------------------
@@ -32,13 +31,6 @@ data Bayes' dist label prob = Bayes'
     deriving (Read,Show,Eq,Ord)
     
 type Bayes dist label prob = RegSG2Group (Bayes' dist label prob)
-
-instance (Model distparams (dist prob)) => Model (BayesParams distparams) (Bayes dist label prob) where
-    getparams (SGJust b) = --error "Bayes.getparams undefined"
-        BayesParams $ getparams $ snd $  head $ Map.toList $ attrDist $ b
-    
-instance (DefaultModel distparams (dist prob)) => DefaultModel (BayesParams distparams) (Bayes dist label prob) where
-    defparams = BayesParams defparams
 
 -------------------------------------------------------------------------------
 -- Algebra

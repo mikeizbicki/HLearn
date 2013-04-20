@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module HLearn.Evaluation.CrossValidation
     where
@@ -22,15 +23,15 @@ import qualified Data.DList as D
 
 import HLearn.Algebra
 -- import HLearn.Evaluation.Metrics
-import HLearn.Models.Classification
-import HLearn.Models.Distributions.Gaussian
+import HLearn.Models.Distributions
+import HLearn.Models.Classifiers.Common
 import qualified Control.ConstraintKinds as CK
 
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
 lame_crossvalidation :: 
-    ( LameTrainer modelparams container datapoint model
+    ( LameTrainer container datapoint model
     , Semigroup ret
     , Semigroup (container datapoint)
     , CK.Functor container
@@ -41,10 +42,10 @@ lame_crossvalidation ::
     , CK.FoldableConstraint container datapoint
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
-    ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-lame_crossvalidation modelparams dataset perfmeasure k = reduce $ do
+    ) => container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
+lame_crossvalidation dataset perfmeasure k = reduce $ do
     (testdata, trainingdata) <- genTestList datasetL
-    let model = lame_train' modelparams trainingdata
+    let model = lame_train' trainingdata
     let score = perfmeasure model testdata
     return score
     where
@@ -52,65 +53,56 @@ lame_crossvalidation modelparams dataset perfmeasure k = reduce $ do
 
 -- | This is the standard cross-validation technique for use with the HomTrainer type class.  It is asymptotically faster than standard k-fold cross-validation (implemented with lame_crossvalidation), yet is guaranteed to get the exact same answer.
 crossvalidation :: 
-    ( HomTrainer modelparams datapoint model
+    ( HomTrainer model
     , Semigroup ret
-    , Semigroup (container datapoint)
+    , Semigroup (container (Datapoint model))
     , CK.Partitionable container
-    , CK.PartitionableConstraint container datapoint
+    , CK.PartitionableConstraint container (Datapoint model)
     , F.Foldable container
     , Functor container
-    ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-crossvalidation modelparams dataset perfmeasure k = reduce $ do
+    ) => container (Datapoint model) -> (model -> container (Datapoint model) -> ret) -> Int -> ret
+crossvalidation dataset perfmeasure k = reduce $ do
     (testdata,model) <- zip datasetL $ listAllBut modelL
     let score = perfmeasure model testdata
     return score
     where
-        modelL = fmap (train' modelparams) datasetL
+        modelL = fmap train datasetL
         datasetL = CK.partition k dataset
-
--- crossValidation_monoid_par modelparams dataset perfmeasure k = (parallel reduce) $ do
---     (testdata,model) <- zip datasetL $ listAllBut modelL
+    
+-- crossvalidation_group :: 
+--     ( HomTrainer modelparams datapoint model
+--     , Group model
+--     , Semigroup ret
+--     , CK.Functor container
+--     , CK.FunctorConstraint container datapoint
+--     , CK.FunctorConstraint container model
+--     , CK.Foldable container
+--     , CK.FoldableConstraint container model
+--     , CK.FoldableConstraint container datapoint
+--     , CK.Partitionable container
+--     , CK.PartitionableConstraint container datapoint
+--     , F.Foldable container
+--     , Functor container
+--     ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
+-- crossvalidation_group modelparams dataset perfmeasure k = reduce $ do
+--     testdata <- datasetL
+--     let model = fullModel <> (inverse $ train' modelparams testdata)
 --     let score = perfmeasure model testdata
---     return score
+--     return score    
 --     where
+--         fullModel = reduce modelL
 --         modelL = fmap (train' modelparams) datasetL
 --         datasetL = CK.partition k dataset
-
-
-crossvalidation_group :: 
-    ( HomTrainer modelparams datapoint model
-    , Group model
-    , Semigroup ret
-    , CK.Functor container
-    , CK.FunctorConstraint container datapoint
-    , CK.FunctorConstraint container model
-    , CK.Foldable container
-    , CK.FoldableConstraint container model
-    , CK.FoldableConstraint container datapoint
-    , CK.Partitionable container
-    , CK.PartitionableConstraint container datapoint
-    , F.Foldable container
-    , Functor container
-    ) => modelparams -> container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-crossvalidation_group modelparams dataset perfmeasure k = reduce $ do
-    testdata <- datasetL
-    let model = fullModel <> (inverse $ train' modelparams testdata)
-    let score = perfmeasure model testdata
-    return score    
-    where
-        fullModel = reduce modelL
-        modelL = fmap (train' modelparams) datasetL
-        datasetL = CK.partition k dataset
-
-crossValidation_group_par modelparams dataset perfmeasure k = (parallel reduce) $ do
-    testdata <- datasetL
-    let model = fullModel <> (inverse $ train' modelparams testdata)
-    let score = perfmeasure model testdata
-    return score    
-    where
-        fullModel = (parallel reduce) modelL
-        modelL = fmap (train' modelparams) datasetL
-        datasetL = CK.partition k dataset
+-- 
+-- crossValidation_group_par modelparams dataset perfmeasure k = (parallel reduce) $ do
+--     testdata <- datasetL
+--     let model = fullModel <> (inverse $ train' modelparams testdata)
+--     let score = perfmeasure model testdata
+--     return score    
+--     where
+--         fullModel = (parallel reduce) modelL
+--         modelL = fmap (train' modelparams) datasetL
+--         datasetL = CK.partition k dataset
 
 
 listAllBut2 :: (Semigroup a) => [a] -> [a]
@@ -145,7 +137,7 @@ genTestList xs = zip xs $ listAllBut xs
 --     , CK.FoldableConstraint container (LDPS label)
 --     , CK.FoldableConstraint container [LDPS label]
 --     , Classifier model DPS label
---     ) => PerformanceMeasure Accuracy model container (LDPS label) (Gaussian Double)
+--     ) => PerformanceMeasure Accuracy model container (LDPS label) (Normal Double)
 --         where
 --         
 --     measure metricparams model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)
@@ -168,9 +160,11 @@ accuracy ::
 --     , CK.FoldableConstraint container [Labeled datapoint label]
     , CK.FoldableConstraint container (Labeled datapoint label)
     , CK.FoldableConstraint container [Labeled datapoint label]
-    , ProbabilityClassifier model datapoint label Double
+    , Classifier model
+    , UnlabeledDatapoint model ~ datapoint 
+    , Label model ~ label 
     , Eq label
-    ) => model -> container (Labeled datapoint label) -> (Gaussian Double)
+    ) => model -> container (Labeled datapoint label) -> (Normal Double)
 accuracy model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)
     where
         checkdp (label,dp) = indicator $ label==(classify model dp)

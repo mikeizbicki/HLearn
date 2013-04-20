@@ -14,7 +14,6 @@ module HLearn.Algebra.Morphism
     ( 
     -- * Morphisms
     Morphism (..)
-    , DefaultMorphism (..)
     
     -- * Morphism properties
     , Surjective (..)
@@ -33,8 +32,8 @@ import HLearn.Algebra.Structures.Groups
 -- | A Morphism converts from a domain to a codomain using the given parameters.  We perform the actual conversion using the @$>@ operator.
 
 class Morphism domain params codomain | params -> codomain where
-    morph' :: domain -> params -> codomain
-    morph' = ($>)
+    morph :: domain -> params -> codomain
+    morph = ($>)
 
     ($>) :: domain -> params -> codomain
     ($>) = morph'

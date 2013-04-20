@@ -22,7 +22,7 @@ import qualified Control.ConstraintKinds as CK
 
 -- | Provides a non-homomorphic training function
 class LameTrainer container datapoint model where
-    lame_train' :: container datapoint -> model
+    lame_train :: container datapoint -> model
 
 -- instance 
 --     ( HomTrainer modelparams datapoint model
