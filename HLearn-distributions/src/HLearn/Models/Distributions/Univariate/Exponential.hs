@@ -27,8 +27,8 @@ import Data.Vector.Unboxed.Deriving
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Gnuplot
 import HLearn.Models.Distributions.Univariate.Internal.Moments
+import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
 -- Exponential

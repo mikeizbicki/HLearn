@@ -9,7 +9,7 @@
 
 -- | This module contains the functions for plotting distributions using Gnuplot.
 
-module HLearn.Models.Distributions.Gnuplot
+module HLearn.Models.Distributions.Visualization.Gnuplot
     (
     -- * Main interface
     plotDistribution

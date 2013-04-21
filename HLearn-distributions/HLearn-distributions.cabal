@@ -26,6 +26,8 @@ Library
         QuickCheck              >= 2.5.1,
         vector                  >= 0.9,
         vector-th-unbox         >= 0.2,
+        graphviz                >= 2999.16,
+        hmatrix                 >= 0.14,
         
         -- are these really necessary?
         array                   >= 0.4.0,
@@ -46,7 +48,8 @@ Library
     Exposed-modules:
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
-        HLearn.Models.Distributions.Gnuplot
+        HLearn.Models.Distributions.Visualization.Gnuplot
+        HLearn.Models.Distributions.Visualization.Graphviz
         HLearn.Models.Distributions.Univariate.Categorical
         HLearn.Models.Distributions.Univariate.Exponential
         HLearn.Models.Distributions.Univariate.Geometric

@@ -30,8 +30,8 @@ import Statistics.Distribution.Geometric
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Gnuplot
 import HLearn.Models.Distributions.Univariate.Internal.Moments
+import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
 -- Geome
