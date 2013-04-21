@@ -28,13 +28,12 @@ import qualified Data.Vector.Unboxed as VU
 import Data.Vector.Unboxed.Deriving
 
 import Control.DeepSeq
-import Data.Array.Unboxed
-import Data.Array.ST
 import GHC.ST
 import GHC.TypeLits
 
 import Foreign.Storable
-import Data.Packed.Matrix
+import Numeric.LinearAlgebra hiding ((<>))
+import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -55,20 +54,6 @@ newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) pro
 deriving instance (Semigroup (MultiNormalVec (Length xs) prob)) => Semigroup (MultiNormal xs prob)
 deriving instance (Monoid (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
 
-
-data MultiNormalArray prob (n::Nat) = MultiNormalArray
-    { m0 :: !prob
-    , m1 :: !(UArray Int prob)
-    , m2 :: !(UArray (Int,Int) prob)
-    }
---     deriving (Show,Eq,Ord)
-
-instance (Show prob, IArray UArray prob) => Show (MultiNormalArray prob (n::Nat)) where
-    show mn = "MultiNormalArray { m0="++(show $ m0 mn)++", m1="++(show $ m1 mn)++", m2="++(show $ m2 mn)++" }"
-
-instance NFData (MultiNormalArray prob n) where
-    rnf mn = seq m0 $ seq m1 $ seq m2 $ ()
-
 -------------------------------------------------------------------------------
 -- algebra
 
@@ -88,25 +73,6 @@ instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) wh
         }
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
-
-instance (Num prob, SingI n, IArray UArray prob) => Semigroup (MultiNormalArray prob n) where
-    mn1 <> mn2 = MultiNormalArray
-        { m0 = (m0 mn1) + (m0 mn2)
-        , m1 = listArray (0,k-1) $ zipWith (+) (elems $ m1 mn1) (elems $ m1 mn2)
-        , m2 = listArray ((0,0),(k-1,k-1)) $ zipWith (+) (elems $ m2 mn1) (elems $ m2 mn2)
-        }
-        where
-            k = fromIntegral $ fromSing (sing :: Sing n)
-    
-instance (Num prob, SingI n, IArray UArray prob) => Monoid (MultiNormalArray prob n) where
-    mempty = MultiNormalArray
-        { m0 = 0
-        , m1 = listArray (0,k-1) $ repeat 0
-        , m2 = listArray ((0,0),(k-1,k-1)) $ repeat 0
-        }
-        where
-            k = fromIntegral $ fromSing (sing :: Sing n)
-    mappend = (<>)
 
 -------------------------------------------------------------------------------
 -- training
@@ -131,47 +97,36 @@ instance
     type Datapoint (MultiNormal xs prob) = HList xs
     train1dp dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
-instance 
-    ( Num prob
-    , SingI n
-    , IArray UArray prob
-    ) => HomTrainer (MultiNormalArray prob n) 
-        where
-    type Datapoint (MultiNormalArray prob n) = (UArray Int prob) 
-              
-    train1dp dp = MultiNormalArray
-        { m0 = 1
-        , m1 = dp
-        , m2 = listArray ((0,0),(k-1,k-1)) [(dp ! i)*(dp ! j) | j<-[0..k-1], i<-[0..k-1]]
-        }
-        where
-            k = fromIntegral $ fromSing (sing :: Sing n)
-
--- trainST' _ dps = MultiNormal
---     { m0 = F.foldl (+) 0 $ fmap (\x->1) dps
---     , m1 = runSTUArray $ do
---         arr <- newArray (0,k-1) 0
---         return arr -- (arr::STUArray s Int prob)
--- --             listArray (0,k-1) $ repeat 0
---     , m2 = listArray ((0,0),(k-1,k-1)) $ repeat 0
---     }
---     where
---         k = 1--fromIntegral $ fromSing (sing :: Sing n)
-
 -------------------------------------------------------------------------------
 -- distribution
 
-class Covariance dist prob | dist -> prob where
-    covar :: dist -> UArray (Int,Int) prob
+class (Distribution dist) => Covariance dist where
+    covar :: dist -> Matrix (Probability dist)
 
-instance (Show prob, Fractional prob, SingI k, IArray UArray prob) => Covariance (MultiNormalArray prob k) prob where
-    covar mn = listArray ((0,0),(k-1,k-1)) $ 
-            [ (1/(n-1))*( mij - ((m1 mn ! j)*(m1 mn ! i))/n ) 
-            | ((i,j),mij) <- assocs (m2 mn) 
+instance 
+    ( VU.Unbox prob
+    , SingI k
+    , Num prob
+    ) => Distribution (MultiNormalVec k prob) 
+        where
+    type Probability (MultiNormalVec k prob) = prob
+
+instance 
+    ( VU.Unbox prob
+    , SingI k
+    , Fractional prob
+    , Enum prob
+    , Storable prob
+    ) => Covariance (MultiNormalVec k prob) 
+        where
+    covar mn = (k><k) $ 
+            [ (1/(n-1))*( mij - ((q1 mn VU.! j)*((q1 mn) VU.! i))/n ) 
+            | ((i,j),mij) <- assocs
             ]
         where
-            mean i = ((m1 mn) ! i)/n
-            n = m0 mn
+            assocs = zip [(i,j) | i<-[0..k-1],j<-[0..k-1]] (concat $ V.toList $ fmap VU.toList $ q2 mn)
+            mean i = ((q1 mn) VU.! i)/n
+            n = q0 mn
             k = fromIntegral $ fromSing (sing :: Sing k)
 
 instance 
@@ -186,28 +141,35 @@ instance
 instance
     ( HList2List (HList dpL) prob
     , VU.Unbox prob
-    , Num prob
+    , Floating prob
+    , Field prob
+    , Enum prob
     , SingI (FromNat1 (Length1 dpL))
-    , Covariance (MultiNormal dpL prob) prob
-    , IArray UArray prob
+--     , Covariance (MultiNormal dpL prob)
     , Storable prob
     ) => PDF (MultiNormal dpL prob) 
         where
-    pdf dist dpL = undefined
+    pdf (MultiNormal dist) dpL = 1/(sqrt $ (2*pi)^(k)*(det sigma))*(exp $ (-1/2)*(top) )
         where
+            top=minElement $ ((trans $ x `sub` mu) LA.<> (inv sigma) LA.<> (x `sub` mu))
+              
             k = fromIntegral $ fromSing (sing :: Sing (Length dpL)) :: Int
-            covarM = (k><k) $ elems $ covar dist
+            x = k><1 $ hlist2list dpL
+            n = q0 dist
+            sigma = covar dist
+            mu = k><1 $ map (/n) $ VU.toList (q1 $ dist)
+--             covarM = (k><k) $ elems $ covar dist
 
 -------------------------------------------------------------------------------
 -- tests
 
-ds = map (listArray (0,2)) 
-    [[1,2,4]
-    ,[2,5,6]
-    ,[3,1,1]
-    ]
+-- ds = map (listArray (0,2)) 
+--     [[1,2,4]
+--     ,[2,5,6]
+--     ,[3,1,1]
+--     ]
 
-test = train ds :: MultiNormalArray Double 3
+-- test = train ds :: MultiNormalArray Double 3
 
 ds2 = map VU.fromList
     [[1,2,4]
@@ -216,3 +178,12 @@ ds2 = map VU.fromList
     ]
 
 test2 = train ds2 :: MultiNormalVec 3 Double
+
+ds = 
+    [ 1:::2:::3:::HNil
+    , 2:::5:::6:::HNil
+    , 3:::1:::1:::HNil
+    , 3:::2:::1:::HNil
+    ]
+test = train ds :: MultiNormal '[Double,Double,Double] Double
+        

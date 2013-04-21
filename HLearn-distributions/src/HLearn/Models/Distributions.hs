@@ -7,6 +7,8 @@
 
 module HLearn.Models.Distributions
     ( module HLearn.Models.Distributions.Common
+    , module HLearn.Models.Distributions.Visualization.Gnuplot
+    , module HLearn.Models.Distributions.Visualization.Graphviz
     , module HLearn.Models.Distributions.Univariate.Categorical
     , module HLearn.Models.Distributions.Univariate.Exponential
     , module HLearn.Models.Distributions.Univariate.Geometric
@@ -20,6 +22,8 @@ module HLearn.Models.Distributions
     where
 
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Visualization.Gnuplot
+import HLearn.Models.Distributions.Visualization.Graphviz
 import HLearn.Models.Distributions.Univariate.Categorical
 import HLearn.Models.Distributions.Univariate.Exponential
 import HLearn.Models.Distributions.Univariate.Geometric
