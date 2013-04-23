@@ -54,6 +54,6 @@ Library
     Exposed-modules:
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
-        --HLearn.Models.Classifiers.Bayes
+        HLearn.Models.Classifiers.Bayes
         HLearn.Models.Classifiers.NearestNeighbor
         HLearn.Evaluation.CrossValidation

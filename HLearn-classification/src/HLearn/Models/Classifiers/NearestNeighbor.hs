@@ -51,6 +51,9 @@ instance
 -------------------------------------------------------------------------------
 -- classification
 
+instance (Probabilistic (NaiveNN container label dp)) where
+    type Probability (NaiveNN container label dp) = Double
+
 neighborList :: 
     ( F.Foldable container
     , MetricSpace ring dp
@@ -64,7 +67,7 @@ neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
 instance 
     ( Ord label
     , F.Foldable container
-    , MetricSpace Double dp
+    , MetricSpace (Probability (NaiveNN container label dp)) dp
     ) => Classifier (NaiveNN container label dp)
         where
     type Label (NaiveNN container label dp) = label

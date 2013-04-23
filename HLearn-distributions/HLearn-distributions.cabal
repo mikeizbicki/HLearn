@@ -61,5 +61,6 @@ Library
         HLearn.Models.Distributions.Multivariate.MultiNormal
         HLearn.Models.Distributions.Multivariate.Internal.CatContainer
         HLearn.Models.Distributions.Multivariate.Internal.Container
+        HLearn.Models.Distributions.Multivariate.Internal.Ignore
         HLearn.Models.Distributions.Multivariate.Internal.Unital
         
