@@ -7,6 +7,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
 
 module HLearn.Models.Classifiers.Bayes
     where
@@ -17,20 +19,14 @@ import HLearn.Algebra
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 
-
 -------------------------------------------------------------------------------
--- Bayes
+-- data types
 
-data BayesParams distparams = BayesParams distparams
-    deriving (Read,Show,Eq,Ord)
-
-data Bayes' dist label prob = Bayes'
+data Bayes dist label prob = Bayes
     { labelDist :: !(Categorical label prob)
     , attrDist  :: !(Map.Map label (dist prob))
     }
     deriving (Read,Show,Eq,Ord)
-    
-type Bayes dist label prob = RegSG2Group (Bayes' dist label prob)
 
 -------------------------------------------------------------------------------
 -- Algebra
@@ -38,19 +34,26 @@ type Bayes dist label prob = RegSG2Group (Bayes' dist label prob)
 instance 
     ( Ord label, Num prob
     , Semigroup (dist prob)
---     , Model (BayesParams distparams) (Bayes dist label prob)
-    ) => Semigroup (Bayes' dist label prob) 
+    ) => Semigroup (Bayes dist label prob) 
         where
-    b1 <> b2 = if False -- (getparams $ SGJust b1) /= (getparams $ SGJust b2)
-        then error "Bayes.(<>): different params"
-        else Bayes'
+    b1 <> b2 = Bayes
             { labelDist = labelDist b1 <> labelDist b2
             , attrDist  = Map.unionWith (<>) (attrDist b1) (attrDist b2)
             }
 
-instance (Semigroup (Bayes' dist label prob)) => Abelian (Bayes' dist label prob)
+instance (Semigroup (Bayes dist label prob)) => Abelian (Bayes dist label prob)
 
-instance (Ord label, RegularSemigroup (dist prob){-, Model distparams (dist prob)-}, Num prob) => RegularSemigroup (Bayes' dist label prob) where
+instance 
+    ( Ord label
+    , Num prob
+    , Semigroup (dist prob)
+    , Monoid (dist prob)
+    ) => Monoid (Bayes dist label prob)
+        where
+    mempty = Bayes mempty mempty
+    mappend = (<>)
+
+instance (Ord label, RegularSemigroup (dist prob), Num prob) => RegularSemigroup (Bayes dist label prob) where
     inverse b = b
         { labelDist = inverse $ labelDist b
         , attrDist  = Map.map inverse $ attrDist b
@@ -61,7 +64,7 @@ instance
     , LeftOperator ring (Categorical label prob)
     , RegularSemigroup (dist prob)
     , Ord label, Num prob
-    ) => LeftOperator ring (Bayes' dist label prob) 
+    ) => LeftOperator ring (Bayes dist label prob) 
         where
     r .* b = b 
         { labelDist = r .* (labelDist b) 
@@ -72,7 +75,7 @@ instance
 --     ( RightOperator ring distL
 --     , RightOperator ring (Categorical label prob)
 --     , Ord label, RegularSemigroup distL, Eq distparams, Num prob
---     ) => RightOperator ring (Bayes' distparams distL label prob) 
+--     ) => RightOperator ring (Bayes distparams distL label prob) 
 --         where
 --     b *. r = b 
 --         { labelDist = (labelDist b) *. r
@@ -85,16 +88,18 @@ instance
 instance 
     ( Semigroup (dist prob)
     , Ord label, Num prob, Eq prob
---     , Model (BayesParams distparams) (Bayes dist label prob)
-    , HomTrainer distparams attr (dist prob)
-    ) => HomTrainer (BayesParams distparams) (label,attr) (Bayes dist label prob) 
+    , HomTrainer (dist prob)
+    ) => HomTrainer (Bayes dist label prob) 
         where
+    type Datapoint (Bayes dist label prob) = (label,Datapoint (dist prob))
     
-    train1dp' (BayesParams params) (label,attr) = 
-        SGJust $ Bayes' (train1dp label) (Map.singleton label $ train1dp' params attr)
+    train1dp (label,attr) = Bayes (train1dp label) (Map.singleton label $ train1dp attr)
 
 -------------------------------------------------------------------------------
 -- Classification
+
+instance Probabilistic (Bayes dist label prob) where
+    type Probability (Bayes dist label prob) = prob
 
 instance 
     ( Ord label
@@ -102,11 +107,16 @@ instance
     , Fractional prob
 --     , Eq distparams
     , RegularSemigroup (dist prob)
-    , Distribution (dist prob) attr prob
-    ) => ProbabilityClassifier (Bayes dist label prob) attr label prob 
+    , Probabilistic (dist prob)
+    , Probability (dist (Probability (Bayes dist label prob))) ~ Probability (Bayes dist label prob)
+    , PDF (dist prob)
+    ) => Classifier (Bayes dist label prob)
         where
-              
-    probabilityClassify (SGJust bayes) dp = 
+
+    type Label (Bayes dist label prob) = label
+    type UnlabeledDatapoint (Bayes dist label prob) = Datapoint (dist prob)
+ 
+    probabilityClassify bayes dp = 
         Categorical $ Map.mapWithKey (\label dist -> (pdf dist dp)*(pdf (labelDist bayes) label)) $ attrDist bayes
         
 
@@ -114,22 +124,30 @@ data Sex = Male | Female
     deriving (Read,Show,Eq,Ord)
 
 ds = 
-    [ (Male, (6::Double):::(180::Double):::(12::Double))
-    , (Male, 5.92:::190:::11)
-    , (Male, 5.58:::170:::12)
-    , (Male, 5.92:::165:::10)
-    , (Female, 5:::100:::6)
-    , (Female, 5.5:::150:::8)
-    , (Female, 5.42:::130:::7)
-    , (Female, 5.75:::150:::9)
+    [ (Male, (6::Double):::(180::Double):::(12::Double):::HNil)
+    , (Male, 5.92:::190:::11:::HNil)
+    , (Male, 5.58:::170:::12:::HNil)
+    , (Male, 5.92:::165:::10:::HNil)
+    , (Female, 5:::100:::6:::HNil)
+    , (Female, 5.5:::150:::8:::HNil)
+    , (Female, 5.42:::130:::7:::HNil)
+    , (Female, 5.75:::150:::9:::HNil)
     ]
 
-dp = (6:::130:::8)::(Double:::Double:::Double)
+dp = (6:::130:::8:::HNil)::(HList '[Double,Double,Double])
 
 model = train ds :: Bayes
---     (Gaussian:::.Gaussian:::.Gaussian)
-    (Moments:::.Moments:::.Moments)
+    (Multivariate (HList '[Double,Double,Double])
+       '[ Independent Normal '[Double]
+        , Dependent MultiNormal '[Double,Double]
+        ])
     Sex
+    Double
+
+dist = train (map snd ds) :: Multivariate (HList '[Double,Double,Double])
+   '[ Independent Normal '[Double]
+    , Dependent MultiNormal '[Double,Double]
+    ]
     Double
 
 {-ds = 

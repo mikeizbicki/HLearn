@@ -123,7 +123,7 @@ instance (Num sample) => HomTrainer (Binomial sample prob) where
     type Datapoint (Binomial sample prob) = sample
     train1dp dp = Binomial $ train1dp dp
 
-instance (Num sample) => Distribution (Binomial sample prob) where
+instance (Num sample) => Probabilistic (Binomial sample prob) where
     type Probability (Binomial sample prob) = prob
     
 instance (Floating prob) => PDF (Binomial Int Double) where

@@ -34,7 +34,7 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
--- Geome
+-- Geometric
 
 newtype Geometric sample prob = Geometric {  moments :: (Moments3 sample) }
     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
@@ -43,7 +43,7 @@ instance (Num sample) => HomTrainer (Geometric sample prob) where
     type Datapoint (Geometric sample prob) = sample
     train1dp dp = Geometric $ train1dp dp
 
-instance (Num sample) => Distribution (Geometric sample prob) where
+instance (Num sample) => Probabilistic (Geometric sample prob) where
     type Probability (Geometric sample prob) = prob
 
 instance (Integral sample, Floating prob) => PDF (Geometric sample prob) where

@@ -21,7 +21,7 @@ module HLearn.Models.Distributions.Multivariate.Interface
     , Multivariate
     
     -- * Type functions
-    , MultiNormalContainer
+--     , Ignore
     , MultiCategorical (..)
     , Independent (..)
     , Dependent (..)
@@ -30,13 +30,34 @@ module HLearn.Models.Distributions.Multivariate.Interface
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Multivariate.Internal.Container
-import HLearn.Models.Distributions.Multivariate.Internal.Unital
 import HLearn.Models.Distributions.Multivariate.Internal.CatContainer hiding (ds,baseparams)
+import HLearn.Models.Distributions.Multivariate.Internal.Container
+import HLearn.Models.Distributions.Multivariate.Internal.Ignore
+import HLearn.Models.Distributions.Multivariate.Internal.Unital
 import HLearn.Models.Distributions.Multivariate.MultiNormal
 
 -------------------------------------------------------------------------------
 -- data types
+
+-- data Ignore (datapoint:: *) (basedist:: *) (prob:: *) = Ignore
+--     deriving (Read,Show,Eq,Ord)
+--     
+-- instance Semigroup (Ignore datapoint basedist prob) where
+--     Ignore <> Ignore = Ignore
+--     
+-- instance Monoid (Ignore datapoint basedist prob) where
+--     mempty = Ignore
+--     mappend = (<>)
+--     
+-- instance HomTrainer (Ignore datapoint basedist prob) where
+--     type Datapoint (Ignore datapoint basedist prob) = datapoint `HCons` (Datapoint basedist)
+--     train1dp _ = Ignore
+--     
+-- instance Probabilistic (Ignore datapoint basedist prob) where
+--     type Probability (Ignore datapoint basedist prob) = prob
+-- 
+-- instance (Num prob) => PDF (Ignore datapoint basedist prob) where
+--     pdf _ _ = 1
 
 -- | The Trainable class allows us to convert data types into an isomorphic "HList"s.  All of our multivariate distributions work on "HList"s, so they work on all instances of "Trainable" as well.
 class Trainable t where
@@ -62,8 +83,10 @@ type instance MultivariateTF ((Container univariate sample) ': xs) prob =
     Container univariate sample (MultivariateTF xs prob) prob
 type instance MultivariateTF ((MultiContainer dist sample) ': xs) prob = 
     MultiContainer dist sample (MultivariateTF xs prob) prob
-type instance MultivariateTF ((CatContainer' label) ': xs) prob = 
+type instance MultivariateTF ((CatContainer label) ': xs) prob = 
     CatContainer label (MultivariateTF xs prob) prob
+type instance MultivariateTF ((Ignore' label) ': xs) prob = 
+    Ignore' label (MultivariateTF xs prob) prob
 
 deriving instance (Read             (MultivariateTF (Concat xs) prob)) => Read              (Multivariate dp xs prob)
 deriving instance (Show             (MultivariateTF (Concat xs) prob)) => Show              (Multivariate dp xs prob)
@@ -82,12 +105,7 @@ instance
     type Datapoint (Multivariate dp xs prob) = dp
     train1dp dp = Multivariate $ train1dp $ getHList dp
     
-instance 
-    ( Distribution (MultivariateTF (Concat xs) prob)
-    , Probability (MultivariateTF (Concat xs) prob) ~ prob
-    , HomTrainer (Multivariate dp xs prob)
-    ) => Distribution (Multivariate dp xs prob) 
-        where
+instance Probabilistic (Multivariate dp xs prob) where
     type Probability (Multivariate dp xs prob) = prob
     
 instance 
@@ -107,7 +125,7 @@ instance
 
 type family MultiCategorical (xs :: [*]) :: [* -> * -> *]
 type instance MultiCategorical '[] = ('[])
-type instance MultiCategorical (x ': xs) = (CatContainer' x) ': (MultiCategorical xs)
+type instance MultiCategorical (x ': xs) = (CatContainer x) ': (MultiCategorical xs)
 
 -- type Dependent dist (xs :: [*]) = '[ MultiContainer (dist xs) xs ]
 type family Dependent (dist::a) (xs :: [*]) :: [* -> * -> *]
@@ -118,19 +136,3 @@ type instance Independent dist '[] = '[]
 type instance Independent (dist :: * -> *) (x ': xs) = (Container dist x) ': (Independent dist xs)
 type instance Independent (dist :: * -> * -> *)  (x ': xs) = (Container (dist x) x) ': (Independent dist xs)
 
-
-data MultiNormalContainer (sampleL::[*]) basedist prob = MultiNormalContainer 
-    { dist :: MultiNormal sampleL prob
-    , basedist :: basedist
-    }
-    deriving (Read,Show,Eq,Ord)
-    
--- instance Semigroup (MultiNormalContainer sampleL basedist prob) where
---     mn1 <> mn2 = MultiNormalContainer
---         { dist = dist mn1 <> dist mn2
---         , basedist = basedist mn1 <> basedist mn2
---         }
---     
--- instance Monoid (MultiNormalContainer sampleL basedist prob) where
---     mempty = MultiNormalContainer mempty mempty
---     mappend = (<>)

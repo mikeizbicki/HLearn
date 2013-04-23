@@ -40,7 +40,7 @@ instance (Num prob) => HomTrainer (Exponential prob) where
     type Datapoint (Exponential prob) = prob
     train1dp dp = Exponential $ train1dp dp
 
-instance (Num prob) => Distribution (Exponential prob) where
+instance (Num prob) => Probabilistic (Exponential prob) where
     type Probability (Exponential prob) = prob
 
 instance (Floating prob) => PDF (Exponential prob) where

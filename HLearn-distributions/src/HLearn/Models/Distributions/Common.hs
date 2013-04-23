@@ -3,10 +3,13 @@
 {-# LANGUAGE EmptyDataDecls #-}
 
 -- | This module contains the type classes for manipulating distributions.
+--
+-- We use the same classes for both discrete and continuous distributions.  Unfortunately, we cannot use the type classes from the 'statistics' package because we require more flexibility than they offer.
+
 module HLearn.Models.Distributions.Common
     ( 
     -- * Type classes
-    Distribution(..)
+    Probabilistic(..)
     , CDF(..)
     , PDF(..)
     , Mean(..)
@@ -23,25 +26,24 @@ import HLearn.Algebra
 -------------------------------------------------------------------------------
 -- Distribution
 
--- | We use the same class for both discrete and continuous distributions.  Unfortunately, we cannot use the type classes from the 'statistics' package because we require more flexibility than they offer.
-class (HomTrainer dist) => Distribution dist where
-    type Probability dist
+-- | 
+class Probabilistic model where
+    type Probability model
 
 -- |  Technically, every distribution has a Cumulative Distribution Function (CDF), and so this type class should be merged with the "Distribution" type class.  However, I haven't had a chance to implement the CDF for most distributions yet, so this type class has been separated out.
-class (Distribution dist) => CDF dist where
+class (Probabilistic dist) => CDF dist where
 -- class CDF dist dp prob | dist -> dp, dist -> prob where
     cdf :: dist -> Datapoint dist -> Probability dist
     cdfInverse :: dist -> Probability dist -> Datapoint dist
 
 -- | Not every distribution has a Probability Density Function (PDF), however most distributions in the HLearn library do.  For many applications, the PDF is much more intuitive and easier to work with than the CDF.  For discrete distributions, this is often called a Probability Mass Function (PMF); however, for simplicity we use the same type class for both continuous and discrete data.
-class (Distribution dist) => PDF dist where
+class (Probabilistic dist) => PDF dist where
     pdf :: dist -> Datapoint dist -> Probability dist
 
-
-class (Distribution dist) => Mean dist where
+class (Probabilistic dist) => Mean dist where
     mean :: dist -> Probability dist
     
-class (Distribution dist) => Variance dist where
+class (Probabilistic dist) => Variance dist where
     variance :: dist -> Probability dist
 
 

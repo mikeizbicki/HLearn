@@ -20,6 +20,7 @@ module HLearn.Models.Distributions.Multivariate.Internal.Container
     )
     where
 
+import Debug.Trace
 import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -124,23 +125,10 @@ instance
         , basedist = train1dp $ hdrop1 (Nat1Box :: Nat1Box (Length1 zs)) dpL
         }
 
-
---     train1dp' (distparams:::baseparams) (dp:::basedp) = Container
---         { dist = train1dp' distparams dp
---         , basedist = train1dp' baseparams basedp
---         }
-
 -------------------------------------------------------------------------------
 -- Distribution
     
-instance 
-    ( Distribution (dist prob)
-    , Distribution basedist
-    , Probability (dist prob) ~ prob
-    , Probability basedist ~ prob
-    , HomTrainer (Container dist sample basedist prob) 
-    ) => Distribution (Container dist sample basedist prob) 
-        where
+instance Probabilistic (Container dist sample basedist prob) where
     type Probability (Container dist sample basedist prob) = prob
     
 instance 
@@ -148,12 +136,36 @@ instance
     , PDF basedist
     , Probability (dist prob) ~ prob
     , Probability basedist ~ prob
-    , Distribution (Container dist sample basedist prob) 
+    , Probabilistic (Container dist sample basedist prob) 
     , Datapoint basedist ~ HList ys
     , Datapoint (dist prob) ~ y
     , Datapoint (Container dist sample basedist prob) ~ HList (y ': ys)
     , Num prob
     ) => PDF (Container dist sample basedist prob) 
         where
-    pdf container (dp:::basedp) = (pdf (dist container) dp)*(pdf (basedist container) basedp)
+    pdf container (dp:::basedp) = pdf1*pdf2
+        where
+            pdf1 = pdf (dist container) dp
+            pdf2 = pdf (basedist container) basedp
+
+---------------------------------------
+
+instance Probabilistic (MultiContainer dist sample basedist prob) where
+    type Probability (MultiContainer dist sample basedist prob) = prob
     
+instance 
+    ( PDF (dist prob)
+    , PDF basedist
+    , prob ~ Probability (dist prob)
+    , prob ~ Probability basedist
+    , Num prob
+    , Datapoint (dist prob) ~ HList dpL
+    , Datapoint basedist ~ HList basedpL
+    , HTake1 (Nat1Box (Length1 dpL)) (HList (dpL ++ basedpL)) (HList dpL)
+    , HDrop1 (Nat1Box (Length1 dpL)) (HList (dpL ++ basedpL)) (HList basedpL)
+    ) => PDF (MultiContainer dist sample basedist prob) 
+        where
+    pdf (MultiContainer container) dp = (pdf (dist container) dp1)*(pdf (basedist container) dp2)
+        where
+            dp1 = htake1 (Nat1Box :: Nat1Box (Length1 dpL)) dp
+            dp2 = hdrop1 (Nat1Box :: Nat1Box (Length1 dpL)) dp

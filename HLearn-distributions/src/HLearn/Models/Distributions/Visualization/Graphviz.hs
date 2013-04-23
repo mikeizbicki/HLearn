@@ -65,7 +65,7 @@ instance
 instance 
     ( MultivariateLabels datapoint
     , MarkovNetwork (Multivariate datapoint ( ys ': xs) prob)
-    ) => MarkovNetwork (Multivariate datapoint ( (CatContainer' label ': ys) ': xs) prob) 
+    ) => MarkovNetwork (Multivariate datapoint ( (CatContainer label ': ys) ': xs) prob) 
         where
     graphL _ labels = (head labels, tail labels)
                     : (graphL (undefined :: Multivariate datapoint ( ys ': xs) prob) (tail labels))

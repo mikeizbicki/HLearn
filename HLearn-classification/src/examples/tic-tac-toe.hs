@@ -26,8 +26,8 @@ move ttt pos square = TTT $ board ttt A.// [(pos,square)]
 winner :: TTT -> Square
 winner (TTT board) = if didOwin
     then O
-    else if didOwin
-            then O
+    else if didXwin
+            then X
             else Empty
     where
         didXwin = or $ map (all (==X)) posL

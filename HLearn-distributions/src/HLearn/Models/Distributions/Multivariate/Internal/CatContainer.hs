@@ -42,39 +42,43 @@ import HLearn.Models.Distributions.Multivariate.Internal.Unital
 -------------------------------------------------------------------------------
 -- data types
 
-data CatContainer' label basedist prob = CatContainer'
+data CatContainer label basedist prob = CatContainer
     { pdfmap :: !(Map.Map label basedist)
     , probmap :: !(Map.Map label prob)
     , catnumdp :: prob
     } 
---     deriving (Show,Read,Eq,Ord)
+    deriving (Show,Read,Eq,Ord)
 
-instance (Show basedist, Show label, Show prob) => Show (CatContainer' label basedist prob) where
-    show dist = "CatContainer' "
---               ++"{ "++"params="++show (params dist)
-              ++"{ "++"pdfmap="++show (pdfmap dist)
-              ++", catnumdp="++show (catnumdp dist)
-              ++"}"
+-- instance (Show basedist, Show label, Show prob) => Show (CatContainer label basedist prob) where
+--     show dist = "CatContainer "
+-- --               ++"{ "++"params="++show (params dist)
+--               ++"{ "++"pdfmap="++show (pdfmap dist)
+--               ++", catnumdp="++show (catnumdp dist)
+--               ++"}"
 
 instance (NFData label, NFData prob, NFData basedist) => 
-    NFData (CatContainer' label basedist prob) 
+    NFData (CatContainer label basedist prob) 
         where
     rnf d = rnf $ pdfmap d
 
-type CatContainer label basedist prob = RegSG2Group (CatContainer' label basedist prob)
+-- type CatContainer label basedist prob = RegSG2Group (CatContainer label basedist prob)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num prob, Semigroup basedist) => Abelian (CatContainer' label basedist prob)
-instance (Ord label, Num prob, Semigroup basedist) => Semigroup (CatContainer' label basedist prob) where
+instance (Ord label, Num prob, Semigroup basedist) => Abelian (CatContainer label basedist prob)
+instance (Ord label, Num prob, Semigroup basedist) => Semigroup (CatContainer label basedist prob) where
     d1 <> d2 = d1 
         { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
         , probmap = Map.unionWith (+) (probmap d1) (probmap d2) 
         , catnumdp  = (catnumdp d1)+(catnumdp d2)
         } 
 
-instance (Ord label, Num prob, RegularSemigroup basedist) => RegularSemigroup (CatContainer' label basedist prob) where
+instance (Ord label, Num prob, Semigroup basedist, Monoid basedist) => Monoid (CatContainer label basedist prob) where
+    mempty = CatContainer mempty mempty 0
+    mappend = (<>)
+
+instance (Ord label, Num prob, RegularSemigroup basedist) => RegularSemigroup (CatContainer label basedist prob) where
     inverse d1 = d1 
         { pdfmap = Map.map (inverse) (pdfmap d1)
         , probmap = Map.map negate (probmap d1)
@@ -101,7 +105,7 @@ instance
         where
     type Datapoint (CatContainer label basedist prob) = label `HCons` (Datapoint basedist)
     
-    train1dp (dp:::basedp) = SGJust $ CatContainer' 
+    train1dp (dp:::basedp) = CatContainer 
         { pdfmap = Map.singleton dp $ train1dp basedp
         , probmap = Map.singleton dp 1
         , catnumdp  = 1
@@ -113,14 +117,14 @@ instance
 class NumDP model dp | model -> dp where
     numdp :: model -> dp
 
-instance NumDP (Unital prob) prob where
-    numdp (Unital prob) = prob
+-- instance NumDP (Unital prob) prob where
+--     numdp (Unital prob) = prob
     
 instance NumDP (CatContainer label basedist prob) prob where
-    numdp (SGJust dist) = catnumdp dist
+    numdp dist = catnumdp dist
 
 -- marginalizeRight :: (NumDP basedist prob) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
--- marginalizeRight (SGJust dist) = SGJust $ CatContainer'
+-- marginalizeRight (SGJust dist) = SGJust $ CatContainer
 --     { params = CatParams NoParams
 --     , pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
 --     , probmap = error "probmap"
@@ -128,10 +132,7 @@ instance NumDP (CatContainer label basedist prob) prob where
 --     }
 -- -- marginalizeRight (SGJust dist) = Map.foldr mappend mempty (pdfmap dist)
 
-instance 
-    ( HomTrainer (CatContainer label basedist prob)
-    ) => Distribution (CatContainer label basedist prob) 
-        where
+instance Probabilistic (CatContainer label basedist prob) where
     type Probability (CatContainer label basedist prob) = prob
 
 instance 
@@ -139,17 +140,19 @@ instance
     , Ord label
     , PDF basedist
     , Datapoint basedist ~ HList ys
+    , Show (Datapoint basedist)
+    , Show label
     ) => PDF (CatContainer label basedist prob)
         where
 
     {-# INLINE pdf #-}
-    pdf (SGJust dist) (label:::basedp) = val*weight/(catnumdp dist)
+    pdf dist (label:::basedp) = val*weight/(catnumdp dist)
         where
             weight = case Map.lookup label (probmap dist) of
                 Nothing -> 0
                 Just x  -> x
             val = case Map.lookup label (pdfmap dist) of
-                Nothing -> 0
+                Nothing -> trace ("Warning.CatContainer: label "++show label++" not found in training data: "++show (Map.keys $ pdfmap dist)) $ 0
                 Just x  -> pdf x basedp
 
 ---------------------------------------

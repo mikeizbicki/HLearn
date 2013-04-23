@@ -40,7 +40,7 @@ instance (Num prob) => HomTrainer (Normal prob) where
     type Datapoint (Normal prob) = prob
     train1dp dp = Normal $ train1dp dp
 
-instance (Num prob) => Distribution (Normal prob) where
+instance (Num prob) => Probabilistic (Normal prob) where
     type Probability (Normal prob) = prob
 
 instance (Floating prob) => PDF (Normal prob) where

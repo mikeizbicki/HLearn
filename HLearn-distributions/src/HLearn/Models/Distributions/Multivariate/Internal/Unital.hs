@@ -43,9 +43,9 @@ instance (Num prob) => HomTrainer (Unital prob) where
 -------------------------------------------------------------------------------
 -- distributions
 
-instance (Num prob) => Distribution (Unital prob) where
+instance (Num prob) => Probabilistic (Unital prob) where
     type Probability (Unital prob) = prob
 
 instance (Num prob) => PDF (Unital prob) where
-    pdf (Unital prob) HNil = prob
+    pdf (Unital prob) HNil = 1 --prob
 
