@@ -105,8 +105,6 @@ instance
     ( Ord label
     , Ord prob
     , Fractional prob
---     , Eq distparams
-    , RegularSemigroup (dist prob)
     , Probabilistic (dist prob)
     , Probability (dist (Probability (Bayes dist label prob))) ~ Probability (Bayes dist label prob)
     , PDF (dist prob)
@@ -139,6 +137,7 @@ dp = (6:::130:::8:::HNil)::(HList '[Double,Double,Double])
 model = train ds :: Bayes
     (Multivariate (HList '[Double,Double,Double])
        '[ Independent Normal '[Double]
+--         , Independent Normal '[Double,Double]
         , Dependent MultiNormal '[Double,Double]
         ])
     Sex

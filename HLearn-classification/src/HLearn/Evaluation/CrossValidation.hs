@@ -45,7 +45,7 @@ lame_crossvalidation ::
     ) => container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
 lame_crossvalidation dataset perfmeasure k = reduce $ do
     (testdata, trainingdata) <- genTestList datasetL
-    let model = lame_train' trainingdata
+    let model = lame_train trainingdata
     let score = perfmeasure model testdata
     return score
     where

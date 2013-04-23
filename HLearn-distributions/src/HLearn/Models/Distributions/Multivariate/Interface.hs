@@ -25,6 +25,9 @@ module HLearn.Models.Distributions.Multivariate.Interface
     , MultiCategorical (..)
     , Independent (..)
     , Dependent (..)
+    
+    -- * Modules
+    , module HLearn.Models.Distributions.Multivariate.Internal.Ignore
     )
     where
 

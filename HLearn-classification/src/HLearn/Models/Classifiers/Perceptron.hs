@@ -90,6 +90,9 @@ instance
 -------------------------------------------------------------------------------
 -- classification
 
+instance Probabilistic (Perceptron label prob dp) where
+    type Probability (Perceptron label prob dp) = prob
+
 instance 
     ( Ord prob
     , Ord label
