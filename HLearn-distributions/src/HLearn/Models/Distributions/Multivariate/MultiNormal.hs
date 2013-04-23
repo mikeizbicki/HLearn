@@ -100,14 +100,14 @@ instance
 -------------------------------------------------------------------------------
 -- distribution
 
-class (Distribution dist) => Covariance dist where
+class (Probabilistic dist) => Covariance dist where
     covar :: dist -> Matrix (Probability dist)
 
 instance 
     ( VU.Unbox prob
     , SingI k
     , Num prob
-    ) => Distribution (MultiNormalVec k prob) 
+    ) => Probabilistic (MultiNormalVec k prob) 
         where
     type Probability (MultiNormalVec k prob) = prob
 
@@ -134,7 +134,7 @@ instance
     , VU.Unbox prob
     , Num prob
     , SingI (FromNat1 (Length1 dpL))
-    ) => Distribution (MultiNormal dpL prob) 
+    ) => Probabilistic (MultiNormal dpL prob) 
         where
     type Probability (MultiNormal dpL prob) = prob
 

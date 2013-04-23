@@ -44,7 +44,7 @@ instance (Num sample) => HomTrainer (Poisson sample prob) where
     type Datapoint (Poisson sample prob) = sample
     train1dp dp = Poisson $ train1dp dp
 
-instance (Num sample) => Distribution (Poisson sample prob) where
+instance (Num sample) => Probabilistic (Poisson sample prob) where
     type Probability (Poisson sample prob) = prob
 
 -- instance (Integral sample, Floating prob) => PDF (Poisson sample prob) where

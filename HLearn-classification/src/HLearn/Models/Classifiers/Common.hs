@@ -37,14 +37,14 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- Classification
 
-class Classifier model where
+class (Probabilistic model, Ord (Probability model)) => Classifier model where
     type Label model
     type UnlabeledDatapoint model
     
-    probabilityClassify :: model -> UnlabeledDatapoint model -> Categorical (Label model) Double
+    probabilityClassify :: model -> UnlabeledDatapoint model -> Categorical (Label model) (Probability model)
     
     classify :: model -> UnlabeledDatapoint model -> Label model
-    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical (Label model) Double)
+    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical (Label model) (Probability model))
     
 
 {-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where

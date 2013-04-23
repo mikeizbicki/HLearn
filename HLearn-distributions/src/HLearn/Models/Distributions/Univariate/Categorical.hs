@@ -52,7 +52,7 @@ instance (Ord label, Num prob) => HomTrainer (Categorical label prob) where
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance (Ord label, Ord prob, Fractional prob) => Distribution (Categorical label prob) where
+instance Probabilistic (Categorical label prob) where
     type Probability (Categorical label prob) = prob
 
 instance (Ord label, Ord prob, Fractional prob) => PDF (Categorical label prob) where

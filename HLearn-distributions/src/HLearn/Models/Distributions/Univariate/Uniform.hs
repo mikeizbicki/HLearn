@@ -47,7 +47,7 @@ instance (Ord datapoint) => HomTrainer (Uniform datapoint) where
 -------------------------------------------------------------------------------
 -- distribution
 
-instance (Ord datapoint) => Distribution (Uniform datapoint) where
+instance Probabilistic (Uniform datapoint) where
     type Probability (Uniform datapoint) = datapoint
 
 instance (Ord datapoint, Fractional datapoint) => PDF (Uniform datapoint) where
