@@ -276,4 +276,4 @@ gnuplot params dist
 
 samplesFromMinMax min max = fmap (\x -> x/numsamples*(max-min)+min) [0..numsamples]
     where 
-        numsamples = 100
+        numsamples = 1000
