@@ -40,8 +40,8 @@ class (Probabilistic dist) => CDF dist where
 class (Probabilistic dist) => PDF dist where
     pdf :: dist -> Datapoint dist -> Probability dist
 
-class (Probabilistic dist) => Mean dist where
-    mean :: dist -> Probability dist
+class (HomTrainer dist) => Mean dist where
+    mean :: dist -> Datapoint dist
     
 class (Probabilistic dist) => Variance dist where
     variance :: dist -> Probability dist
