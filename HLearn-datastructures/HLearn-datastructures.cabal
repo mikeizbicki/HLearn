@@ -2,7 +2,7 @@ Name:                HLearn-datastructures
 Version:             1.0.0
 Description:         This module contains commonly used data structures
 Category:            Data Mining, Machine Learning, Data Structures
-License:             GPL
+License:             BSD3
 --License-file:        LICENSE
 Author:              Mike izbicki
 Maintainer:          mike@izbicki.me

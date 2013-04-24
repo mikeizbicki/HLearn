@@ -2,7 +2,7 @@ Name:                HLearn-markov
 Version:             0.0.1
 Description:         This module is used to represent Markov models.
 Category:            Data Mining
-License:             GPL
+License:             BSD3
 --License-file:        LICENSE
 Author:              Mike izbicki
 Maintainer:          mike@izbicki.me
