@@ -90,6 +90,9 @@ instance (Ord label, Ord prob, Fractional prob) => CDF (Categorical label prob) 
 --         return $ cdfInverse dist (x::prob)
 
 
+instance (Num prob, Ord prob, Ord label) => Mean (Categorical label prob) where
+    mean dist = fst $ argmax snd $ Map.toList $ pdfmap dist
+    
 -- | Extracts the element in the distribution with the highest probability
 mostLikely :: Ord prob => Categorical label prob -> label
 mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist

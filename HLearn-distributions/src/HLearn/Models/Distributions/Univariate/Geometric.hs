@@ -68,13 +68,13 @@ instance
     samplePoints dist = [min..max]
         where
             min = 0
-            max = maximum [20,round $ 3*(mean dist)]
+            max = maximum [20,round $ 3*(fromIntegral $ mean dist)]
 
 geo_p :: (Fractional prob, Integral sample) => Geometric sample prob -> prob
 geo_p (Geometric dist) = 1/((fromIntegral $ m1 dist)/(fromIntegral $ m0 dist) +1)
     
-instance (Integral sample, Fractional prob) => Mean (Geometric sample prob) where
-    mean dist = 1/(geo_p dist)
+instance (Integral sample, RealFrac prob) => Mean (Geometric sample prob) where
+    mean dist = round $ 1/(geo_p dist)
 
 instance (Integral sample, Fractional prob) => Variance (Geometric sample prob) where
     variance dist = (1-p)/(p*p)

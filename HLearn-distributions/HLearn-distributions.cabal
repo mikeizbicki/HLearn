@@ -56,11 +56,13 @@ Library
         HLearn.Models.Distributions.Univariate.Normal
         HLearn.Models.Distributions.Univariate.Poisson
         HLearn.Models.Distributions.Univariate.Uniform
+        HLearn.Models.Distributions.Univariate.Internal.MissingData
         HLearn.Models.Distributions.Univariate.Internal.Moments
         HLearn.Models.Distributions.Multivariate.Interface
         HLearn.Models.Distributions.Multivariate.MultiNormal
         HLearn.Models.Distributions.Multivariate.Internal.CatContainer
         HLearn.Models.Distributions.Multivariate.Internal.Container
         HLearn.Models.Distributions.Multivariate.Internal.Ignore
+        HLearn.Models.Distributions.Multivariate.Internal.Marginalization
         HLearn.Models.Distributions.Multivariate.Internal.Unital
         

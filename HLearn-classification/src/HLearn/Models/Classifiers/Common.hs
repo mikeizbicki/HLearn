@@ -37,15 +37,20 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- Classification
 
-class (Probabilistic model, Ord (Probability model)) => Classifier model where
+class 
+    ( Probabilistic model
+    , Label model ~ Datapoint (ResultDistribution model)
+    , Mean (ResultDistribution model)
+    ) => Classifier model 
+        where
     type Label model
     type UnlabeledDatapoint model
+    type ResultDistribution model
     
-    probabilityClassify :: model -> UnlabeledDatapoint model -> Categorical (Label model) (Probability model)
+    probabilityClassify :: model -> UnlabeledDatapoint model -> ResultDistribution model
     
     classify :: model -> UnlabeledDatapoint model -> Label model
-    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical (Label model) (Probability model))
-    
+    classify model dp = mean $ probabilityClassify model dp
 
 {-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
     probabilityClassify :: model -> datatype -> Categorical label prob
