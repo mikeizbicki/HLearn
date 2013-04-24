@@ -2,7 +2,7 @@ Name:                HLearn-classification
 Version:             1.0.0
 Description:         This module is for unsupervised, supervised, and semi-supervised classification tasks.  It is in desperate need of documentation and refactoring.
 Category:            Data Mining, Machine Learning
-License:             GPL
+License:             BSD3
 --License-file:        LICENSE
 Author:              Mike izbicki
 Maintainer:          mike@izbicki.me
