@@ -37,7 +37,10 @@ import qualified Data.Foldable as F
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Multivariate.Internal.Ignore
 import HLearn.Models.Distributions.Multivariate.Internal.Unital
+import HLearn.Models.Distributions.Multivariate.Internal.Marginalization
+import HLearn.Models.Distributions.Univariate.Categorical
 
 -------------------------------------------------------------------------------
 -- data types
@@ -111,26 +114,11 @@ instance
         , catnumdp  = 1
         }
 
--------------------------------------------------------------------------------
--- Distribution
-
-class NumDP model dp | model -> dp where
-    numdp :: model -> dp
-
--- instance NumDP (Unital prob) prob where
---     numdp (Unital prob) = prob
-    
 instance NumDP (CatContainer label basedist prob) prob where
     numdp dist = catnumdp dist
 
--- marginalizeRight :: (NumDP basedist prob) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
--- marginalizeRight (SGJust dist) = SGJust $ CatContainer
---     { params = CatParams NoParams
---     , pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
---     , probmap = error "probmap"
---     , catnumdp = catnumdp dist
---     }
--- -- marginalizeRight (SGJust dist) = Map.foldr mappend mempty (pdfmap dist)
+-------------------------------------------------------------------------------
+-- Distribution
 
 instance Probabilistic (CatContainer label basedist prob) where
     type Probability (CatContainer label basedist prob) = prob
@@ -156,59 +144,49 @@ instance
                 Just x  -> pdf x basedp
 
 ---------------------------------------
-
-
--- instance (Ord label, Ord prob, Fractional prob) => CDF (CatContainer label prob) label prob where
--- 
---     {-# INLINE cdf #-}
---     cdf dist label = (Map.foldl' (+) 0 $ Map.filterWithKey (\k a -> k<=label) $ pdfmap dist) 
---                    / (Map.foldl' (+) 0 $ pdfmap dist)
---                    
---     {-# INLINE cdfInverse #-}
---     cdfInverse dist prob = go cdfL
---         where
---             cdfL = sortBy (\(k1,p1) (k2,p2) -> compare p2 p1) $ map (\k -> (k,pdf dist k)) $ Map.keys $ pdfmap dist
---             go (x:[]) = fst $ last cdfL
---             go (x:xs) = if prob < snd x -- && prob > (snd $ head xs)
---                 then fst x
---                 else go xs
--- --     cdfInverse dist prob = argmax (cdf dist) $ Map.keys $ pdfmap dist
--- 
--- --     {-# INLINE mean #-}
--- --     mean dist = fst $ argmax snd $ Map.toList $ pdfmap dist
--- -- 
--- --     {-# INLINE drawSample #-}
--- --     drawSample dist = do
--- --         x <- getRandomR (0,1)
--- --         return $ cdfInverse dist (x::prob)
--- 
--- 
--- -- | Extracts the element in the distribution with the highest probability
--- mostLikely :: Ord prob => CatContainer label prob -> label
--- mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
--- 
--- -- | Converts a distribution into a list of (sample,probability) pai
--- dist2list :: CatContainer label prob -> [(label,prob)]
--- dist2list (CatContainer pdfmap) = Map.toList pdfmap
-
-
--------------------------------------------------------------------------------
--- Morphisms
-
--- instance 
---     ( Ord label
---     , Num prob
---     ) => Morphism (CatContainer label prob) FreeModParams (FreeMod prob label) 
---         where
---     CatContainer pdf $> FreeModParams = FreeMod pdf
-
     
+instance 
+    ( NumDP basedist prob
+    , Semigroup basedist
+    ) => Marginalize (Nat1Box Zero) (CatContainer label basedist prob) 
+        where
+              
+    type Margin (Nat1Box Zero) (CatContainer label basedist prob) = (Categorical label prob) 
+    getMargin _ dist = Categorical $ Map.map numdp (pdfmap dist) 
+
+    type MarginalizeOut (Nat1Box Zero) (CatContainer label basedist prob) = Ignore' label basedist prob
+    marginalizeOut _ dist = Ignore' $ reduce $ Map.elems (pdfmap dist)  
+
+instance 
+    ( Marginalize (Nat1Box n) basedist
+    , Semigroup basedist
+    ) => Marginalize (Nat1Box (Succ n)) (CatContainer label basedist prob) 
+        where
+              
+    type Margin (Nat1Box (Succ n)) (CatContainer label basedist prob) = Margin (Nat1Box n) basedist
+    getMargin _ dist = getMargin (undefined :: Nat1Box n) $ reduce $ Map.elems (pdfmap dist) 
     
+    type MarginalizeOut (Nat1Box (Succ n)) (CatContainer label basedist prob) = 
+        CatContainer label (MarginalizeOut (Nat1Box n) basedist) prob
+    marginalizeOut _ dist = dist { pdfmap = fmap (marginalizeOut (undefined :: Nat1Box n)) $ pdfmap dist }
+    
+{-marginalizeRight :: 
+    ( NumDP basedist prob
+    ) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
+marginalizeRight dist = CatContainer
+    { pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
+    , probmap = error "probmap"
+    , catnumdp = catnumdp dist
+    }-}
+-- marginalizeRight (SGJust dist) = Map.foldr mappend mempty (pdfmap dist)
+
     
 -------------------------------------------------------------------------------
 -- test
 
-ds= [ "test":::'g':::1:::1:::HNil
-    , "test":::'f':::1:::2:::HNil
-    , "toot":::'f':::2:::2:::HNil
+ds= [ "test":::'g':::"foo":::HNil
+    , "test":::'f':::"fok":::HNil
+    , "toot":::'f':::"foo":::HNil
     ]
+    
+test = train ds :: CatContainer String (CatContainer Char (CatContainer String (Unital Double) Double) Double) Double

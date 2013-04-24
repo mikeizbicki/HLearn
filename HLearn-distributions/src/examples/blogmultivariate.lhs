@@ -51,11 +51,13 @@
 >    Double
 
 >dist2 = train people :: Multivariate Person
->   '[ Ignore '[String]
+>   '[ Independent Categorical '[String]
 >    , MultiCategorical '[String,Job]
 >    , Dependent MultiNormal '[Double,Double]
 >    ]
 >    Double
+
+Multivariate Person '[ Independent Categorical '[String], MultiCategorical '[String,Job], Dependent MultiNormal '[Double,Double]]Double
 
 >tmpds=["test":::"Sales":::1:::2:::HNil, "test":::"Sales":::2:::2:::HNil, "test":::"Sales":::1:::3:::HNil, "test":::"Sales":::3:::2:::HNil]
 >dist = train tmpds :: Multivariate (HList '[String,String,Double,Double])

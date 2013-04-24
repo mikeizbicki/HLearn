@@ -24,6 +24,8 @@ import Debug.Trace
 import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Multivariate.Internal.Ignore
+import HLearn.Models.Distributions.Multivariate.Internal.Marginalization
 
 -------------------------------------------------------------------------------
 -- data types
@@ -106,6 +108,9 @@ instance
         , basedist = train1dp basedp
         }
 
+instance (NumDP (dist prob) ring) => NumDP (Container dist sample basedist prob) ring where
+    numdp container = numdp $ dist container
+
 ---------------------------------------
 
 instance 
@@ -125,6 +130,9 @@ instance
         , basedist = train1dp $ hdrop1 (Nat1Box :: Nat1Box (Length1 zs)) dpL
         }
 
+instance (NumDP (dist prob) ring) => NumDP (MultiContainer dist sample basedist prob) ring where
+    numdp (MultiContainer container) = numdp $ dist container
+    
 -------------------------------------------------------------------------------
 -- Distribution
     
@@ -148,6 +156,36 @@ instance
             pdf1 = pdf (dist container) dp
             pdf2 = pdf (basedist container) basedp
 
+instance Marginalize (Nat1Box Zero) (Container dist (sample :: *) basedist prob) where
+    type Margin (Nat1Box Zero) (Container dist sample basedist prob) = dist prob
+    getMargin _ container = dist container
+    
+    type MarginalizeOut (Nat1Box Zero) (Container dist sample basedist prob) = Ignore' sample basedist prob
+    marginalizeOut _ container = Ignore' $ basedist container
+    
+instance 
+    ( Marginalize (Nat1Box n) basedist
+    ) => Marginalize (Nat1Box (Succ n)) (Container dist sample basedist prob)
+        where
+    type Margin (Nat1Box (Succ n)) (Container dist sample basedist prob) = Margin (Nat1Box n) basedist
+    getMargin _ container = getMargin (undefined :: Nat1Box n) $ basedist container
+    
+    type MarginalizeOut (Nat1Box (Succ n)) (Container dist sample basedist prob) = 
+        Container dist sample (MarginalizeOut (Nat1Box n) basedist) prob 
+    marginalizeOut _ container = Container 
+        { dist = dist container
+        , basedist = marginalizeOut (undefined :: Nat1Box n) $ basedist container 
+        }
+
+{-instance Marginalize (Nat1Box Zero) (Container dist sample basedist prob) (dist prob) where
+    getMargin _ container = dist container
+    
+instance 
+    ( Marginalize (Nat1Box n) basedist margin
+    ) => Marginalize (Nat1Box (Succ n)) (Container dist sample basedist prob) margin 
+        where
+    getMargin _ container = getMargin (undefined :: Nat1Box n) $ basedist container
+-}
 ---------------------------------------
 
 instance Probabilistic (MultiContainer dist sample basedist prob) where

@@ -97,6 +97,9 @@ instance
     type Datapoint (MultiNormal xs prob) = HList xs
     train1dp dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
+instance NumDP (MultiNormal xs prob) prob where
+    numdp (MultiNormal mn) = q0 mn
+
 -------------------------------------------------------------------------------
 -- distribution
 
