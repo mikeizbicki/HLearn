@@ -15,11 +15,14 @@
 
 -- | Used for ignoring data
 module HLearn.Models.Distributions.Multivariate.Internal.Ignore
-    where
+    ( Ignore 
+    , Ignore' (Ignore')
+    ) where
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Multivariate.Internal.Unital
+import HLearn.Models.Distributions.Multivariate.Internal.Marginalization
 
 -------------------------------------------------------------------------------
 -- data types
@@ -54,6 +57,9 @@ instance
     
     train1dp (dp:::basedp) = Ignore' $ train1dp basedp
 
+instance (NumDP basedist ring) => NumDP (Ignore' label basedist prob) ring where
+    numdp (Ignore' basedist) = numdp basedist
+
 -------------------------------------------------------------------------------
 -- Distribution
 
@@ -71,3 +77,17 @@ instance
 
     {-# INLINE pdf #-}
     pdf dist (label:::basedp) = pdf (basedist dist) basedp
+
+-- instance Marginalize (Nat1Box Zero) (Ignore' label basedist prob) (Unital prob) where
+--     getMargin _ dist = Categorical $ Map.map numdp (pdfmap dist) 
+    
+instance 
+    ( Marginalize (Nat1Box n) basedist
+    ) => Marginalize (Nat1Box (Succ n)) (Ignore' label basedist prob) 
+        where
+    type Margin (Nat1Box (Succ n)) (Ignore' label basedist prob) = Margin (Nat1Box n) basedist
+    getMargin _ dist = getMargin (undefined :: Nat1Box n) $ basedist dist
+    
+    type MarginalizeOut (Nat1Box (Succ n)) (Ignore' label basedist prob) = 
+        Ignore' label (MarginalizeOut (Nat1Box n) basedist) prob
+    marginalizeOut _ dist = Ignore' $ marginalizeOut (undefined :: Nat1Box n) $ basedist dist

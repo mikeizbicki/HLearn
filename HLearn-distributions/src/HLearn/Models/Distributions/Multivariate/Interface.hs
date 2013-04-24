@@ -27,40 +27,25 @@ module HLearn.Models.Distributions.Multivariate.Interface
     , Dependent (..)
     
     -- * Modules
+    , Index (..)
     , module HLearn.Models.Distributions.Multivariate.Internal.Ignore
+    , module HLearn.Models.Distributions.Multivariate.Internal.Marginalization
     )
     where
+
+import GHC.TypeLits
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Multivariate.Internal.CatContainer hiding (ds,baseparams)
 import HLearn.Models.Distributions.Multivariate.Internal.Container
 import HLearn.Models.Distributions.Multivariate.Internal.Ignore
+import HLearn.Models.Distributions.Multivariate.Internal.Marginalization
 import HLearn.Models.Distributions.Multivariate.Internal.Unital
 import HLearn.Models.Distributions.Multivariate.MultiNormal
 
 -------------------------------------------------------------------------------
--- data types
-
--- data Ignore (datapoint:: *) (basedist:: *) (prob:: *) = Ignore
---     deriving (Read,Show,Eq,Ord)
---     
--- instance Semigroup (Ignore datapoint basedist prob) where
---     Ignore <> Ignore = Ignore
---     
--- instance Monoid (Ignore datapoint basedist prob) where
---     mempty = Ignore
---     mappend = (<>)
---     
--- instance HomTrainer (Ignore datapoint basedist prob) where
---     type Datapoint (Ignore datapoint basedist prob) = datapoint `HCons` (Datapoint basedist)
---     train1dp _ = Ignore
---     
--- instance Probabilistic (Ignore datapoint basedist prob) where
---     type Probability (Ignore datapoint basedist prob) = prob
--- 
--- instance (Num prob) => PDF (Ignore datapoint basedist prob) where
---     pdf _ _ = 1
+-- Trainable
 
 -- | The Trainable class allows us to convert data types into an isomorphic "HList"s.  All of our multivariate distributions work on "HList"s, so they work on all instances of "Trainable" as well.
 class Trainable t where
@@ -78,7 +63,7 @@ instance (Trainable (HList xs)) => Trainable (HList (x ': xs)) where
 -------------------------------------------------------------------------------
 -- Multivariate
 
-newtype Multivariate dp (xs :: [[* -> * -> *]]) prob = Multivariate (MultivariateTF (Concat xs) prob)
+newtype Multivariate (dp:: *) (xs :: [[* -> * -> *]]) prob = Multivariate (MultivariateTF (Concat xs) prob)
 
 type family MultivariateTF (xs::[* -> * -> *]) prob
 type instance MultivariateTF '[] prob = Unital prob
@@ -120,6 +105,37 @@ instance
     ) => PDF (Multivariate dp xs prob) 
         where
     pdf (Multivariate dist) dp = pdf dist (getHList dp)    
+
+instance 
+    ( Marginalize (Nat1Box n) (MultivariateTF (Concat xs) prob)
+    , MarginalizeOut (Nat1Box n) (MultivariateTF (Concat xs) prob)
+        ~ MultivariateTF (Concat (Replace2D n xs (Ignore' (Index (HList2TypeList (GetHList dp)) n)))) prob
+    ) => Marginalize (Nat1Box n) (Multivariate dp xs prob)
+        where   
+              
+    type Margin (Nat1Box n) (Multivariate dp xs prob) = Margin (Nat1Box n) (MultivariateTF (Concat xs) prob)
+    getMargin n (Multivariate dist) = getMargin n dist
+    
+    type MarginalizeOut (Nat1Box n) (Multivariate dp xs prob) = 
+        Multivariate dp (Replace2D n xs (Ignore' (Index (HList2TypeList (GetHList dp)) n))) prob
+    marginalizeOut n (Multivariate dist) = Multivariate $ marginalizeOut n dist
+
+type family HList2TypeList hlist :: [a]
+type instance HList2TypeList (HList xs) = xs
+
+type family Index (xs::[a]) (i::Nat1) :: a
+type instance Index (x ': xs) Zero = x
+type instance Index (x ': xs) (Succ i) = Index xs i
+
+type family Replace2D (n :: Nat1) (xs :: [ [ a ] ]) (newval :: a) :: [ [ a ] ]
+type instance Replace2D Zero ((x ': xs) ': ys) newval = (newval ': xs) ': ys
+type instance Replace2D (Succ n) ((x ': xs) ': ys) newval = AppendFront x (Replace2D n (xs ': ys) newval)
+type instance Replace2D n ('[] ': ys) newval = '[] ': (Replace2D n ys newval)
+
+type family AppendFront (x :: a) (xs :: [[a]]) :: [[a]]
+type instance AppendFront x (xs ': ys) = (x ': xs) ': ys
+
+data Boxer xs = Boxer
 
 -------------------------------------------------------------------------------
 -- Type functions

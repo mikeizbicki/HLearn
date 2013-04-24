@@ -20,6 +20,7 @@ module HLearn.Algebra.HomTrainer
     -- * HomTrainer
     HomTrainer (..)
     , WeightedHomTrainer (..)
+    , NumDP(..)
     
     )
     where
@@ -30,6 +31,13 @@ import Data.Foldable
 import HLearn.Algebra.Functions
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.Modules
+
+-------------------------------------------------------------------------------
+-- NumDP
+
+-- | numdp returns the number of data points that the model has been trained on
+class NumDP model ring | model -> ring where
+    numdp :: model -> ring
 
 -------------------------------------------------------------------------------
 -- HomTrainer

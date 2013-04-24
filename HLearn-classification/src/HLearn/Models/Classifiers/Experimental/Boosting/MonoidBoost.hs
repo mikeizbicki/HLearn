@@ -10,8 +10,9 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module HLearn.Models.Classifiers.Boosting.MonoidBoost
+module HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
     where
 
 import Control.Applicative
@@ -25,18 +26,14 @@ import Debug.Trace
 import Test.QuickCheck
 
 import HLearn.Algebra
-import HLearn.Gnuplot.Distributions
-import HLearn.Models.Distributions hiding (Uniform)
-import HLearn.Models.Distributions.Uniform
-import HLearn.Models.Classification
+import HLearn.Models.Distributions.Visualization.Gnuplot
+import HLearn.Models.Distributions
+import HLearn.Models.Classifiers.Common
 
 -------------------------------------------------------------------------------
 -- data structures
 
 data MonoidBoost (k::Nat) weight basemodel datapoint = MonoidBoost
-    {-{ frontL :: Seq.Seq datapoint
-    , backL :: Seq.Seq datapoint
-    ,-} 
     { dataL :: Seq.Seq datapoint
     , modelL :: Seq.Seq basemodel
     , weightL :: Seq.Seq weight
@@ -45,7 +42,8 @@ data MonoidBoost (k::Nat) weight basemodel datapoint = MonoidBoost
     deriving (Read,Show,Eq,Ord)
 
 instance 
-    ( DefaultHomTrainer baseparams datapoint basemodel
+    ( HomTrainer basemodel
+    , Datapoint basemodel ~ datapoint
     , Arbitrary datapoint
     , SingI k
     ) => Arbitrary (MonoidBoost k weight basemodel datapoint) 
@@ -56,9 +54,9 @@ instance
 -- algebra
 
 testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
-    :: MonoidBoost 3 Rational (Moments Rational) Rational
-    -> MonoidBoost 3 Rational (Moments Rational) Rational
-    -> MonoidBoost 3 Rational (Moments Rational) Rational
+    :: MonoidBoost 3 Rational (Normal Rational) Rational
+    -> MonoidBoost 3 Rational (Normal Rational) Rational
+    -> MonoidBoost 3 Rational (Normal Rational) Rational
     -> Bool
     )
 
@@ -67,14 +65,12 @@ testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3)
 -- m3=MonoidBoost {frontL = fromList [22,21], backL = fromList [-49,64], dataL = fromList [-1], modelL = fromList [], weightL = fromList [], numdp = 5} :: MonoidBoost 2 Int Int Int
 
 instance 
-    ( DefaultHomTrainer baseparams datapoint basemodel
+    ( HomTrainer basemodel
+    , Datapoint basemodel ~ datapoint
     , SingI k
     ) => Semigroup (MonoidBoost k weight basemodel datapoint) 
         where
     mb1 <> mb2 = MonoidBoost
---         { frontL    = Seq.take k $ frontL mb1 <> frontL mb2
---         , backL     = leave    k $ backL  mb1 <> backL  mb2
---         , dataL     = dataL  mb1 <> newdata  <> dataL  mb2
         { dataL     = dataL'
         , modelL    = modelL mb1 <> newmodel <> modelL mb2
         , weightL   = mempty
@@ -98,15 +94,16 @@ instance
 leave :: Int -> Seq.Seq a -> Seq.Seq a
 leave k xs = Seq.drop (Seq.length xs - k) xs
 
-test12 = train [1,2] :: MonoidBoost 2 Double (Gaussian Double) Double
-test34 = train [3,4] :: MonoidBoost 2 Double (Gaussian Double) Double
-test56 = train [5,6] :: MonoidBoost 2 Double (Gaussian Double) Double
-test78 = train [7,8] :: MonoidBoost 2 Double (Gaussian Double) Double
-ta = train [-5,3] :: MonoidBoost 2 Double (Gaussian Double) Double
-tb = train [-4,2] :: MonoidBoost 2 Double (Gaussian Double) Double
+test12 = train [1,2] :: MonoidBoost 2 Double (Normal Double) Double
+test34 = train [3,4] :: MonoidBoost 2 Double (Normal Double) Double
+test56 = train [5,6] :: MonoidBoost 2 Double (Normal Double) Double
+test78 = train [7,8] :: MonoidBoost 2 Double (Normal Double) Double
+ta = train [-5,3] :: MonoidBoost 2 Double (Normal Double) Double
+tb = train [-4,2] :: MonoidBoost 2 Double (Normal Double) Double
 
 instance 
-    (DefaultHomTrainer baseparams datapoint basemodel
+    ( HomTrainer basemodel
+    , Datapoint basemodel ~ datapoint
     , SingI k
     ) => Monoid (MonoidBoost k weight basemodel datapoint) 
         where
@@ -116,18 +113,14 @@ instance
 -------------------------------------------------------------------------------
 -- model
 
-instance ModelParams (NoParams MonoidBoost) (MonoidBoost k weight basemodel datapoint) where
-    getparams _ = NoParams
-    
-instance DefaultParams (NoParams MonoidBoost) (MonoidBoost k weight basemodel datapoint) where
-    defparams = NoParams
-    
 instance 
     ( SingI k
-    , DefaultHomTrainer baseparams datapoint basemodel
-    ) => HomTrainer (NoParams MonoidBoost) datapoint (MonoidBoost k weight basemodel datapoint) 
+    , HomTrainer basemodel
+    , Datapoint basemodel ~ datapoint
+    ) => HomTrainer (MonoidBoost k weight basemodel datapoint) 
         where
-    train1dp' _ dp = MonoidBoost
+    type Datapoint (MonoidBoost k weight basemodel datapoint) = datapoint
+    train1dp dp = MonoidBoost
         { dataL = mempty |> dp
         , modelL = mempty
         , weightL = mempty
@@ -137,12 +130,20 @@ instance
 -------------------------------------------------------------------------------
 -- classification
 
+instance (Ord prob) => Probabilistic (MonoidBoost k weight basemodel prob) where
+    type Probability (MonoidBoost k weight basemodel prob) = prob
+
 instance
-    ( ProbabilityClassifier basemodel datapoint label prob
-    , Ord label
+    ( Classifier basemodel
+    , Probability basemodel ~ weight
+    , Ord (Label basemodel)
+    , Ord prob
     , Num prob
-    ) => ProbabilityClassifier (MonoidBoost k weight basemodel prob) datapoint label prob
+    , weight ~ prob
+    ) => Classifier (MonoidBoost k weight basemodel prob)
         where
+    type Label (MonoidBoost k weight basemodel prob) = Label basemodel
+    type UnlabeledDatapoint (MonoidBoost k weight basemodel prob) = UnlabeledDatapoint basemodel
     
     probabilityClassify mb dp = reduce $ fmap (flip probabilityClassify dp) $ modelL mb
     
@@ -150,50 +151,22 @@ instance
 -- distribution
 
 instance 
-    ( PDF basemodel prob prob
+    ( PDF basemodel
+    , Datapoint basemodel ~ prob
+    , Probability basemodel ~ prob
+    , Ord prob
     , Fractional prob
-    ) => PDF (MonoidBoost k weight basemodel  prob)  prob prob 
+    ) => PDF (MonoidBoost k weight basemodel prob)
         where
     pdf mb dp = ave $ fmap (flip pdf dp) $ modelL mb
         where
             ave xs = (F.foldl1 (+) xs) / (fromIntegral $ Seq.length xs)
 
-instance 
-    ( PlottableDistribution basemodel prob prob
-    , Fractional prob
-    ) => PlottableDistribution (MonoidBoost k weight basemodel prob) prob prob
-        where
-    minx mb = minimum $ F.toList $ fmap minx $ modelL mb
-    maxx mb = maximum $ F.toList $ fmap maxx $ modelL mb    
-
-    
--------------------------------------------------------------------------------
--- obsolete
-
--- data MonoidMaker (k::Nat) datapoint = MonoidMaker
---     { front :: Seq.Seq datapoint
---     , back :: Seq.Seq datapoint
---     }
---     deriving (Read,Show,Eq,Ord)
--- instance Semigroup (MonoidMaker k datapoint) where
---     mm1 <> mm2 = MonoidMaker
---         { 
---         }
+-- instance 
+--     ( PlottableDistribution basemodel prob prob
+--     , Fractional prob
+--     ) => PlottableDistribution (MonoidBoost k weight basemodel prob) prob prob
 --         where
---             k = 3
--- 
--- instance Monoid (MonoidMaker k datapoint) where
---     mempty = MonoidMaker mempty mempty
---     mappend = (<>)
-{-instance ModelParams (NoParams (MonoidMaker k datapoint)) (MonoidMaker k datapoint) where
-    getparams _ = NoParams
-    
-instance DefaultParams (NoParams (MonoidMaker k datapoint)) (MonoidMaker k datapoint) where
-    defparams = NoParams
-    
-instance HomTrainer (NoParams (MonoidMaker k datapoint)) datapoint (MonoidMaker k datapoint) where
-    train1dp' _ dp = MonoidMaker
-        { front = mempty |> dp
-        , back = mempty |> dp
-        }-}
+--     minx mb = minimum $ F.toList $ fmap minx $ modelL mb
+--     maxx mb = maximum $ F.toList $ fmap maxx $ modelL mb    
     

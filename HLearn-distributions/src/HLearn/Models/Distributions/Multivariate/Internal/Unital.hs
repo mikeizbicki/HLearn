@@ -40,6 +40,9 @@ instance (Num prob) => HomTrainer (Unital prob) where
     type Datapoint (Unital prob) = HList '[]
     train1dp HNil = Unital 1
     
+instance NumDP (Unital prob) prob where
+    numdp (Unital prob) = prob
+    
 -------------------------------------------------------------------------------
 -- distributions
 
