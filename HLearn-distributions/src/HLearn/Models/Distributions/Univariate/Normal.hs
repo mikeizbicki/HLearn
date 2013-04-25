@@ -16,7 +16,7 @@
 -- | The method of moments can be used to estimate a number of commonly used distributions.  This module is still under construction as I work out the best way to handle morphisms from the Moments3 type to types of other distributions.  For more information, see the wikipedia entry: <https://en.wikipedia.org/wiki/Method_of_moments_(statistics)>
 
 module HLearn.Models.Distributions.Univariate.Normal
-    ( Normal
+    ( Normal (..)
     )
     where
 
