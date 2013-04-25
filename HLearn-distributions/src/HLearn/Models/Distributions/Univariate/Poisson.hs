@@ -38,7 +38,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -- Poisson
 
 newtype Poisson sample prob = Poisson {  pmoments :: (Moments3 sample) }
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Read,Show,Eq,Ord,Monoid,Group)
 
 instance (Num sample) => HomTrainer (Poisson sample prob) where
     type Datapoint (Poisson sample prob) = sample

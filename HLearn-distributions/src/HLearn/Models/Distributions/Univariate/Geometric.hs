@@ -37,7 +37,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -- Geometric
 
 newtype Geometric sample prob = Geometric {  moments :: (Moments3 sample) }
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 instance (Num sample) => HomTrainer (Geometric sample prob) where
     type Datapoint (Geometric sample prob) = sample

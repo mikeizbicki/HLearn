@@ -34,7 +34,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -- Exponential
 
 newtype Exponential prob = Exponential (Moments3 prob)
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 instance (Num prob) => HomTrainer (Exponential prob) where
     type Datapoint (Exponential prob) = prob

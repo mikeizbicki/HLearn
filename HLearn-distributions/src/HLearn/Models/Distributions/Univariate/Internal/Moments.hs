@@ -24,9 +24,6 @@ import Control.DeepSeq
 import GHC.TypeLits
 import qualified Data.Vector.Unboxed as U
 import Data.Vector.Unboxed.Deriving
-import qualified Statistics.Distribution as S
-import Statistics.Distribution.Binomial
-import Statistics.Distribution.Poisson
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -57,18 +54,15 @@ derivingUnbox "Moments3"
 -- Algebra
 
 instance (Num prob) => Abelian (Moments3 prob)
-instance (Num prob) => Semigroup (Moments3 prob) where
-    (<>) !ma !mb = Moments3 
+instance (Num prob) => Monoid (Moments3 prob) where
+    mempty = Moments3 0 0 0 
+    ma `mappend` mb = Moments3 
         { m0 = m0 ma + m0 mb
         , m1 = m1 ma + m1 mb
         , m2 = m2 ma + m2 mb
         }
     
-instance (Num prob) => Monoid (Moments3 prob) where
-    mappend = (<>)
-    mempty = Moments3 0 0 0 
-    
-instance (Num prob) => RegularSemigroup (Moments3 prob ) where
+instance (Num prob) => Group (Moments3 prob ) where
     inverse !m = Moments3 (negate $ m0 m) (negate $ m1 m) (negate $ m2 m)
 
 -- instance (Fractional prob, VU.Unbox prob, SingI n) => LeftModule prob (Moments3 prob n)
@@ -113,54 +107,3 @@ instance (Num prob) => HomTrainer (Moments3 prob) where
 --             s = 1
 
 
--------------------------------------------------------------------------------
--- Binomial
-
-newtype Binomial sample prob = Binomial {  bmoments :: (Moments3 sample) }
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
-    
-instance (Num sample) => HomTrainer (Binomial sample prob) where
-    type Datapoint (Binomial sample prob) = sample
-    train1dp dp = Binomial $ train1dp dp
-
-instance (Num sample) => Probabilistic (Binomial sample prob) where
-    type Probability (Binomial sample prob) = prob
-    
-instance (Floating prob) => PDF (Binomial Int Double) where
-    pdf (Binomial dist) dp = S.probability (binomial n p) dp
-        where
-            n = bin_n $ Binomial dist
-            p = bin_p $ Binomial dist
-
-bin_n :: Binomial Int Double -> Int
-bin_n (Binomial dist) = round $ ((fromIntegral $ m1 dist :: Double) / (fromIntegral $ m0 dist)) / (bin_p $ Binomial dist)
-
-bin_p :: Binomial Int Double -> Double
-bin_p (Binomial dist) = ((fromIntegral $ m1 dist) / (fromIntegral $ m0 dist)) + 1 - (fromIntegral $ m2 dist)/(fromIntegral $ m1 dist)
-
-instance 
-    ( PDF (Binomial sample prob)
---     , PlottableDataPoint sample
-    , Show prob
-    , Show sample
-    , Ord sample
-    , Ord prob
-    , Num prob
-    , Integral sample
-    ) => PlottableDistribution (Binomial sample prob) 
--- instance PlottableDistribution (Poisson Int Double) 
-        where
-
-    plotType _ = Points
-
-    samplePoints dist = [min..max]
-        where
-            min = 0
-            max = maximum [20,floor $ 3*mu]
-            mu = 5
-    
--- instance (Fractional prob) => Mean (Binomial prob) where
---     mean (Binomial dist) = 
--- 
--- instance (Fractional prob) => Variance (Binomiral prob) where
---     variance dist = mean dist

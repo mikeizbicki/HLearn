@@ -69,19 +69,16 @@ instance (NFData label, NFData prob, NFData basedist) =>
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num prob, Semigroup basedist) => Abelian (CatContainer label basedist prob)
-instance (Ord label, Num prob, Semigroup basedist) => Semigroup (CatContainer label basedist prob) where
-    d1 <> d2 = d1 
+instance (Ord label, Num prob, Monoid basedist) => Abelian (CatContainer label basedist prob)
+instance (Ord label, Num prob, Monoid basedist) => Monoid (CatContainer label basedist prob) where
+    mempty = CatContainer mempty mempty 0
+    d1 `mappend` d2 = d1 
         { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
         , probmap = Map.unionWith (+) (probmap d1) (probmap d2) 
         , catnumdp  = (catnumdp d1)+(catnumdp d2)
         } 
 
-instance (Ord label, Num prob, Semigroup basedist, Monoid basedist) => Monoid (CatContainer label basedist prob) where
-    mempty = CatContainer mempty mempty 0
-    mappend = (<>)
-
-instance (Ord label, Num prob, RegularSemigroup basedist) => RegularSemigroup (CatContainer label basedist prob) where
+instance (Ord label, Num prob, Group basedist) => Group (CatContainer label basedist prob) where
     inverse d1 = d1 
         { pdfmap = Map.map (inverse) (pdfmap d1)
         , probmap = Map.map negate (probmap d1)
@@ -147,7 +144,7 @@ instance
     
 instance 
     ( NumDP basedist prob
-    , Semigroup basedist
+    , Monoid basedist
     ) => Marginalize (Nat1Box Zero) (CatContainer label basedist prob) 
         where
               
@@ -159,7 +156,7 @@ instance
 
 instance 
     ( Marginalize (Nat1Box n) basedist
-    , Semigroup basedist
+    , Monoid basedist
     ) => Marginalize (Nat1Box (Succ n)) (CatContainer label basedist prob) 
         where
               

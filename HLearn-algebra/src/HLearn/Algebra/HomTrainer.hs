@@ -43,7 +43,7 @@ class NumDP model ring | model -> ring where
 -- HomTrainer
 
 -- | A minimal complete definition of the class is the singleton trainer 'train1dp\''
-class (Semigroup model, Monoid model) => HomTrainer model where
+class (Monoid model) => HomTrainer model where
     
     type Datapoint model
 
@@ -124,13 +124,10 @@ instance (Module ring model, HomTrainer model) => WeightedHomTrainer ring model
 
 data Counter sampletype = Counter {c::sampletype}
     deriving (Read,Show,Eq,Ord)
-    
-instance (Num sampletype) => Semigroup (Counter sampletype) where
-    c1<>c2 = Counter $ c c1+c c2
 
 instance (Num sampletype) => Monoid (Counter sampletype) where
     mempty = Counter 0
-    mappend = (<>)
+    c1 `mappend` c2 = Counter $ c c1+c c2
 
 instance (Num sampletype) => HomTrainer (Counter sampletype) where
     type Datapoint (Counter sampletype) = sampletype

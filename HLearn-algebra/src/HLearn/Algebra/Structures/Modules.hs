@@ -126,14 +126,11 @@ instance CK.Foldable (FreeMod r) where
     foldl1 f (FreeMod m) = foldl1 f $ map (\(a,r) -> r.*a) $ Map.toList m
 
 instance (Num r, Ord a) => Abelian (FreeMod r a)
-instance (Num r, Ord a) => Semigroup (FreeMod r a) where
-    (FreeMod m1) <> (FreeMod m2) = FreeMod $ Map.unionWith (+) m1 m2
-
 instance (Num r, Ord a) => Monoid (FreeMod r a) where
     mempty = FreeMod mempty
     mappend = (<>)
     
-instance (Num r, Ord a) => RegularSemigroup (FreeMod r a) where
+instance (Num r, Ord a) => Group (FreeMod r a) where
     inverse (FreeMod m) = FreeMod $ Map.map negate m
 
 instance (Num r, Ord a) => LeftModule r (FreeMod r a)

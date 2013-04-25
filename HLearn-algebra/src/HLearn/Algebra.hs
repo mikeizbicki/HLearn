@@ -9,7 +9,6 @@ module HLearn.Algebra
     , module HLearn.Algebra.Structures.Groups
     , module HLearn.Algebra.Structures.MetricSpace
     , module HLearn.Algebra.Structures.Modules
-    , module HLearn.Algebra.Structures.Free.RegSG2Group
     , module HLearn.Algebra.Structures.Triangles
     )
     where
@@ -22,5 +21,4 @@ import HLearn.Algebra.Models.Lame
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.MetricSpace
 import HLearn.Algebra.Structures.Modules
-import HLearn.Algebra.Structures.Free.RegSG2Group
 import HLearn.Algebra.Structures.Triangles

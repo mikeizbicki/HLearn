@@ -30,7 +30,7 @@ data MissResponse = Ignore -- | Count
 
 newtype MissingData (response :: MissResponse) (basedist:: * -> *) (prob :: *) = 
     MissingData { basedist :: basedist prob }
-    deriving (Show,Read,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Show,Read,Eq,Ord,Monoid,Group)
 
 -------------------------------------------------------------------------------
 -- Algebra

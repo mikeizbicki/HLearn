@@ -104,20 +104,15 @@ dist2list (Categorical pdfmap) = Map.toList pdfmap
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num prob{-, NFData prob-}) => Abelian (Categorical label prob)
-instance (Ord label, Num prob{-, NFData prob-}) => Semigroup (Categorical label prob) where
-    (<>) !d1 !d2 = {-deepseq res $-} Categorical $ res
+instance (Ord label, Num prob) => Abelian (Categorical label prob)
+instance (Ord label, Num prob) => Monoid (Categorical label prob) where
+    mempty = Categorical Map.empty
+    mappend !d1 !d2 = Categorical $ res
         where
             res = Map.unionWith (+) (pdfmap d1) (pdfmap d2)
 
-instance (Ord label, Num prob) => RegularSemigroup (Categorical label prob) where
+instance (Ord label, Num prob) => Group (Categorical label prob) where
     inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
-
-instance (Ord label, Num prob) => Monoid (Categorical label prob) where
-    mempty = Categorical Map.empty
-    mappend = (<>)
-
--- instance (Ord label, Num prob) => Group (Categorical label prob)
 
 -- instance (Ord label, Num prob) => LeftModule prob (Categorical label prob)
 instance (Ord label, Num prob) => LeftOperator prob (Categorical label prob) where

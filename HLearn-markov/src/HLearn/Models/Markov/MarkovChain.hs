@@ -37,13 +37,19 @@ order :: forall n datatype prob. (SingI n) => MarkovChain n datatype prob -> Int
 order _ = fromInteger $ fromSing (sing :: Sing n)
 
 newtype ChainGang (order::Nat) datatype prob = ChainGang (Categorical [datatype] prob)
-    deriving (Show,Read,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Show,Read,Eq,Ord,Monoid,Group)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (SingI order, Ord datatype, Num prob) => Semigroup (MarkovChain order datatype prob) where
-    mc1 <> mc2 = MarkovChain
+instance 
+    ( SingI order
+    , Ord datatype
+    , Num prob
+    ) => Monoid (MarkovChain order datatype prob)
+        where
+    mempty  = MarkovChain mempty mempty mempty
+    mc1 `mappend` mc2 = MarkovChain
         { transition = (transition mc1) <> (transition mc2) <> mergetransitions
         , startchain = (startchain mc1)++(take (order' - (length $ startchain mc1)) $ startchain mc2)
         , endchain = (takeLast (order' - (length $ endchain mc2)) $ endchain mc1)++(endchain mc2)
@@ -59,15 +65,6 @@ instance (SingI order, Ord datatype, Num prob) => Semigroup (MarkovChain order d
 
 takeLast :: Int -> [a] -> [a]
 takeLast n xs = drop ((length xs)-n) xs
-        
-instance 
-    ( SingI order
-    , Ord datatype
-    , Num prob
-    ) => Monoid (MarkovChain order datatype prob)
-    where
-        mempty  = MarkovChain mempty mempty mempty
-        mappend = (<>)
 
 ---------------------------------------
 
@@ -98,13 +95,13 @@ instance (SingI order,Ord datatype, Num prob) =>HomTrainer (ChainGang order data
 -------------------------------------------------------------------------------
 -- Markov
 
-instance (SingI order, Ord datatype, Num prob) => Distribution (ChainGang order datatype prob) where
+instance (SingI order, Ord datatype, Num prob) => Probabilistic (ChainGang order datatype prob) where
     type Probability (ChainGang order datatype prob) = prob
 
 instance (SingI order, Ord datatype, Num prob) => PDF (ChainGang order datatype prob) where
-    pdf (ChainGang cat) (x:xs) = 0
-        where
-            go orderlen rest = 
+--     pdf (ChainGang cat) (x:xs) = 0
+--         where
+--             go orderlen rest = 
     
 -- class (Sampler mc) => Probability mc where
 --     type Probability mc

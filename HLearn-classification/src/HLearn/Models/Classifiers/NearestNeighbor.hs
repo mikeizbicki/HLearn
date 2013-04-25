@@ -28,9 +28,6 @@ deriving instance (Show (container (label,dp))) => Show (NaiveNN container label
     
 -------------------------------------------------------------------------------
 -- algebra
-
-instance (Semigroup (container (label,dp))) => Semigroup (NaiveNN container label dp) where
-    nn1 <> nn2 = NaiveNN $ getcontainer nn1 <> getcontainer nn2
     
 instance (Monoid (container (label,dp))) => Monoid (NaiveNN container label dp) where
     mempty = NaiveNN mempty
@@ -42,7 +39,6 @@ instance (Monoid (container (label,dp))) => Monoid (NaiveNN container label dp) 
 instance 
     ( Applicative container
     , Monoid (container (label,dp))
-    , Semigroup (container (label,dp))
     ) => HomTrainer (NaiveNN container label dp) 
         where
     type Datapoint (NaiveNN container label dp) = (label,dp) 
@@ -68,10 +64,16 @@ instance
     ( Ord label
     , F.Foldable container
     , MetricSpace (Probability (NaiveNN container label dp)) dp
+--     , label ~ Datapoint (ResultDistribution (NaiveNN container label dp))
+--     , Mean (ResultDistribution (NaiveNN container label dp))
+--     , Module ring (ResultDistribution (NaiveNN container
+--                                       (Datapoint (ResultDistribution (NaiveNN container label dp)))
+--                                       dp))
     ) => Classifier (NaiveNN container label dp)
         where
     type Label (NaiveNN container label dp) = label
     type UnlabeledDatapoint (NaiveNN container label dp) = dp
+    type ResultDistribution (NaiveNN container label dp) = Categorical label Double
               
     probabilityClassify nn dp = trainW (map (\(l,dp) -> (1,l)) $ take k $ neighborList dp nn)
         where

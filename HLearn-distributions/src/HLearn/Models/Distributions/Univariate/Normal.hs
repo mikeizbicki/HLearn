@@ -34,7 +34,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -- Normal
 
 newtype Normal prob = Normal (Moments3 prob)
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 instance (Num prob) => HomTrainer (Normal prob) where
     type Datapoint (Normal prob) = prob
