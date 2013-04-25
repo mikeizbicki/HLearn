@@ -26,7 +26,7 @@ import HLearn.Models.Distributions.Common
 -------------------------------------------------------------------------------
 -- data types
 
-data MissResponse = Ignore -- | Count
+data MissResponse = Ignore
 
 newtype MissingData (response :: MissResponse) (basedist:: * -> *) (prob :: *) = 
     MissingData { basedist :: basedist prob }

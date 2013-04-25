@@ -115,7 +115,8 @@ instance
     type UnlabeledDatapoint (Bayes dist label prob) = Datapoint (dist prob)
  
     probabilityClassify bayes dp = 
-        Categorical $ Map.mapWithKey (\label dist -> (pdf dist dp)*(pdf (labelDist bayes) label)) $ attrDist bayes
+        Categorical $ Map.mapWithKey 
+            (\label dist -> (pdf dist dp)*(pdf (labelDist bayes) label)) $ attrDist bayes
         
 
 data Sex = Male | Female
