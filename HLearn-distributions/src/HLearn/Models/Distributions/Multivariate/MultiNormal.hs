@@ -51,21 +51,13 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
 newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
     deriving (Read,Show,Eq,Ord)
 
-deriving instance (Semigroup (MultiNormalVec (Length xs) prob)) => Semigroup (MultiNormal xs prob)
 deriving instance (Monoid (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
+deriving instance (Group (MultiNormalVec (Length xs) prob)) => Group (MultiNormal xs prob)
 
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (Num prob, VU.Unbox prob) => Semigroup (MultiNormalVec n prob) where
-    mn1 <> mn2 = MultiNormalVec
-        { q0 = (q0 mn1) + (q0 mn2)
-        , q1 = VU.zipWith (+) (q1 mn1) (q1 mn2)
-        , q2 = V.zipWith (VU.zipWith (+)) (q2 mn1) (q2 mn2)
-        }
-        
 instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) where
-    mappend = (<>)
     mempty = MultiNormalVec
         { q0 = 0
         , q1 = VU.replicate n 0
@@ -73,6 +65,11 @@ instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) wh
         }
         where
             n = fromIntegral $ fromSing (sing :: Sing n)
+    mn1 `mappend` mn2 = MultiNormalVec
+        { q0 = (q0 mn1) + (q0 mn2)
+        , q1 = VU.zipWith (+) (q1 mn1) (q1 mn2)
+        , q2 = V.zipWith (VU.zipWith (+)) (q2 mn1) (q2 mn2)
+        }
 
 -------------------------------------------------------------------------------
 -- training

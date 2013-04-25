@@ -37,39 +37,32 @@ data Container dist sample basedist (prob:: * ) = Container
     deriving (Read,Show,Eq,Ord)
     
 newtype MultiContainer dist sample basedist prob = MultiContainer (Container dist sample basedist prob)
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Read,Show,Eq,Ord,Monoid,Group)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
 instance 
-    ( Semigroup (dist prob)
-    , Semigroup basedist
-    ) => Semigroup (Container dist sample basedist prob) 
+    ( Monoid (dist prob)
+    , Monoid basedist
+    ) => Monoid (Container dist sample basedist prob) 
         where
-    c1<>c2 = Container
+    mempty = Container mempty mempty
+    c1 `mappend` c2 = c1<>c2
+    c1 `mappend` c2 = Container
         { dist = dist c1 <> dist c2
         , basedist = basedist c1 <> basedist c2
         }
 
 instance 
-    ( RegularSemigroup (dist prob)
-    , RegularSemigroup basedist
-    ) => RegularSemigroup (Container dist sample basedist prob) 
+    ( Group (dist prob)
+    , Group basedist
+    ) => Group (Container dist sample basedist prob) 
         where
     inverse c = Container
         { dist = inverse $ dist c
         , basedist = inverse $ basedist c
         }
-
-instance 
-    ( Monoid (dist prob)
-    , Monoid basedist
-    , Semigroup (Container dist sample basedist prob) 
-    ) => Monoid (Container dist sample basedist prob) 
-        where
-    mempty = Container mempty mempty
-    c1 `mappend` c2 = c1<>c2
 
 instance 
     ( LeftOperator ring (dist prob)

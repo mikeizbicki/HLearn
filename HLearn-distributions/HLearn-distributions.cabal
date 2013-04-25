@@ -50,12 +50,14 @@ Library
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Visualization.Gnuplot
         HLearn.Models.Distributions.Visualization.Graphviz
+        HLearn.Models.Distributions.Univariate.Binomial
         HLearn.Models.Distributions.Univariate.Categorical
         HLearn.Models.Distributions.Univariate.Exponential
         HLearn.Models.Distributions.Univariate.Geometric
+        HLearn.Models.Distributions.Univariate.LogNormal
         HLearn.Models.Distributions.Univariate.Normal
         HLearn.Models.Distributions.Univariate.Poisson
-        HLearn.Models.Distributions.Univariate.Uniform
+        --HLearn.Models.Distributions.Univariate.Uniform
         HLearn.Models.Distributions.Univariate.Internal.MissingData
         HLearn.Models.Distributions.Univariate.Internal.Moments
         HLearn.Models.Distributions.Multivariate.Interface

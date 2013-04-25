@@ -80,9 +80,8 @@ deriving instance (Read             (MultivariateTF (Concat xs) prob)) => Read  
 deriving instance (Show             (MultivariateTF (Concat xs) prob)) => Show              (Multivariate dp xs prob)
 deriving instance (Eq               (MultivariateTF (Concat xs) prob)) => Eq                (Multivariate dp xs prob)
 deriving instance (Ord              (MultivariateTF (Concat xs) prob)) => Ord               (Multivariate dp xs prob)
-deriving instance (Semigroup        (MultivariateTF (Concat xs) prob)) => Semigroup         (Multivariate dp xs prob)
 deriving instance (Monoid           (MultivariateTF (Concat xs) prob)) => Monoid            (Multivariate dp xs prob)
-deriving instance (RegularSemigroup (MultivariateTF (Concat xs) prob)) => RegularSemigroup  (Multivariate dp xs prob)
+deriving instance (Group            (MultivariateTF (Concat xs) prob)) => Group             (Multivariate dp xs prob)
     
 instance 
     ( HomTrainer (MultivariateTF (Concat xs) prob)

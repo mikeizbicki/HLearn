@@ -38,9 +38,6 @@ type instance Ignore (x ': xs) = (Ignore' x) ': (Ignore xs)
 -- Algebra
 
 instance (Abelian basedist) => Abelian (Ignore' label basedist prob)
-instance (Semigroup basedist) => Semigroup (Ignore' label basedist prob) where
-    d1 <> d2 = Ignore' $ basedist d1 <> basedist d2
-
 instance (Monoid basedist) => Monoid (Ignore' label basedist prob) where
     mempty = Ignore' mempty
     mappend d1 d2 = Ignore' $ mappend (basedist d1) (basedist d2)

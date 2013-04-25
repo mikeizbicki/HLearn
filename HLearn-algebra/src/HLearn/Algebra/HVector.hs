@@ -23,28 +23,19 @@ import HLearn.Algebra.Structures.Triangles
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance Semigroup (HList '[]) where
-    HNil <> HNil = HNil
-
-instance (Semigroup x, Semigroup (HList xs)) => Semigroup (HList (x ': xs)) where
-    (x:::xs)<>(y:::ys) = (x<>y):::(xs<>ys)
-
-instance (Semigroup (HList xs), ValidHVector box xs) => Semigroup (HVector box xs) where
-    v1 <> v2 = vec (undefined::a->box) $ (toHList v1)<>(toHList v2)
-
 instance Abelian (HList '[])
 instance (Abelian x, Abelian (HList xs)) => Abelian (HList (x ': xs))
 instance (Abelian (HList xs), ValidHVector box xs) => Abelian (HVector box xs)
 
 ---------------------------------------
 
-instance RegularSemigroup (HList '[]) where
+instance Group (HList '[]) where
     inverse HNil = HNil
 
-instance (RegularSemigroup x, RegularSemigroup (HList xs)) => RegularSemigroup (HList (x ': xs)) where
+instance (Group x, Group (HList xs)) => Group (HList (x ': xs)) where
     inverse (x:::xs) = inverse x:::inverse xs
 
-instance (RegularSemigroup (HList xs), ValidHVector box xs) => RegularSemigroup (HVector box xs) where
+instance (Group (HList xs), ValidHVector box xs) => Group (HVector box xs) where
     inverse hv = vec (undefined::a->box) $ inverse $ toHList hv
 
 ---------------------------------------

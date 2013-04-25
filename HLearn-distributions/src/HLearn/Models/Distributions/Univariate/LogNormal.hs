@@ -29,7 +29,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -- data types
 
 newtype LogNormal prob = LogNormal (Normal prob)
-    deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
+    deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 -------------------------------------------------------------------------------
 -- training

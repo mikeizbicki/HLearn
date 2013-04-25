@@ -23,14 +23,11 @@ newtype Unital prob = Unital prob
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (Num prob) => Semigroup (Unital prob) where
-    (Unital p1) <> (Unital p2) = Unital $ p1+p2
-    
 instance (Num prob) => Monoid (Unital prob) where
     mempty = Unital 0
-    mappend = (<>)
+    (Unital p1) `mappend` (Unital p2) = Unital $ p1+p2
 
-instance (Num prob) => RegularSemigroup (Unital prob) where
+instance (Num prob) => Group (Unital prob) where
     inverse (Unital p) = Unital (-p)
 
 -------------------------------------------------------------------------------

@@ -35,15 +35,12 @@ data Centroid weight vector = Centroid
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (Num weight, Num vector) => Semigroup (Centroid weight vector) where
-    c1 <> c2 = Centroid
+instance (Num weight, Num vector) => Monoid (Centroid weight vector) where
+    mempty = Centroid 0 0
+    c1 `mappend` c2 = Centroid
         { weight = weight c1 + weight c2
         , vector = vector c1 + vector c2
         }
-        
-instance (Num weight, Num vector) => Monoid (Centroid weight vector) where
-    mempty = Centroid 0 0
-    mappend = (<>)
 
 instance 
     ( MetricSpace weight vector
@@ -54,14 +51,11 @@ instance
     
 ---------------------------------------
         
-instance (Num weight, Ord label, Num dp) => Semigroup (Perceptron label weight dp) where
-    p1 <> p2 = Perceptron
-        { centroids = Map.unionWith (<>) (centroids p1) (centroids p2)
-        }
-
 instance (Num weight, Ord label, Num dp) => Monoid (Perceptron label weight dp) where
     mempty = Perceptron mempty
-    mappend = (<>)
+    p1 `mappend` p2 = Perceptron
+        { centroids = Map.unionWith (<>) (centroids p1) (centroids p2)
+        }
     
 -------------------------------------------------------------------------------
 -- model
@@ -104,6 +98,7 @@ instance
         where
     type Label (Perceptron label prob dp) = label
     type UnlabeledDatapoint (Perceptron label prob dp) = dp  
+    type ResultDistribution (Perceptron label prob dp) = (Categorical label prob)
               
     probabilityClassify model dp = probabilityClassify nn (train1dp dp :: Centroid prob dp)
         where

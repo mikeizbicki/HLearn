@@ -32,8 +32,8 @@ import qualified Control.ConstraintKinds as CK
 
 lame_crossvalidation :: 
     ( LameTrainer container datapoint model
-    , Semigroup ret
-    , Semigroup (container datapoint)
+    , Monoid ret
+    , Monoid (container datapoint)
     , CK.Functor container
     , CK.FunctorConstraint container datapoint
     , CK.FunctorConstraint container model
@@ -54,8 +54,8 @@ lame_crossvalidation dataset perfmeasure k = reduce $ do
 -- | This is the standard cross-validation technique for use with the HomTrainer type class.  It is asymptotically faster than standard k-fold cross-validation (implemented with lame_crossvalidation), yet is guaranteed to get the exact same answer.
 crossvalidation :: 
     ( HomTrainer model
-    , Semigroup ret
-    , Semigroup (container (Datapoint model))
+    , Monoid ret
+    , Monoid (container (Datapoint model))
     , CK.Partitionable container
     , CK.PartitionableConstraint container (Datapoint model)
     , F.Foldable container
@@ -72,7 +72,7 @@ crossvalidation dataset perfmeasure k = reduce $ do
 -- crossvalidation_group :: 
 --     ( HomTrainer modelparams datapoint model
 --     , Group model
---     , Semigroup ret
+--     , Monoid ret
 --     , CK.Functor container
 --     , CK.FunctorConstraint container datapoint
 --     , CK.FunctorConstraint container model
@@ -105,19 +105,19 @@ crossvalidation dataset perfmeasure k = reduce $ do
 --         datasetL = CK.partition k dataset
 
 
-listAllBut2 :: (Semigroup a) => [a] -> [a]
+listAllBut2 :: (Monoid a) => [a] -> [a]
 listAllBut2 !xs = [reduce $ testL i | i <- itrL]
     where
         itrL = [0..(length xs)-1]
         testL i = (take (i) xs) ++ (drop (i+1) xs)
 
-listAllBut :: (Semigroup a) => [a] -> [a]
+listAllBut :: (Monoid a) => [a] -> [a]
 listAllBut !xs = [reduce $ testL i | i <- itrL]
     where
         itrL = [0..(length xs)-1]
         testL i = D.toList $ (D.fromList $ take (i) xs) `mappend` (D.fromList $ drop (i+1) xs)
 
-genTestList :: (Semigroup a) => [a] -> [(a,a)]
+genTestList :: (Monoid a) => [a] -> [(a,a)]
 genTestList xs = zip xs $ listAllBut xs
 
 
@@ -190,12 +190,12 @@ accuracy model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp)
 -- 
 -- instance Monoid CVResults
 -- 
--- instance Semigroup CVResults
+-- instance Monoid CVResults
 
 -- crossValidation :: 
 --     ( NFData model
 --     , NFData outtype
---     , Semigroup outtype
+--     , Monoid outtype
 --     , DataSparse label ds label
 --     , DataSparse label ds DPS
 --     , DataSparse label ds (Labeled DPS label)

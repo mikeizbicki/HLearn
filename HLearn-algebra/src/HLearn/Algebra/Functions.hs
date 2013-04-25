@@ -37,7 +37,7 @@ import HLearn.Algebra.Structures.Groups
 
 -- | Parallelizes any batch trainer to run over multiple processors on a single machine.  The function automatically detects the number of available processors and parallelizes the function accordingly.  This requires the use of unsafePerformIO, however, the result should still be safe.
 parallel :: 
-    ( Semigroup model
+    ( Monoid model
     , NFData model
     , CK.Partitionable container
     , CK.PartitionableConstraint container datapoint
@@ -52,7 +52,7 @@ parallel train = \datapoint ->
 
 -- | Converts a batch trainer into an online trainer.  The input function should be a semigroup homomorphism.
 online :: 
-    ( Semigroup model
+    ( Monoid model
     ) => (datapoint -> model) -- ^ singleton trainer
       -> (model -> datapoint -> model) -- ^ online trainer
 online train = \model datapoint -> model <> (train datapoint)
@@ -102,25 +102,25 @@ semigroup trainonline pseudoinverse = \model1 model2 -> trainonline model1 (pseu
 
 -- | Like fold, but (i) only for use on the semigroup operation (\<\>) and (ii) uses the fan-in reduction strategy which is more efficient when the semigroup operation takes nonconstant time depending on the size of the data structures being reduced.
 reduce :: 
-    ( Semigroup sg
+    ( Monoid sg
     , F.Foldable container
     ) => container sg -> sg
 reduce = reduceL . F.toList
 
 reduceCK :: 
-    ( Semigroup sg
+    ( Monoid sg
     , CK.Foldable container
     , CK.FoldableConstraint container sg
     , CK.FoldableConstraint container [sg]
     ) => container sg -> sg
 reduceCK = reduceL . CK.toList
 
-reduceL :: (Semigroup sg) => [sg] -> sg
+reduceL :: (Monoid sg) => [sg] -> sg
 reduceL []  = error "reduce: cannot reduce empty list"
 reduceL [x] = x
 reduceL xs  = reduceL $ itr xs
     where
-        itr :: (Semigroup sg) => [sg] -> [sg]
+        itr :: (Monoid sg) => [sg] -> [sg]
         itr []            = []
         itr [x]           = [x]
         itr (x1:x2:xs)    = (x1<>x2):(itr xs)

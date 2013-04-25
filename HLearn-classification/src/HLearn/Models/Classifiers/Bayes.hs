@@ -32,16 +32,6 @@ data Bayes (labelIndex::Nat) dist = Bayes
 -- Algebra
 
 instance 
-    ( Semigroup (Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    , Semigroup (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    ) => Semigroup (Bayes labelIndex dist) 
-        where
-    b1 <> b2 = Bayes
-        { labelDist = labelDist b1 <> labelDist b2
-        , attrDist = attrDist b1 <> attrDist b2
-        }
-
-instance 
     ( Monoid (Margin (Nat1Box (ToNat1 labelIndex)) dist)
     , Monoid (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
     ) => Monoid (Bayes labelIndex dist) 
@@ -59,8 +49,6 @@ instance
     ( Datapoint dist ~ Datapoint (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
     , Monoid (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
     , Monoid (Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    , Semigroup (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    , Semigroup (Margin (Nat1Box (ToNat1 labelIndex)) dist)
     , HomTrainer (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
     ) => HomTrainer (Bayes labelIndex dist) 
         where
@@ -84,7 +72,7 @@ instance
     type UnlabeledDatapoint (Bayes labelIndex dist) = Datapoint dist
     type ResultDistribution (Bayes labelIndex dist) = Margin (Nat1Box (ToNat1 labelIndex)) dist
         
-    probabilityClassify bayes dp = (pdf (labelDist bayes) label)*(pdf (attrDist bayes) dp)
+--     probabilityClassify bayes dp = (pdf (labelDist bayes) label)*(pdf (attrDist bayes) dp)
     
 --     probabilityClassify bayes dp = 
 --         Categorical $ Map.mapWithKey (\label dist -> (pdf dist dp)*(pdf (labelDist bayes) label)) $ attrDist bayes
