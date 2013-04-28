@@ -31,3 +31,10 @@ class Marginalize index dist where
     type MarginalizeOut index dist 
     marginalizeOut :: index -> dist -> MarginalizeOut index dist
     
+    condition :: index -> dist -> Datapoint (Margin index dist) -> MarginalizeOut index dist
+    
+--     conditionAllButOne :: index -> dist -> Datapoint dist -> MarginalizeOut index dist
+    
+-- class Conditional index dist where
+--     type Conditional index dist
+    

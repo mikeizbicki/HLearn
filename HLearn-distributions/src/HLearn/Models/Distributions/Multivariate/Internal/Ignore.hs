@@ -88,3 +88,5 @@ instance
     type MarginalizeOut (Nat1Box (Succ n)) (Ignore' label basedist prob) = 
         Ignore' label (MarginalizeOut (Nat1Box n) basedist) prob
     marginalizeOut _ dist = Ignore' $ marginalizeOut (undefined :: Nat1Box n) $ basedist dist
+    
+    condition _ dist dp = Ignore' $ condition (undefined :: Nat1Box n) (basedist dist) dp

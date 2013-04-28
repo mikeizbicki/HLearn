@@ -15,6 +15,7 @@ module HLearn.Evaluation.CrossValidation
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Set as S
+import qualified Data.Vector as V
 -- import qualified Data.Vector as V
 
 import Debug.Trace

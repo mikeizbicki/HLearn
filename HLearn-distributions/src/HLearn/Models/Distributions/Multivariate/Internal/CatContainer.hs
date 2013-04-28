@@ -145,6 +145,8 @@ instance
 instance 
     ( NumDP basedist prob
     , Monoid basedist
+    , HCons label (Datapoint basedist) ~ HList (label ': ts)
+    , Ord label
     ) => Marginalize (Nat1Box Zero) (CatContainer label basedist prob) 
         where
               
@@ -153,10 +155,24 @@ instance
 
     type MarginalizeOut (Nat1Box Zero) (CatContainer label basedist prob) = Ignore' label basedist prob
     marginalizeOut _ dist = Ignore' $ reduce $ Map.elems (pdfmap dist)  
+        
+    condition _ dist dp = Ignore' $ 
+        case Map.lookup dp (pdfmap dist) of
+             Nothing -> error "CatContainer.condition: Nothing"
+             Just basedist -> basedist
+                                
+{-    conditionAllButOne _ dist (dp:::dpL) = Ignore' $ 
+        case Map.lookup dp (pdfmap dist) of
+             Nothing -> error "CatContainer.condition: Nothing"
+             Just basedist -> basedist-}
+                                
 
 instance 
     ( Marginalize (Nat1Box n) basedist
+--     , MarginalizeOut (Nat1Box n) basedist ~ MarginalizeOut (Nat1Box n) (HList t0)
     , Monoid basedist
+--     , HCons label (Datapoint basedist) ~ HList ts0
+--     , Datapoint (Margin (Nat1Box n) basedist) ~ HList ts1
     ) => Marginalize (Nat1Box (Succ n)) (CatContainer label basedist prob) 
         where
               
@@ -166,6 +182,9 @@ instance
     type MarginalizeOut (Nat1Box (Succ n)) (CatContainer label basedist prob) = 
         CatContainer label (MarginalizeOut (Nat1Box n) basedist) prob
     marginalizeOut _ dist = dist { pdfmap = fmap (marginalizeOut (undefined :: Nat1Box n)) $ pdfmap dist }
+
+    condition _ dist dp = dist { pdfmap = fmap (flip (condition (undefined :: Nat1Box n)) dp) $ pdfmap dist }
+--     conditionAllButOne _ dist (dp:::dpL) = dist { pdfmap = fmap (flip (condition (undefined :: Nat1Box n)) dpL) $ pdfmap dist }
     
 {-marginalizeRight :: 
     ( NumDP basedist prob

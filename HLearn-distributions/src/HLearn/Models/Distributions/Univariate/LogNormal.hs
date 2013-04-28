@@ -45,7 +45,11 @@ instance Probabilistic (LogNormal prob) where
     type Probability (LogNormal prob) = prob
 
 instance (Floating prob) => PDF (LogNormal prob) where
-    pdf (LogNormal dist) dp = pdf dist $ log dp
+--     pdf (LogNormal dist) dp = pdf dist $ log dp
+    pdf dist dp = (1 / (dp * (sqrt $ sigma2 * 2 * pi)))*(exp $ (-1)*((log dp)-mu)^2/(2*sigma2))
+        where
+            sigma2 = variance dist
+            mu = mean dist
 
 instance (Floating prob) => Mean (LogNormal prob) where
     mean (LogNormal dist) = exp $ (mean dist)+(variance dist)/2

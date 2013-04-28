@@ -2,19 +2,24 @@
 >{-# LANGUAGE DataKinds #-}
 >import Control.Monad.Random
 >import Data.Number.LogFloat
+>import System.IO
+
 >import HLearn.Algebra
 >import HLearn.Models.Markov.MarkovChain
 
-One common use case for Markov chains is analyzing sequences of DNA.
+One simple use for Markov chains is analyzing sequences of DNA.
 DNA consists of a sequence of four base pairs, represented by the letters A, G, C, and T.
-These are the data points, and a data set would be a list of these letters.
+These letters are the data points; and a data set is a string.
 A very, very short strand of DNA might look something like:
 
->dna1 = "AGCTGCATAGCGCGATTACGATACG"
+>dna_short = "AGCTGCATAGCGCGATTACGATACG"
+
+But we don't want to use fake data for this.
+So 
 
 We can train a Markov chain from these data points with the command:
 
->mc1 = train dna1 :: MarkovChain 3 Char Double
+>mc1 = train dna_short :: MarkovChain 2 Char Double
 
 There's a few interesting tidbits here.
 Working from right to left, the Double specifies how we will be internally representing our probabilities;
