@@ -27,9 +27,6 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 newtype Transform func dist prob = Transform (dist prob)
     deriving (Read,Show,Eq,Ord,Monoid,Group)
 
-class Function f domain range | f -> domain range where
-    function :: f -> domain -> range
-
 data Exp = Exp
 instance (Floating a) => Function Exp a a where
     function _ = exp

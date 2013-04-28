@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -9,13 +10,17 @@
 
 module HLearn.Algebra.Functions
     ( 
-    -- * Parallelism
-    parallel
-    -- * Manipulating homomorphisms
+    -- * Almost dependently typed function
+    Function (..)
+    
+    -- * Higher order functions
+    -- ** Parallelism
+    , parallel
+    -- ** Manipulating homomorphisms
     , online, offline
     , batch, batchCK, unbatch
     , semigroup
-    -- * Helper functions
+    -- ** Helper functions
     , reduce
     )
     where
@@ -31,6 +36,13 @@ import Prelude hiding (filter)
 import System.IO.Unsafe
 
 import HLearn.Algebra.Structures.Groups
+
+-------------------------------------------------------------------------------
+-- type classes
+
+-- | Every data type that implements this class has a corresponding function.  We can use this data type as type level parameters to other data types.  This gives us some of the benefit of dependently typed functions.
+class Function f domain range | f domain -> range where
+    function :: f -> domain -> range
 
 -------------------------------------------------------------------------------
 -- higher order functions
