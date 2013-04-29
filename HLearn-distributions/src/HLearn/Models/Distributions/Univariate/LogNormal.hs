@@ -20,15 +20,17 @@ module HLearn.Models.Distributions.Univariate.LogNormal
     )
     where
 
+import Debug.Trace
+
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Univariate.Normal
+import HLearn.Models.Distributions.Univariate.Internal.Moments
 import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
 -- data types
 
-newtype LogNormal prob = LogNormal (Moments prob)
+newtype LogNormal prob = LogNormal (Moments3 prob)
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 -------------------------------------------------------------------------------
@@ -45,18 +47,43 @@ instance Probabilistic (LogNormal prob) where
     type Probability (LogNormal prob) = prob
 
 instance (Floating prob) => PDF (LogNormal prob) where
-    pdf (LogNormal dist) dp = (1 / (dp * (sqrt $ sigma2 * 2 * pi)))*(exp $ (-1)*((log dp)-mu)^2/(2*sigma2))
+    pdf (LogNormal dist) dp = (1 / (dp * (sqrt $ s2 * 2 * pi)))*(exp $ (-1)*((log dp)-m)^2/(2*s2))
         where
 --             sigma2 = variance dist
 --             mu = mean dist
             
-            raw1 = m1
+            m  = 2*log1 - (1/2)*log1
+            s2 = log2 - 2*log1
+            
+            log1 = log raw1
+            log2 = log raw2
+            
+            raw1 = (m1 dist)/(m0 dist)
+            raw2 = (m2 dist)/(m0 dist)
 
 instance (Floating prob) => Mean (LogNormal prob) where
-    mean (LogNormal dist) = exp $ (mean dist)+(variance dist)/2
+    mean (LogNormal dist) = exp $ m+s2/2
+        where
+            m  = 2*log1 - (1/2)*log1
+            s2 = log2 - 2*log1
+            
+            log1 = log raw1
+            log2 = log raw2
+            
+            raw1 = (m1 dist)/(m0 dist)
+            raw2 = (m2 dist)/(m0 dist)
 
-instance (Floating prob) => Variance (LogNormal prob) where
-    variance (LogNormal dist) = ((exp $ variance dist) -1)*(exp $ 2*(mean dist)+(variance dist))
+instance (Show prob, Floating prob) => Variance (LogNormal prob) where
+    variance (LogNormal dist) = trace ("m="++show m++"; s2="++show s2) $ ((exp s2) -1)*(exp $ 2*m+s2)
+        where
+            m  = 2*log1 - (1/2)*log1
+            s2 = log2 - 2*log1
+            
+            log1 = log raw1
+            log2 = log raw2
+            
+            raw1 = (m1 dist)/(m0 dist)
+            raw2 = (m2 dist)/(m0 dist)
 
 instance 
     ( Floating prob
