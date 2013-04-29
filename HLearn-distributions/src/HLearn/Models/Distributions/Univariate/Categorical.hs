@@ -114,13 +114,10 @@ instance (Ord label, Num prob) => Monoid (Categorical label prob) where
 instance (Ord label, Num prob) => Group (Categorical label prob) where
     inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
 
--- instance (Ord label, Num prob) => LeftModule prob (Categorical label prob)
-instance (Ord label, Num prob) => LeftOperator prob (Categorical label prob) where
+instance (Num prob) => HasRing (Categorical label prob) where
+    type Ring (Categorical label prob) = prob
+instance (Ord label, Num prob) => Module (Categorical label prob) where
     p .* (Categorical pdf) = Categorical $ Map.map (*p) pdf
-
--- instance (Ord label, Num prob) => RightModule prob (Categorical label prob)
-instance (Ord label, Num prob) => RightOperator prob (Categorical label prob) where
-    (*.) = flip (.*)
 
 -------------------------------------------------------------------------------
 -- Morphisms

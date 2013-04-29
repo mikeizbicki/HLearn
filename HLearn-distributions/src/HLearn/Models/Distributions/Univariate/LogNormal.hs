@@ -28,7 +28,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- data types
 
-newtype LogNormal prob = LogNormal (Normal prob)
+newtype LogNormal prob = LogNormal (Moments prob)
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 -------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ newtype LogNormal prob = LogNormal (Normal prob)
 
 instance (Floating prob) => HomTrainer (LogNormal prob) where
     type Datapoint (LogNormal prob) = prob
-    train1dp dp = LogNormal $ train1dp $ log dp
+    train1dp dp = LogNormal $ train1dp $ dp
 
 -------------------------------------------------------------------------------
 -- distribution
@@ -45,11 +45,12 @@ instance Probabilistic (LogNormal prob) where
     type Probability (LogNormal prob) = prob
 
 instance (Floating prob) => PDF (LogNormal prob) where
---     pdf (LogNormal dist) dp = pdf dist $ log dp
-    pdf dist dp = (1 / (dp * (sqrt $ sigma2 * 2 * pi)))*(exp $ (-1)*((log dp)-mu)^2/(2*sigma2))
+    pdf (LogNormal dist) dp = (1 / (dp * (sqrt $ sigma2 * 2 * pi)))*(exp $ (-1)*((log dp)-mu)^2/(2*sigma2))
         where
-            sigma2 = variance dist
-            mu = mean dist
+--             sigma2 = variance dist
+--             mu = mean dist
+            
+            raw1 = m1
 
 instance (Floating prob) => Mean (LogNormal prob) where
     mean (LogNormal dist) = exp $ (mean dist)+(variance dist)/2

@@ -42,13 +42,13 @@ newtype MultiContainer dist sample basedist prob = MultiContainer (Container dis
 -------------------------------------------------------------------------------
 -- Algebra
 
+instance (Abelian (dist prob), Abelian basedist) => Abelian (Container dist sample basedist prob) 
 instance 
     ( Monoid (dist prob)
     , Monoid basedist
     ) => Monoid (Container dist sample basedist prob) 
         where
     mempty = Container mempty mempty
-    c1 `mappend` c2 = c1<>c2
     c1 `mappend` c2 = Container
         { dist = dist c1 <> dist c2
         , basedist = basedist c1 <> basedist c2
@@ -65,25 +65,24 @@ instance
         }
 
 instance 
-    ( LeftOperator ring (dist prob)
-    , LeftOperator ring basedist
-    ) => LeftOperator ring (Container dist sample basedist prob) 
+    ( HasRing (dist prob)
+    , HasRing basedist
+    , Ring (dist prob) ~ Ring basedist
+    ) => HasRing (Container dist sample basedist prob)
+        where
+    type Ring (Container dist sample basedist prob) = Ring (dist prob)
+    
+instance 
+    ( Module (dist prob)
+    , Module basedist
+    , Ring (dist prob) ~ Ring basedist
+    ) => Module (Container dist sample basedist prob) 
         where
     r .* c = Container
         { dist = r .* (dist c)
         , basedist = r .* (basedist c)
         }
         
-instance 
-    ( RightOperator ring (dist prob)
-    , RightOperator ring basedist
-    ) => RightOperator ring (Container dist sample basedist prob) 
-        where
-    c *. r = Container
-        { dist = (dist c) *. r
-        , basedist = (basedist c) *. r
-        }
-
 -------------------------------------------------------------------------------
 -- Training
 

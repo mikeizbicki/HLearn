@@ -99,25 +99,25 @@ class (Monoid model) => HomTrainer model where
 -------------------------------------------------------------------------------
 -- WeightedHomTrainer
 
-class (Module ring model, HomTrainer model) => 
-    WeightedHomTrainer ring model 
+class (Module model, HomTrainer model) => 
+    WeightedHomTrainer model 
         where
         
-    train1dpW :: (ring,Datapoint model) -> model
+    train1dpW :: (Ring model,Datapoint model) -> model
     train1dpW (r,dp) = r .* train1dp dp
     
     trainW :: (Foldable container, Functor container) => 
-        container (ring,Datapoint model) -> model
+        container (Ring model,Datapoint model) -> model
     trainW = batch train1dpW
 
-    add1dpW :: model -> (ring,Datapoint model) -> model
+    add1dpW :: model -> (Ring model,Datapoint model) -> model
     add1dpW = online $ unbatch $ offline addBatchW
     
     addBatchW :: (Foldable container, Functor container) => 
-        model -> container (ring,Datapoint model) -> model
+        model -> container (Ring model,Datapoint model) -> model
     addBatchW = online trainW
     
-instance (Module ring model, HomTrainer model) => WeightedHomTrainer ring model
+instance (Module model, HomTrainer model) => WeightedHomTrainer model
     
 -------------------------------------------------------------------------------
 -- Counter instance for testing

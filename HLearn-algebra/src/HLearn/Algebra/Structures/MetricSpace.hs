@@ -10,13 +10,23 @@ module HLearn.Algebra.Structures.MetricSpace
     where
           
 import Data.List
-          
-          
--- | We assume that the MetricSpace on s is compatible with the ordering on s
-class MetricSpace r s | s -> r where
-    distance :: s -> s -> r
-    
-instance MetricSpace Double Double where
-    distance x y = abs $ x - y
+import Data.Monoid
+import HLearn.Algebra.Structures.Modules
+                    
+-------------------------------------------------------------------------------
+-- MetricSpaces
 
--- instance MetricSpace String Int where
+-- | We assume that the MetricSpace on s is compatible with the ordering on s
+class (HasRing s) => MetricSpace s where
+    distance :: s -> s -> Ring s
+    
+-------------------------------------------------------------------------------
+-- Norms
+
+class (Module m, MetricSpace m) => Norm m where
+    {-# INLINE magnitude #-}
+    magnitude :: m -> Ring m
+    magnitude m = distance m mempty
+          
+instance (Module m, MetricSpace m) => Norm m where
+          
