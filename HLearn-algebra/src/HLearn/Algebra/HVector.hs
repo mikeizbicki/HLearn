@@ -17,7 +17,7 @@ module HLearn.Algebra.HVector
 
 import Data.Vector.Heterogenous
 
-import HLearn.Algebra.HomTrainer
+import HLearn.Algebra.Models.HomTrainer
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.MetricSpace
 import HLearn.Algebra.Structures.Modules
