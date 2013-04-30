@@ -16,12 +16,14 @@ Library
     Build-Depends:      
         base                >= 3 && < 5,
         ConstraintKinds     >= 0.0.1,
+        vector-heterogenous >= 0.1.0,
         
-        semigroups          >= 0.8,
+        random              >= 1.0.1,
         parallel            >= 3.2,
         deepseq             >= 1.3,
         containers          >= 0.5,
-        vector-heterogenous >= 0.1.0
+        vector              >= 0.10,
+        hashable            >= 1.2
         
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
@@ -29,10 +31,13 @@ Library
         HLearn.Algebra
         HLearn.Algebra.Functions
         HLearn.Algebra.HVector
-        HLearn.Algebra.HomTrainer
+        HLearn.Algebra.Models.HomTrainer
         HLearn.Algebra.Models.Lame
         --HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules
         HLearn.Algebra.Structures.Triangles
+        HLearn.Algebra.Structures.Free.Bagging
+        HLearn.Algebra.Structures.Free.FreeHomTrainer
+        HLearn.Algebra.Structures.Free.FreeModule

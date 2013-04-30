@@ -5,10 +5,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 {-# LANGUAGE OverlappingInstances #-}
 
--- | Lame trainers are trainers that are crippled---They are not instances of Semigroup/Monoid, and training their models is not a homomorphism.  This means we can't do any of the cool manipulations automatically that we can do with the HomTrainer class.  These classes are provided mostly for development and testing purposes.  It is not recommended that you use any of their instances.
+-- | Lame trainers are trainers that are crippled---They are not Monoids, and training their models is not a homomorphism.  This means we can't do any of the cool manipulations automatically that we can do with the HomTrainer class.  These classes are provided mostly for development and testing purposes.  It is not recommended that you use any of their instances.
 
 module HLearn.Algebra.Models.Lame
     ( 
@@ -18,42 +19,33 @@ module HLearn.Algebra.Models.Lame
     )
     where
           
-import qualified Control.ConstraintKinds as CK
+import HLearn.Algebra.Models.HomTrainer
 
--- | Provides a non-homomorphic training function
-class LameTrainer container datapoint model where
-    lame_train :: container datapoint -> model
-
--- instance 
---     ( HomTrainer modelparams datapoint model
---     , CK.Functor container
---     , CK.FunctorConstraint container model
---     , CK.FunctorConstraint container datapoint
---     , CK.Foldable container
---     , CK.FoldableConstraint container model
---     ) => LameTrainer modelparams container datapoint model 
---         where
---     lame_train' modelparams dataset = train' modelparams dataset
-
-{-    lame_train :: 
-        ( CK.Functor container
-        , CK.FunctorConstraint container model
-        , CK.FunctorConstraint container datapoint
-        , CK.Foldable container
-        , CK.FoldableConstraint container model
-        , CK.FoldableConstraint container datapoint
-        , CK.FoldableConstraint container [datapoint]
-        , Sizable container
-        ) => modelparams -> container datapoint -> model-}
-
--- | Provides an online learner
-class LameTrainerOnline datapoint model where
-    lame_add1dp :: model -> datapoint -> model
+-- | Provides a non-homomorphic batch trainer
+class LameTrainer model where
+    type LameDatapoint model :: *
+    type LameContainer model :: * -> *
     
-    lame_addBatch :: model -> [datapoint] -> model
-    lame_addBatch = add1dp2addBatch lame_add1dp
-        
-add1dp2addBatch :: (model -> dp -> model) -> (model -> [dp] -> model)
-add1dp2addBatch add1dp = \model xs -> case xs of
-    []   -> model
-    x:xs -> (add1dp2addBatch add1dp) (add1dp model x) xs
+    lame_train :: (LameContainer model) (LameDatapoint model) -> model
+
+instance 
+    ( HomTrainer model
+    ) => LameTrainer model 
+        where
+    type LameDatapoint model = Datapoint model
+    type LameContainer model = []
+    
+    lame_train dataset = train dataset
+
+-- | Provides a non-homomorphic online trainer
+class LameTrainerOnline model where
+    type LameDatapointOnline model :: *
+    lame_add1dp :: model -> LameDatapointOnline model -> model
+    
+--     lame_addBatch :: model -> [datapoint] -> model
+--     lame_addBatch = add1dp2addBatch lame_add1dp
+--         
+-- add1dp2addBatch :: (model -> dp -> model) -> (model -> [dp] -> model)
+-- add1dp2addBatch add1dp = \model xs -> case xs of
+--     []   -> model
+--     x:xs -> (add1dp2addBatch add1dp) (add1dp model x) xs

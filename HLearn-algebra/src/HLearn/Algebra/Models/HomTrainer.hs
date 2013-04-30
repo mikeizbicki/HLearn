@@ -15,7 +15,7 @@
 --
 -- Unfortunately, the class hierarchy here is slightly more complicated.  In the paper, we assume that all parameters for a model can be included in the model's type.  Currently, however, this is not possible in Haskell, so every model must also have a data type that describes it's parameters.  This is the purpose of the 'ModelParams' class.  Most models have either no parameters, or reasonable defaults, and so their parameters are instances of the 'DefaultParams' class.
 
-module HLearn.Algebra.HomTrainer
+module HLearn.Algebra.Models.HomTrainer
     (     
     -- * HomTrainer
     HomTrainer (..)
@@ -36,8 +36,8 @@ import HLearn.Algebra.Structures.Modules
 -- NumDP
 
 -- | numdp returns the number of data points that the model has been trained on
-class NumDP model ring | model -> ring where
-    numdp :: model -> ring
+class (HasRing model) => NumDP model where
+    numdp :: model -> Ring model
 
 -------------------------------------------------------------------------------
 -- HomTrainer
