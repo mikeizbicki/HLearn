@@ -14,6 +14,7 @@ module HLearn.Algebra.Structures.Free.FreeModule
     )
     where
 
+import Control.Applicative
 import qualified Control.ConstraintKinds as CK
 import Data.List
 import qualified Data.Map as Map

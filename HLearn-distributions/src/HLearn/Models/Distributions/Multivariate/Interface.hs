@@ -118,6 +118,8 @@ instance
     type MarginalizeOut (Nat1Box n) (Multivariate dp xs prob) = 
         Multivariate dp (Replace2D n xs (Ignore' (Index (HList2TypeList (GetHList dp)) n))) prob
     marginalizeOut n (Multivariate dist) = Multivariate $ marginalizeOut n dist
+    
+    condition n (Multivariate dist) dp = Multivariate $ condition n dist dp
 
 type family HList2TypeList hlist :: [a]
 type instance HList2TypeList (HList xs) = xs

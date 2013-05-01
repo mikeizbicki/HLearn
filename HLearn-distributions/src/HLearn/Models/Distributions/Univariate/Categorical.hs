@@ -43,11 +43,32 @@ instance (NFData sampletype, NFData prob) => NFData (Categorical sampletype prob
     rnf d = rnf $ pdfmap d
 
 -------------------------------------------------------------------------------
+-- Algebra
+
+instance (Ord label, Num prob) => Abelian (Categorical label prob)
+instance (Ord label, Num prob) => Monoid (Categorical label prob) where
+    mempty = Categorical Map.empty
+    mappend !d1 !d2 = Categorical $ res
+        where
+            res = Map.unionWith (+) (pdfmap d1) (pdfmap d2)
+
+instance (Ord label, Num prob) => Group (Categorical label prob) where
+    inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
+
+instance (Num prob) => HasRing (Categorical label prob) where
+    type Ring (Categorical label prob) = prob
+instance (Ord label, Num prob) => Module (Categorical label prob) where
+    p .* (Categorical pdf) = Categorical $ Map.map (*p) pdf
+
+-------------------------------------------------------------------------------
 -- Training
 
 instance (Ord label, Num prob) => HomTrainer (Categorical label prob) where
     type Datapoint (Categorical label prob) = label
     train1dp dp = Categorical $ Map.singleton dp 1
+
+instance (Num prob) => NumDP (Categorical label prob) where
+    numdp dist = F.foldl' (+) 0 $ pdfmap dist
 
 -------------------------------------------------------------------------------
 -- Distribution
@@ -100,24 +121,6 @@ mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 -- | Converts a distribution into a list of (sample,probability) pai
 dist2list :: Categorical sampletype prob -> [(sampletype,prob)]
 dist2list (Categorical pdfmap) = Map.toList pdfmap
-
--------------------------------------------------------------------------------
--- Algebra
-
-instance (Ord label, Num prob) => Abelian (Categorical label prob)
-instance (Ord label, Num prob) => Monoid (Categorical label prob) where
-    mempty = Categorical Map.empty
-    mappend !d1 !d2 = Categorical $ res
-        where
-            res = Map.unionWith (+) (pdfmap d1) (pdfmap d2)
-
-instance (Ord label, Num prob) => Group (Categorical label prob) where
-    inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
-
-instance (Num prob) => HasRing (Categorical label prob) where
-    type Ring (Categorical label prob) = prob
-instance (Ord label, Num prob) => Module (Categorical label prob) where
-    p .* (Categorical pdf) = Categorical $ Map.map (*p) pdf
 
 -------------------------------------------------------------------------------
 -- Morphisms

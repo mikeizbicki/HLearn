@@ -11,9 +11,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE EmptyDataDecls #-}
+
+{-# LANGUAGE OverlappingInstances #-}
 
 module HLearn.Algebra.Structures.Free.FreeHomTrainer
-    ( FreeHomTrainer
+    ( FreeHomTrainer (..)
+    , NoFlatten
+    , AbelianGroup
     , FreeHomTrainer'
     )
     where
@@ -40,6 +45,7 @@ type instance FreeHomTrainer model Monoid        NoFlatten = FreeHomTrainer' Fre
 type instance FreeHomTrainer model Group         NoFlatten = FreeHomTrainer' FreeGroup model
 type instance FreeHomTrainer model AbelianGroup  NoFlatten = FreeHomTrainer' (FreeModule Int) model
 type instance FreeHomTrainer model (Module ring) NoFlatten = FreeHomTrainer' (FreeModule ring) model
+type instance FreeHomTrainer model Module        NoFlatten = FreeHomTrainer' (FreeModule (Ring model)) model
 
 data NoFlatten
 
@@ -71,4 +77,13 @@ instance
     
     train1dp dp = FreeHomTrainer'
         { modelL = pure $ lame_train dp
+        }
+        
+instance 
+    (Num ring, Ord model, LameTrainer model) => HomTrainer (FreeHomTrainer' (FreeModule ring) model) where
+    
+    type Datapoint (FreeHomTrainer' (FreeModule ring) model) = (LameContainer model) (LameDatapoint model)
+    
+    train1dp dp = FreeHomTrainer'
+        { modelL = FreeModule $ Map.singleton (lame_train dp) 1
         }
