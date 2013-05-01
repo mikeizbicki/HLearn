@@ -42,6 +42,9 @@ instance (Monoid basedist) => Monoid (Ignore' label basedist prob) where
     mempty = Ignore' mempty
     mappend d1 d2 = Ignore' $ mappend (basedist d1) (basedist d2)
 
+instance (HasRing basedist) => HasRing (Ignore' label basedist prob) where
+    type Ring (Ignore' label basedist prob) = Ring basedist
+
 -------------------------------------------------------------------------------
 -- Training
 
@@ -54,7 +57,7 @@ instance
     
     train1dp (dp:::basedp) = Ignore' $ train1dp basedp
 
-instance (NumDP basedist ring) => NumDP (Ignore' label basedist prob) ring where
+instance (NumDP basedist) => NumDP (Ignore' label basedist prob) where
     numdp (Ignore' basedist) = numdp basedist
 
 -------------------------------------------------------------------------------

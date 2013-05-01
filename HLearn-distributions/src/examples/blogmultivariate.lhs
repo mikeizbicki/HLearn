@@ -15,6 +15,9 @@
 >   }
 >   deriving (Read,Show,Eq,Ord)
 
+>data I_name = I_name
+
+
 >data Job = Programmer | Manager | Sales
 >   deriving (Read,Show,Eq,Ord)
 
@@ -29,15 +32,15 @@
 >   [ Person "Sally"     "San Francisco" Programmer 22 80000
 
 >   , Person "Billy Bob" "New York"      Programmer 23 75000
->   , Person "Joe Shmoe" "San Francisco" Manager    32 120000
->   , Person "Frank"     "San Francisco" Sales      32 950000
+>   , Person "Joe Shmoe" "San Francisco" Manager    31 121000
+>   , Person "Frank"     "San Francisco" Sales      33 950000
 >   , Person "Johnny"    "San Francisco" Programmer 22 80000
->   , Person "Dan"       "New York"      Programmer 23 75000
+>   , Person "Dan"       "New York"      Programmer 22 85000
 >   , Person "Smith"     "San Francisco" Sales      32 950000
->   , Person "Joey"      "San Francisco" Programmer 22 80000
->   , Person "Jannette"  "New York"      Programmer 23 75000
->   , Person "Stewart"   "San Francisco" Manager    32 120000
->   , Person "Malcolm"   "San Francisco" Sales      32 950000
+>   , Person "Joey"      "San Francisco" Programmer 26 82000
+>   , Person "Jannette"  "New York"      Programmer 24 73000
+>   , Person "Stewart"   "San Francisco" Manager    46 125000
+>   , Person "Malcolm"   "San Francisco" Sales      67 910000
 
 >   ]
 
@@ -45,7 +48,10 @@
 
 >dist1 = train people :: Multivariate Person
 >   '[ Ignore '[String]
->    , Independent Categorical '[String,Job]
+>    , MultiCategorical '[String,Job]
+
+-- >    , Independent Categorical '[Job]
+
 >    , Independent Normal '[Double,Double]
 >    ]
 >    Double

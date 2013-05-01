@@ -71,6 +71,14 @@ instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) wh
         , q2 = V.zipWith (VU.zipWith (+)) (q2 mn1) (q2 mn2)
         }
 
+instance (Num prob) => HasRing (MultiNormalVec n prob) where
+    type Ring (MultiNormalVec n prob) = prob
+    
+---------------------------------------
+
+instance (Num prob) => HasRing (MultiNormal xs prob) where
+    type Ring (MultiNormal xs prob) = prob
+    
 -------------------------------------------------------------------------------
 -- training
 
@@ -94,7 +102,7 @@ instance
     type Datapoint (MultiNormal xs prob) = HList xs
     train1dp dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
-instance NumDP (MultiNormal xs prob) prob where
+instance (Num prob) => NumDP (MultiNormal xs prob) where
     numdp (MultiNormal mn) = q0 mn
 
 -------------------------------------------------------------------------------

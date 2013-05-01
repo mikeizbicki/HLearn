@@ -31,14 +31,23 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
--- Normal
+-- data types
 
 newtype Normal prob = Normal (Moments3 prob)
-    deriving (Read,Show,Eq,Ord,Monoid,Group)
-    
+    deriving (Read,Show,Eq,Ord,Monoid,Group,Abelian,Module,NumDP)
+
+-------------------------------------------------------------------------------
+-- training
+
 instance (Num prob) => HomTrainer (Normal prob) where
     type Datapoint (Normal prob) = prob
     train1dp dp = Normal $ train1dp dp
+
+instance (Num prob) => HasRing (Normal prob) where
+    type Ring (Normal prob) = prob
+
+-------------------------------------------------------------------------------
+-- algebra
 
 instance (Num prob) => Probabilistic (Normal prob) where
     type Probability (Normal prob) = prob

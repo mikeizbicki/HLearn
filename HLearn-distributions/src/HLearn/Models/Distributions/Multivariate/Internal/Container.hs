@@ -71,7 +71,16 @@ instance
     ) => HasRing (Container dist sample basedist prob)
         where
     type Ring (Container dist sample basedist prob) = Ring (dist prob)
-    
+
+
+instance 
+    ( HasRing (dist prob)
+    , HasRing basedist
+    , Ring (dist prob) ~ Ring basedist
+    ) => HasRing (MultiContainer dist sample basedist prob)
+        where
+    type Ring (MultiContainer dist sample basedist prob) = Ring (dist prob)
+
 instance 
     ( Module (dist prob)
     , Module basedist
@@ -100,7 +109,7 @@ instance
         , basedist = train1dp basedp
         }
 
-instance (NumDP (dist prob) ring) => NumDP (Container dist sample basedist prob) ring where
+instance (NumDP (dist prob), HasRing basedist, Ring basedist ~ Ring (dist prob)) => NumDP (Container dist sample basedist prob) where
     numdp container = numdp $ dist container
 
 ---------------------------------------
@@ -122,7 +131,7 @@ instance
         , basedist = train1dp $ hdrop1 (Nat1Box :: Nat1Box (Length1 zs)) dpL
         }
 
-instance (NumDP (dist prob) ring) => NumDP (MultiContainer dist sample basedist prob) ring where
+instance (NumDP (dist prob), HasRing basedist, Ring basedist ~ Ring (dist prob)) => NumDP (MultiContainer dist sample basedist prob) where
     numdp (MultiContainer container) = numdp $ dist container
     
 -------------------------------------------------------------------------------
@@ -155,6 +164,8 @@ instance Marginalize (Nat1Box Zero) (Container dist (sample :: *) basedist prob)
     type MarginalizeOut (Nat1Box Zero) (Container dist sample basedist prob) = Ignore' sample basedist prob
     marginalizeOut _ container = Ignore' $ basedist container
     
+    condition _ container dp = Ignore' $ basedist container --error "Container.Marginalize.condition: undefined"
+    
 instance 
     ( Marginalize (Nat1Box n) basedist
     ) => Marginalize (Nat1Box (Succ n)) (Container dist sample basedist prob)
@@ -169,6 +180,11 @@ instance
         , basedist = marginalizeOut (undefined :: Nat1Box n) $ basedist container 
         }
 
+    condition _ container dp = Container
+        { dist = dist container
+        , basedist = condition (undefined :: Nat1Box n) (basedist container) dp
+        }
+    
 {-instance Marginalize (Nat1Box Zero) (Container dist sample basedist prob) (dist prob) where
     getMargin _ container = dist container
     

@@ -65,6 +65,17 @@ instance (Num prob) => Monoid (Moments3 prob) where
 instance (Num prob) => Group (Moments3 prob ) where
     inverse !m = Moments3 (negate $ m0 m) (negate $ m1 m) (negate $ m2 m)
 
+instance (Num prob) => HasRing (Moments3 prob) where
+    type Ring (Moments3 prob) = prob
+    
+instance (Num prob) => Module (Moments3 prob) where
+    r .* dist = Moments3
+        { m0 = r * m0 dist
+        , m1 = r * m1 dist
+        , m2 = r * m2 dist
+        }
+        
+
 -- instance (Fractional prob, VU.Unbox prob, SingI n) => LeftModule prob (Moments3 prob n)
 -- instance (Fractional prob, VU.Unbox prob) => LeftOperator prob (Moments3 prob n) where
 --     (.*) !p !(Moments3 vec) = Moments3 $ VU.map (*p) vec
@@ -80,7 +91,8 @@ instance (Num prob) => HomTrainer (Moments3 prob) where
     type Datapoint (Moments3 prob) = prob
     train1dp dp = Moments3 1 dp (dp*dp)
     
-
+instance (Num prob) => NumDP (Moments3 prob) where
+    numdp = m0
 
 -------------------------------------------------------------------------------
 -- LogNormal
