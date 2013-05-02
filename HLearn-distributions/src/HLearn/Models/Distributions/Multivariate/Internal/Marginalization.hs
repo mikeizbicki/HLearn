@@ -13,7 +13,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-{-# LANGUAGE OverlappingInstances #-}
+-- {-# LANGUAGE OverlappingInstances #-}
 
 -- | All multivariate distributions should implement methods to marginalize
 module HLearn.Models.Distributions.Multivariate.Internal.Marginalization
@@ -45,7 +45,23 @@ instance (SingI n, Marginalize (Nat1Box (ToNat1 n)) dist) => Marginalize (Sing (
     marginalizeOut _ dist = marginalizeOut (undefined :: Nat1Box (ToNat1 n)) dist
     
     condition _ dist dp = condition (undefined :: Nat1Box (ToNat1 n)) dist dp
-    
+
+
+class IndexName i where
+    type IndexNameOf i
+
+class (Marginalize (IndexNameOf index) dist, IndexName index) => Marginalize' index dist where
+
+    getMargin' :: index -> dist -> Margin (IndexNameOf index) dist
+    marginalizeOut' :: index -> dist -> MarginalizeOut (IndexNameOf index) dist
+    condition' :: index -> dist -> Datapoint (Margin (IndexNameOf index) dist) -> MarginalizeOut (IndexNameOf index) dist
+
+instance (Marginalize (IndexNameOf index) dist, IndexName index) => Marginalize' index dist where
+    getMargin' _ dist = getMargin (undefined :: (IndexNameOf index)) dist
+    marginalizeOut' _ dist = marginalizeOut (undefined :: (IndexNameOf index)) dist
+    condition' _ dist dp = condition (undefined :: (IndexNameOf index)) dist dp
+
+
 {-class NameIndex i where
     type NameIndexOf i 
     
