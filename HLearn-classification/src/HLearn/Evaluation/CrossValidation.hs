@@ -31,26 +31,26 @@ import qualified Control.ConstraintKinds as CK
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
-lame_crossvalidation :: 
-    ( LameTrainer container datapoint model
-    , Monoid ret
-    , Monoid (container datapoint)
-    , CK.Functor container
-    , CK.FunctorConstraint container datapoint
-    , CK.FunctorConstraint container model
-    , CK.Foldable container
-    , CK.FoldableConstraint container model
-    , CK.FoldableConstraint container datapoint
-    , CK.Partitionable container
-    , CK.PartitionableConstraint container datapoint
-    ) => container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
-lame_crossvalidation dataset perfmeasure k = reduce $ do
-    (testdata, trainingdata) <- genTestList datasetL
-    let model = lame_train trainingdata
-    let score = perfmeasure model testdata
-    return score
-    where
-        datasetL = CK.partition k dataset
+-- lame_crossvalidation :: 
+--     ( LameTrainer container datapoint model
+--     , Monoid ret
+--     , Monoid (container datapoint)
+--     , CK.Functor container
+--     , CK.FunctorConstraint container datapoint
+--     , CK.FunctorConstraint container model
+--     , CK.Foldable container
+--     , CK.FoldableConstraint container model
+--     , CK.FoldableConstraint container datapoint
+--     , CK.Partitionable container
+--     , CK.PartitionableConstraint container datapoint
+--     ) => container datapoint -> (model -> container datapoint -> ret) -> Int -> ret
+-- lame_crossvalidation dataset perfmeasure k = reduce $ do
+--     (testdata, trainingdata) <- genTestList datasetL
+--     let model = lame_train trainingdata
+--     let score = perfmeasure model testdata
+--     return score
+--     where
+--         datasetL = CK.partition k dataset
 
 -- | This is the standard cross-validation technique for use with the HomTrainer type class.  It is asymptotically faster than standard k-fold cross-validation (implemented with lame_crossvalidation), yet is guaranteed to get the exact same answer.
 crossvalidation :: 
@@ -95,6 +95,43 @@ crossvalidation dataset perfmeasure k = reduce $ do
 --         modelL = fmap (train' modelparams) datasetL
 --         datasetL = CK.partition k dataset
 -- 
+-- lame_crossvalidation dataset perfmeasure k = reduce $ do
+--     (testdata, trainingdata) <- genTestList datasetL
+--     let model = lame_train trainingdata
+--     let score = perfmeasure model testdata
+--     return score
+--     where
+--         datasetL = CK.partition k dataset
+
+type LossFunction model = model -> [Datapoint model] -> Double
+
+crossValidate :: (HomTrainer model, Eq (Datapoint model)) => 
+    [[Datapoint model]] -> LossFunction model -> Normal Double
+crossValidate xs f = train $ do
+    testset <- xs
+    let trainingset = concat $ filter (/=testset) xs
+    let model = train trainingset
+    return $ f model testset
+    
+crossValidate_monoid :: (HomTrainer model, Eq (Datapoint model)) => 
+    [[Datapoint model]] -> LossFunction model -> Normal Double
+crossValidate_monoid xs f = train $ do
+    testset <- xs
+    let trainingset = concat $ filter (/=testset) xs
+    let model = train trainingset
+    return $ f model testset    
+    
+crossValidate_group :: (HomTrainer model, Group model) => 
+    [[Datapoint model]] -> LossFunction model -> Normal Double
+crossValidate_group xs f = train $ do
+    (testset,testModel) <- modelL
+    let model = fullmodel <> inverse testModel
+    return $ f model testset
+    where
+        modelL = zip xs $ map train xs
+        fullmodel = reduce $ map snd modelL
+
+    
 -- crossValidation_group_par modelparams dataset perfmeasure k = (parallel reduce) $ do
 --     testdata <- datasetL
 --     let model = fullModel <> (inverse $ train' modelparams testdata)

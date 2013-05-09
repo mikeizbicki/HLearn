@@ -20,6 +20,7 @@ module HLearn.Models.Distributions.Multivariate.Internal.Container
     )
     where
 
+import Control.DeepSeq
 import Debug.Trace
 import GHC.TypeLits
 import HLearn.Algebra
@@ -36,8 +37,11 @@ data Container dist sample basedist (prob:: * ) = Container
     }
     deriving (Read,Show,Eq,Ord)
     
+instance (NFData (dist prob), NFData basedist) => NFData (Container dist sample basedist prob) where
+    rnf c = deepseq (dist c) $ rnf (basedist c)
+    
 newtype MultiContainer dist sample basedist prob = MultiContainer (Container dist sample basedist prob)
-    deriving (Read,Show,Eq,Ord,Monoid,Group)
+    deriving (Read,Show,Eq,Ord,Monoid,Abelian,Group,NFData)
 
 -------------------------------------------------------------------------------
 -- Algebra
@@ -92,6 +96,13 @@ instance
         , basedist = r .* (basedist c)
         }
         
+deriving instance     
+    ( Module (dist prob)
+    , Module basedist
+    , Ring (dist prob) ~ Ring basedist
+    ) => Module (MultiContainer dist sample basedist prob) 
+
+
 -------------------------------------------------------------------------------
 -- Training
 
@@ -157,32 +168,32 @@ instance
             pdf1 = pdf (dist container) dp
             pdf2 = pdf (basedist container) basedp
 
-instance Marginalize (Nat1Box Zero) (Container dist (sample :: *) basedist prob) where
-    type Margin (Nat1Box Zero) (Container dist sample basedist prob) = dist prob
-    getMargin _ container = dist container
+instance Marginalize' (Nat1Box Zero) (Container dist (sample :: *) basedist prob) where
+    type Margin' (Nat1Box Zero) (Container dist sample basedist prob) = dist prob
+    getMargin' _ container = dist container
     
-    type MarginalizeOut (Nat1Box Zero) (Container dist sample basedist prob) = Ignore' sample basedist prob
-    marginalizeOut _ container = Ignore' $ basedist container
+    type MarginalizeOut' (Nat1Box Zero) (Container dist sample basedist prob) = Ignore' sample basedist prob
+    marginalizeOut' _ container = Ignore' $ basedist container
     
-    condition _ container dp = Ignore' $ basedist container --error "Container.Marginalize.condition: undefined"
+    condition' _ container dp = Ignore' $ basedist container --error "Container.Marginalize.condition: undefined"
     
 instance 
-    ( Marginalize (Nat1Box n) basedist
-    ) => Marginalize (Nat1Box (Succ n)) (Container dist sample basedist prob)
+    ( Marginalize' (Nat1Box n) basedist
+    ) => Marginalize' (Nat1Box (Succ n)) (Container dist sample basedist prob)
         where
-    type Margin (Nat1Box (Succ n)) (Container dist sample basedist prob) = Margin (Nat1Box n) basedist
-    getMargin _ container = getMargin (undefined :: Nat1Box n) $ basedist container
+    type Margin' (Nat1Box (Succ n)) (Container dist sample basedist prob) = Margin' (Nat1Box n) basedist
+    getMargin' _ container = getMargin' (undefined :: Nat1Box n) $ basedist container
     
-    type MarginalizeOut (Nat1Box (Succ n)) (Container dist sample basedist prob) = 
-        Container dist sample (MarginalizeOut (Nat1Box n) basedist) prob 
-    marginalizeOut _ container = Container 
+    type MarginalizeOut' (Nat1Box (Succ n)) (Container dist sample basedist prob) = 
+        Container dist sample (MarginalizeOut' (Nat1Box n) basedist) prob 
+    marginalizeOut' _ container = Container 
         { dist = dist container
-        , basedist = marginalizeOut (undefined :: Nat1Box n) $ basedist container 
+        , basedist = marginalizeOut' (undefined :: Nat1Box n) $ basedist container 
         }
 
-    condition _ container dp = Container
+    condition' _ container dp = Container
         { dist = dist container
-        , basedist = condition (undefined :: Nat1Box n) (basedist container) dp
+        , basedist = condition' (undefined :: Nat1Box n) (basedist container) dp
         }
     
 {-instance Marginalize (Nat1Box Zero) (Container dist sample basedist prob) (dist prob) where

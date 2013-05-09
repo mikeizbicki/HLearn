@@ -30,6 +30,7 @@ import qualified Data.Foldable as F
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
 -- Categorical
@@ -121,6 +122,15 @@ mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 -- | Converts a distribution into a list of (sample,probability) pai
 dist2list :: Categorical sampletype prob -> [(sampletype,prob)]
 dist2list (Categorical pdfmap) = Map.toList pdfmap
+
+
+instance 
+    ( Ord label, Show label
+    , Ord prob, Show prob, Fractional prob
+    ) => PlottableDistribution (Categorical label prob) 
+        where
+    samplePoints (Categorical dist) = Map.keys dist
+    plotType dist = Bar
 
 -------------------------------------------------------------------------------
 -- Morphisms

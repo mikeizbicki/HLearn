@@ -40,10 +40,7 @@ data Moments3 prob = Moments3
     deriving (Read,Show,Eq,Ord)
 
 instance (NFData prob) => NFData (Moments3 prob) where
-    rnf m = deepseq (m0 m) 
-          $ deepseq (m1 m) 
-          $ deepseq (m2 m)
-          $ ()
+    rnf m = seq m ()
 
 derivingUnbox "Moments3"
     [t| (U.Unbox a) => (Moments3 a) -> (a, a, a) |]

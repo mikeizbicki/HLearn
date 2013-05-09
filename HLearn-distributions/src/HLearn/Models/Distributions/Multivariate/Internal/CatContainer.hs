@@ -72,14 +72,14 @@ instance (NFData label, NFData prob, NFData basedist) =>
 instance (Ord label, Num prob, Monoid basedist) => Abelian (CatContainer label basedist prob)
 instance (Ord label, Num prob, Monoid basedist) => Monoid (CatContainer label basedist prob) where
     mempty = CatContainer mempty mempty 0
-    d1 `mappend` d2 = d1 
+    d1 `mappend` d2 = CatContainer
         { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
         , probmap = Map.unionWith (+) (probmap d1) (probmap d2) 
         , catnumdp  = (catnumdp d1)+(catnumdp d2)
         } 
 
 instance (Ord label, Num prob, Group basedist) => Group (CatContainer label basedist prob) where
-    inverse d1 = d1 
+    inverse d1 = CatContainer
         { pdfmap = Map.map (inverse) (pdfmap d1)
         , probmap = Map.map negate (probmap d1)
         , catnumdp = -catnumdp d1
@@ -88,6 +88,18 @@ instance (Ord label, Num prob, Group basedist) => Group (CatContainer label base
 instance (Num prob) => HasRing (CatContainer label basedist prob) where
     type Ring (CatContainer label basedist prob) = prob
 
+instance 
+    ( Ord label
+    , Num prob
+    , Module basedist
+    , Ring basedist ~ Ring (CatContainer label basedist prob)
+    ) => Module (CatContainer label basedist prob) 
+        where
+    r .* d = CatContainer
+        { pdfmap = Map.map (r.*) (pdfmap d)
+        , probmap = Map.map (r*) (probmap d)
+        , catnumdp = r * catnumdp d
+        }
 -- -- instance (Ord label, Num prob) => LeftModule prob (CatContainer label prob)
 -- instance (Ord label, Num prob) => LeftOperator prob (CatContainer label prob) where
 --     p .* (CatContainer pdf) = CatContainer $ Map.map (*p) pdf
@@ -151,16 +163,16 @@ instance
     , Monoid basedist
     , HCons label (Datapoint basedist) ~ HList (label ': ts)
     , Ord label
-    ) => Marginalize (Nat1Box Zero) (CatContainer label basedist prob) 
+    ) => Marginalize' (Nat1Box Zero) (CatContainer label basedist prob) 
         where
               
-    type Margin (Nat1Box Zero) (CatContainer label basedist prob) = (Categorical label prob) 
-    getMargin _ dist = Categorical $ probmap dist --Map.map numdp (pdfmap dist) 
+    type Margin' (Nat1Box Zero) (CatContainer label basedist prob) = (Categorical label prob) 
+    getMargin' _ dist = Categorical $ probmap dist --Map.map numdp (pdfmap dist) 
 
-    type MarginalizeOut (Nat1Box Zero) (CatContainer label basedist prob) = Ignore' label basedist prob
-    marginalizeOut _ dist = Ignore' $ reduce $ Map.elems (pdfmap dist)  
+    type MarginalizeOut' (Nat1Box Zero) (CatContainer label basedist prob) = Ignore' label basedist prob
+    marginalizeOut' _ dist = Ignore' $ reduce $ Map.elems (pdfmap dist)  
         
-    condition _ dist dp = Ignore' $ 
+    condition' _ dist dp = Ignore' $ 
         case Map.lookup dp (pdfmap dist) of
              Nothing -> error "CatContainer.condition: Nothing"
              Just basedist -> basedist
@@ -172,31 +184,33 @@ instance
                                 
 
 instance 
-    ( Marginalize (Nat1Box n) basedist
---     , MarginalizeOut (Nat1Box n) basedist ~ MarginalizeOut (Nat1Box n) (HList t0)
+    ( Marginalize' (Nat1Box n) basedist
     , Monoid basedist
-    , PDF (Margin (Nat1Box n) basedist)
-    , prob ~ Probability (Margin (Nat1Box n) basedist)
+    , PDF (Margin' (Nat1Box n) basedist)
+    , prob ~ Probability (Margin' (Nat1Box n) basedist)
+    , prob ~ Ring basedist
+    , Module basedist
     , Ord label
     , Num prob
---     , HCons label (Datapoint basedist) ~ HList ts0
---     , Datapoint (Margin (Nat1Box n) basedist) ~ HList ts1
-    ) => Marginalize (Nat1Box (Succ n)) (CatContainer label basedist prob) 
+    ) => Marginalize' (Nat1Box (Succ n)) (CatContainer label basedist prob) 
         where
               
-    type Margin (Nat1Box (Succ n)) (CatContainer label basedist prob) = Margin (Nat1Box n) basedist
-    getMargin _ dist = getMargin (undefined :: Nat1Box n) $ reduce $ Map.elems (pdfmap dist) 
+    type Margin' (Nat1Box (Succ n)) (CatContainer label basedist prob) = Margin' (Nat1Box n) basedist
+    getMargin' _ dist = getMargin' (undefined :: Nat1Box n) $ reduce $ 
+        zipWith (.*)
+        (Map.elems $ probmap dist) 
+        (Map.elems $ pdfmap dist) 
     
-    type MarginalizeOut (Nat1Box (Succ n)) (CatContainer label basedist prob) = 
-        CatContainer label (MarginalizeOut (Nat1Box n) basedist) prob
-    marginalizeOut _ dist = dist { pdfmap = fmap (marginalizeOut (undefined :: Nat1Box n)) $ pdfmap dist }
+    type MarginalizeOut' (Nat1Box (Succ n)) (CatContainer label basedist prob) = 
+        CatContainer label (MarginalizeOut' (Nat1Box n) basedist) prob
+    marginalizeOut' _ dist = dist { pdfmap = fmap (marginalizeOut' (undefined :: Nat1Box n)) $ pdfmap dist }
 
-    condition _ dist dp = dist 
+    condition' _ dist dp = dist 
         { probmap = Map.unionWith (*) (probmap dist) (conditionmap)
-        , pdfmap = fmap (flip (condition (undefined :: Nat1Box n)) dp) $ pdfmap dist 
+        , pdfmap = fmap (flip (condition' (undefined :: Nat1Box n)) dp) $ pdfmap dist 
         }
         where
-            conditionmap = fmap (\dist -> pdf (getMargin (undefined :: Nat1Box n) dist) dp) $ pdfmap dist 
+            conditionmap = fmap (\dist -> pdf (getMargin' (undefined :: Nat1Box n) dist) dp) $ pdfmap dist 
 --     conditionAllButOne _ dist (dp:::dpL) = dist { pdfmap = fmap (flip (condition (undefined :: Nat1Box n)) dpL) $ pdfmap dist }
     
 {-marginalizeRight :: 

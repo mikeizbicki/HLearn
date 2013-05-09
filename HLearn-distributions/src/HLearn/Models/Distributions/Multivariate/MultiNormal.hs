@@ -48,15 +48,21 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
     }
     deriving (Read,Show,Eq,Ord)
 
-newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
-    deriving (Read,Show,Eq,Ord)
+instance NFData (MultiNormalVec n prob) where
+    rnf mn = seq mn ()
 
-deriving instance (Monoid (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
-deriving instance (Group (MultiNormalVec (Length xs) prob)) => Group (MultiNormal xs prob)
+newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
+    deriving (Read,Show,Eq,Ord,NFData)
+
+deriving instance (Monoid  (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
+deriving instance (Abelian (MultiNormalVec (Length xs) prob)) => Abelian (MultiNormal xs prob)
+deriving instance (Group   (MultiNormalVec (Length xs) prob)) => Group (MultiNormal xs prob)
+deriving instance (Module  (MultiNormalVec (Length xs) prob)) => Module (MultiNormal xs prob)
 
 -------------------------------------------------------------------------------
 -- algebra
 
+instance (Num prob, VU.Unbox prob, SingI n) => Abelian (MultiNormalVec n prob)
 instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) where
     mempty = MultiNormalVec
         { q0 = 0
@@ -71,8 +77,22 @@ instance (Num prob, VU.Unbox prob, SingI n) => Monoid (MultiNormalVec n prob) wh
         , q2 = V.zipWith (VU.zipWith (+)) (q2 mn1) (q2 mn2)
         }
 
+instance (Num prob, VU.Unbox prob, SingI n) => Group (MultiNormalVec n prob) where
+    inverse mn = MultiNormalVec
+        { q0 = negate $ q0 mn
+        , q1 = VU.map negate (q1 mn)
+        , q2 = V.map (VU.map negate) (q2 mn)
+        }
+        
 instance (Num prob) => HasRing (MultiNormalVec n prob) where
     type Ring (MultiNormalVec n prob) = prob
+
+instance (Num prob, VU.Unbox prob, SingI n) => Module (MultiNormalVec n prob) where
+    r .* mn = MultiNormalVec
+        { q0 = r * q0 mn
+        , q1 = VU.map (r*) (q1 mn)
+        , q2 = V.map (VU.map (r*)) (q2 mn)
+        }
     
 ---------------------------------------
 
