@@ -7,6 +7,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# LANGUAGE OverlappingInstances #-}
+-- {-# LANGUAGE IncoherentInstances #-}
+
 -- | This module contains the functions for plotting distributions using Gnuplot.
 
 module HLearn.Models.Distributions.Visualization.Gnuplot
@@ -16,6 +19,7 @@ module HLearn.Models.Distributions.Visualization.Gnuplot
     
     -- ** Plot parameters
     , PlotParams(..)
+    , PicType(..)
     , plotFile
     , genPlotParams
 
@@ -45,22 +49,30 @@ import System.Process
 
 data PlotType = Bar | Points | Continuous
 
+data PicType = PNG { pngWidth::Int, pngHeight::Int} | EPS
+
+getExtension :: PicType -> String
+getExtension (PNG _ _) = ".png"
+getExtension EPS = ".ps"
+
 data PlotParams = PlotParams
     { dataFile :: FilePath
     , gnuFile :: FilePath
     , picFile :: FilePath
+    , picType :: PicType
     }
 
-plotFile :: String -> PlotParams
-plotFile str = PlotParams
+plotFile :: String -> PicType -> PlotParams
+plotFile str ext = PlotParams
     { dataFile = str++".dat"
     , gnuFile  = str++".gnu"
-    , picFile  = str++".ps"
+    , picFile  = str++(getExtension ext)
+    , picType  = ext
     }
 
 -- | provided due to backwards compatibility with the nuclear weapons blog post.
 genPlotParams :: String -> a -> PlotParams
-genPlotParams str a = plotFile str
+genPlotParams str a = plotFile str EPS
 
 -------------------------------------------------------------------------------
 -- plotting classes
@@ -73,6 +85,7 @@ class
     ( Plottable (Datapoint dist)
     , Plottable (Probability dist), Num (Probability dist)
     , PDF dist
+    , MaybeShow (Datapoint dist)
     ) => PlottableDistribution dist where
 
     samplePoints :: dist -> [Datapoint dist]
@@ -82,9 +95,19 @@ class
     pdfL dist = map (pdf dist) $ samplePoints dist
 
     plotdata :: dist -> String
-    plotdata dist = mconcat [show (x::Datapoint dist) ++ " " ++ show (pdf dist x::Probability dist) ++"\n" | x <- plotPoints]
+    plotdata dist = mconcat [maybeshow (x::Datapoint dist) ++ " " ++ show (pdf dist x::Probability dist) ++"\n" | x <- plotPoints]
         where
             plotPoints = samplePoints dist
+
+class MaybeShow a where
+    maybeshow :: a -> String
+    
+instance (Show a) => MaybeShow (Maybe a) where
+    maybeshow (Just a) = show a
+    maybeshow Nothing  = "Nothing"
+
+instance (Show a) => MaybeShow a where
+    maybeshow = show
 
 -------------------------------------------------------------------------------
 -- plotting functions
@@ -113,13 +136,19 @@ plotDistribution params dist = do
 
 gnuplotHeader :: PlotParams -> String
 gnuplotHeader params
-    =  "set terminal postscript \"Times-Roman\" 25 \n"
-    ++ "set size 0.81, 1\n"
+    =  terminal
     ++ "set output \"" ++ (picFile params) ++ "\" \n"
     ++ "unset xtics; unset ytics; unset key \n"
-    ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
+--     ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
     ++ "zero(x)=0\n"
-
+    ++ "set border 2; set style fill solid 1\n"
+    where 
+        terminal = case picType params of
+            EPS -> "set terminal postscript \"Times-Roman\" 25 \n"
+                ++ "set size 0.81, 1\n"
+--             PNG _ _ -> "png"
+            PNG w h -> "set terminal pngcairo size "++show w++","++show h++" enhanced font 'Times-Roman,10' \n"
+        
 -- class PlotHList t where
 --     plotargs :: t -> [(String,String)] -> [String]
 -- instance PlotHList (HList '[]) where
@@ -135,6 +164,11 @@ gnuplot params dist
     ++ plotcmd
     where
         plotcmd = case (plotType dist) of
+            Bar -> "set tics scale 0; set xtics nomirror; unset ytics; unset key\n"
+                ++ "set xzeroaxis lt 1 lc rgb '#000000'\n"
+--                 ++ "set ylabel \"Probability\"\n"
+                ++ "set style data histogram; set style histogram cluster gap 1\n"
+                ++ "plot '"++(dataFile params)++"' using 2:xticlabels(1) lw 4 linecolor rgb '#0000ff' fs solid 1\n"
             Continuous -> "plot '"++(dataFile params)++"' using 1:2:(zero($2)) lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
 --             Continuous -> "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
                         ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"
@@ -218,28 +252,29 @@ gnuplot params dist
     maxx dist = (meanG dist)+5*(sqrt $ varG dist)-}
     
         
-{-instance (Show label, Show prob, Num prob, Ord prob) => PlottableDistribution (Categorical label prob) label where
-    plotdata dist = concat $ do
-        (label,prob) <- dist2list dist
-        return $ show label++" "++show prob++"\n"
-        
-    gnuplot params dist
-        = "set terminal postscript \"Times-Roman\" 25; set output \""++ (picFile params) ++ "\"\n"
-        ++"set tics scale 0; set xtics nomirror; unset ytics; unset key\n"
-        ++"set border 2; set xzeroaxis lt 1\n"
-        ++"set ylabel \"Probability\"\n"
-        ++yrange
-        ++"set style fill border -1\n"
-        ++"set style data histogram; set style histogram cluster gap 1\n"
-        ++"plot '"++(dataFile params)++"' using 2:xticlabels(1)\n"
-        where
-            positiveSamples = or $ map (\(k,v) -> v>0) $ dist2list dist
-            negativeSamples = or $ map (\(k,v) -> v<0) $ dist2list dist
-            yrange = if positiveSamples && negativeSamples
-                then ""
-                else if positiveSamples
-                    then "set yrange [0:]\n"
-                    else "set yrange [:0]\n"-}
+-- instance (Show label, Show prob, Num prob, Ord prob) => PlottableDistribution (Categorical label prob) label where
+--     plotdata dist = concat $ do
+--         (label,prob) <- dist2list dist
+--         return $ show label++" "++show prob++"\n"
+--         
+--     gnuplot params dist
+--         = "set terminal postscript \"Times-Roman\" 25; set output \""++ (picFile params) ++ "\"\n"
+--         ++"set tics scale 0; set xtics nomirror; unset ytics; unset key\n"
+--         ++"set border 2; set xzeroaxis lt 1\n"
+--         ++"set ylabel \"Probability\"\n"
+--         ++yrange
+--         ++"set style fill border -1\n"
+--         ++"set style data histogram; set style histogram cluster gap 1\n"
+--         ++"plot '"++(dataFile params)++"' using 2:xticlabels(1)\n"
+--         where
+--             positiveSamples = or $ map (\(k,v) -> v>0) $ dist2list dist
+--             negativeSamples = or $ map (\(k,v) -> v<0) $ dist2list dist
+--             yrange = if positiveSamples && negativeSamples
+--                 then ""
+--                 else if positiveSamples
+--                     then "set yrange [0:]\n"
+--                     else "set yrange [:0]\n"
+
 {-        =  "set terminal postscript \"Times-Roman\" 25 \n"
         ++ "set output \"" ++ (picFile params) ++ "\" \n"
         ++ "unset xtics; unset ytics; unset key\n"

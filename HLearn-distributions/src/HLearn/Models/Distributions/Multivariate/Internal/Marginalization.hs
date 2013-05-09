@@ -13,71 +13,54 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
--- {-# LANGUAGE OverlappingInstances #-}
+-- | Marginalization is a tricky procedure involving a lot of type hackery.  All user-facing interfaces use the "Marginalize" class, and all internal interfaces use the "Marginalize'" class.  Essentially, "TypeLens" class converts the "Type lens" for our user's data type into a type level number.  The  "Marginalize'" class then takes this type number and uses it as an index into an appropriate type list that represents the data type.
+--
+-- The TemplateHaskell module has more info.
 
--- | All multivariate distributions should implement methods to marginalize
 module HLearn.Models.Distributions.Multivariate.Internal.Marginalization
     where
 
 import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Multivariate.Internal.TypeLens
 
 -------------------------------------------------------------------------------
--- type classes
+-- external type classes
 
-class Marginalize index dist where
-    type Margin index dist
+class (Marginalize' (TypeLensIndex index) dist, TypeLens index) => Marginalize index dist where
+
+    type Margin index dist 
     getMargin :: index -> dist -> Margin index dist
     
     type MarginalizeOut index dist 
     marginalizeOut :: index -> dist -> MarginalizeOut index dist
     
-    condition :: index -> dist -> Datapoint (Margin index dist) -> MarginalizeOut index dist
+    condition :: index -> Datapoint (Margin' (TypeLensIndex index) dist) -> dist -> MarginalizeOut' (TypeLensIndex index) dist
+
+instance 
+    ( Marginalize' (TypeLensIndex index) dist
+    , TypeLens index
+    ) => Marginalize index dist 
+        where
+    
+    type Margin index dist = Margin' (TypeLensIndex index) dist
+    getMargin _ dist = getMargin' (undefined :: (TypeLensIndex index)) dist
+    
+    type MarginalizeOut index dist = MarginalizeOut' (TypeLensIndex index) dist
+    marginalizeOut _ dist = marginalizeOut' (undefined :: (TypeLensIndex index)) dist
+    condition _ dp dist = condition' (undefined :: (TypeLensIndex index)) dist dp
+
+-------------------------------------------------------------------------------
+-- internal type classes
+
+class Marginalize' index dist where
+    type Margin' index dist
+    getMargin' :: index -> dist -> Margin' index dist
+    
+    type MarginalizeOut' index dist 
+    marginalizeOut' :: index -> dist -> MarginalizeOut' index dist
+    
+    condition' :: index -> dist -> Datapoint (Margin' index dist) -> MarginalizeOut' index dist
     
 --     conditionAllButOne :: index -> dist -> Datapoint dist -> MarginalizeOut index dist
-    
-instance (SingI n, Marginalize (Nat1Box (ToNat1 n)) dist) => Marginalize (Sing (n::Nat)) dist where
-    type Margin (Sing n) dist = Margin (Nat1Box (ToNat1 n)) dist
-    getMargin _ dist = getMargin (undefined :: Nat1Box (ToNat1 n)) dist
-    
-    type MarginalizeOut (Sing n) dist = MarginalizeOut (Nat1Box (ToNat1 n)) dist
-    marginalizeOut _ dist = marginalizeOut (undefined :: Nat1Box (ToNat1 n)) dist
-    
-    condition _ dist dp = condition (undefined :: Nat1Box (ToNat1 n)) dist dp
-
-
-class IndexName i where
-    type IndexNameOf i
-
-class (Marginalize (IndexNameOf index) dist, IndexName index) => Marginalize' index dist where
-
-    getMargin' :: index -> dist -> Margin (IndexNameOf index) dist
-    marginalizeOut' :: index -> dist -> MarginalizeOut (IndexNameOf index) dist
-    condition' :: index -> dist -> Datapoint (Margin (IndexNameOf index) dist) -> MarginalizeOut (IndexNameOf index) dist
-
-instance (Marginalize (IndexNameOf index) dist, IndexName index) => Marginalize' index dist where
-    getMargin' _ dist = getMargin (undefined :: (IndexNameOf index)) dist
-    marginalizeOut' _ dist = marginalizeOut (undefined :: (IndexNameOf index)) dist
-    condition' _ dist dp = condition (undefined :: (IndexNameOf index)) dist dp
-
-
-{-class NameIndex i where
-    type NameIndexOf i 
-    
-instance 
-    ( NameIndex i
-    , Marginalize (Nat1Box (NameIndexOf i)) dist
-    ) => Marginalize i dist 
-        where
-    type Margin i dist = Margin (NameIndexOf i) dist
-    getMargin _ dist = getMargin (undefined :: Nat1Box (NameIndexOf i)) dist
-    
-    type MarginalizeOut i dist = MarginalizeOut (Nat1Box (NameIndexOf i)) dist
-    marginalizeOut _ dist = marginalizeOut (undefined :: Nat1Box (NameIndexOf i)) dist
-    
-    condition _ dist dp = condition (undefined :: Nat1Box (NameIndexOf i)) dist dp
-    -}
--- class Conditional index dist where
---     type Conditional index dist
-    

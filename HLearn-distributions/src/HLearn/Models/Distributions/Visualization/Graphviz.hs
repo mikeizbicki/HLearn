@@ -26,6 +26,7 @@ import HLearn.Algebra
 import HLearn.Models.Distributions.Multivariate.Interface
 import HLearn.Models.Distributions.Multivariate.Internal.CatContainer
 import HLearn.Models.Distributions.Multivariate.Internal.Container
+import HLearn.Models.Distributions.Multivariate.Internal.TypeLens
 
 import Data.GraphViz.Exception
 import Data.GraphViz hiding (graphToDot)
@@ -61,6 +62,13 @@ instance
     ) => MarkovNetwork (Multivariate datapoint ( ('[]) ': xs) prob) 
         where
     graphL _ labels = graphL (undefined :: Multivariate datapoint xs prob) labels
+
+instance 
+    ( MultivariateLabels datapoint
+    , MarkovNetwork (Multivariate datapoint ( ys ': xs) prob)
+    ) => MarkovNetwork (Multivariate datapoint ( (Ignore' label ': ys) ': xs) prob) 
+        where
+    graphL _ labels = (graphL (undefined :: Multivariate datapoint ( ys ': xs) prob) (tail labels))
 
 instance 
     ( MultivariateLabels datapoint
@@ -113,8 +121,8 @@ vacuumParams :: GraphvizParams a () () () ()
 vacuumParams = defaultParams { globalAttributes = gStyle }
  
 gStyle :: [GlobalAttributes]
-gStyle = [ GraphAttrs [RankDir FromLeft, {-Splines SplineEdges, -}FontName "courier", Layout Fdp]
-         , NodeAttrs  [textLabel "\\N", shape PlainText, fontColor Blue, Shape Circle]
+gStyle = [ GraphAttrs [RankDir FromLeft, {-Splines SplineEdges, -}FontName "courier", Layout Circo]
+         , NodeAttrs  [textLabel "\\N", shape PlainText, fontColor Black, Shape Ellipse, style filled, fillColor AliceBlue, penWidth 2, color Navy]
          , EdgeAttrs  [color Black, Dir NoDir]
          ]
          

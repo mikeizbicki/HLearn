@@ -18,6 +18,7 @@ Library
         ConstraintKinds         >= 0.0.1,
         base                    >= 3 && < 5,
         
+        template-haskell,
         deepseq                 >= 1.3.0.1,
         list-extras             >= 0.4.1,
         containers              >= 0.5,
@@ -66,5 +67,6 @@ Library
         HLearn.Models.Distributions.Multivariate.Internal.Container
         HLearn.Models.Distributions.Multivariate.Internal.Ignore
         HLearn.Models.Distributions.Multivariate.Internal.Marginalization
+        HLearn.Models.Distributions.Multivariate.Internal.TypeLens
         HLearn.Models.Distributions.Multivariate.Internal.Unital
         

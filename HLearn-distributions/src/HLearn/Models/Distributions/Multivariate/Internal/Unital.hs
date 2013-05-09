@@ -7,9 +7,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module HLearn.Models.Distributions.Multivariate.Internal.Unital
     where
+
+import Control.DeepSeq
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -18,7 +21,7 @@ import HLearn.Models.Distributions.Common
 -- data types
 
 newtype Unital prob = Unital prob
-    deriving (Read,Show,Eq,Ord)
+    deriving (Read,Show,Eq,Ord,NFData)
 
 -------------------------------------------------------------------------------
 -- algebra

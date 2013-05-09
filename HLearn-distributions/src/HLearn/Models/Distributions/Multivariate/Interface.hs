@@ -17,8 +17,7 @@
 
 module HLearn.Models.Distributions.Multivariate.Interface
     (
-    Trainable (..)
-    , Multivariate
+    Multivariate
     
     -- * Type functions
 --     , Ignore
@@ -33,6 +32,7 @@ module HLearn.Models.Distributions.Multivariate.Interface
     )
     where
 
+import Control.DeepSeq
 import GHC.TypeLits
 
 import HLearn.Algebra
@@ -42,27 +42,13 @@ import HLearn.Models.Distributions.Multivariate.Internal.Container
 import HLearn.Models.Distributions.Multivariate.Internal.Ignore
 import HLearn.Models.Distributions.Multivariate.Internal.Marginalization
 import HLearn.Models.Distributions.Multivariate.Internal.Unital
+import HLearn.Models.Distributions.Multivariate.Internal.TypeLens
 import HLearn.Models.Distributions.Multivariate.MultiNormal
-
--------------------------------------------------------------------------------
--- Trainable
-
--- | The Trainable class allows us to convert data types into an isomorphic "HList"s.  All of our multivariate distributions work on "HList"s, so they work on all instances of "Trainable" as well.
-class Trainable t where
-    type GetHList t
-    getHList :: t -> GetHList t
-
-instance Trainable (HList '[]) where
-    type GetHList (HList '[]) = HList '[]
-    getHList t = t
-    
-instance (Trainable (HList xs)) => Trainable (HList (x ': xs)) where
-    type GetHList (HList (x ': xs)) = HList (x ': xs)
-    getHList t = t
 
 -------------------------------------------------------------------------------
 -- Multivariate
 
+-- | this is the main type for specifying multivariate distributions
 newtype Multivariate (dp:: *) (xs :: [[* -> * -> *]]) prob = Multivariate (MultivariateTF (Concat xs) prob)
 
 type family MultivariateTF (xs::[* -> * -> *]) prob
@@ -76,12 +62,13 @@ type instance MultivariateTF ((CatContainer label) ': xs) prob =
 type instance MultivariateTF ((Ignore' label) ': xs) prob = 
     Ignore' label (MultivariateTF xs prob) prob
 
-deriving instance (Read             (MultivariateTF (Concat xs) prob)) => Read              (Multivariate dp xs prob)
-deriving instance (Show             (MultivariateTF (Concat xs) prob)) => Show              (Multivariate dp xs prob)
-deriving instance (Eq               (MultivariateTF (Concat xs) prob)) => Eq                (Multivariate dp xs prob)
-deriving instance (Ord              (MultivariateTF (Concat xs) prob)) => Ord               (Multivariate dp xs prob)
-deriving instance (Monoid           (MultivariateTF (Concat xs) prob)) => Monoid            (Multivariate dp xs prob)
-deriving instance (Group            (MultivariateTF (Concat xs) prob)) => Group             (Multivariate dp xs prob)
+deriving instance (Read   (MultivariateTF (Concat xs) prob)) => Read   (Multivariate dp xs prob)
+deriving instance (Show   (MultivariateTF (Concat xs) prob)) => Show   (Multivariate dp xs prob)
+deriving instance (Eq     (MultivariateTF (Concat xs) prob)) => Eq     (Multivariate dp xs prob)
+deriving instance (Ord    (MultivariateTF (Concat xs) prob)) => Ord    (Multivariate dp xs prob)
+deriving instance (Monoid (MultivariateTF (Concat xs) prob)) => Monoid (Multivariate dp xs prob)
+deriving instance (Group  (MultivariateTF (Concat xs) prob)) => Group  (Multivariate dp xs prob)
+deriving instance (NFData (MultivariateTF (Concat xs) prob)) => NFData (Multivariate dp xs prob)
     
 instance 
     ( HomTrainer (MultivariateTF (Concat xs) prob)
@@ -106,20 +93,20 @@ instance
     pdf (Multivariate dist) dp = pdf dist (getHList dp)    
 
 instance 
-    ( Marginalize (Nat1Box n) (MultivariateTF (Concat xs) prob)
-    , MarginalizeOut (Nat1Box n) (MultivariateTF (Concat xs) prob)
+    ( Marginalize' (Nat1Box n) (MultivariateTF (Concat xs) prob)
+    , MarginalizeOut' (Nat1Box n) (MultivariateTF (Concat xs) prob)
         ~ MultivariateTF (Concat (Replace2D n xs (Ignore' (Index (HList2TypeList (GetHList dp)) n)))) prob
-    ) => Marginalize (Nat1Box n) (Multivariate dp xs prob)
+    ) => Marginalize' (Nat1Box n) (Multivariate dp xs prob)
         where   
               
-    type Margin (Nat1Box n) (Multivariate dp xs prob) = Margin (Nat1Box n) (MultivariateTF (Concat xs) prob)
-    getMargin n (Multivariate dist) = getMargin n dist
+    type Margin' (Nat1Box n) (Multivariate dp xs prob) = Margin' (Nat1Box n) (MultivariateTF (Concat xs) prob)
+    getMargin' n (Multivariate dist) = getMargin' n dist
     
-    type MarginalizeOut (Nat1Box n) (Multivariate dp xs prob) = 
+    type MarginalizeOut' (Nat1Box n) (Multivariate dp xs prob) = 
         Multivariate dp (Replace2D n xs (Ignore' (Index (HList2TypeList (GetHList dp)) n))) prob
-    marginalizeOut n (Multivariate dist) = Multivariate $ marginalizeOut n dist
+    marginalizeOut' n (Multivariate dist) = Multivariate $ marginalizeOut' n dist
     
-    condition n (Multivariate dist) dp = Multivariate $ condition n dist dp
+    condition' n (Multivariate dist) dp = Multivariate $ condition' n dist dp
 
 type family HList2TypeList hlist :: [a]
 type instance HList2TypeList (HList xs) = xs
