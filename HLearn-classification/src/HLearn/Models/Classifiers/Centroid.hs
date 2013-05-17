@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module HLearn.Models.Classifiers.Centroid
     where
@@ -23,6 +24,11 @@ data Centroid vector = Centroid
     { c_numdp :: Ring vector
     , vector :: vector
     }
+
+deriving instance (Show (Ring vector), Show vector) => Show (Centroid vector)
+deriving instance (Read (Ring vector), Read vector) => Read (Centroid vector)
+deriving instance (Eq   (Ring vector), Eq   vector) => Eq   (Centroid vector)
+deriving instance (Ord  (Ring vector), Ord  vector) => Ord  (Centroid vector)
 
 -------------------------------------------------------------------------------
 -- algebra

@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module HLearn.Models.Classifiers.Perceptron
     where
@@ -27,6 +28,9 @@ import HLearn.Models.Classifiers.NearestNeighbor
 data Perceptron label dp = Perceptron 
     { centroids :: Map.Map label (Centroid dp)
     }
+--     deriving (Read,Show,Eq,Ord)
+
+deriving instance (Show (Centroid dp), Show label) => Show (Perceptron label dp)
 
 -------------------------------------------------------------------------------
 -- algebra
@@ -44,11 +48,12 @@ instance
     ( Monoid dp
     , HasRing dp
     , Ord label
+--     , Triangle dp (Ring dp) 
     ) => HomTrainer (Perceptron label dp) 
         where
     type Datapoint (Perceptron label dp) = (label,dp)
               
-    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp dp
+    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp (dp {-|> (1::Ring dp)-})
     
 -------------------------------------------------------------------------------
 -- classification
@@ -62,10 +67,11 @@ instance
     , MetricSpace (Centroid dp)
     , Monoid dp
     , HasRing dp
+--     , Triangle dp (Ring dp) 
     ) => Classifier (Perceptron label dp)
         where
     type ResultDistribution (Perceptron label dp) = (Categorical label (Ring dp))
               
-    probabilityClassify model dp = probabilityClassify nn (train1dp dp :: Centroid dp)
+    probabilityClassify model dp = probabilityClassify nn (train1dp (dp {-|> (1::Ring dp)-}) :: Centroid dp)
         where
             nn = NaiveNN $ Map.toList $ centroids model
