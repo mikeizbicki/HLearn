@@ -73,4 +73,4 @@ instance
               
     probabilityClassify nn dp = trainW (map (\(l,dp) -> (1,l)) $ take k $ neighborList dp nn)
         where
-            k = 3
+            k = 1
