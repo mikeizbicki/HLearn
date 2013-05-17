@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -52,8 +53,8 @@ instance (Probabilistic (NaiveNN container label dp)) where
 
 neighborList :: 
     ( F.Foldable container
-    , MetricSpace ring dp
-    , Ord ring
+    , MetricSpace dp
+    , Ord (Ring dp)
     ) => dp -> NaiveNN container label dp -> [(label,dp)]
 neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
     where
@@ -62,18 +63,13 @@ neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
 
 instance 
     ( Ord label
+    , label ~ Label (label,dp)
     , F.Foldable container
-    , MetricSpace (Probability (NaiveNN container label dp)) dp
---     , label ~ Datapoint (ResultDistribution (NaiveNN container label dp))
---     , Mean (ResultDistribution (NaiveNN container label dp))
---     , Module ring (ResultDistribution (NaiveNN container
---                                       (Datapoint (ResultDistribution (NaiveNN container label dp)))
---                                       dp))
+    , MetricSpace dp
+    , Ord (Ring dp)
     ) => Classifier (NaiveNN container label dp)
         where
-    type Label (NaiveNN container label dp) = label
-    type UnlabeledDatapoint (NaiveNN container label dp) = dp
-    type ResultDistribution (NaiveNN container label dp) = Categorical label Double
+    type ResultDistribution (NaiveNN container label dp) = Categorical label (Ring dp)
               
     probabilityClassify nn dp = trainW (map (\(l,dp) -> (1,l)) $ take k $ neighborList dp nn)
         where

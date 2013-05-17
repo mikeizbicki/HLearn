@@ -111,9 +111,9 @@ instance
 type family HList2TypeList hlist :: [a]
 type instance HList2TypeList (HList xs) = xs
 
-type family Index (xs::[a]) (i::Nat1) :: a
-type instance Index (x ': xs) Zero = x
-type instance Index (x ': xs) (Succ i) = Index xs i
+-- type family Index (xs::[a]) (i::Nat1) :: a
+-- type instance Index (x ': xs) Zero = x
+-- type instance Index (x ': xs) (Succ i) = Index xs i
 
 type family Replace2D (n :: Nat1) (xs :: [ [ a ] ]) (newval :: a) :: [ [ a ] ]
 type instance Replace2D Zero ((x ': xs) ': ys) newval = (newval ': xs) ': ys

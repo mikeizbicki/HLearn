@@ -69,7 +69,7 @@ instance
     , SingI k
     ) => Monoid (MonoidBoost k weight basemodel datapoint) 
         where
-    mempty = MonoidBoost {-mempty mempty-} mempty mempty mempty 0
+    mempty = MonoidBoost mempty mempty mempty 0
     mb1 `mappend` mb2 = MonoidBoost
         { dataL     = dataL'
         , modelL    = modelL mb1 <> newmodel <> modelL mb2
@@ -131,17 +131,17 @@ instance
 -------------------------------------------------------------------------------
 -- distribution
 
-instance 
-    ( PDF basemodel
-    , Datapoint basemodel ~ prob
-    , Probability basemodel ~ prob
-    , Ord prob
-    , Fractional prob
-    ) => PDF (MonoidBoost k weight basemodel prob)
-        where
-    pdf mb dp = ave $ fmap (flip pdf dp) $ modelL mb
-        where
-            ave xs = (F.foldl1 (+) xs) / (fromIntegral $ Seq.length xs)
+-- instance 
+--     ( PDF basemodel
+--     , Datapoint basemodel ~ prob
+--     , Probability basemodel ~ prob
+--     , Ord prob
+--     , Fractional prob
+--     ) => PDF (MonoidBoost k weight basemodel prob)
+--         where
+--     pdf mb dp = ave $ fmap (flip pdf dp) $ modelL mb
+--         where
+--             ave xs = (F.foldl1 (+) xs) / (fromIntegral $ Seq.length xs)
 
 -- instance 
 --     ( PlottableDistribution basemodel prob prob
