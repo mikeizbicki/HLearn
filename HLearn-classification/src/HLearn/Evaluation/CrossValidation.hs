@@ -105,6 +105,27 @@ crossvalidation dataset perfmeasure k = reduce $ do
 
 type LossFunction model = model -> [Datapoint model] -> Double
 
+leaveOneOut :: [dp] -> [[dp]]
+leaveOneOut xs = map (\x -> [x]) xs
+
+folds :: Int -> [dp] -> [[dp]]
+folds n xs = [map snd $ filter (\(i,x)->i `mod` n==j) ixs | j<-[0..n-1]]
+    where
+        ixs = addIndex 0 xs
+        addIndex i [] = []
+        addIndex i (x:xs) = (i,x):(addIndex (i+1) xs)
+
+errorRate :: 
+    ( Classifier model
+    , LabeledAttributes (Datapoint model)
+    , Eq (Datapoint (ResultDistribution model))
+    ) => LossFunction model
+errorRate model dataL = (fromIntegral $ length $ filter (==True) resultsL) / (fromIntegral $ length dataL)
+    where
+        resultsL = map (\(l1,l2) -> l1/=l2) $ zip trueL classifyL
+        trueL = map getLabel dataL
+        classifyL = map (classify model . getAttributes) dataL
+
 crossValidate :: (HomTrainer model, Eq (Datapoint model)) => 
     [[Datapoint model]] -> LossFunction model -> Normal Double
 crossValidate xs f = train $ do
@@ -130,6 +151,7 @@ crossValidate_group xs f = train $ do
     where
         modelL = zip xs $ map train xs
         fullmodel = reduce $ map snd modelL
+
 
     
 -- crossValidation_group_par modelparams dataset perfmeasure k = (parallel reduce) $ do
@@ -184,30 +206,30 @@ genTestList xs = zip xs $ listAllBut xs
 --             checkedL = CK.toList $ CK.fmap checkdp testdata
 --             numdp = length $ CK.toList testdata
 
-type Labeled dp label = (label,dp)
-
-accuracy :: 
-    ( CK.Functor container
-    , CK.FunctorConstraint container Double
-    , CK.FunctorConstraint container (label,datapoint)
-    , CK.Foldable container
-    , CK.FoldableConstraint container Double
-    , CK.FoldableConstraint container [Double]
-    , CK.FoldableConstraint container datapoint
+-- type Labeled dp label = (label,dp)
+-- 
+-- accuracy :: 
+--     ( CK.Functor container
+--     , CK.FunctorConstraint container Double
+--     , CK.FunctorConstraint container (label,datapoint)
+--     , CK.Foldable container
+--     , CK.FoldableConstraint container Double
+--     , CK.FoldableConstraint container [Double]
+--     , CK.FoldableConstraint container datapoint
+-- --     , CK.FoldableConstraint container (Labeled datapoint label)
+-- --     , CK.FoldableConstraint container [Labeled datapoint label]
 --     , CK.FoldableConstraint container (Labeled datapoint label)
 --     , CK.FoldableConstraint container [Labeled datapoint label]
-    , CK.FoldableConstraint container (Labeled datapoint label)
-    , CK.FoldableConstraint container [Labeled datapoint label]
-    , Classifier model
-    , UnlabeledDatapoint model ~ datapoint 
-    , Label model ~ label 
-    , Eq label
-    ) => model -> container (Labeled datapoint label) -> (Normal Double)
-accuracy model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)
-    where
-        checkdp (label,dp) = indicator $ label==(classify model dp)
-        checkedL = CK.toList $ CK.fmap checkdp testdata
-        numdp = length $ CK.toList testdata
+--     , Classifier model
+--     , UnlabeledDatapoint model ~ datapoint 
+--     , Label model ~ label 
+--     , Eq label
+--     ) => model -> container (Labeled datapoint label) -> (Normal Double)
+-- accuracy model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)
+--     where
+--         checkdp (label,dp) = indicator $ label==(classify model dp)
+--         checkedL = CK.toList $ CK.fmap checkdp testdata
+--         numdp = length $ CK.toList testdata
 
 
 -- data CVType = CV_Normal | CV_Monoid | CV_Group

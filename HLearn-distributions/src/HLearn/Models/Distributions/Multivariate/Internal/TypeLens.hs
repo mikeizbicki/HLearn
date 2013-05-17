@@ -68,6 +68,7 @@ module HLearn.Models.Distributions.Multivariate.Internal.TypeLens
     -- * Lens
     Trainable (..)
     , TypeLens (..)
+    , TypeFunction (..)
     -- * TemplateHaskell
     , makeTypeLenses
     , nameTransform
@@ -75,8 +76,8 @@ module HLearn.Models.Distributions.Multivariate.Internal.TypeLens
     where
 
 import HLearn.Algebra
-import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH hiding (Range)
+import Language.Haskell.TH.Syntax hiding (Range)
 
 
 -------------------------------------------------------------------------------
@@ -99,9 +100,18 @@ instance (Trainable (HList xs)) => Trainable (HList (x ': xs)) where
 class TypeLens i where
     type TypeLensIndex i
 
+class TypeFunction f where
+    type Domain f
+    type Range f
+    
+    typefunc :: f -> Domain f -> Range f
+
 -- | given the name of one of our records, transform it into the name of our type lens
 nameTransform :: String -> String
 nameTransform str = "TH"++str
+
+nameTransform' :: Name -> Name
+nameTransform' name = mkName $ "TH"++(nameBase name)
 
 -- | constructs the type lens
 makeTypeLenses :: Name -> Q [Dec]
@@ -110,7 +120,8 @@ makeTypeLenses name = do
     indexNames <- makeIndexNames name
     trainableInstance <- makeTrainable name
     multivariateLabels <- makeMultivariateLabels name
-    return $ datatypes ++ indexNames ++ trainableInstance ++ multivariateLabels
+    typeFunctions <- makeTypeFunctions name
+    return $ datatypes ++ indexNames ++ trainableInstance ++ multivariateLabels ++ typeFunctions
 
 makeDatatypes :: Name -> Q [Dec]
 makeDatatypes name = fmap (map makeEmptyData) $ extractContructorNames name
@@ -126,7 +137,16 @@ makeIndexNames name = fmap (map makeIndexName . zip [0..]) $ extractContructorNa
         where
             typeNat 0 = ConT $ mkName "Zero"
             typeNat n = AppT (ConT $ mkName "Succ") $ typeNat (n-1)
-    
+
+makeTypeFunctions :: Name -> Q [Dec]
+makeTypeFunctions constructorName = fmap (map makeTypeFunction) $ extractConstructorFields constructorName
+    where
+        makeTypeFunction (recordName,_,recordType) = InstanceD [] (AppT (ConT $ mkName "TypeFunction") (ConT $ nameTransform' recordName)) 
+            [ TySynInstD (mkName "Domain") [ConT $ nameTransform' recordName] (ConT constructorName)
+            , TySynInstD (mkName "Range") [ConT $ nameTransform' recordName] (SigT recordType StarT)
+            , FunD (mkName "typefunc") [Clause [VarP $ mkName "_"{-, VarP $ mkName "domain"-}] (NormalB $ VarE recordName) []]
+            ]
+
 makeTrainable :: Name -> Q [Dec]
 makeTrainable name = do
     hlistType <- extractHListType name
@@ -146,10 +166,7 @@ makeMultivariateLabels name = do
             go [] = ConE $ mkName "[]"
             go (x:xs) = AppE (AppE (ConE $ mkName ":") (LitE $ StringL (nameTransform x))) $ go xs
 
--------------------------------------------------------------------------------
--- below taken from Data.Lens 
-
-type ConstructorFieldInfo = (Name, Strict, Type)
+---------------------------------------
 
 extractHListType :: Name -> Q Type
 extractHListType name = do
@@ -170,6 +187,11 @@ extractHListExp var name = do
         go (x:xs) = AppE (AppE (ConE $ mkName ":::") (AppE (VarE x) (VarE var))) $ go xs
             
         getName (n,s,t) = n
+
+-------------------------------------------------------------------------------
+-- below taken from Data.Lens 
+
+type ConstructorFieldInfo = (Name, Strict, Type)
 
 extractContructorNames :: Name -> Q [String]
 extractContructorNames datatype = fmap (map name) $ extractConstructorFields datatype

@@ -9,10 +9,17 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module HLearn.Models.Classifiers.Bayes
+    ( Bayes
+    )
     where
 
+import Debug.Trace
+import qualified Data.Map as Map
 import GHC.TypeLits
 
 import HLearn.Algebra
@@ -22,93 +29,103 @@ import HLearn.Models.Classifiers.Common
 -------------------------------------------------------------------------------
 -- data types
 
-data Bayes (labelIndex::Nat) dist = Bayes
-    { labelDist :: !(Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    , attrDist  :: !(MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    }
---     deriving (Read,Show,Eq,Ord)
-
--------------------------------------------------------------------------------
--- Algebra
-
-instance 
-    ( Monoid (Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    , Monoid (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    ) => Monoid (Bayes labelIndex dist) 
-        where
-    mempty = Bayes mempty mempty
-    b1 `mappend` b2 = Bayes
-        { labelDist = labelDist b1 `mappend` labelDist b2
-        , attrDist = attrDist b1 `mappend` attrDist b2
-        }
+newtype Bayes label dist = Bayes dist
+    deriving (Read,Show,Eq,Ord,Monoid,Abelian,Group)
 
 -------------------------------------------------------------------------------
 -- Training
 
 instance 
-    ( Datapoint dist ~ Datapoint (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    , Monoid (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    , Monoid (Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    , HomTrainer (MarginalizeOut (Nat1Box (ToNat1 labelIndex)) dist)
-    ) => HomTrainer (Bayes labelIndex dist) 
+    ( Monoid dist
+    , HomTrainer dist
+    ) => HomTrainer (Bayes label dist) 
         where
-    type Datapoint (Bayes labelIndex dist) = Datapoint dist
-    train1dp dp = Bayes
-        { labelDist = mempty
-        , attrDist = train1dp dp
-        }
+    type Datapoint (Bayes label dist) = Datapoint dist
+    train1dp dp = Bayes $ train1dp dp
 
 -------------------------------------------------------------------------------
 -- Classification
 
-instance Probabilistic (Bayes labelIndex dist) where
-    type Probability (Bayes labelIndex dist) = Probability dist
+instance Probabilistic (Bayes labelLens dist) where
+    type Probability (Bayes labelLens dist) = Probability dist
 
-instance 
-    ( Mean (Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    ) => Classifier (Bayes labelIndex dist) 
+instance
+    ( Margin labelLens dist ~ Categorical label prob
+    , Ord label, Ord prob, Fractional prob
+    , label ~ Label (Datapoint dist)
+    , prob ~ Probability (MarginalizeOut labelLens dist)
+    , LabeledAttributes (Datapoint dist)
+    , Datapoint (MarginalizeOut labelLens dist) ~ Attributes (Datapoint dist)
+    , PDF (MarginalizeOut labelLens dist)
+    , PDF (Margin labelLens dist)
+    , Marginalize labelLens dist
+    ) => Classifier (Bayes labelLens dist) 
         where
-    type Label (Bayes labelIndex dist) = Datapoint (Margin (Nat1Box (ToNat1 labelIndex)) dist)
-    type UnlabeledDatapoint (Bayes labelIndex dist) = Datapoint dist
-    type ResultDistribution (Bayes labelIndex dist) = Margin (Nat1Box (ToNat1 labelIndex)) dist
-        
---     probabilityClassify bayes dp = (pdf (labelDist bayes) label)*(pdf (attrDist bayes) dp)
+    type ResultDistribution (Bayes labelLens dist) = Margin labelLens dist
     
---     probabilityClassify bayes dp = 
---         Categorical $ Map.mapWithKey (\label dist -> (pdf dist dp)*(pdf (labelDist bayes) label)) $ attrDist bayes
+    probabilityClassify (Bayes dist) dp = Categorical $ Map.fromList $ map (\k -> (k,prob k)) labelL
+        where
+            prob k = pdf labelDist k * pdf (attrDist k) dp
+            
+            labelDist = getMargin (undefined::labelLens) dist
+            attrDist l = condition (undefined::labelLens) l dist
+            
+            Categorical labelMap = labelDist
+            labelL = Map.keys labelMap
 
-    
+-- instance 
+--     ( --Datapoint (Margin labelLens dist) ~ Lab
+--     ) => Classifier (Bayes labelLens dist)
+--         where
+--     type ResultDistribution (Bayes labelLens dist) = Margin labelLens dist
+--               
+--     probabilityClassify (Bayes dist) dp = undefined
+
 -------------------------------------------------------------------------------
 -- Test
 
--- data Sex = Male | Female
---     deriving (Read,Show,Eq,Ord)
--- 
--- ds = 
---     [ (Male, (6::Double):::(180::Double):::(12::Double):::HNil)
---     , (Male, 5.92:::190:::11:::HNil)
---     , (Male, 5.58:::170:::12:::HNil)
---     , (Male, 5.92:::165:::10:::HNil)
---     , (Female, 5:::100:::6:::HNil)
---     , (Female, 5.5:::150:::8:::HNil)
---     , (Female, 5.42:::130:::7:::HNil)
---     , (Female, 5.75:::150:::9:::HNil)
---     ]
--- 
+data Sex = Male | Female
+    deriving (Read,Show,Eq,Ord)
+
+data Human = Human
+    { _sex :: Sex
+    , _weight :: Double
+    , _height :: Double
+    , _shoesize :: Double
+    }
+makeTypeLenses ''Human
+
+instance LabeledAttributes Human where
+    type Label Human = Sex
+    type Attributes Human = Human
+    
+    getLabel h = _sex h
+    getAttributes h = h
+    
+ds = 
+    [ Human Male   6    180 12
+    , Human Male   5.92 190 11
+    , Human Male   5.58 170 12
+    , Human Male   5.92 165 10
+    , Human Female 5    100 6
+    , Human Female 5.5  150 8
+    , Human Female 5.42 130 7
+    , Human Female 5.75 150 9
+    ]
+
+dp = Human Female 6 130 8
 -- dp = (6:::130:::8:::HNil)::(HList '[Double,Double,Double])
--- 
--- model = train ds :: Bayes
---     (Multivariate (HList '[Double,Double,Double])
---        '[ Independent Normal '[Double]
--- --         , Independent Normal '[Double,Double]
---         , Dependent MultiNormal '[Double,Double]
---         ])
---     Sex
---     Double
--- 
--- dist = train (map snd ds) :: Multivariate (HList '[Double,Double,Double])
---    '[ Independent Normal '[Double]
---     , Dependent MultiNormal '[Double,Double]
---     ]
---     Double
+
+model = train ds :: Bayes TH_sex MultiDist
+
+type MultiDist = Multivariate Human
+       '[ MultiCategorical '[Sex]
+        , Independent Normal '[Double,Double,Double]
+        ] Double
+
+{-dist = train (map snd ds) :: Multivariate (HList '[Double,Double,Double])
+   '[ Independent Normal '[Double]
+    , Dependent MultiNormal '[Double,Double]
+    ]
+    Double-}
     

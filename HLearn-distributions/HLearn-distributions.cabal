@@ -1,5 +1,5 @@
 Name:                HLearn-distributions
-Version:             1.0.0
+Version:             1.0.1
 Synopsis:            Distributions for use with the HLearn library
 Description:         This module is used to estimate statistical distributions from data.  It is based on the algebraic properties of the "HomTrainer" type class from the HLearn-algebra package.
 Category:            Data Mining, Machine Learning, Statistics
@@ -14,7 +14,7 @@ bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 
 Library
     Build-Depends:      
-        HLearn-algebra          >= 0.1.2,
+        HLearn-algebra          >= 1.0.0.1,
         ConstraintKinds         >= 0.0.1,
         base                    >= 3 && < 5,
         
