@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module HLearn.Algebra.Models.Free.MonoidBoost
+module HLearn.Algebra.Models.Free.MonoidChain
     where
 
 import Control.Applicative
@@ -29,7 +29,6 @@ import Test.QuickCheck
 
 import HLearn.Algebra.Functions
 import HLearn.Algebra.Models.HomTrainer
-import HLearn.Algebra.Structures.Modules
 import HLearn.Algebra.Structures.Triangles
 import HLearn.Models.Distributions.Visualization.Gnuplot
 import HLearn.Models.Distributions
@@ -38,31 +37,23 @@ import HLearn.Models.Classifiers.Common
 -------------------------------------------------------------------------------
 -- data structures
 
-data DataTracker ring dp = DataTracker
-    { totalGain :: !ring
-    , totalLoss :: !ring
-    , dataTracker :: !dp
-    }
-    deriving (Read,Show,Eq,Ord)
-
-data MonoidBoost (k::Nat) basemodel = MonoidBoost
-    { dataLeft     :: Seq.Seq (Ring basemodel, Ring basemodel, Datapoint basemodel)
-    , dataRight    :: Seq.Seq (Ring basemodel, Ring basemodel, Datapoint basemodel)
-    , modelL            :: Seq.Seq basemodel
-    , boost_numdp       :: Int
+data MonoidChain (k::Nat) basemodel = MonoidChain
+    { dataL :: Seq.Seq (Datapoint basemodel)
+    , modelL :: Seq.Seq basemodel
+    , boost_numdp :: Int
     }
 --     deriving (Read,Show,Eq,Ord)
-deriving instance (Read (Datapoint basemodel), Read (Ring basemodel), Read basemodel) => Read (MonoidBoost k basemodel)
-deriving instance (Show (Datapoint basemodel), Show (Ring basemodel), Show basemodel) => Show (MonoidBoost k basemodel)
-deriving instance (Eq   (Datapoint basemodel), Eq   (Ring basemodel), Eq   basemodel) => Eq   (MonoidBoost k basemodel)
-deriving instance (Ord  (Datapoint basemodel), Ord  (Ring basemodel), Ord  basemodel) => Ord  (MonoidBoost k basemodel)
+    
+deriving instance (Read (Datapoint basemodel), Read basemodel) => Read (MonoidChain k basemodel)
+deriving instance (Show (Datapoint basemodel), Show basemodel) => Show (MonoidChain k basemodel)
+deriving instance (Eq   (Datapoint basemodel), Eq   basemodel) => Eq   (MonoidChain k basemodel)
+deriving instance (Ord  (Datapoint basemodel), Ord  basemodel) => Ord  (MonoidChain k basemodel)
 
 instance 
     ( HomTrainer basemodel
-    , HasRing basemodel
     , Arbitrary (Datapoint basemodel)
     , SingI k
-    ) => Arbitrary (MonoidBoost k basemodel) 
+    ) => Arbitrary (MonoidChain k basemodel) 
         where
     arbitrary = train <$> listOf arbitrary    
 
@@ -76,29 +67,13 @@ instance
 --     -> Bool
 --     )
 
-instance 
-    ( HomTrainer basemodel
-    , SingI k
-    ) => Monoid (MonoidBoost k basemodel) 
-        where
-    mempty = MonoidBoost mempty mempty mempty 0
-    a `mappend` b = MonoidBoost
-        { dataLeft = dataLeft a <> rightLeft
-        , dataRight = dataRight b <> leftRight
-        , modelL = undefined
-        , boost_numdp = boost_numdp a + boost_numdp b
-        }
-        where
-            rightLeft = undefined
-            leftRight = undefined
-{-leave :: Int -> Seq.Seq a -> Seq.Seq a
+leave :: Int -> Seq.Seq a -> Seq.Seq a
 leave k xs = Seq.drop (Seq.length xs - k) xs
 
 instance 
     ( HomTrainer basemodel
-    , Datapoint basemodel ~ datapoint
     , SingI k
-    ) => Monoid (MonoidChain k basemodel datapoint) 
+    ) => Monoid (MonoidChain k basemodel) 
         where
     mempty = MonoidChain mempty mempty 0
     mb1 `mappend` mb2 = MonoidChain
@@ -116,21 +91,21 @@ instance
                 else []
 
             modelsize = 2*k+1
-            k = fromIntegral $ fromSing (sing::Sing k)-}
+            k = fromIntegral $ fromSing (sing::Sing k)
+--             frontL mb = Seq.take k $ dataL mb
+--             backL mb  = Seq.drop (Seq.length (dataL mb) - k) (dataL mb)
 
 -------------------------------------------------------------------------------
 -- model
 
 instance 
     ( SingI k
-    , HasRing basemodel
     , HomTrainer basemodel
-    ) => HomTrainer (MonoidBoost k basemodel) 
+    ) => HomTrainer (MonoidChain k basemodel) 
         where
-    type Datapoint (MonoidBoost k basemodel) = Datapoint basemodel
-    train1dp dp = MonoidBoost
-        { dataLeft = (1::Ring basemodel,1::Ring basemodel,dp) <| mempty
-        , dataRight = mempty |> (1::Ring basemodel,1::Ring basemodel,dp)
+    type Datapoint (MonoidChain k basemodel) = Datapoint basemodel
+    train1dp dp = MonoidChain
+        { dataL = mempty |> dp
         , modelL = mempty
         , boost_numdp = 1
         }
