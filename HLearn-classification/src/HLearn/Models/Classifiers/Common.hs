@@ -64,6 +64,9 @@ class
     classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
     classify model dp = mean $ probabilityClassify model dp
 
+class (LabeledAttributes (Datapoint model)) => Classifier2 model where
+    classify2 :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
+
 {-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
     probabilityClassify :: model -> datatype -> Categorical label prob
     classify :: model -> datatype -> label

@@ -1,0 +1,32 @@
+Name:                HLearn-regression
+Version:             1.0.0
+Description:         This module is for regression tasks.  It is very incomplete so far.
+Category:            Data Mining, Machine Learning
+License:             BSD3
+--License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+homepage:            http://github.com/mikeizbicki/HLearn/
+bug-reports:         http://github.com/mikeizbicki/HLearn/issues
+
+Library
+    Build-Depends:      
+        base                    >= 3 && < 5,
+        HLearn-algebra          >= 1.0.0,
+        HLearn-distributions    >= 1.0.0,
+        ConstraintKinds         >= 0.0.1,
+
+        -- are these really necessary?
+                
+    hs-source-dirs:     src
+    ghc-options:        
+        -rtsopts 
+        -- -auto-all 
+        -- -caf-all 
+        -funbox-strict-fields
+        -O2 
+        -- -fllvm
+    Exposed-modules:
+        HLearn.Models.Regression

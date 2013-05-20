@@ -55,7 +55,7 @@ Library
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
         HLearn.Models.Classifiers.Bayes
-        --HLearn.Models.Classifiers.NearestNeighbor
+        HLearn.Models.Classifiers.NearestNeighbor
         HLearn.Models.Classifiers.Perceptron
         --HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
         HLearn.Evaluation.CrossValidation
