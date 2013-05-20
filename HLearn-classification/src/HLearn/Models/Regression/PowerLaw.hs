@@ -78,12 +78,20 @@ instance (Num ring) => Module (PowerLaw ring) where
 
 -------------------------------------------------------------------------------
 -- training
+    
+data Coord ring = Coord {x::ring,y::ring}
+    
+instance LabeledAttributes (Coord ring) where
+    type Label (Coord ring)= ring
+    type Attributes (Coord ring)= ring
+    getLabel = y
+    getAttributes = x
 
 instance (Num ring) => NumDP (PowerLaw ring) where
     numdp = n
 
 instance (Floating ring) => HomTrainer (PowerLaw ring) where
-    type Datapoint (PowerLaw ring) = (ring,ring)
+    type Datapoint (PowerLaw ring) = Coord ring -- (ring,ring)
     train1dp dp = PowerLaw
         { n = 1
         , lnxlny = log x *  log y
@@ -131,11 +139,11 @@ rsquared m xs = 1-ss_err/ss_tot
 -- examples
     
 -- this example follows a perfect power law, so result1 == 1.0
-dataset1 = [(x,x^3) | x<-[1..100]] :: [(Double,Double)]
+dataset1 = [Coord x (x^3) | x<-[1..100]] 
 model1 = train dataset1 :: PowerLaw Double
 result1 = rsquared model1 dataset1
 
--- mostly powerlaw, but not exact; result2 == 0.949; done in parallel just for fun
-dataset2 = [(1,2),(1.5,3),(5.5,15),(2,3),(4,13)]
+-- mostly powerlaw, but not exact; result2 == 0.943; done in parallel just for fun
+dataset2 = [Coord 1 2, Coord 1.5 3, Coord 5.5 15, Coord 2 3, Coord 4 13]
 model2 = parallel train dataset2 :: PowerLaw Double
 result2 = rsquared model2 dataset2
