@@ -8,6 +8,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
 
+{-# LANGUAGE OverlappingInstances #-}
+
 module HLearn.Models.Classifiers.Common
     where
 
@@ -36,7 +38,7 @@ num2bool a =
         else True 
 
 -------------------------------------------------------------------------------
--- Classification
+-- Labeled datapoints
 
 class Labeled dp where
     type Label dp
@@ -52,14 +54,14 @@ instance Labeled (label,attr) where
     getLabel = fst
     getAttributes = snd
 
+-------------------------------------------------------------------------------
+-- Classification
+
 class 
-    ( {-Label (Datapoint model) ~ Datapoint (ResultDistribution model)
-    , Mean (ResultDistribution model)
-    , -}Labeled (Datapoint model)
+    ( Labeled (Datapoint model)
     ) => ProbabilityClassifier model 
         where
-    type ResultDistribution model
-    
+    type ResultDistribution model    
     probabilityClassify :: model -> Attributes (Datapoint model) -> ResultDistribution model
     
 class 
@@ -67,27 +69,19 @@ class
     ) => Classifier model
         where
     classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
+
+-- | this is a default instance that any instance of Classifier should satisfy if it is also an instance of ProbabilityClassifier
+-- instance 
+--     ( Label (Datapoint model) ~ Datapoint (ResultDistribution model)
+--     , Mean (ResultDistribution model)
+--     , ProbabilityClassifier model
+--     ) => Classifier model
+--         where
 --     classify model dp = mean $ probabilityClassify model dp
 
+-------------------------------------------------------------------------------
+-- Regression
+
+-- | Regression is classification where the class labels are (isomorphic to) real numbers.  The constraints could probably be better specified, but they're close enough for now.
 class (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
 instance (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
-
--- class (LabeledAttributes (Datapoint model)) => Classifier2 model where
---     classify2 :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
-
-{-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
-    probabilityClassify :: model -> datatype -> Categorical label prob
-    classify :: model -> datatype -> label
-    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical label prob)
-    -}
---     straightClassify :: model -> datatype -> label
---     straightClassify = mean . probabilityClassify
---     straightClassify model dp = classificationLabel $ probabilityClassify model dp
---     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
-    
--- class {-(Label label) =>-} Classifier model datatype label | model -> label where
---     classify :: model -> datatype -> label
---     classify model dp = mostLikely $ probabilityClassify model dp
--- 
--- instance (ProbabilityClassifier model datatype label) => Classifier model datatype label where
---     classify model dp = mostLikely $ probabilityClassify model dp
