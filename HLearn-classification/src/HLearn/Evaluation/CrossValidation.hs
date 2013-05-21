@@ -117,8 +117,9 @@ folds n xs = [map snd $ filter (\(i,x)->i `mod` n==j) ixs | j<-[0..n-1]]
 
 errorRate :: 
     ( Classifier model
-    , LabeledAttributes (Datapoint model)
-    , Eq (Datapoint (ResultDistribution model))
+    , Labeled (Datapoint model)
+    , Eq (Label (Datapoint model))
+--     , Eq (Datapoint (ResultDistribution model))
     ) => LossFunction model
 errorRate model dataL = (fromIntegral $ length $ filter (==True) resultsL) / (fromIntegral $ length dataL)
     where
