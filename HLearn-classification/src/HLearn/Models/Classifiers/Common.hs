@@ -6,6 +6,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module HLearn.Models.Classifiers.Common
     where
@@ -67,6 +68,9 @@ class
         where
     classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
 --     classify model dp = mean $ probabilityClassify model dp
+
+class (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
+instance (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
 
 -- class (LabeledAttributes (Datapoint model)) => Classifier2 model where
 --     classify2 :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
