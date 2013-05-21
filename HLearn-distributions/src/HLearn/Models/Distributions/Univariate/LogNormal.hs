@@ -21,6 +21,7 @@ module HLearn.Models.Distributions.Univariate.LogNormal
     where
 
 import Debug.Trace
+import Data.Number.Erf
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -60,6 +61,10 @@ instance (Floating prob) => PDF (LogNormal prob) where
             
             raw1 = (m1 dist)/(m0 dist)
             raw2 = (m2 dist)/(m0 dist)
+
+instance (Floating prob) => CDF (LogNormal prob) where
+    cdf (LogNormal dist) dp = ( 0.5 + 0.5 * ( 1 + erf ( (log (dp - mu)) / (sqrt $ s2 *2) )))
+        
 
 instance (Floating prob) => Mean (LogNormal prob) where
     mean (LogNormal dist) = exp $ m+s2/2
