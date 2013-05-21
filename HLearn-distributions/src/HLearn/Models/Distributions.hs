@@ -16,6 +16,7 @@ module HLearn.Models.Distributions
     , module HLearn.Models.Distributions.Univariate.LogNormal
     , module HLearn.Models.Distributions.Univariate.Normal
 --     , module HLearn.Models.Distributions.Univariate.Uniform
+    , module HLearn.Models.Distributions.Univariate.Student
     , module HLearn.Models.Distributions.Univariate.Poisson
     , module HLearn.Models.Distributions.Univariate.Internal.MissingData
 --     , module HLearn.Models.Distributions.KernelDensityEstimator
@@ -35,6 +36,7 @@ import HLearn.Models.Distributions.Univariate.Geometric
 import HLearn.Models.Distributions.Univariate.LogNormal
 import HLearn.Models.Distributions.Univariate.Normal
 -- import HLearn.Models.Distributions.Univariate.Uniform
+import HLearn.Models.Distributions.Univariate.Student
 import HLearn.Models.Distributions.Univariate.Poisson
 import HLearn.Models.Distributions.Univariate.Internal.MissingData
 import HLearn.Models.Distributions.Multivariate.Interface
