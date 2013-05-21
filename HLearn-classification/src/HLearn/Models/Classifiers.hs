@@ -11,7 +11,9 @@ module HLearn.Models.Classifiers
     , module HLearn.Models.Classifiers.NearestNeighbor
     , module HLearn.Models.Classifiers.Perceptron
 --     , module HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+    , module HLearn.Models.Regression.PowerLaw
     , module HLearn.Evaluation.CrossValidation
+    , module HLearn.Evaluation.RSquared
     )
     where
 
@@ -20,4 +22,6 @@ import HLearn.Models.Classifiers.Bayes
 import HLearn.Models.Classifiers.NearestNeighbor
 import HLearn.Models.Classifiers.Perceptron
 -- import HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+import HLearn.Models.Regression.PowerLaw
 import HLearn.Evaluation.CrossValidation
+import HLearn.Evaluation.RSquared

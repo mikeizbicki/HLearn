@@ -20,6 +20,7 @@ import Control.DeepSeq
 
 import HLearn.Algebra
 import HLearn.Models.Classifiers.Common
+import HLearn.Evaluation.RSquared
 
 -------------------------------------------------------------------------------
 -- data types
@@ -81,7 +82,7 @@ instance (Num ring) => Module (PowerLaw ring) where
     
 data Coord ring = Coord {x::ring,y::ring}
     
-instance LabeledAttributes (Coord ring) where
+instance Labeled (Coord ring) where
     type Label (Coord ring)= ring
     type Attributes (Coord ring)= ring
     getLabel = y
@@ -106,35 +107,12 @@ instance (Floating ring) => HomTrainer (PowerLaw ring) where
 -------------------------------------------------------------------------------
 -- classification
 
-instance (Floating ring) => Classifier2 (PowerLaw ring) where
-    classify2 m x = (exp a)*(x**b)
+instance (Floating ring) => Classifier (PowerLaw ring) where
+    classify m x = (exp a)*(x**b)
         where
             b = ((n m)*(lnxlny m)-(lnx m)*(lny m))/((n m)*(lnx2 m)-(lnx m)^2)
             a = ((lny m)-b*(lnx m))/(n m)
-    
-
-regression :: (Floating ring) => PowerLaw ring -> ring -> ring
-regression m x = (exp a)*(x**b)
-    where
-        b = ((n m)*(lnxlny m)-(lnx m)*(lny m))/((n m)*(lnx2 m) - (lnx m)^2)
-        a = ((lny m)-b*(lnx m))/(n m)
-        
--------------------------------------------------------------------------------
--- test
-
-rsquared :: 
-    ( Floating (Ring model)
-    , NumDP model
-    , LabeledAttributes (Datapoint model)
-    , Classifier2 model
-    , Ring model ~ Label (Datapoint model)
-    ) => model -> [Datapoint model] -> Ring model
-rsquared m xs = 1-ss_err/ss_tot
-    where
-        ss_err = sum $ map (\dp -> ((getLabel dp)-(classify2 m (getAttributes dp)))^^2) xs
-        ss_tot = sum $ map (\dp -> ((getLabel dp)-yave)^^2) xs
-        yave = (sum $ map getLabel xs)/(numdp m)
-        
+            
 -------------------------------------------------------------------------------
 -- examples
     
