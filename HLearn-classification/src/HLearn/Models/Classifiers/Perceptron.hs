@@ -67,11 +67,10 @@ instance
     , MetricSpace (Centroid dp)
     , Monoid dp
     , HasRing dp
---     , Triangle dp (Ring dp) 
-    ) => Classifier (Perceptron label dp)
+    ) => ProbabilityClassifier (Perceptron label dp)
         where
     type ResultDistribution (Perceptron label dp) = (Categorical label (Ring dp))
               
-    probabilityClassify model dp = probabilityClassify nn (train1dp (dp {-|> (1::Ring dp)-}) :: Centroid dp)
+    probabilityClassify model dp = probabilityClassify nn (train1dp (dp) :: Centroid dp)
         where
             nn = NaiveNN $ Map.toList $ centroids model

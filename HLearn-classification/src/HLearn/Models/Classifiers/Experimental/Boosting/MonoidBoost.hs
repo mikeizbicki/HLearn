@@ -122,8 +122,6 @@ instance
     , weight ~ prob
     ) => Classifier (MonoidBoost k weight basemodel prob)
         where
---     type Label (MonoidBoost k weight basemodel prob) = Label basemodel
---     type UnlabeledDatapoint (MonoidBoost k weight basemodel prob) = UnlabeledDatapoint basemodel
     type ResultDistribution (MonoidBoost k weight basemodel prob) = ResultDistribution basemodel
     
     probabilityClassify mb dp = reduce $ fmap (flip probabilityClassify dp) $ modelL mb

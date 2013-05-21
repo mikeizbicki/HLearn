@@ -37,14 +37,14 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- Classification
 
-class LabeledAttributes dp where
+class Labeled dp where
     type Label dp
     type Attributes dp
     
     getLabel :: dp -> Label dp
     getAttributes :: dp -> Attributes dp
 
-instance LabeledAttributes (label,attr) where
+instance Labeled (label,attr) where
     type Label (label,attr) = label
     type Attributes (label,attr) = attr
     
@@ -52,20 +52,24 @@ instance LabeledAttributes (label,attr) where
     getAttributes = snd
 
 class 
-    ( Label (Datapoint model) ~ Datapoint (ResultDistribution model)
+    ( {-Label (Datapoint model) ~ Datapoint (ResultDistribution model)
     , Mean (ResultDistribution model)
-    , LabeledAttributes (Datapoint model)
-    ) => Classifier model 
+    , -}Labeled (Datapoint model)
+    ) => ProbabilityClassifier model 
         where
     type ResultDistribution model
     
     probabilityClassify :: model -> Attributes (Datapoint model) -> ResultDistribution model
     
+class 
+    ( Labeled (Datapoint model)
+    ) => Classifier model
+        where
     classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
-    classify model dp = mean $ probabilityClassify model dp
+--     classify model dp = mean $ probabilityClassify model dp
 
-class (LabeledAttributes (Datapoint model)) => Classifier2 model where
-    classify2 :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
+-- class (LabeledAttributes (Datapoint model)) => Classifier2 model where
+--     classify2 :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
 
 {-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
     probabilityClassify :: model -> datatype -> Categorical label prob

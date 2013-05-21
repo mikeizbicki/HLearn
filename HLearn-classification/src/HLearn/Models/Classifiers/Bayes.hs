@@ -54,12 +54,12 @@ instance
     , Ord label, Ord prob, Fractional prob
     , label ~ Label (Datapoint dist)
     , prob ~ Probability (MarginalizeOut labelLens dist)
-    , LabeledAttributes (Datapoint dist)
+    , Labeled (Datapoint dist)
     , Datapoint (MarginalizeOut labelLens dist) ~ Attributes (Datapoint dist)
     , PDF (MarginalizeOut labelLens dist)
     , PDF (Margin labelLens dist)
     , Marginalize labelLens dist
-    ) => Classifier (Bayes labelLens dist) 
+    ) => ProbabilityClassifier (Bayes labelLens dist) 
         where
     type ResultDistribution (Bayes labelLens dist) = Margin labelLens dist
     
@@ -95,7 +95,7 @@ data Human = Human
     }
 makeTypeLenses ''Human
 
-instance LabeledAttributes Human where
+instance Labeled Human where
     type Label Human = Sex
     type Attributes Human = Human
     

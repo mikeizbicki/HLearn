@@ -46,22 +46,22 @@ instance (NFData ring) => NFData (PowerLaw ring) where
 instance (Num ring) => Monoid (PowerLaw ring) where
     mempty = PowerLaw 0 0 0 0 0
     a `mappend` b = PowerLaw
-        { n = n a + n b
+        { n      = n a + n b
         , lnxlny = lnxlny a + lnxlny b
-        , lnx = lnx a + lnx b
-        , lnx2 = lnx2 a + lnx2 b
-        , lny = lny a + lny b
+        , lnx    = lnx a + lnx b
+        , lnx2   = lnx2 a + lnx2 b
+        , lny    = lny a + lny b
         }
 
 instance (Num ring) => Abelian (PowerLaw ring)
 
 instance (Num ring) => Group (PowerLaw ring) where
     inverse a = PowerLaw
-        { n = -(n a)
+        { n      = -(n a)
         , lnxlny = -(lnxlny a)
-        , lnx = -(lnx a)
-        , lnx2 = -(lnx2 a)
-        , lny = -(lny a)
+        , lnx    = -(lnx a)
+        , lnx2   = -(lnx2 a)
+        , lny    = -(lny a)
         }
         
 instance (Num ring) => HasRing (PowerLaw ring) where
@@ -69,11 +69,11 @@ instance (Num ring) => HasRing (PowerLaw ring) where
 
 instance (Num ring) => Module (PowerLaw ring) where
     r .* pl = PowerLaw
-        { n = r*(n pl)
+        { n      = r*(n pl)
         , lnxlny = r*(lnxlny pl)
-        , lnx = r*(lnx pl)
-        , lnx2 = r*(lnx2 pl)
-        , lny = r*(lny pl)
+        , lnx    = r*(lnx pl)
+        , lnx2   = r*(lnx2 pl)
+        , lny    = r*(lny pl)
         }
 
 -------------------------------------------------------------------------------
@@ -93,11 +93,11 @@ instance (Num ring) => NumDP (PowerLaw ring) where
 instance (Floating ring) => HomTrainer (PowerLaw ring) where
     type Datapoint (PowerLaw ring) = Coord ring -- (ring,ring)
     train1dp dp = PowerLaw
-        { n = 1
+        { n      = 1
         , lnxlny = log x *  log y
-        , lnx = log x
-        , lnx2 = (log x)^2
-        , lny = log y
+        , lnx    = log x
+        , lnx2   = (log x)^2
+        , lny    = log y
         }
         where
             x = getAttributes dp
