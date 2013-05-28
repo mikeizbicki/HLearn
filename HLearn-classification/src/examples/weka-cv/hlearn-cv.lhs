@@ -47,7 +47,7 @@ That's why _income is not strict, but everything else is.
 All data points for supervised learning must implement the LabeledAttributes class.
 Things are in a relatively "hacked together" state right now, and in the future this should become much cleaner.
 
->instance LabeledAttributes Person where
+>instance Labeled Person where
 >   type Label Person = String
 >   type Attributes Person = Person
 >   getLabel = _income
