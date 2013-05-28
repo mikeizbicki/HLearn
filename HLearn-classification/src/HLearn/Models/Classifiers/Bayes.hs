@@ -1,17 +1,13 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+
+-- | Bayesian classification is one of the standard algorithms in machine learning.  Typically, we make the naive bayes assumption of assuming that none of our attributes are correlated.  The Bayes data type, however, is capable of both naive and non-naive assumptions.
 
 module HLearn.Models.Classifiers.Bayes
     ( Bayes
@@ -35,11 +31,7 @@ newtype Bayes label dist = Bayes dist
 -------------------------------------------------------------------------------
 -- Training
 
-instance 
-    ( Monoid dist
-    , HomTrainer dist
-    ) => HomTrainer (Bayes label dist) 
-        where
+instance (Monoid dist, HomTrainer dist) => HomTrainer (Bayes label dist) where
     type Datapoint (Bayes label dist) = Datapoint dist
     train1dp dp = Bayes $ train1dp dp
 
@@ -73,59 +65,10 @@ instance
             Categorical labelMap = labelDist
             labelL = Map.keys labelMap
 
--- instance 
---     ( --Datapoint (Margin labelLens dist) ~ Lab
---     ) => Classifier (Bayes labelLens dist)
---         where
---     type ResultDistribution (Bayes labelLens dist) = Margin labelLens dist
---               
---     probabilityClassify (Bayes dist) dp = undefined
-
--------------------------------------------------------------------------------
--- Test
-
-data Sex = Male | Female
-    deriving (Read,Show,Eq,Ord)
-
-data Human = Human
-    { _sex :: Sex
-    , _weight :: Double
-    , _height :: Double
-    , _shoesize :: Double
-    }
-makeTypeLenses ''Human
-
-instance Labeled Human where
-    type Label Human = Sex
-    type Attributes Human = Human
-    
-    getLabel h = _sex h
-    getAttributes h = h
-    
-ds = 
-    [ Human Male   6    180 12
-    , Human Male   5.92 190 11
-    , Human Male   5.58 170 12
-    , Human Male   5.92 165 10
-    , Human Female 5    100 6
-    , Human Female 5.5  150 8
-    , Human Female 5.42 130 7
-    , Human Female 5.75 150 9
-    ]
-
-dp = Human Female 6 130 8
--- dp = (6:::130:::8:::HNil)::(HList '[Double,Double,Double])
-
-model = train ds :: Bayes TH_sex MultiDist
-
-type MultiDist = Multivariate Human
-       '[ MultiCategorical '[Sex]
-        , Independent Normal '[Double,Double,Double]
-        ] Double
-
-{-dist = train (map snd ds) :: Multivariate (HList '[Double,Double,Double])
-   '[ Independent Normal '[Double]
-    , Dependent MultiNormal '[Double,Double]
-    ]
-    Double-}
-    
+instance 
+    ( ProbabilityClassifier (Bayes labelLens dist)
+    , Label (Datapoint (Bayes labelLens dist)) ~ Datapoint (Margin labelLens dist)
+    , Mean (Margin labelLens dist)
+    ) => Classifier (Bayes labelLens dist)
+        where
+    classify model dp = mean $ probabilityClassify model dp

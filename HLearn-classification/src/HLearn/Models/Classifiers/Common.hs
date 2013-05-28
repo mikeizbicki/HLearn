@@ -64,6 +64,9 @@ class
     type ResultDistribution model    
     probabilityClassify :: model -> Attributes (Datapoint model) -> ResultDistribution model
     
+class MarginClassifier model where
+    margin :: model -> Attributes (Datapoint model) -> (Ring model, Label (Datapoint model))
+    
 class 
     ( Labeled (Datapoint model)
     ) => Classifier model
