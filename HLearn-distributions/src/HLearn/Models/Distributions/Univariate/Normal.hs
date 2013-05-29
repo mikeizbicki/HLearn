@@ -24,6 +24,7 @@ import Control.DeepSeq
 import GHC.TypeLits
 import qualified Data.Vector.Unboxed as U
 import Data.Vector.Unboxed.Deriving
+import Math.Gamma
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -57,6 +58,9 @@ instance (Floating prob) => PDF (Normal prob) where
         where
             sigma2 = variance dist
             mu = mean dist
+
+instance (Floating prob) => CDF (Normal prob) where
+    cdf dist dp = ( 0.5 * ( 1 + erf ( (dp - mu)/ (sqrt $ sigma2 *2) )))
 
 instance (Fractional prob) => Mean (Normal prob) where
     mean (Normal dist) = m1 dist / m0 dist
