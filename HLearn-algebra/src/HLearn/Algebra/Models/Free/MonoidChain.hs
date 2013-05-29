@@ -13,11 +13,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+module HLearn.Algebra.Models.Free.MonoidChain
     where
 
 import Control.Applicative
 import Data.List
+import Data.Monoid
 import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 import Data.Sequence (fromList)
@@ -26,7 +27,9 @@ import Debug.Trace
 
 import Test.QuickCheck
 
-import HLearn.Algebra
+import HLearn.Algebra.Functions
+import HLearn.Algebra.Models.HomTrainer
+import HLearn.Algebra.Structures.Triangles
 import HLearn.Models.Distributions.Visualization.Gnuplot
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
@@ -34,35 +37,35 @@ import HLearn.Models.Classifiers.Common
 -------------------------------------------------------------------------------
 -- data structures
 
-data MonoidBoost (k::Nat) basemodel = MonoidBoost
+data MonoidChain (k::Nat) basemodel = MonoidChain
     { dataL :: Seq.Seq (Datapoint basemodel)
     , modelL :: Seq.Seq basemodel
-    , weightL :: Seq.Seq (Ring basemodel)
     , boost_numdp :: Int
     }
+--     deriving (Read,Show,Eq,Ord)
     
-deriving instance (Read (Datapoint basemodel), Read (Ring basemodel), Read basemodel) => Read (MonoidBoost k basemodel)
-deriving instance (Show (Datapoint basemodel), Show (Ring basemodel), Show basemodel) => Show (MonoidBoost k basemodel)
-deriving instance (Eq   (Datapoint basemodel), Eq   (Ring basemodel), Eq   basemodel) => Eq   (MonoidBoost k basemodel)
-deriving instance (Ord  (Datapoint basemodel), Ord  (Ring basemodel), Ord  basemodel) => Ord  (MonoidBoost k basemodel)
+deriving instance (Read (Datapoint basemodel), Read basemodel) => Read (MonoidChain k basemodel)
+deriving instance (Show (Datapoint basemodel), Show basemodel) => Show (MonoidChain k basemodel)
+deriving instance (Eq   (Datapoint basemodel), Eq   basemodel) => Eq   (MonoidChain k basemodel)
+deriving instance (Ord  (Datapoint basemodel), Ord  basemodel) => Ord  (MonoidChain k basemodel)
 
 instance 
     ( HomTrainer basemodel
     , Arbitrary (Datapoint basemodel)
     , SingI k
-    ) => Arbitrary (MonoidBoost k basemodel) 
+    ) => Arbitrary (MonoidChain k basemodel) 
         where
     arbitrary = train <$> listOf arbitrary    
 
 -------------------------------------------------------------------------------
 -- algebra
 
-testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
-    :: MonoidBoost 3 (Normal Rational)
-    -> MonoidBoost 3 (Normal Rational)
-    -> MonoidBoost 3 (Normal Rational)
-    -> Bool
-    )
+-- testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
+--     :: MonoidChain 3 (Normal Rational) Rational
+--     -> MonoidChain 3 (Normal Rational) Rational
+--     -> MonoidChain 3 (Normal Rational) Rational
+--     -> Bool
+--     )
 
 leave :: Int -> Seq.Seq a -> Seq.Seq a
 leave k xs = Seq.drop (Seq.length xs - k) xs
@@ -70,13 +73,12 @@ leave k xs = Seq.drop (Seq.length xs - k) xs
 instance 
     ( HomTrainer basemodel
     , SingI k
-    ) => Monoid (MonoidBoost k basemodel) 
+    ) => Monoid (MonoidChain k basemodel) 
         where
-    mempty = MonoidBoost mempty mempty mempty 0
-    mb1 `mappend` mb2 = MonoidBoost
+    mempty = MonoidChain mempty mempty 0
+    mb1 `mappend` mb2 = MonoidChain
         { dataL     = dataL'
         , modelL    = modelL mb1 <> newmodel <> modelL mb2
-        , weightL   = mempty
         , boost_numdp     = boost_numdp'
         }
         where
@@ -99,48 +101,56 @@ instance
 instance 
     ( SingI k
     , HomTrainer basemodel
-    ) => HomTrainer (MonoidBoost k basemodel) 
+    ) => HomTrainer (MonoidChain k basemodel) 
         where
-    type Datapoint (MonoidBoost k basemodel) = Datapoint basemodel
-    train1dp dp = MonoidBoost
+    type Datapoint (MonoidChain k basemodel) = Datapoint basemodel
+    train1dp dp = MonoidChain
         { dataL = mempty |> dp
         , modelL = mempty
-        , weightL = mempty
         , boost_numdp = 1
         }
     
 -------------------------------------------------------------------------------
 -- classification
 
-instance Probabilistic (MonoidBoost k basemodel) where
-    type Probability (MonoidBoost k basemodel) = Probability basemodel
+{-instance (Ord prob) => Probabilistic (MonoidChain k weight basemodel prob) where
+    type Probability (MonoidChain k weight basemodel prob) = prob
 
 instance
-    ( ProbabilityClassifier basemodel
-    , Monoid (ResultDistribution basemodel)
-    ) => ProbabilityClassifier (MonoidBoost k basemodel)
+    ( Classifier basemodel
+    , Probability basemodel ~ weight
+    , Ord (Label basemodel)
+    , Ord prob
+    , Num prob
+    , weight ~ prob
+    ) => Classifier (MonoidChain k weight basemodel prob)
         where
-    type ResultDistribution (MonoidBoost k basemodel) = ResultDistribution basemodel    
-    probabilityClassify mb dp = reduce $ fmap (flip probabilityClassify dp) $ modelL mb
+--     type Label (MonoidChain k weight basemodel prob) = Label basemodel
+--     type UnlabeledDatapoint (MonoidChain k weight basemodel prob) = UnlabeledDatapoint basemodel
+    type ResultDistribution (MonoidChain k weight basemodel prob) = ResultDistribution basemodel
+    
+    probabilityClassify mb dp = reduce $ fmap (flip probabilityClassify dp) $ modelL mb-}
     
 -------------------------------------------------------------------------------
 -- distribution
 
-instance 
-    ( PDF basemodel
-    , Fractional (Probability basemodel)
-    ) => PDF (MonoidBoost k basemodel)
-        where
-    pdf mb dp = ave $ fmap (flip pdf dp) $ modelL mb
-        where
-            ave xs = (F.foldl1 (+) xs) / (fromIntegral $ Seq.length xs)
+-- instance 
+--     ( PDF basemodel
+--     , Datapoint basemodel ~ prob
+--     , Probability basemodel ~ prob
+--     , Ord prob
+--     , Fractional prob
+--     ) => PDF (MonoidChain k weight basemodel prob)
+--         where
+--     pdf mb dp = ave $ fmap (flip pdf dp) $ modelL mb
+--         where
+--             ave xs = (F.foldl1 (+) xs) / (fromIntegral $ Seq.length xs)
 
-instance 
-    ( PlottableDistribution basemodel
-    , Fractional (Probability basemodel)
-    ) => PlottableDistribution (MonoidBoost k basemodel)
-        where
-    
-    samplePoints mb = concat $ map samplePoints $ F.toList $ modelL mb
-    plotType _ = plotType (undefined :: basemodel)
+-- instance 
+--     ( PlottableDistribution basemodel prob prob
+--     , Fractional prob
+--     ) => PlottableDistribution (MonoidChain k weight basemodel prob) prob prob
+--         where
+--     minx mb = minimum $ F.toList $ fmap minx $ modelL mb
+--     maxx mb = maximum $ F.toList $ fmap maxx $ modelL mb    
     

@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module HLearn.Models.Classifiers.Perceptron
     where
@@ -18,40 +19,23 @@ import qualified Data.Vector.Unboxed as VU
 import HLearn.Algebra
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
+import HLearn.Models.Classifiers.Centroid
 import HLearn.Models.Classifiers.NearestNeighbor
 
 -------------------------------------------------------------------------------
 -- data structures
 
-data Perceptron label weight dp = Perceptron 
-    { centroids :: Map.Map label (Centroid weight dp)
+data Perceptron label dp = Perceptron 
+    { centroids :: Map.Map label (Centroid dp)
     }
+--     deriving (Read,Show,Eq,Ord)
 
-data Centroid weight vector = Centroid
-    { weight :: weight
-    , vector :: vector
-    }
+deriving instance (Show (Centroid dp), Show label) => Show (Perceptron label dp)
 
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (Num weight, Num vector) => Monoid (Centroid weight vector) where
-    mempty = Centroid 0 0
-    c1 `mappend` c2 = Centroid
-        { weight = weight c1 + weight c2
-        , vector = vector c1 + vector c2
-        }
-
-instance 
-    ( MetricSpace weight vector
-    , VectorSpace weight vector
-    ) => MetricSpace weight (Centroid weight vector)
-        where
-    distance v1 v2 = distance (vector v1 /. weight v1) (vector v2 /. weight v2)
-    
----------------------------------------
-        
-instance (Num weight, Ord label, Num dp) => Monoid (Perceptron label weight dp) where
+instance (Ord label, Monoid (Centroid dp)) => Monoid (Perceptron label dp) where
     mempty = Perceptron mempty
     p1 `mappend` p2 = Perceptron
         { centroids = Map.unionWith (<>) (centroids p1) (centroids p2)
@@ -61,45 +45,32 @@ instance (Num weight, Ord label, Num dp) => Monoid (Perceptron label weight dp) 
 -- model
 
 instance 
-    ( Num weight
-    , Num vector
-    ) => HomTrainer (Centroid weight vector) 
-        where
-    type Datapoint (Centroid weight vector) = vector
-    
-    train1dp dp = Centroid { weight=1, vector=dp }
-    
----------------------------------------
-
-instance 
-    ( Num weight
+    ( Monoid dp
+    , HasRing dp
     , Ord label
-    , Num dp
-    ) => HomTrainer (Perceptron label weight dp) 
+--     , Triangle dp (Ring dp) 
+    ) => HomTrainer (Perceptron label dp) 
         where
-    type Datapoint (Perceptron label weight dp) = (label,dp)
+    type Datapoint (Perceptron label dp) = (label,dp)
               
-    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp dp
+    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp (dp {-|> (1::Ring dp)-})
     
 -------------------------------------------------------------------------------
 -- classification
 
-instance Probabilistic (Perceptron label prob dp) where
-    type Probability (Perceptron label prob dp) = prob
+instance (HasRing dp) => Probabilistic (Perceptron label dp) where
+    type Probability (Perceptron label dp) = Ring dp
 
 instance 
-    ( Ord prob
-    , Ord label
-    , Num dp
-    , Num prob
-    , MetricSpace prob (Centroid prob dp)
-    , prob ~ Double
-    ) => Classifier (Perceptron label prob dp)
+    ( Ord label
+    , Ord (Ring dp)
+    , MetricSpace (Centroid dp)
+    , Monoid dp
+    , HasRing dp
+    ) => ProbabilityClassifier (Perceptron label dp)
         where
-    type Label (Perceptron label prob dp) = label
-    type UnlabeledDatapoint (Perceptron label prob dp) = dp  
-    type ResultDistribution (Perceptron label prob dp) = (Categorical label prob)
+    type ResultDistribution (Perceptron label dp) = (Categorical label (Ring dp))
               
-    probabilityClassify model dp = probabilityClassify nn (train1dp dp :: Centroid prob dp)
+    probabilityClassify model dp = probabilityClassify nn (train1dp (dp) :: Centroid dp)
         where
             nn = NaiveNN $ Map.toList $ centroids model

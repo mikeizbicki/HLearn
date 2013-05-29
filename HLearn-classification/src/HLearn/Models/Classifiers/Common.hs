@@ -6,6 +6,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+
+{-# LANGUAGE OverlappingInstances #-}
 
 module HLearn.Models.Classifiers.Common
     where
@@ -35,36 +38,53 @@ num2bool a =
         else True 
 
 -------------------------------------------------------------------------------
+-- Labeled datapoints
+
+class Labeled dp where
+    type Label dp
+    type Attributes dp
+    
+    getLabel :: dp -> Label dp
+    getAttributes :: dp -> Attributes dp
+
+instance Labeled (label,attr) where
+    type Label (label,attr) = label
+    type Attributes (label,attr) = attr
+    
+    getLabel = fst
+    getAttributes = snd
+
+-------------------------------------------------------------------------------
 -- Classification
 
 class 
-    ( Probabilistic model
-    , Label model ~ Datapoint (ResultDistribution model)
-    , Mean (ResultDistribution model)
-    ) => Classifier model 
+    ( Labeled (Datapoint model)
+    ) => ProbabilityClassifier model 
         where
-    type Label model
-    type UnlabeledDatapoint model
-    type ResultDistribution model
+    type ResultDistribution model    
+    probabilityClassify :: model -> Attributes (Datapoint model) -> ResultDistribution model
     
-    probabilityClassify :: model -> UnlabeledDatapoint model -> ResultDistribution model
+class MarginClassifier model where
+    margin :: model -> Attributes (Datapoint model) -> (Ring model, Label (Datapoint model))
     
-    classify :: model -> UnlabeledDatapoint model -> Label model
-    classify model dp = mean $ probabilityClassify model dp
+class 
+    ( Labeled (Datapoint model)
+    ) => Classifier model
+        where
+    classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
 
-{-class (Ord prob) => ProbabilityClassifier model datatype label prob | model -> label prob where
-    probabilityClassify :: model -> datatype -> Categorical label prob
-    classify :: model -> datatype -> label
-    classify model dp = mostLikely $ (probabilityClassify model dp :: Categorical label prob)
-    -}
---     straightClassify :: model -> datatype -> label
---     straightClassify = mean . probabilityClassify
---     straightClassify model dp = classificationLabel $ probabilityClassify model dp
---     straightClassify model dp = fst . argmaxBy compare snd $ probabilityClassify model dp
-    
--- class {-(Label label) =>-} Classifier model datatype label | model -> label where
---     classify :: model -> datatype -> label
---     classify model dp = mostLikely $ probabilityClassify model dp
--- 
--- instance (ProbabilityClassifier model datatype label) => Classifier model datatype label where
---     classify model dp = mostLikely $ probabilityClassify model dp
+-- | this is a default instance that any instance of Classifier should satisfy if it is also an instance of ProbabilityClassifier
+-- instance 
+--     ( Label (Datapoint model) ~ Datapoint (ResultDistribution model)
+--     , Mean (ResultDistribution model)
+--     , ProbabilityClassifier model
+--     ) => Classifier model
+--         where
+--     classify model dp = mean $ probabilityClassify model dp
+
+-------------------------------------------------------------------------------
+-- Regression
+
+-- | Regression is classification where the class labels are (isomorphic to) real numbers.  The constraints could probably be better specified, but they're close enough for now.
+class (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
+instance (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
