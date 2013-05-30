@@ -78,6 +78,4 @@ HLearn is under active development.  At present, it is primarily a research tool
 
 Current development is focused in two areas.  First, implementing new models and their algebraic structures.  Many unimplemented models have "trivial" algebraic structure.  But for many successful models it is unknown whether they can have interesting structure.  The second area is investigating new structures.  Many models have Functor/Applicative/Monoid structure (or in some strict sense *almost* have these structures) and I'm working on how to exploit these structures.
 
-I am intentionally neglecting the usability aspect at this point in order to focus on these more researchy topics.  Hopefully I'll have more time for usability later.
-
 **Any comments / questions / pull requests are greatly appreciated!**
