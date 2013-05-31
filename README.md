@@ -12,7 +12,7 @@ HLearn is a suite of libraries for interpretting machine learning models accordi
 | R-Module    | weighted data points |
 | Vector space | fractionally weighted data points |
 
-This interpretation of machine learning is somewhat limitting in that not all models have obvious algebraic structure.  But many important models do.  Currently implemented moedls include:
+This interpretation of machine learning is somewhat limitting in that not all models have obvious algebraic structure.  But many important models do.  Currently implemented models include:
 
 * **Univariate distributions**: exponential, log-normal, normal, kernel density estimator, binomial, categorical, geometric, poisson
 
@@ -36,7 +36,7 @@ We can train in parallel using the higher order function `parallel`.  The GHC ru
 
 > let dist' = parallel train dataset :: Normal Double
 
-We can also train in online mode.  This is where you add data points to an already existing model using the either function `add1dp` or `addBatch`.
+We can also train in online mode.  This is where you add data points to an already existing model using either the function `add1dp` or `addBatch`.
 
 > let dist_online1 = add1dp dist 7
 
