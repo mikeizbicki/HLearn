@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeFamilies #-}     
 
 -- | Kernel Density Estimation (KDE) is a generic and powerful method for estimating a probability distribution.  See wikipedia for more information: <http://en.wikipedia.org/wiki/Kernel_density_estimation>
-module HLearn.Models.Distributions.KernelDensityEstimator
+module HLearn.Models.Distributions.Univariate.KernelDensityEstimator
     where
 
 import Control.DeepSeq

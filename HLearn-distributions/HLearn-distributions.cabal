@@ -49,12 +49,14 @@ Library
     Exposed-modules:
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
+        HLearn.Models.Distributions.Kernels
         HLearn.Models.Distributions.Visualization.Gnuplot
         HLearn.Models.Distributions.Visualization.Graphviz
         HLearn.Models.Distributions.Univariate.Binomial
         HLearn.Models.Distributions.Univariate.Categorical
         HLearn.Models.Distributions.Univariate.Exponential
         HLearn.Models.Distributions.Univariate.Geometric
+        HLearn.Models.Distributions.Univariate.KernelDensityEstimator
         HLearn.Models.Distributions.Univariate.LogNormal
         HLearn.Models.Distributions.Univariate.Normal
         HLearn.Models.Distributions.Univariate.Poisson
