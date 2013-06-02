@@ -16,7 +16,9 @@ Library
         HLearn-distributions    ,
         base                    >= 3 && < 5,
         MonadRandom             >= 0.1.8,
-        deepseq                 >= 1.3
+        deepseq                 >= 1.3,
+        vector                  >= 0.10,
+        logfloat                >=0.12
         
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
