@@ -24,4 +24,21 @@ Library
     Exposed-modules:
         HLearn.DataStructures.BinarySearchTree
         HLearn.NPHard.Partition
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds
         

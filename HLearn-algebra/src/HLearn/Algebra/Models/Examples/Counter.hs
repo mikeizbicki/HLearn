@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
-   
 -- | Used for testing.  All it does is count the number of samples.
 
 module HLearn.Algebra.Models.Examples.Counter

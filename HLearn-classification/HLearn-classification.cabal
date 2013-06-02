@@ -63,3 +63,20 @@ Library
         HLearn.Models.Regression.PowerLaw
         HLearn.Evaluation.CrossValidation
         HLearn.Evaluation.RSquared
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds

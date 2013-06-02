@@ -71,4 +71,19 @@ Library
         HLearn.Models.Distributions.Multivariate.Internal.Marginalization
         HLearn.Models.Distributions.Multivariate.Internal.TypeLens
         HLearn.Models.Distributions.Multivariate.Internal.Unital
-        
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures

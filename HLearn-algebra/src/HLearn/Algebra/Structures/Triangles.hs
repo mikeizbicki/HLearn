@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 -- | Provides a generic interface to structures that offer both a left and right cons.  It's based on the Data.Sequence interface.
 module HLearn.Algebra.Structures.Triangles
