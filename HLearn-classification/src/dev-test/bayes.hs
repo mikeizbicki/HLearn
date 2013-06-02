@@ -16,6 +16,7 @@ data Human = Human
     , _height :: Double
     , _shoesize :: Double
     }
+    deriving (Read,Show,Eq,Ord)
 makeTypeLenses ''Human
 
 instance Labeled Human where
@@ -38,7 +39,7 @@ ds =
 
 dp = Human Female 6 130 8
 
-model = train ds :: Bayes TH_sex MultiDist
+-- model = train ds :: Bayes TH_sex MultiDist
 
 type MultiDist = Multivariate Human
        '[ MultiCategorical '[Sex]

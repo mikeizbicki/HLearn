@@ -44,9 +44,12 @@ elem a (BST vec) = go 0 (V.length vec - 1)
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord a) => Semigroup (BST a) where
-    {-# INLINE (<>) #-}
-    (BST va) <> (BST vb) = BST $ V.fromList $ merge2 (V.toList va) (V.toList vb)
+instance (Ord a) => Monoid (BST a) where
+    {-# INLINE mempty #-}
+    mempty = BST $ V.empty
+    
+    {-# INLINE mappend #-}
+    (BST va) `mappend` (BST vb) = BST $ V.fromList $ merge2 (V.toList va) (V.toList vb)
         where
             merge2 xs [] = xs
             merge2 [] ys = ys
@@ -55,14 +58,7 @@ instance (Ord a) => Semigroup (BST a) where
                     LT        -> x: merge2 xs (y:ys)
                     otherwise -> y: merge2 (x:xs) ys
 
-instance (Ord a) => Monoid (BST a) where
-    {-# INLINE mempty #-}
-    mempty = BST $ V.empty
-    
-    {-# INLINE mappend #-}
-    mappend = (<>)
-
-instance (Ord a, Invertible a) => RegularSemigroup (BST a) where
+instance (Ord a, Invertible a) => Group (BST a) where
     {-# INLINE inverse #-}
     inverse (BST vec) = BST $ V.map mkinverse vec
 
