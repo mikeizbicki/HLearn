@@ -1,7 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE FlexibleInstances #-}
-   
 -- | This list of kernels is take from wikipedia's: <https://en.wikipedia.org/wiki/Uniform_kernel#Kernel_functions_in_common_use>
 module HLearn.Models.Distributions.Kernels
     (

@@ -41,3 +41,20 @@ Library
         HLearn.Algebra.Structures.Free.Bagging
         HLearn.Algebra.Structures.Free.FreeHomTrainer
         HLearn.Algebra.Structures.Free.FreeModule
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds

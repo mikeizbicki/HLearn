@@ -24,4 +24,20 @@ Library
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:
         HLearn.Models.Markov.MarkovChain
-        
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds

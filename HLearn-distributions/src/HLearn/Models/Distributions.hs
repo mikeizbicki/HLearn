@@ -1,8 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | This file exports the most commonly used modules within HLearn-distributions.  Most likely this is the only file you will have to import.
 
 module HLearn.Models.Distributions
