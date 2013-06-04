@@ -115,4 +115,26 @@ instance (Num prob) => NumDP (Moments3 prob) where
 --             m = 0
 --             s = 1
 
+-------------------------------------------------------------------------------
+-- Moments4
+
+{--
+data Moments4 prob = Moments4 
+    { m0 :: !prob
+    , m1 :: !prob
+    , m2 :: !prob
+    , m3 :: !prob
+    }
+    deriving (Read,Show,Eq,Ord)
+
+instance (NFData prob) => NFData (Moments4 prob) where
+    rnf m = seq m ()
+
+derivingUnbox "Moments4"
+    [t| (U.Unbox a) => (Moments4 a) -> (a, a, a ,a) |]
+    [| \ (Moments4 m0 m1 m2 m3) -> (m0,m1,m2,m3) |]
+    [| \ (m0,m1,m2,m3) -> (Moments4 m0 m1 m2,m3) |]
+
+--}
+
 
