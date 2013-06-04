@@ -35,13 +35,9 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- Categorical
 
-<<<<<<< HEAD
-data Categorical sampletype prob = Categorical 
-    { pdfmap :: !(Map.Map sampletype prob)
-=======
+
 newtype Categorical sampletype prob = Categorical 
-    { pdfmap :: Map.Map sampletype prob
->>>>>>> c2816845cd038e926d8a63665f6ab97582e5bb98
+    { pdfmap :: !(Map.Map sampletype prob)
     } 
     deriving (Show,Read,Eq,Ord)
 
