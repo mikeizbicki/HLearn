@@ -1,18 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
 module HLearn.Algebra.Models.Free.MonoidChain
     where
 
@@ -32,7 +17,7 @@ import HLearn.Algebra.Models.HomTrainer
 import HLearn.Algebra.Structures.Triangles
 import HLearn.Models.Distributions.Visualization.Gnuplot
 import HLearn.Models.Distributions
-import HLearn.Models.Classifiers.Common
+-- import HLearn.Models.Classifiers.Common
 
 -------------------------------------------------------------------------------
 -- data structures

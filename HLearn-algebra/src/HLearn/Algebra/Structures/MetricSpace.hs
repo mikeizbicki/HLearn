@@ -1,10 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Metric spaces are mathematical structures that have a notion of distance between objects.  See wikipedia for more information: <https://en.wikipedia.org/wiki/Metric_space>
 module HLearn.Algebra.Structures.MetricSpace
     where
@@ -23,10 +16,13 @@ class (HasRing s) => MetricSpace s where
 -------------------------------------------------------------------------------
 -- Norms
 
-class (Module m, MetricSpace m) => Norm m where
-    {-# INLINE magnitude #-}
+class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m
-    magnitude m = distance m mempty
-          
-instance (Module m, MetricSpace m) => Norm m where
+
+-- class (Module m, MetricSpace m) => Norm m where
+--     {-# INLINE magnitude #-}
+--     magnitude :: m -> Ring m
+--     magnitude m = distance m mempty
+
+-- instance (Module m, MetricSpace m) => Norm m where
           

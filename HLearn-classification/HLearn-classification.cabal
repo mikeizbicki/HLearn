@@ -57,7 +57,26 @@ Library
         HLearn.Models.Classifiers.Bayes
         HLearn.Models.Classifiers.NearestNeighbor
         HLearn.Models.Classifiers.Perceptron
+        HLearn.Models.Classifiers.Centroid
         HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
         HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+        HLearn.Models.Regression.PowerLaw
         HLearn.Evaluation.CrossValidation
         HLearn.Evaluation.RSquared
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds

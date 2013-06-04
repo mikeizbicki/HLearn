@@ -1,15 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module HLearn.Models.Markov.MarkovChain
     where
     
@@ -17,6 +5,7 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Data.List
+import Data.Number.LogFloat (LogFloat)
 import Debug.Trace
 import GHC.TypeLits
 import qualified Data.Vector as V
@@ -28,12 +17,20 @@ import HLearn.Models.Distributions
 -- data types
 
 data MarkovChain (order::Nat) datatype prob = MarkovChain
-    { transitions :: V.Vector (Categorical [datatype] prob)
-    , startchain :: [datatype]
-    , endchain :: [datatype]
+    { transitions :: !(V.Vector (Categorical [datatype] prob))
+    , startchain  :: ![datatype]
+    , endchain    :: ![datatype]
     }
     deriving (Show,Read,Eq,Ord)
     
+instance (NFData datatype, NFData prob) => NFData (MarkovChain order datatype prob) where
+    rnf mc = deepseq (transitions mc) 
+           $ deepseq (startchain mc)
+           $ rnf (endchain mc)
+
+instance NFData LogFloat where
+    rnf lf = seq lf ()
+
 order :: forall n datatype prob. (SingI n) => MarkovChain n datatype prob -> Int
 order _ = fromInteger $ fromSing (sing :: Sing n)
 

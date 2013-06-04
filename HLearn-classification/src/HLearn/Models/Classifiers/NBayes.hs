@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, IncoherentInstances, BangPatterns, FlexibleInstances, UndecidableInstances #-}
-
 module HLearn.Models.Classifiers.NBayes
     ( NBayes (..)
     , NaiveBayes

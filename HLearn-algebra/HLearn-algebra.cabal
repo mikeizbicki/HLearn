@@ -1,5 +1,5 @@
 Name:                HLearn-algebra
-Version:             1.0.0.1
+Version:             1.0.2.1
 Synopsis:            Algebraic foundation for homomorphic learning
 Description:         This module contains the algebraic basis for the HLearn library.  It is separated out in it's own library because it contains routines that may be useful to others.  In particular, it contains methods for automatically converting algorithms into online/parallel versions, and its structure is slightly more modular (although much less complete) than other algebra packages.
 Category:            Data Mining, Machine Learning
@@ -23,7 +23,7 @@ Library
         deepseq             >= 1.3,
         containers          >= 0.5,
         vector              >= 0.10,
-        hashable            >= 1.2
+        hashable            >= 1.1.2
         
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
@@ -41,3 +41,20 @@ Library
         HLearn.Algebra.Structures.Free.Bagging
         HLearn.Algebra.Structures.Free.FreeHomTrainer
         HLearn.Algebra.Structures.Free.FreeModule
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds

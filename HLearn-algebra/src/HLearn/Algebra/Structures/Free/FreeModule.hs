@@ -1,12 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module HLearn.Algebra.Structures.Free.FreeModule
     ( FreeModule (..)
@@ -16,6 +7,7 @@ module HLearn.Algebra.Structures.Free.FreeModule
 
 import Control.Applicative
 import qualified Control.ConstraintKinds as CK
+import Control.DeepSeq
 import Data.List
 import qualified Data.Map as Map
 import HLearn.Algebra.Structures.Groups
@@ -25,7 +17,7 @@ import HLearn.Algebra.Structures.Modules
 -- FreeModuleule
 
 newtype FreeModule r a = FreeModule { getMap :: Map.Map a r }
-    deriving (Read,Show,Eq, Ord)
+    deriving (Read,Show,Eq,Ord,NFData)
 
 -- instance CK.Functor (FreeModule r) where
 --     type FunctorConstraint (FreeModule r) a = (Num r, Ord a)

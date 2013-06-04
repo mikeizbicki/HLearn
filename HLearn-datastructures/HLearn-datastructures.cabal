@@ -11,7 +11,7 @@ Cabal-Version:       >=1.8
 
 Library
     Build-Depends:      
-        HLearn-algebra          >= 1.0.0,
+        HLearn-algebra          >= 1.0.2,
         HLearn-distributions    >= 1.0.0,
         base                    >= 3 && < 5,
         
@@ -24,4 +24,21 @@ Library
     Exposed-modules:
         HLearn.DataStructures.BinarySearchTree
         HLearn.NPHard.Partition
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        DataKinds
+        TypeFamilies
+        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds
         

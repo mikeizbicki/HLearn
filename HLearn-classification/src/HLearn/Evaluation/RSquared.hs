@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module HLearn.Evaluation.RSquared
     where
 

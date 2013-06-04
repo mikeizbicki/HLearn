@@ -1,4 +1,4 @@
-This directory contains all the details you need to reproduce HLearn outperforming Weka.
+This directory contains the details you need to reproduce HLearn outperforming Weka at cross-validation.
 
 First, you must get the appropriate version of the HLearn library from hackage.  You will need GHC >= 7.6.
 
