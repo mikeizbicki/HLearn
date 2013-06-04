@@ -4,3 +4,6 @@
 !*.md
 !*.cabal
 !*/
+HLearn-distributions/src/HLearn/Models/Distributions/Univariate/test/student.hs
+
+HLearn-distributions/src/HLearn/Models/Distributions/Univariate/test/test.hs

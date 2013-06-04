@@ -29,7 +29,9 @@ Library
         vector-th-unbox         >= 0.2,
         graphviz                >= 2999.16,
         hmatrix                 >= 0.14,
-        
+        gamma                   >= 0.9.0.2,        
+        erf                     >= 2.0.0.0,
+
         -- are these really necessary?
         array                   >= 0.4.0,
         process                 >= 1.1.0.2,
@@ -71,6 +73,7 @@ Library
         HLearn.Models.Distributions.Multivariate.Internal.Marginalization
         HLearn.Models.Distributions.Multivariate.Internal.TypeLens
         HLearn.Models.Distributions.Multivariate.Internal.Unital
+
     Extensions:
         FlexibleInstances
         FlexibleContexts
@@ -87,3 +90,4 @@ Library
         StandaloneDeriving
         GADTs
         KindSignatures
+
