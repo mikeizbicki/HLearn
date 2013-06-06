@@ -13,17 +13,19 @@ Library
     Build-Depends:      
         HLearn-algebra          >= 1.0.2,
         HLearn-distributions    >= 1.0.0,
+        ConstraintKinds         >= 0.0.2,
         base                    >= 3 && < 5,
         
         vector                  >= 0.10.0,
         containers              >= 0.5.0,
-        list-extras             >= 0.4.1
+        list-extras             >= 0.4.1,
+        heap                    >= 1.0.0
         
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:
-        HLearn.DataStructures.BinarySearchTree
-        HLearn.NPHard.Partition
+        HLearn.DataStructures.SortedVector
+        HLearn.NPHard.Scheduling
     Extensions:
         FlexibleInstances
         FlexibleContexts
