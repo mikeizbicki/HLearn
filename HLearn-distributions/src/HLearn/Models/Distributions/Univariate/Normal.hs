@@ -9,6 +9,8 @@ import Control.DeepSeq
 import GHC.TypeLits
 import qualified Data.Vector.Unboxed as U
 import Data.Vector.Unboxed.Deriving
+import Math.Gamma
+import Data.Number.Erf
 
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
@@ -39,6 +41,12 @@ instance (Num prob) => Probabilistic (Normal prob) where
 
 instance (Floating prob) => PDF (Normal prob) where
     pdf dist dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
+        where
+            sigma2 = variance dist
+            mu = mean dist
+
+instance (Floating prob, Erf prob) => CDF (Normal prob) where
+    cdf dist dp = ( 0.5 * ( 1 + erf ( (dp - mu) / (sqrt $ sigma2 *2) )))
         where
             sigma2 = variance dist
             mu = mean dist
