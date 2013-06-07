@@ -15,21 +15,23 @@ import HLearn.DataStructures.SortedVector
 -------------------------------------------------------------------------------
 -- data types    
 
+type Bin = Int
+
 data Scheduling (n::Nat) a = Scheduling
     { vector      :: !(SortedVector a)
-    , schedule :: Map.Map Int [a]
+    , schedule :: Map.Map Bin [a]
     }
     deriving (Read,Show,Eq,Ord)
 
-vector2scheduling :: forall a n. (Show a, Show (Ring a), Norm a, Ord (Ring a), SingI n) => SortedVector a -> Scheduling n a
-vector2scheduling vector = Scheduling
+lptf :: forall a n. (Show a, Show (Ring a), Norm a, Ord (Ring a), SingI n) => SortedVector a -> Scheduling n a
+lptf vector = Scheduling
     { vector = vector
-    , schedule = lptf (fromIntegral $ fromSing (sing :: Sing n)) vector
+    , schedule = vector2schedule (fromIntegral $ fromSing (sing :: Sing n)) vector
     }
 
 -- | the Least Processing Time First approximation; takes as input a presorted vector
-lptf :: (Show a, Show (Ring a), Norm a, Ord (Ring a)) => Int -> SortedVector a -> Map.Map Int [a]
-lptf p vector = snd $ F.foldr cata (emptyheap p,Map.empty) vector
+vector2schedule :: (Show a, Show (Ring a), Norm a, Ord (Ring a)) => Bin -> SortedVector a -> Map.Map Bin [a]
+vector2schedule p vector = snd $ F.foldr cata (emptyheap p,Map.empty) vector
     where
         -- maintain the invariant that size of our heap is always p
         -- the processor with the smallest workload is at the top
@@ -41,7 +43,7 @@ lptf p vector = snd $ F.foldr cata (emptyheap p,Map.empty) vector
                 map' = Map.insertWith (++) set [x] map
             in (heap',map')
 
-emptyheap :: (Num ring, Ord ring) => Int -> Heap.MinPrioHeap ring Int
+emptyheap :: (Num ring, Ord ring) => Bin -> Heap.MinPrioHeap ring Bin
 emptyheap p = Heap.fromAscList [(0,i) | i<-[1..p]]
 
 ---------------------------------------
@@ -62,15 +64,15 @@ spread p = (maxpartition p)-(minpartition p)
 -- Algebra
 
 instance (Show a, Show (Ring a), Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (Scheduling n a) where
-    mempty = vector2scheduling mempty
-    p1 `mappend` p2 = vector2scheduling $ (vector p1) <> (vector p2)
+    mempty = lptf mempty
+    p1 `mappend` p2 = lptf $ (vector p1) <> (vector p2)
 
 -------------------------------------------------------------------------------
 -- Training
 
 instance (Show a, Show (Ring a), Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (Scheduling n a) where
     type Datapoint (Scheduling n a) = a
-    train1dp dp = vector2scheduling $ train1dp dp
+    train1dp dp = lptf $ train1dp dp
     
 -------------------------------------------------------------------------------
 -- Visualization
@@ -83,7 +85,7 @@ rmblankline [] = []
 rmblankline ('\n':'\n':xs) = rmblankline ('\n':xs)
 rmblankline (x:xs) = x:(rmblankline xs)
 
-visualize :: (Norm a, Labeled a, Show (Ring a), Fractional (Ring a)) => Ring a -> Map.Map Int [a] -> String
+visualize :: (Norm a, Labeled a, Show (Ring a), Fractional (Ring a)) => Ring a -> Map.Map Bin [a] -> String
 visualize height m = rmblankline $ unlines
     [ "\\begin{tikzpicture}"
     , "\\definecolor{hlearn_bgbox}{RGB}{127,255,127}"
