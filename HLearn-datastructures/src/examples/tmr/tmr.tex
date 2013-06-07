@@ -75,10 +75,10 @@
 \begin{introduction}
 As a TA I was confronted with a real life instance of the \np-complete \prob{Scheduling} problem.
 To solve the problem, I turned to the classic Least Processing Time First (LPTF) approximation algorithm.
-In this article, we'll see that because LPTF is a monoid homomorphism, we can implement it using HLearn's \h{HomTrainer} type class.
+In this article, we'll see that because LPTF is a monoid homomorphism, we can implement it using HLearn's {\upshape\h{HomTrainer}} type class.
 This gives us parallel and online versions of LPTF ``for free.''
-We'll also be able to use these same techniques to solve a related problem called \prob{Bin Packing}.
-Hopefully, at the end of the article you'll understand when the \h{HomTrainer} class might be a useful tool, and how to use and build your own instances.
+We'll also be able to use these same techniques to solve a related problem called \prob{BinPacking}.
+Hopefully, at the end of the article you'll understand when the {\upshape\h{HomTrainer}} class might be a useful tool, and how to use and build your own instances.
 % What's more, LPTF is a particularly illustrative \h{HomTrainer} instance for three reasons.
 % First, the monoid operation for \prob{Scheduling} takes non-constant time, and the \h{HomTrainer} class makes reasoning about this run time straightforward.
 % Second, the monoid uses lazy semantics to improve performance.  
@@ -88,7 +88,8 @@ Hopefully, at the end of the article you'll understand when the \h{HomTrainer} c
 \section{Framing The Problem}
 I enjoy TAing the introduction to C++ course at my university.
 Teaching pointer arithmetic can be immensely frustrating, but it's worth it to see the students when it all finally clicks.  
-(Not to mention the subtle indoctrination against these low level languages.)
+% (
+% (Not to mention the subtle indoctrination against these low level languages.)
 % Of course, watching them struggle for hours to hunt down a segfault reminds me why Haskell is so awesome.
 % I enjoy teaching.  
 % It's really fun helping my intro to C++ students struggle through pointer arithmetic.  
@@ -96,8 +97,8 @@ Teaching pointer arithmetic can be immensely frustrating, but it's worth it to s
 %(It's only fun because \emph{I} am not the one spending hours tracking down the segfaults!)
 % Ah, the joys of segfaults... 
 %(to be young and segfaulting...)
-But teaching is even better when it causes you to stumble onto an interesting research question.  
-Oddly enough, I stumbled upon this cool Haskell problem because of my C++ teaching assistanceship.
+Teaching is even better when it causes you to stumble onto an interesting problem.  
+Oddly enough, I found this cool Haskell problem because of my C++ teaching assistanceship.
 
 The professor wanted to assign a group project, and I had to pick the groups.
 There had to be exactly five groups, and the groups needed to be as fair as possible.
@@ -109,7 +110,7 @@ In other words, I was supposed to evenly distribute the best and worst students.
 
 After a little thought, I realized this was an instance of the \np-complete \prob{Scheduling} problem in disguise.
 This problem was first formulated in the context of concurrent computing.
-We are given $p$ processors and $n$ tasks.
+In the textbook example of \prob{Scheduling}, we are given $p$ processors and $n$ tasks.
 Each task $t_i$ has some associated time it will take to complete it.
 The goal is to assign the tasks to processors so as to complete the tasks as quickly as possible.
 
@@ -159,19 +160,19 @@ Our goal is to minimize the \textcolor{red}{red} processing time.
 
 What does this have to do with the problem my professor gave me?
 Well, we can think of the number of groups as the number of processors, each student is a task, and the student's current grade is the task's processing time.
-Then, the problem is to find a way to divvy up the students so that the sum of grades for each group is as close as possible.
+Then, the problem is to find a way to divvy up the students so that the sum of grades for the ``best'' group is as small as possible.
 We'll see some code for solving this problem in a bit.
 
-There is another closely related problem called \prob{Bin Packing} that is easily confused with \prob{Scheduling}.
-In \prob{Bin Packing}, instead of fixing the number of bins and minimizing the amount in the bins, we fix the capacity of each bin and minimize the total number of bins used.
+There is another closely related problem called \prob{BinPacking} that is easily confused with \prob{Scheduling}.
+In \prob{BinPacking}, instead of fixing the number of bins and minimizing the amount in the bins, we fix the capacity of each bin and minimize the total number of bins used.
 Compare Figure \ref{fig:binpacking} below and Figure \ref{fig:scheduling} above to see the difference.
-The \prob{Bin Packing} problem was originally studied by shipping companies, although like \prob{Sheduling} it occurs in many domains.
-% The original motivation for the \prob{Bin Packing} problem was in shipping.
+The \prob{BinPacking} problem was originally studied by shipping companies, although like \prob{Sheduling} it occurs in many domains.
+% The original motivation for the \prob{BinPacking} problem was in shipping.
 % Every container shipped costs the same amount, no matter how much is stored in side of it.
 % Therefore, we would like to reduce the number of containers we use to ship our products.
 
 \begin{figure}[H]
-\caption{The \prob{Bin Packing} problem}
+\caption{The \prob{BinPacking} problem}
 \label{fig:binpacking}
 \centering
 \resizebox{!}{1.5in}{
@@ -209,9 +210,9 @@ The \prob{Bin Packing} problem was originally studied by shipping companies, alt
 }
 \end{figure}
 
-Both \prob{Scheduling} and \prob{Bin Packing} are \np-complete.
+Both \prob{Scheduling} and \prob{BinPacking} are \np-complete.
 % Since \prob{Scheduling} is \np-complete, finding an exact solution takes exponential time.  
-Therefore, I had no chance of creating an optimal grouping for my professor---the class had 100 students, and $2^{100}$ is a BIG number!
+Therefore, I had no chance of creating an optimal grouping for my professor---the class had 100 students, and $2^{100}$ is a \textit{big} number!
 So I turned to approximation algorithms.
 % These algorithms give us solutions that are guaranteed to be within a certain factor of optimal.
 One popular approximation for \prob{Scheduling} is called Longest Processing Time First (LPTF).
@@ -224,7 +225,7 @@ $$
 $$
 This bound was proven in the late 1960's, but the original paper remains quite readable today \cite{graham69}.
 % For a survey on variants of the Scheduling problem, see Chapter 1 of \textit{Approximation Algorithms for NP Hard Problems} \cite{hochbaum96scheduling}.
-By making this small sacrifice in accuracy, we get an algorithm that runs in time $\Theta(n\log n)$ instead of $\Theta(2^n)$.  Much better!  In the rest of this article, we'll take a detailed look at a Haskell implementation of the LPTF algorithm, and then briefly use similar techniques to solve the \prob{Bin Packing} problem.
+By making this small sacrifice in accuracy, we get an algorithm that runs in time $\Theta(n\log n)$ instead of $\Theta(2^n)$.  Much better!  In the rest of this article, we'll take a detailed look at a Haskell implementation of the LPTF algorithm, and then briefly use similar techniques to solve the \prob{BinPacking} problem.
 
 \section{The Scheduling HomTrainer}
 
@@ -282,16 +283,22 @@ They specify that our training algorithm must be a \emph{monoid homomorphism} fr
 These are scary sounding words, but they're pretty simple once you're familiar with them.
 We'll define them and see some examples.
 
-In Haskell, the \h{Monoid} type class is defined as:
+In Haskell, the \h{Monoid} type class is defined as having an identity called \h{mempty} and a binary operation called \h{mappend}:
 \begin{spec}
 class Monoid m where
     mempty  :: m
     mappend :: m -> m -> m
 \end{spec}
-and all instances of Monoid obey the associativity law:
+Sometimes we use the infix operation \h{(<>) = mappend} to make our code easier to read.
+All instances must obey the identity and associativity laws:
 \begin{spec}
-mappend mempty m = mappend m mempty = m
+mempty <> m = m <> mempty = m
+(m1 <> m2) <> m3 = m1 <> (m2 <> m3)
 \end{spec}
+% \end{spec}
+% mappend mempty m = mappend m mempty = m
+% and associativity law:
+% \begin{spec}
 % $$
 % \epsilon \diamond m = m\diamond \epsilon = m
 % $$
@@ -305,20 +312,21 @@ instance Monoid [a] where
 Vectors have a similar definition, and both lists and vectors are examples of free monoids.
 Free monoids are monoids that can be generated by some underlying set.
 In our monoid instance for lists above, the underlying set is the type variable \h{a}.
-For the \h{HomTrainer}, when we say that our data set must be a free monoid, all we mean is that it is a collection of some data points.
+For the \h{HomTrainer}, when we say that our data set must be a free monoid, all we mean is that it is a collection of some data points
+(\eg\ a list of tasks).
 
 A homomorphism from the free monoid is a function that ``preserves the free monoid's structure.''
-More formally, it obeys the law that for all \lstinline{xs} and \lstinline{ys} of type \lstinline{[a]}:
+More formally, if the function is called \h{train}, then it obeys the law that for all \lstinline{xs} and \lstinline{ys} of type \lstinline{[a]}:
 \begin{spec}
 train (xs ++ ys) = (train xs) <> (train ys)
 \end{spec}
 The LPTF algorithm turns out to have this property.
-Figure \ref{fig:LPTF-monoid} shows this in picture form because the diagram commutes.
+Figure \ref{fig:LPTF-monoid} shows this in picture form with a commutative diagram.
 This means that it doesn't matter whether we take the orange path (first train schedules from our data sets, then combine the schedules with \h{mappend}) or the purple path (first concatenate our data sets, then train a schedule on the result).
 Either way, we get the exact same answer.
 
 \begin{figure}[H]
-\caption{The Monoid operation illustrated}
+\caption{The LPTF is a monoid homomorphism because this diagram commutes}
 \label{fig:LPTF-monoid}
 % \centering
 \hspace{-0.3in}
@@ -340,7 +348,7 @@ Either way, we get the exact same answer.
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.1cm]   at (1,1.05) { $t_{a,1}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.7cm]   at (3,1.35) { $t_{a,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm]   at (5,1.55) { $t_{a,3}$ };;
@@ -374,7 +382,7 @@ Either way, we get the exact same answer.
 %     \resizebox{1.75in}{!}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.6cm]  at (1,0.3) { $t_{b,1}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=2.5cm]  at (3,1.25) { $t_{b,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=1.0cm]  at (5,0.5) { $t_{b,3}$ };
@@ -389,7 +397,7 @@ Either way, we get the exact same answer.
 \node at (0,0) {
     \resizebox{1.5in}{!}{
     \begin{tikzpicture}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=2.5cm] at (3,1.25) { $t_{b,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=1.0cm] at (5,0.5) { $t_{b,3}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.7cm] at (5,1.35) { $t_{b,4}$ };
@@ -411,7 +419,7 @@ Either way, we get the exact same answer.
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.1cm]   at (1,1.05) { $t_{a,1}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.7cm]   at (3,1.35) { $t_{a,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm]   at (5,1.55) { $t_{a,3}$ };;
@@ -433,7 +441,7 @@ Either way, we get the exact same answer.
     \resizebox{1.5in}{!}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm] at (3,1.55) { $t_{a,3}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=1.6cm] at (3,3.9000000000000004) { $t_{a,5}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.85cm] at (3,5.125) { $t_{b,8}$ };
@@ -470,14 +478,58 @@ Either way, we get the exact same answer.
 \vspace{0.00in}
 \end{figure}
 
+Now that we understand what \h{HomTrainer} is, we can look at what it gives us.
+Most importantly, it gives us a simple interface for interacting with our models.
+This interface is shown in Figure \ref{alg:HomTrainer}.
+In the class, we associate a specific \h{Datapoint} type to our model, and get four functions for training functions.
+The most important training function is the batch trainer, called \h{train}.
+This is the homomorphism that converts the data set into a model.
+In our case, it will be the LPTF algorithm.
+The second most important function is the online trainer \h{add1dp}.
+This function takes a model and a datapoint as input, and ``adds'' the data point to the model.
+Developing new online functions is an important research area in approximation algorithms.
+As we will see later, the compiler generates these two functions automatically for all instances of \h{HomTrainer}.
+
+Finally, HLearn comes with a higher order function for making all batch trainers run efficiently on multiple cores.
+The function
+\begin{spec}
+parallel :: (...) => 
+    (container datapoint -> model) -> (container datapoint -> model)
+\end{spec}
+takes a batch trainer as input and returns a parallelized one as output.
+In the next section, we'll see an example of its use in practice.
+
+\begin{figure}
+\caption{The \h{HomTrainer} type class}
+\label{alg:HomTrainer}
+\begin{code}
+class (Monoid model) => HomTrainer model where
+    type Datapoint model
+
+    -- The singleton trainer
+    train1dp :: Datapoint model -> model
+    
+    -- The batch trainer
+    train :: (Functor container, Foldable container) => 
+        container (Datapoint model) -> model
+
+    -- The online trainer
+    add1dp :: model -> Datapoint model -> model
+    
+    -- The online batch trainer
+    addBatch :: (Functor container, Foldable container) =>  
+        model -> container (Datapoint model) -> model
+\end{code}
+\end{figure}
+
 \section {Using the Scheduling HomTrainer}
 
-Before we look at implementing the \prob{Scheduling} \h{HomTrainer}, we'll take a look at how it's used.
+Before we look at implementing a \h{HomTrainer} to solve \prob{Scheduling}, we'll take a look at how it's used.
 In particular, we'll look at the Haskell code I used to solve the problem of grouping my students.
-In order to run the code, you'll need to download the latest \h{HLearn-datastructures} library:
+In order to run the code, you'll need to download the latest \h{HLearn-approximations} library:
 
 \begin{lstlisting}
-cabal install hlearn-datastructures-1.0.0
+cabal install HLearn-approximations-1.0.0
 \end{lstlisting}
 
 % As always, we'll need to load some extensions and import some modules.
@@ -489,18 +541,18 @@ ghci> import HLearn.NPHard.Scheduling
 ghci> :kind Scheduling
 Scheduling :: Nat -> * -> *
 \end{lstlisting}
-The \h{Scheduling} type takes two parameters.
+\h{Scheduling} takes two type parameters.
 The first is a type-level natural number that specifies the number of processors in our schedule.
 In HLearn, any parameters to our training functions must be specified in the model's type signature.
-In this case, we require the \h{DataKinds} extension to be enabled.
+In this case, the type-level numbers require the \h{DataKinds} extension to be enabled.
 The second parameter to \h{Scheduling} is the type of the task we are trying to schedule.
-We can't infer much about these tasks from the kind signature alone.
+% We can't infer much about these tasks from the kind signature alone.
 
 Next, let's find out about \h{Scheduling}'s \h{HomTrainer} instance:
 \begin{lstlisting}
 ghci> :info Scheduling
 ...
-instance (Norm a) => HomTrainer (Scheduling n a) where
+instance (Norm a,...) => HomTrainer (Scheduling n a) where
 ...
 \end{lstlisting}
 We have a constraint on our task parameter specifying that it must be an instance of \h{Norm}.
@@ -522,20 +574,26 @@ But we might make it a \h{Rational} if we need more accuracy or an \h{Int} if we
 Figure \ref{fig:main} shows the code for solving the student groups problem.
 In this case, I defined a new data type called \h{Student} to be the data points, and defined the \h{magnitude} of a \h{Student} to be its \h{grade}.
 Notice that since I am deriving an instance of \h{Ord} automatically, I must define \h{grade} before \h{name} and \h{section}.
-This ensures that the ordering over students will be compatible with the \h{Norm} instance.
+This ensures that the ordering over students will be determined by their \h{grade}s, and so be the same as the ordering over their \h{magnitude}s.
 
 The \h{main} function is divided up into three logical units.
-Understanding the first part is not very important.
-We just load a CSV file into a variable
-\begin{spec}
-allStudents :: [Student]
-\end{spec}
-In the next chunk, divide up the students according to which section they are in, and then \h{train} a \h{Schedule} model for each section.
+First, we load a CSV file into a variable
+\h{allStudents::[Student]}
+% \begin{spec}
+% allStudents::[Student]
+% \end{spec}
+using the \h{Cassava} package.
+The details of how this works aren't too important.
+
+In the middle section, we divide up the students according to which section they are in, and then \h{train} a \h{Schedule} model for each section.
 We use the function:
 \begin{spec}
 getSchedules :: Scheduling n a -> [[a]]
 \end{spec}
 to extract a list of schedules from our \h{Schedule} type, then print them to the terminal.
+Just for illustration, we train the third section's \h{Scheduling} model in parallel.
+With only about 30 students in the section, we don't notice any improvement.
+But as the data sets grow, more processors provide drastic improvements, as shown in Table \ref{table:rt}.
 
 In the last section, we combine our section specific models together to get a combined model factoring in all of the sections.
 Because \h{Scheduling} is an instance of \h{HomTrainer}, we don't have to retrain our model from scratch.
@@ -574,23 +632,22 @@ instance Norm Student where
 ---------------------------------------------------------------------
 
 main = do
-   Right allStudents <- fmap (fmap (fmap (\(n,s,g) -> 
-        Student g n s) . V.toList) . decode True) 
-        $ BS.readFile "students.csv"
-            :: IO (Either String [Student])
+   Right allStudents <- 
+      fmap (fmap (fmap (\(n,s,g) -> Student g n s) . V.toList) . decode True) 
+      $ BS.readFile "students.csv" :: IO (Either String [Student])
             
    let section1 = filter (\s -> 1 == section s) allStudents
    let section2 = filter (\s -> 2 == section s) allStudents
    let section3 = filter (\s -> 3 == section s) allStudents
    let solution1 = train section1 :: Scheduling 5 Student
    let solution2 = train section2 :: Scheduling 5 Student
-   let solution3 = train section3 :: Scheduling 5 Student
+   let solution3 = parallel train section3 :: Scheduling 5 Student
    print $ map (map name) $ getSchedules solution1
    
    let solutionAll = solution1 <> solution2 <> solution3
-   print $ fmap (fmap name) $ getSchedules solutionAll
+   print $ map (map name) $ getSchedules solutionAll
 \end{code}
-\caption{Solving the problem}
+\caption{Solution to my professor's problem}
 \label{fig:main}
 \end{figure}
 
@@ -684,7 +741,7 @@ Figure \ref{fig:lptf} shows a single iteration of this procedure.
 }
 \end{figure}
 
-This conversion process is implemented with the internal function \h{vector2schedule}, as shown in Figure \ref{code:vector2schedule} below.
+This conversion process is implemented with the internal function \h{vector2schedule}, whose code is shown in Figure \ref{code:vector2schedule} below.
 The details of this function aren't particularly important.
 What is important is that \h{vector2schedule} runs in time $\Theta(n\log p)$.
 This will be important when determining the run times of the \h{mappend} and \h{train} functions.
@@ -734,7 +791,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.1cm]   at (1,1.05) { $t_{a,1}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.7cm]   at (3,1.35) { $t_{a,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm]   at (5,1.55) { $t_{a,3}$ };;
@@ -750,7 +807,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
 %     \resizebox{1.75in}{!}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.6cm]  at (1,0.3) { $t_{b,1}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=2.5cm]  at (3,1.25) { $t_{b,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=1.0cm]  at (5,0.5) { $t_{b,3}$ };
@@ -766,7 +823,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.1cm]   at (1,1.05) { $t_{a,1}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.7cm]   at (3,1.35) { $t_{a,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm]   at (5,1.55) { $t_{a,3}$ };;
@@ -789,7 +846,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm]   at (1,1.55) { $t_{a,3}$ };;
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.7cm]   at (3,1.35) { $t_{a,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.1cm]   at (5,1.05) { $t_{a,1}$ };
@@ -822,7 +879,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=2.5cm]  at (1,1.25) { $t_{b,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=1.0cm]  at (3,0.5) { $t_{b,3}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.9cm]  at (5,0.45) { $t_{b,7}$ };
@@ -837,7 +894,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
 % \node at (0.5,0) {
 %     \resizebox{1.5in}{!}{
 %     \begin{tikzpicture}
-%     \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+%     \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
 %     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=2.5cm] at (3,1.25) { $t_{b,2}$ };
 %     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=1.0cm] at (5,0.5) { $t_{b,3}$ };
 %     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.7cm] at (5,1.35) { $t_{b,4}$ };
@@ -859,7 +916,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
     \resizebox{!}{0.25in}{
     \begin{tikzpicture}
     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-    \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+    \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm]   at (1,1.55) { $t_{a,3}$ };;
     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=2.7cm]   at (3,1.35) { $t_{a,2}$ };
     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=2.5cm]  at (5,1.25) { $t_{b,2}$ };
@@ -881,7 +938,7 @@ The commutative diagram for \h{SortedVector} is shown in Figure \ref{fig:SortedV
 %     \resizebox{1.5in}{!}{
 %     \begin{tikzpicture}
 %     \definecolor{hlearn_bgbox}{RGB}{127,255,127}
-%     \definecolor{hlearn_bgboxB}{RGB}{191,191,255}
+%     \definecolor{hlearn_bgboxB}{RGB}{224,224,255}
 %     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=3.1cm] at (3,1.55) { $t_{a,3}$ };
 %     \node[shape=rectangle,draw,fill=hlearn_bgbox,minimum width=2cm,minimum height=1.6cm] at (3,3.9000000000000004) { $t_{a,5}$ };
 %     \node[shape=rectangle,draw,fill=hlearn_bgboxB,minimum width=2cm,minimum height=0.85cm] at (3,5.125) { $t_{b,8}$ };
@@ -924,17 +981,19 @@ Notice that if the monoid operation takes time $\Theta(n)$, then our batch train
 Details of how these numbers were derived can be found in my TFP13 submission on the HLearn library \cite{me_tfp13}.
 
 \begin{table}[H]
-\caption{Given a run time for \h{mappend}, you can calculate the run time of the automatically generated \h{train} function using this table.}
+\caption{Given a run time for \h{mappend}, you can calculate the run time of the automatically generated functions using this table.}
 \label{table:rt}
-\centering
-\begin{tabular}{ c | c | c}
+% \centering
+\hspace{-0.3in}
+\begin{tabular}{ c | c | c | c}
 \hline
-Monoid operation & Sequential batch trainer & \ \ Parallel batch trainer\ \ \\
+Monoid operation & Sequential batch trainer & \ \ Parallel batch trainer\ \ & Online trainer\\
+\mbox{(\h{mapend})} & \mbox{(\h{train})} & \mbox{(\h{parallel train})} & \mbox{(\h{add1dp})}\\
 \hline \hline
-$\Theta(1)$ & $\Theta(n)$ & $\Theta\left(\frac{n}{p}+\log p\right)$\\
-$\Theta(\log^a n)$, $a>0$ & $\Theta(n)$ & $\Theta\left(\frac{n}{p}+(\log^a n)(\log p)\right)$\\
-$\Theta(n)$ & $\Theta(n\log n)$ & $\Theta\left(\frac{n}{p}\log\frac{n}{p}+n\right)$\\
-$\Theta(n^b)$, $b>1$ & $\Theta(n^b)$ & no improvement\\
+$\Theta(1)$ & $\Theta(n)$ & $\Theta\left(\frac{n}{p}+\log p\right)$ & $\Theta(1)$ \\
+$\Theta(\log^a n)$, $a>0$ & $\Theta(n)$ & $\Theta\left(\frac{n}{p}+(\log^a n)(\log p)\right)$ & $\Theta(\log^a n)$ \\
+$\Theta(n)$ & $\Theta(n\log n)$ & $\Theta\left(\frac{n}{p}\log\frac{n}{p}+n\right)$ & $\Theta(n)$ \\
+$\Theta(n^b)$, $b>1$ & $\Theta(n^b)$ & no improvement & no improvement\\
 \hline
 \end{tabular}
 \end{table}
@@ -943,6 +1002,7 @@ $\Theta(n^b)$, $b>1$ & $\Theta(n^b)$ & no improvement\\
 With all of these building blocks in place, the \h{Monoid} instance for \h{Scheduling} is relatively simple.
 The \h{mempty} and \h{mappend} operations are exactly the same as they are for \h{SortedVector}, except that we also call the helper function \h{lptf}.
 This function just packages the \h{SortedVector} into a \h{Scheduling} type using the \h{vector2schedule} function we saw earlier.
+\begin{figure}[H]
 \begin{lstlisting}
 instance (Ord a, Norm a, SingI n) => Monoid (Scheduling n a) where
     mempty = lptf mempty
@@ -955,6 +1015,8 @@ lptf vector = Scheduling
     }
     where p = fromIntegral $ fromSing (sing :: Sing n))
 \end{lstlisting}
+\caption{The \h{Monoid} instance for the \h{Scheduling} model}
+\end{figure}
 Since \h{vector2schedule} runs in linear time and \h{SortedVector}'s \h{mappend} runs in linear time, the \h{Scheduling}'s \h{mappend} runs in linear time as well.
 By Table \ref{table:rt} again, we have that the automatically derived batch trainer will take time $\Theta(n\log n)$.
 This is exactly what the traditional LPTF algorithm takes.
@@ -968,27 +1030,34 @@ train1dp :: HomTrainer model => Datapoint model -> model
 All this function does is create a model from a single data point.\footnote{The \h{train1dp} function is analogous to the \h{pure} function in the \h{Applicative} class, or the \h{return} function in the \h{Monad} class.}
 In practice, such a singleton model is rarely useful by itself.
 But if we define it, then the compiler can then use this function and \h{mappend} to build the other functions within the \h{HomTrainer} class automatically.
+This is how we get the online and parallel functions ``for free.''
 
 The resulting \h{Scheduling} instance looks like:
+\begin{figure}[H]
 \begin{lstlisting}
 instance (Norm a, SingI n) => HomTrainer (Scheduling n a) where
     type Datapoint (Scheduling n a) = a
     train1dp dp = lptf $ train1dp dp
 \end{lstlisting}
+\caption{The \h{HomTrainer} instance is quite short and mechanical to write}
+\end{figure}
+That's all we \textit{need} to do to guarantee correct asymptotic performance, but we've got one last trick that will speed up our \h{train} function by a constant factor.
+Recall that when performing the \h{mappend} operation on \h{Scheduling} variables, we can only reuse the work contained inside of \h{vector}.
+The old \h{schedule}s must be completely discarded.
+Since \h{mappend} is called many times in our automatically generated functions, calculating all of these intermediate schedules would give us no benefit but result in a lot of extra work.
+That is why in the \h{Scheduling} type, the \h{vector} member was declared strict, whereas the \h{schedule} member was declared lazy.
+The \h{schedule}s won't actually be calculated until someone demands them, and since no one will ever demand a schedule from the intermediate steps, we never calculate them.
 
-That's all we \textit{need} to do, but we've got one last trick that will speed up our batch trainer by a factor of two.
-Notice that in the \h{Scheduling} type, the \h{vector} member was declared strict, whereas the \h{schedule} member was declared lazy.
+\section{Back to Bin Packing}
 
-
-\section{Back to \prob{Bin Packing}}
-
-Our code for solving \prob{Bin Packing} will look similar to how we solved \prob{Scheduling}.
-% We can approximately solve a \prob{Bin Packing} problem similarly to how we derived a Scheduling instance.
+Since \prob{BinPacking} and \prob{Scheduling} were such similar problems, it's not too surprising that a similar technique can be used to implement a \h{BinPacking} model.
+% We can solving \prob{BinPacking} will look similar to how we solved \prob{Scheduling}.
+% We can approximately solve a \prob{BinPacking} problem similarly to how we derived a Scheduling instance.
 The main difference is that we'll replace the LPTF algorithm with another simple algorithm called Best Fit Decreasing (BFD).  This gives us the performance guarantee of:
 $$
-\text{BFD} \le {11\over9}\text{OPT} + 1
+\textit{BFD} \le {11\over9}\textit{OPT} + 1
 $$
-There are some slightly better approximations for bin packing, but we won't look at them here because they are much more complicated.
+There are some slightly better approximations for \prob{BinPacking}, but we won't look at them here because they are much more complicated.
 Chapter 2 of \textit{Approximation Algorithms for NP Hard Problems} gives a good overview on the considerable amount of literature for bin packing \cite{hochbaum96binpacking}.
 
 BFD is a two stage algorithm in the same vein as LPTF.
@@ -1092,20 +1161,26 @@ data BinPacking (n::Nat) a = BinPacking
     }
 \end{spec}
 This is the exact same form as the Scheduling type had.
-The only difference is that we will use the BDF strategy to generate our \h{Map}.
+The only difference is that we will use the BFD strategy to generate our \h{Map}.
 Therefore, by similar reasoning, the \h{BinPacking}'s \h{mappend} function takes time $\Theta(n)$ and its \h{train} function takes time $\Theta(n\log n)$.
-Again, this is exactly what the 
+Again, this is exactly what the traditional description of the BFD algorithm requires.
 
 \section{Takeaways}
 
-I originally designed the HomTrainer type class for machine learning algorithms, but it's a lot more general than that.
-It works on any functions that have type:
+Most instances of the \h{HomTrainer} type class are related to statistics or machine learning, but the class is much more general than that.
+For example, we've just seen how to use \h{HomTrainer}s to approximate two \np-complete problems.
+So from now on, whenever you see a function that has type:
 \begin{spec}
-func :: [datapoint] -> m
+ :: [datapoint] -> model
 \end{spec}
-All you have to find a monoid instance for m.
-Of course, this can be quite tricky.
-In some cases, an appropriate monoid might not even exist.
+ask yourself, ``Could this algorithm be implemented using a \h{HomTrainer}?''
+If yes, you'll get online and parallel versions for free.
+
+Finally, we've looked at the monoid structure for \h{Scheduling} and \h{BinPacking}, but these types also have Abelian group and $\mathbb{Z}$-module structure as well.
+I'll let you explore the documentation available on the github repository \cite{hlearn} 
+(pull requests are always welcome!)
+to find creative ways to exploit these structures.
+If you have any questions or feedback, I'd love to hear it.
 
 % \bibliographystyle{plain}
 \bibliography{bibliography}
