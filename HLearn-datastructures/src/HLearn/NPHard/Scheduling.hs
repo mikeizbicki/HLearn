@@ -1,6 +1,7 @@
 module HLearn.NPHard.Scheduling
     where
           
+import qualified Control.ConstraintKinds as CK
 import qualified Data.Foldable as F
 import qualified Data.Heap as Heap
 import Data.List
@@ -23,14 +24,14 @@ data Scheduling (n::Nat) a = Scheduling
     }
     deriving (Read,Show,Eq,Ord)
 
-lptf :: forall a n. (Show a, Show (Ring a), Norm a, Ord (Ring a), SingI n) => SortedVector a -> Scheduling n a
+lptf :: forall a n. (Norm a, Ord (Ring a), SingI n) => SortedVector a -> Scheduling n a
 lptf vector = Scheduling
     { vector = vector
     , schedule = vector2schedule (fromIntegral $ fromSing (sing :: Sing n)) vector
     }
 
 -- | the Least Processing Time First approximation; takes as input a presorted vector
-vector2schedule :: (Show a, Show (Ring a), Norm a, Ord (Ring a)) => Bin -> SortedVector a -> Map.Map Bin [a]
+vector2schedule :: (Norm a, Ord (Ring a)) => Bin -> SortedVector a -> Map.Map Bin [a]
 vector2schedule p vector = snd $ F.foldr cata (emptyheap p,Map.empty) vector
     where
         -- maintain the invariant that size of our heap is always p
@@ -63,14 +64,20 @@ spread p = (maxpartition p)-(minpartition p)
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Show a, Show (Ring a), Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (Scheduling n a) where
+instance (Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (Scheduling n a) where
     mempty = lptf mempty
     p1 `mappend` p2 = lptf $ (vector p1) <> (vector p2)
+
+---------------------------------------
+
+instance CK.Functor (Scheduling n) where
+    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, SingI n)
+    fmap f sched = lptf $ CK.fmap f $ vector sched
 
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Show a, Show (Ring a), Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (Scheduling n a) where
+instance (Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (Scheduling n a) where
     type Datapoint (Scheduling n a) = a
     train1dp dp = lptf $ train1dp dp
     
