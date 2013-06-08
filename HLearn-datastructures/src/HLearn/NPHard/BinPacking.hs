@@ -50,6 +50,12 @@ instance (Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (BinPacking n a) where
     mempty = vector2packing mempty
     p1 `mappend` p2 = vector2packing $ (vector p1) <> (vector p2)
 
+---------------------------------------
+
+instance CK.Functor (BinPacking n) where
+    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, SingI n)
+    fmap f sched = bfd $ CK.fmap f $ vector sched
+
 -------------------------------------------------------------------------------
 -- Training
 

@@ -1,6 +1,9 @@
 module HLearn.DataStructures.SortedVector
+    ( SortedVector
+    )
     where
     
+import Control.Applicative
 import qualified Data.Foldable as F
 import Data.List
 import Debug.Trace
@@ -15,7 +18,7 @@ import HLearn.Models.Distributions
 -------------------------------------------------------------------------------
 -- data types
 
-newtype SortedVector a = SortedVector (V.Vector a)
+newtype SortedVector a = SortedVector { vector :: V.Vector a}
     deriving (Read,Show,Eq,Ord)
 
 bst2list :: SortedVector a -> [a]
@@ -52,8 +55,27 @@ instance (Ord a, Invertible a) => Group (SortedVector a) where
     {-# INLINE inverse #-}
     inverse (SortedVector vec) = SortedVector $ V.map mkinverse vec
 
+---------------------------------------
+
 instance F.Foldable SortedVector where
     foldr f b (SortedVector vec) = V.foldr f b vec
+
+instance CK.Functor SortedVector where
+    type FunctorConstraint SortedVector a = Ord a
+    fmap f (SortedVector v) = SortedVector . V.fromList . sort . V.toList $ fmap f v
+
+instance CK.Pointed SortedVector where
+    point = SortedVector . V.singleton
+
+instance CK.Monad SortedVector where
+    type MonadConstraint SortedVector a = Ord a
+    (>>=) = flip concatMapa
+
+concatMapa :: (Ord a, Ord b) => (a -> SortedVector b) -> SortedVector a -> SortedVector b
+concatMapa f v = reduce $ CK.fmap f v
+
+join :: SortedVector (SortedVector a) -> SortedVector a
+join = undefined
 
 -------------------------------------------------------------------------------
 -- Training
