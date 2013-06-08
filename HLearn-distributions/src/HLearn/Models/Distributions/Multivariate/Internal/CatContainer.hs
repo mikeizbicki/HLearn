@@ -1,18 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/CatContainer_distribution>
 module HLearn.Models.Distributions.Multivariate.Internal.CatContainer
 {-    ( 
@@ -166,7 +151,7 @@ instance
     ) => Marginalize' (Nat1Box Zero) (CatContainer label basedist prob) 
         where
               
-    type Margin' (Nat1Box Zero) (CatContainer label basedist prob) = (Categorical label prob) 
+    type Margin' (Nat1Box Zero) (CatContainer label basedist prob) = (Categorical prob label) 
     getMargin' _ dist = Categorical $ probmap dist --Map.map numdp (pdfmap dist) 
 
     type MarginalizeOut' (Nat1Box Zero) (CatContainer label basedist prob) = Ignore' label basedist prob

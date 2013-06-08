@@ -18,35 +18,51 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- data types
 
-newtype Normal prob = Normal (Moments3 prob)
+newtype Normal prob dp = Normal (Moments3 prob)
     deriving (Read,Show,Eq,Ord,Monoid,Group,Abelian,Module,NumDP,NFData)
+
+mkNormal :: (Num prob) => prob -> prob -> Normal prob dp
+mkNormal mu sigma = Normal $ Moments3
+    { m0 = 1
+    , m1 = mu
+    , m2 = sigma*sigma + mu*mu
+    }
 
 -------------------------------------------------------------------------------
 -- training
 
-instance (Num prob) => HomTrainer (Normal prob) where
-    type Datapoint (Normal prob) = prob
+instance (Num prob) => HomTrainer (Normal prob (Normal prob dp)) where
+    type Datapoint (Normal prob (Normal prob dp)) = Normal prob dp
+    train1dp (Normal dp) = Normal dp
+
+instance (Num prob) => HomTrainer (Normal prob prob) where
+    type Datapoint (Normal prob prob) = prob
     train1dp dp = Normal $ train1dp dp
 
-instance (Num prob) => HasRing (Normal prob) where
-    type Ring (Normal prob) = prob
+instance (Num prob) => HasRing (Normal prob dp) where
+    type Ring (Normal prob dp) = prob
+
+---------------------------------------
+
+join :: Normal prob (Normal prob dp) -> Normal prob dp
+join (Normal moments) = Normal moments
 
 -------------------------------------------------------------------------------
--- algebra
+-- distribution
 
-instance (Num prob) => Probabilistic (Normal prob) where
-    type Probability (Normal prob) = prob
+instance (Num prob) => Probabilistic (Normal prob dp) where
+    type Probability (Normal prob dp) = prob
 
-instance (Floating prob) => PDF (Normal prob) where
+instance (Floating prob) => PDF (Normal prob prob) where
     pdf dist dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
         where
             sigma2 = variance dist
             mu = mean dist
 
-instance (Fractional prob) => Mean (Normal prob) where
+instance (Fractional prob) => Mean (Normal prob prob) where
     mean (Normal dist) = m1 dist / m0 dist
 
-instance (Fractional prob) => Variance (Normal prob) where
+instance (Fractional prob) => Variance (Normal prob prob) where
     variance normal@(Normal dist) = m2 dist / m0 dist - (mean normal)*(mean normal)
 
 instance 
@@ -54,13 +70,19 @@ instance
     , Enum prob
     , Show prob
     , Ord prob
-    ) => PlottableDistribution (Normal prob) where
+    ) => PlottableDistribution (Normal prob prob) where
     
     plotType _ = Continuous
 
     samplePoints dist = samplesFromMinMax min max
--- fmap (\x -> min+x/(numsamples*(max-min))) [0..numsamples]
         where
-            numsamples = 1000
             min = (mean dist)-5*(sqrt $ variance dist)
             max = (mean dist)+5*(sqrt $ variance dist)
+
+-------------------------------------------------------------------------------
+-- test
+
+dp1 = mkNormal 1 1
+dp2 = mkNormal 10 1
+
+model = train [dp1,dp2] :: Normal Double (Normal Double Double)
