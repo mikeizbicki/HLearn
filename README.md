@@ -69,8 +69,6 @@ Hackage links:
 * [HLearn-algebra](http://hackage.haskell.org/package/HLearn-algebra)
 * [HLearn-distributions](http://hackage.haskell.org/package/HLearn-distributions)
 * [HLearn-classification](http://hackage.haskell.org/package/HLearn-classification)
-* [HLearn-markov](http://hackage.haskell.org/package/HLearn-markov)
-
 
 ## Future directions
 
