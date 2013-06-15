@@ -36,6 +36,12 @@ newtype Categorical prob label = Categorical
 instance (NFData label, NFData prob) => NFData (Categorical prob label) where
     rnf d = rnf $ pdfmap d
 
+uniformNoise :: (Fractional prob, Ord label) => prob -> [label] -> label -> Categorical prob label
+uniformNoise n xs dp = trainW xs'
+    where
+        xs' = (1-n,dp):(map (\x -> (weight,x)) xs)
+        weight = n/(fromIntegral $ length xs)
+        
 -------------------------------------------------------------------------------
 -- Algebra
 
@@ -63,11 +69,14 @@ instance CK.Functor (Categorical prob) where
 instance (Num prob) => CK.Pointed (Categorical prob) where
     point dp = Categorical $ Map.singleton dp 1
     
-instance (Num prob) => CK.Monad (Categorical prob) where
-    (>>=) = join . fmap
+instance (Num prob, Ord prob) => CK.Monad (Categorical prob) where
+    type MonadConstraint (Categorical prob) label = Ord label
+    x >>= f = join $ CK.fmap f x
 
-join :: Categorical prob (Categorical prob label) -> Categorical prob label
-join cat = Map.assocs $ pdfmap cat
+join :: (Num prob, Ord label) => Categorical prob (Categorical prob label) -> Categorical prob label
+join cat = reduce . map f $ Map.assocs $ pdfmap cat
+    where
+        f (cat,v) = v .* cat
 
 -------------------------------------------------------------------------------
 -- Training
