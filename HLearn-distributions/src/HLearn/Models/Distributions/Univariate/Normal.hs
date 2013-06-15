@@ -28,6 +28,9 @@ mkNormal mu sigma = Normal $ Moments3
     , m2 = sigma*sigma + mu*mu
     }
 
+addNoise :: (Num prob) => (prob -> prob) -> prob -> Normal prob prob
+addNoise f dp = mkNormal dp (f dp)
+
 -------------------------------------------------------------------------------
 -- training
 

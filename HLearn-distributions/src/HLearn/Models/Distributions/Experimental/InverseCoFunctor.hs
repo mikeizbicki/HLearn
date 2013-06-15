@@ -65,7 +65,12 @@ instance (PDF basemodel) => PDF (InverseCoFunctor basemodel domain) where
 -------------------------------------------------------------------------------
 -- testing
 
-n1 = train [1..100] :: Normal Double Double
-n2 = InverseCoFunctor n1 log
-n3 = InverseCoFunctor n1 exp
-ln = train [1..100] :: LogNormal Double
+
+normaldata = zip (map (pdf (train [1..100] :: Normal Double Double)) [1..100]) ([1..100])
+
+xs  = normaldata
+xs' = map (\(w,x) -> (w,x*x)) xs
+n = trainW xs :: Normal Double Double
+n' = trainW xs' :: Normal Double Double
+n1 = InverseCoFunctor n (sqrt)
+n2 = InverseCoFunctor n (+10)
