@@ -67,6 +67,9 @@ instance CK.Functor SortedVector where
 instance CK.Pointed SortedVector where
     point = SortedVector . V.singleton
 
+instance CK.Applicative SortedVector where
+    (<*>) = undefined
+
 instance CK.Monad SortedVector where
     type MonadConstraint SortedVector a = Ord a
     (>>=) = flip concatMapa

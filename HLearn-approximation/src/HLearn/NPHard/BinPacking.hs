@@ -9,6 +9,7 @@ import Debug.Trace
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import GHC.TypeLits
+import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
 import HLearn.DataStructures.SortedVector
 
@@ -21,15 +22,14 @@ data BinPacking (n::Nat) a = BinPacking
     }
     deriving (Read,Show,Eq,Ord)
 
-vector2packing :: forall a n. (Norm a, Ord (Ring a), SingI n) => SortedVector a -> BinPacking n a
-vector2packing vector = BinPacking
+bfd :: forall a n. (Norm a, Ord (Ring a), SingI n) => SortedVector a -> BinPacking n a
+bfd vector = BinPacking
     { vector = vector
-    , packing = bfd (fromIntegral $ fromSing (sing :: Sing n)) vector
+    , packing = vector2packing (fromIntegral $ fromSing (sing :: Sing n)) vector
     }
 
--- | the Best Fit Decreasing approximation; takes as input a presorted vector
-bfd :: (Norm a, Ord (Ring a)) => Ring a -> SortedVector a -> Map.Map Int [a]
-bfd binsize vector = snd $ F.foldr cata (Map.empty,Map.empty) vector
+vector2packing :: (Norm a, Ord (Ring a)) => Ring a -> SortedVector a -> Map.Map Int [a]
+vector2packing binsize vector = snd $ F.foldr cata (Map.empty,Map.empty) vector
     where
         cata x (weight2bin,packing) = case Map.lookupLE (binsize - magnitude x) weight2bin of
             Nothing -> (weight2bin',packing')
@@ -47,13 +47,13 @@ bfd binsize vector = snd $ F.foldr cata (Map.empty,Map.empty) vector
 -- Algebra
 
 instance (Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (BinPacking n a) where
-    mempty = vector2packing mempty
-    p1 `mappend` p2 = vector2packing $ (vector p1) <> (vector p2)
+    mempty = bfd mempty
+    p1 `mappend` p2 = bfd $ (vector p1) <> (vector p2)
 
 ---------------------------------------
 
 instance CK.Functor (BinPacking n) where
-    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, SingI n)
+    type FunctorConstraint (BinPacking n) x = (Ord x, Norm x, SingI n)
     fmap f sched = bfd $ CK.fmap f $ vector sched
 
 -------------------------------------------------------------------------------
@@ -61,5 +61,5 @@ instance CK.Functor (BinPacking n) where
 
 instance (Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (BinPacking n a) where
     type Datapoint (BinPacking n a) = a
-    train1dp dp = vector2packing $ train1dp dp
+    train1dp dp = bfd $ train1dp dp
     
