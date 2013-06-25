@@ -30,7 +30,6 @@ lptf vector = Scheduling
     , schedule = vector2schedule (fromIntegral $ fromSing (sing :: Sing n)) vector
     }
 
--- | the Least Processing Time First approximation; takes as input a presorted vector
 vector2schedule :: (Norm a, Ord (Ring a)) => Bin -> SortedVector a -> Map.Map Bin [a]
 vector2schedule p vector = snd $ F.foldr cata (emptyheap p,Map.empty) vector
     where

@@ -1,6 +1,6 @@
-Name:                HLearn-datastructures
+Name:                HLearn-approximation
 Version:             1.0.0
-Description:         This module contains commonly used data structures
+Description:         Approximation algorithms for NP-hard problems
 Category:            Data Mining, Machine Learning, Data Structures
 License:             BSD3
 --License-file:        LICENSE
@@ -13,7 +13,8 @@ Library
     Build-Depends:      
         HLearn-algebra          >= 1.0.2,
         HLearn-distributions    >= 1.0.0,
-        ConstraintKinds         >= 0.1.0,
+        HLearn-datastructures   >= 1.0.0,
+        ConstraintKinds         >= 0.0.2,
         base                    >= 3 && < 5,
         
         vector                  >= 0.10.0,
@@ -24,7 +25,8 @@ Library
     hs-source-dirs:     src
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:
-        HLearn.DataStructures.SortedVector
+        HLearn.NPHard.Scheduling
+        HLearn.NPHard.BinPacking
     Extensions:
         FlexibleInstances
         FlexibleContexts
