@@ -20,7 +20,9 @@ This interpretation of machine learning is somewhat limitting in that not all mo
 
 * **Classifiers**: naive bayes, full bayes, decision stumps, decision trees, k-nearest neighbor (naive and kd-tree), perceptron, bagging, boosting (sort of)
 
-* **Other**: markov chains, k-centers, partition
+* **NP-hard approximations**: k-centers, bin packing, multiprocessor scheduling
+
+* **Other**: markov chains
 
 Note: not all of these are included in the latest hackage releases simply because I haven't had time to finish a major refactoring
 
@@ -28,23 +30,21 @@ Note: not all of these are included in the latest hackage releases simply becaus
 
 Every model in HLearn is trained from a data set using the function `train`.  The type signature specifies which model we're training.
 
-> let dataset =  [1,2,3,4,5,6]
-
-> let dist = train dataset :: Normal Double
+    let dataset =  [1,2,3,4,5,6]
+    let dist = train dataset :: Normal Double
 
 We can train in parallel using the higher order function `parallel`.  The GHC run time automatically takes advantage of multiple cores on your compuer.  If you have 4 cores, then run time is 4x faster.
 
-> let dist' = parallel train dataset :: Normal Double
+    let dist' = parallel train dataset :: Normal Double
 
 We can also train in online mode.  This is where you add data points to an already existing model using either the function `add1dp` or `addBatch`.
 
-> let dist_online1 = add1dp dist 7
-
-> let dist_online2 = addBatch dist [7,8,9,10]
+    let dist_online1 = add1dp dist 7
+    let dist_online2 = addBatch dist [7,8,9,10]
 
 Finally, once we've trained a data point, we can do all the normal operations on it we would expect.  One common operation on distributions is evaluating the probability density function.  We do this with the `pdf` function.
 
-> pdf dist 10
+    pdf dist 10
 
 For more details on why the Normal distribution has algebraic structure and what we can do with it, see the blog post [Normal distributions form a monoid and why machine learning experts should care](http://izbicki.me/blog/gausian-distributions-are-monoids).
 
