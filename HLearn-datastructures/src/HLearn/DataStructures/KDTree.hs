@@ -1,97 +1,84 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
-
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module HLearn.DataStructures.KDTree
     where
     
-import Data.List
-import Debug.Trace
-import GHC.TypeLits
-import Unsafe.Coerce
-import Data.Bits
-import Data.Word
+import qualified Data.Vector as V
 
 import HLearn.Algebra
-import HLearn.Models.Distributions.Categorical
-
-import HLearn.DataStructures.BinarySearchTree
 
 -------------------------------------------------------------------------------
 -- data types
 
-newtype KDPointBox a = KDPointBox a
-    deriving (Read,Show,Eq)
-    
-instance (KDPoint a) => Ord (KDPointBox a) where
-    compare (KDPointBox a) (KDPointBox b) = compare (bin a) (bin b)
+type DP = V.Vector Double
+type Dimension = Int
 
-newtype KDTree a = KDTree (BST (KDPointBox a))
-    deriving (Read,Show,Semigroup,Monoid)
+data KDTree
+    = Leaf 
+    | Node { val :: DP, splitdim :: Dimension, left :: KDTree, right :: KDTree }
+    deriving (Read,Show,Eq,Ord)
 
--------------------------------------------------------------------------------
--- kdtree classes
+---------------------------------------
 
-class (Eq kdp) => KDPoint kdp where
-    bin :: kdp -> [Bool]
-    
-instance KDPoint [Double] where
-    bin = binkd
-    
-binkd :: [Double] -> [Bool]
-binkd = (concat . transpose . map bin1d)
+(!) :: DP -> Dimension -> Double
+(!) = (V.!)
 
-bin1d :: Double -> [Bool]
-bin1d x = 
-    (x>0):                                  -- first digit specifies sign
-    (abs x>1):                              -- second digit specifies if |x|>1
-    (replicate x_powers True)               -- next, we repeat 1's the number of times in the exponent
-    ++
-    go lowerbound upperbound                -- finally, we "home in" on our value x via a recursive splitting strategy
+nextSplitDim :: KDTree -> Dimension
+nextSplitDim t
+    | splitdim t >= (V.length . val) t -1 = 0
+    | otherwise = splitdim t + 1
+
+insert :: KDTree -> DP -> KDTree
+insert Leaf dp = Node dp 0 Leaf Leaf
+insert t dp
+    | dp ! splitdim t > val t ! splitdim t = t { right = insert (right t) dp }
+    | dp ! splitdim t < val t ! splitdim t = t { left = insert (left t) dp }
+
+validKDTree :: KDTree -> Bool
+validKDTree Leaf = True
+validKDTree t    = thisvalid && validKDTree (left t) && validKDTree (right t)
     where
-        x_powers = ceiling $ abs $ log10 $ abs x
-        x' = 10**(abs $ log10 $ abs x)
-        lowerbound = 10^(x_powers-1)
-        upperbound = 10^(x_powers)
-        
-        go lower upper = --trace ("lower="++show lower++", split="++show split++", upper="++show upper) $
-            if x'>split
-                then True:(go split upper)
-                else False:(go lower split)
-            where split = (upper+lower)/2
-        
-log10 x = (log x)/(log 10)
+        thisvalid = go (left t) (\dp -> dp ! splitdim t < val t ! splitdim t)
+                 && go (right t) (\dp -> dp ! splitdim t > val t ! splitdim t)
+         
+        go Leaf f = True
+        go t f = f (val t) && go (left t) f && go (right t) f
 
 -------------------------------------------------------------------------------
 -- algebra
 
+instance Monoid KDTree where
+    mempty = Leaf
+    mappend Leaf Leaf = Leaf
+    mappend Leaf a = a
+    mappend a Leaf = a
+    mappend a b
+        | splitdim a == splitdim b && val a ! splitdim a < val b ! splitdim b = Node 
+            { val = val b
+            , splitdim = splitdim b
+            , left = a <> left b
+            , right = right b
+            }
+        | splitdim a == splitdim b && val a ! splitdim a > val b ! splitdim b = Node
+            { val = val b
+            , splitdim = splitdim b
+            , left = left b
+            , right = a <> right b
+            }
+        | otherwise = error $ "KDTree.mappend: a=" ++ show a ++ ", b="++show b
+
+---------------------------------------
+
+-- instance Foldable KDTree
 
 -------------------------------------------------------------------------------
 -- model
 
-instance Model (NoParams (KDTree a)) (KDTree a) where
-    getparams model = NoParams
+instance HomTrainer KDTree where
+    type Datapoint KDTree = DP
+    train1dp dp = Node dp 0 Leaf Leaf
 
-instance DefaultModel (NoParams (KDTree a)) (KDTree a) where
-    defparams = NoParams
-    
-instance (KDPoint a) => HomTrainer (NoParams (KDTree a)) a (KDTree a) where
-    train1dp' NoParams dp = KDTree $ train1dp $ KDPointBox dp
+-------------------------------------------------------------------------------
+-- testing
 
-bindouble :: Word64 -> IO ()
-bindouble d = go 63
-    where  
-        d' = unsafeCoerce d :: Int
-        go (-1) = putStrLn ""
-        go i = do
-            if testBit d' i
-                then putStr "1"
-                else putStr "0"
-            go (i-1)
+xs = map V.fromList [[1,5],[-1,4],[0,2],[2,-1],[-2,3],[-3,1]]
+m = train xs :: KDTree
+m' = foldl insert Leaf xs
