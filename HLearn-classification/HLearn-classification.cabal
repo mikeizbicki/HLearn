@@ -21,9 +21,9 @@ library
                    MonadRandom >=0.1.6, logfloat >=0.12.0, math-functions >=0.1.1,
                    normaldistribution >=1.1.0, deepseq >=1.3.0, hashable >=1.1.2.5,
                    binary >=0.5.1
-    exposed-modules: HLearn.Models.Regression.Exponential
-                     HLearn.Models.Classifiers HLearn.Models.Classifiers.Common
-                     HLearn.Models.Classifiers.Bayes
+    exposed-modules: HLearn.Models.Regression.ModifiedExponential
+                     HLearn.Models.Regression.Exponential HLearn.Models.Classifiers
+                     HLearn.Models.Classifiers.Common HLearn.Models.Classifiers.Bayes
                      HLearn.Models.Classifiers.NearestNeighbor
                      HLearn.Models.Classifiers.Perceptron
                      HLearn.Models.Classifiers.Centroid
