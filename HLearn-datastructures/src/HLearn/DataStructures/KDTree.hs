@@ -19,10 +19,10 @@ data KDTree
 ---------------------------------------
 
 ppshow :: KDTree -> String
-ppshow = go 0
+ppshow = go [] 
     where
-        go i Leaf = ""
-        go i t = replicate i ' ' ++ (show $ val t) ++ "\n" ++ go (i+1) (left t) ++ go (i+1) (right t)
+        go i Leaf = "" -- i++"*\n"
+        go i t = i ++ " " ++ (show $ val t) ++ "\n" ++ go (i++"l") (left t) ++ go (i++"r") (right t)
 
 (!) :: DP -> Dimension -> Double
 (!) = (V.!)
@@ -58,12 +58,12 @@ instance Monoid KDTree where
     mappend a Leaf = a
     mappend a b = if
         | splitdim a == splitdim b -> if
-            | val a ! splitdim a <  val b ! splitdim b -> b 
+            | val a ! splitdim a <  val b ! splitdim b -> right a <> b 
                 { left = left a <> left b <> train1dp (val a) 
-                } <> right a 
-            | val a ! splitdim a >  val b ! splitdim b -> b 
+                } 
+            | val a ! splitdim a >  val b ! splitdim b -> left a <> b 
                 { right = right a <> right b <> train1dp (val a)
-                } <> left a
+                } 
             | val a ! splitdim a == val b ! splitdim b -> b 
                 { left = left a <> left b <> train1dp (val a)
                 , right = right a <> right b 
