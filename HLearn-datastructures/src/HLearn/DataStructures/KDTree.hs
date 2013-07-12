@@ -171,7 +171,18 @@ class (F.Foldable t) => DualFoldable t where
     dfoldr f i t1 t2 = foldr f i [(x,y) | x <- (F.toList t1), y <- (F.toList t2)]
 
 -- instance T.Traversable KDTree where
-    
+
+---------------------------------------
+-- space algorithms
+
+knn_basecase :: (Ord (Ring dp), MetricSpace dp) => dp -> dp -> Maybe dp -> Maybe dp 
+knn_basecase query reference Nothing = Just reference
+knn_basecase query reference (Just curbest) = Just $ if distance query curbest > distance query reference
+    then reference
+    else curbest 
+
+nn :: (Ord (Ring dp), MetricSpace dp) => dp -> KDTree dp -> Maybe dp
+nn query t = F.foldr (knn_basecase query) Nothing t
 
 -------------------------------------------------------------------------------
 -- model
@@ -198,6 +209,12 @@ instance HasDimensions (V.Vector Double) where
     type DimensionIndex (V.Vector Double) = Int
     type DimensionBase (V.Vector Double) = Double
     (!) = (V.!)
+
+instance HasRing (V.Vector Double) where
+    type Ring (V.Vector Double) = Double
+
+instance MetricSpace (V.Vector Double) where
+    distance v1 v2 = sqrt $ V.sum $ V.zipWith (\x y -> (x-y)^^2) v1 v2
 
 ds1 = map V.fromList [[1,5],[-1,4],[0,2],[2,-1],[-2,3],[-3,1]] :: [V.Vector Double]
 ds2 = map V.fromList [[-1,5],[1,4],[1,2],[-2,-1],[-3,3],[-3,1]] :: [V.Vector Double]
