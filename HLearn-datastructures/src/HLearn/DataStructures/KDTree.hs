@@ -7,49 +7,60 @@ import qualified Data.Vector as V
 import Test.QuickCheck
 import Debug.Trace
 
+import qualified Data.Foldable as F
+import qualified Data.Traversable as T
+
 import HLearn.Algebra
 
 -------------------------------------------------------------------------------
 -- data types
 
-type DP = V.Vector Double
-type Dimension = Int
+-- type DP = V.Vector Double
+-- type family (Dimension dp)
+-- 
+-- (!) :: DP -> Dimension -> Double
+-- (!) = (V.!)
 
-data KDTree
+class (Num (DimensionIndex x), Bounded (DimensionIndex x), Ord (DimensionIndex x), Ord (DimensionBase x)) => HasDimensions x where
+    type DimensionIndex x 
+    type DimensionBase x
+    (!) :: x -> DimensionIndex x -> DimensionBase x
+
+data KDTree dp
     = Leaf 
-    | Node { val :: DP, splitdim :: Dimension, left :: KDTree, right :: KDTree }
-    deriving (Read,Show,Eq,Ord)
+    | Node { val :: dp, splitdim :: DimensionIndex dp, left :: KDTree dp, right :: KDTree dp}
+--     deriving (Read,Show,Eq,Ord)
+
+deriving instance (Show dp, Show (DimensionIndex dp)) => Show (KDTree dp)
 
 ---------------------------------------
 
-ppshow :: KDTree -> String
+ppshow :: (Show dp) => KDTree dp -> String
 ppshow = go [] 
     where
         go i Leaf = "" -- i++"*\n"
         go i t = i ++ " " ++ (show $ val t) ++ "\n" ++ go (i++"l") (left t) ++ go (i++"r") (right t)
 
-basicshow :: KDTree -> String
+basicshow :: (Show dp, Show (DimensionIndex dp)) => KDTree dp -> String
 basicshow Leaf = "Leaf"
 basicshow t = "Node { val="++show (val t)++", splitdim="++show (splitdim t)++", left="++go (left t)++", right="++go (right t)++" }"
     where
         go Leaf = "Leaf"
         go _ = "Node"
 
-(!) :: DP -> Dimension -> Double
-(!) = (V.!)
 
-nextSplitDim :: KDTree -> Dimension
-nextSplitDim t
-    | splitdim t >= (V.length . val) t -1 = {-trace "nsd-0"-} 0
-    | otherwise = {-trace "nsd-1" $-} splitdim t + 1
+nextSplitDim :: (HasDimensions dp) => KDTree dp -> DimensionIndex dp
+nextSplitDim t 
+    | splitdim t == maxBound = minBound
+    | otherwise = splitdim t+1
 
-insert :: KDTree -> DP -> KDTree
+insert :: (HasDimensions dp) => KDTree dp -> dp -> KDTree dp
 insert Leaf dp = Node dp 0 Leaf Leaf
 insert t dp
     | dp ! splitdim t > val t ! splitdim t = t { right = insert (right t) dp }
     | dp ! splitdim t < val t ! splitdim t = t { left = insert (left t) dp }
 
-isValid :: KDTree -> Bool
+isValid :: (HasDimensions dp) => KDTree dp -> Bool
 isValid Leaf = True
 isValid t    = thisvalid && isValid (left t) && isValid (right t)
     where
@@ -59,23 +70,23 @@ isValid t    = thisvalid && isValid (left t) && isValid (right t)
         go Leaf f = True
         go t f = f (val t) && go (left t) f && go (right t) f
 
-size :: KDTree -> Int
+size :: KDTree dp -> Int
 size Leaf = 0
 size t = 1 + (size $ left t) + (size $ right t)
 
-depth :: KDTree -> Int
+depth :: KDTree dp -> Int
 depth Leaf = 0
 depth t = 1+max (depth $ left t) (depth $ right t)
 
-nodesAtDepth :: Int -> KDTree -> Int
+nodesAtDepth :: Int -> KDTree dp -> Int
 nodesAtDepth _ Leaf = 0
 nodesAtDepth 0 _ = 1
 nodesAtDepth i t = nodesAtDepth (i-1) (left t) + nodesAtDepth (i-1) (right t)
 
-balanceScore :: KDTree -> Double
+balanceScore :: KDTree dp -> Double
 balanceScore t = (fromIntegral $ depthSum t) / (fromIntegral $ balanceDepthSum $ size t)
 
-depthSum :: KDTree -> Int
+depthSum :: KDTree dp -> Int
 depthSum t = go 0 t 
     where
         go i Leaf = 0
@@ -104,7 +115,7 @@ debug _ _ _ action = action
 --     )
 --     action
 
-instance Monoid KDTree where
+instance (HasDimensions dp) => Monoid (KDTree dp) where
     mempty = Leaf
     mappend Leaf Leaf = Leaf
     mappend Leaf a = a
@@ -116,9 +127,6 @@ instance Monoid KDTree where
             Node (val a) (splitdim a) Leaf (Node (val b) (nextSplitDim a) Leaf Leaf)
     mappend a b@(Node _ _ Leaf Leaf) = insert a $ val b
     mappend a@(Node _ _ Leaf Leaf) b = insert b $ val a
---     mappend a b@(Node _ _ Leaf Leaf)
---         | val a ! splitdim a <= val b ! splitdim a = debug "a'1" a b $ a { left  = left  a <> b }
---         | val a ! splitdim a >  val b ! splitdim a = debug "a'2" a b $ a { right = right a <> b }
     mappend a b = if  splitdim a == splitdim b 
         then if
             | val a ! splitdim a <  val b ! splitdim a -> debug "b1" a b $ right a <> b 
@@ -137,13 +145,27 @@ instance Monoid KDTree where
         
 ---------------------------------------
 
--- instance Foldable KDTree
+-- instance Functor KDTree where
+--     fmap f Leaf = Leaf
+--     fmap f t = Node 
+--         { val = f $ val t
+--         , splitdim = fromInteger $ toInteger $ splitdim t
+--         , left = fmap f $ left t
+--         , right = fmap f $ right t
+--         }
+
+instance F.Foldable KDTree where
+    foldr f i Leaf = i
+    foldr f i t = F.foldr f (F.foldr f (f (val t) i) (right t)) (left t)
+
+-- instance T.Traversable KDTree where
+    
 
 -------------------------------------------------------------------------------
 -- model
 
-instance HomTrainer KDTree where
-    type Datapoint KDTree = DP
+instance (HasDimensions dp) => HomTrainer (KDTree dp) where
+    type Datapoint (KDTree dp) = dp
     train1dp dp = Node dp 0 Leaf Leaf
 
 -------------------------------------------------------------------------------
@@ -155,15 +177,20 @@ instance Arbitrary (V.Vector Double) where
         b <- choose (-100,100)
         return $ V.fromList $ [a,b]
 
-instance Arbitrary KDTree where
+instance (HasDimensions dp, Arbitrary dp) => Arbitrary (KDTree dp) where
     arbitrary = do
         xs <- arbitrary
-        return $ train (xs :: [Datapoint KDTree])
+        return $ train (xs :: [Datapoint (KDTree dp)])
 
-ds1 = map V.fromList [[1,5],[-1,4],[0,2],[2,-1],[-2,3],[-3,1]]
-ds2 = map V.fromList [[-1,5],[1,4],[1,2],[-2,-1],[-3,3],[-3,1]]
-m1 = train ds1 :: KDTree
-m2 = train ds2 :: KDTree
+instance HasDimensions (V.Vector Double) where
+    type DimensionIndex (V.Vector Double) = Int
+    type DimensionBase (V.Vector Double) = Double
+    (!) = (V.!)
+
+ds1 = map V.fromList [[1,5],[-1,4],[0,2],[2,-1],[-2,3],[-3,1]] :: [V.Vector Double]
+ds2 = map V.fromList [[-1,5],[1,4],[1,2],[-2,-1],[-3,3],[-3,1]] :: [V.Vector Double]
+m1 = train ds1 :: KDTree (V.Vector Double) 
+m2 = train ds2 :: KDTree (V.Vector Double)
 m' = foldl insert Leaf ds1
 
 xs 1 = map V.fromList [[93,79],[15,35],[55,6]]
@@ -172,9 +199,9 @@ xs 3 = map V.fromList [[15,35],[93,79],[55,6]]
 xs 4 = map V.fromList [[15,35],[55,6],[93,79]]
 xs 5 = map V.fromList [[55,6],[93,79],[15,35]]
 xs 6 = map V.fromList [[55,6],[15,35],[93,79]]
-m i = train (xs i) :: KDTree
+m i = train (xs i) :: KDTree (V.Vector Double)
 
-[q1,q2,q3]=map train1dp $ xs 6 :: [KDTree]
+[q1,q2,q3]=map train1dp $ xs 6 :: [KDTree (V.Vector Double)]
 
 
 randmodel = fmap (train) $ replicateM 100000 (do
@@ -182,4 +209,4 @@ randmodel = fmap (train) $ replicateM 100000 (do
     y <- randomIO
     return $ V.fromList [x::Double,y::Double]
     )
-    :: IO (KDTree)
+    :: IO (KDTree (V.Vector Double))
