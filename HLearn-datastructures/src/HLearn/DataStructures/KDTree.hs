@@ -158,6 +158,18 @@ instance F.Foldable KDTree where
     foldr f i Leaf = i
     foldr f i t = F.foldr f (F.foldr f (f (val t) i) (right t)) (left t)
 
+class Prunable t where
+    pfoldr :: (t a -> Bool) -> (a -> b -> b) -> b -> t a -> b
+
+instance Prunable KDTree where
+    pfoldr p f i t = if p t 
+        then i
+        else pfoldr p f (pfoldr p f (f (val t) i) (right t)) (left t) 
+
+class (F.Foldable t) => DualFoldable t where
+    dfoldr :: ((a,a) -> b -> b) -> b -> t a -> t a -> b
+    dfoldr f i t1 t2 = foldr f i [(x,y) | x <- (F.toList t1), y <- (F.toList t2)]
+
 -- instance T.Traversable KDTree where
     
 
