@@ -32,6 +32,7 @@ data KDTree dp
 --     deriving (Read,Show,Eq,Ord)
 
 deriving instance (Show dp, Show (DimensionIndex dp)) => Show (KDTree dp)
+deriving instance (Read dp, Read (DimensionIndex dp)) => Read (KDTree dp)
 
 ---------------------------------------
 
@@ -57,8 +58,8 @@ nextSplitDim t
 insert :: (HasDimensions dp) => KDTree dp -> dp -> KDTree dp
 insert Leaf dp = Node dp 0 Leaf Leaf
 insert t dp
-    | dp ! splitdim t > val t ! splitdim t = t { right = insert (right t) dp }
-    | dp ! splitdim t < val t ! splitdim t = t { left = insert (left t) dp }
+    | dp ! splitdim t >  val t ! splitdim t = t { right = insert (right t) dp }
+    | dp ! splitdim t <= val t ! splitdim t = t { left = insert (left t) dp }
 
 isValid :: (HasDimensions dp) => KDTree dp -> Bool
 isValid Leaf = True
@@ -158,13 +159,26 @@ instance F.Foldable KDTree where
     foldr f i Leaf = i
     foldr f i t = F.foldr f (F.foldr f (f (val t) i) (right t)) (left t)
 
-class Prunable t where
-    pfoldr :: (t a -> Bool) -> (a -> b -> b) -> b -> t a -> b
+class Prunable t selector | t -> selector, selector -> t where
+    pfoldr :: (b -> t a ->             Bool) -> (a -> b -> b) -> b -> t a -> b
+    qfoldr :: (b -> t a -> selector -> Bool) -> (a -> b -> b) -> b -> t a -> b
 
-instance Prunable KDTree where
-    pfoldr p f i t = if p t 
-        then i
-        else pfoldr p f (pfoldr p f (f (val t) i) (right t)) (left t) 
+data Selector_KDTree = TH_Right | TH_Left
+
+instance Prunable KDTree Selector_KDTree where
+    pfoldr p f i Leaf = i
+    pfoldr p f i t = if p i t 
+        then pfoldr p f (pfoldr p f (f (val t) i) (right t)) (left t) 
+        else i
+
+    qfoldr p f i Leaf = i
+    qfoldr p f i t = if p i t TH_Left
+        then qfoldr p f dorightfold (left t)
+        else dorightfold
+        where
+            dorightfold = if p i t TH_Right
+                then qfoldr p f (f (val t) i) (right t)
+                else i
 
 class (F.Foldable t) => DualFoldable t where
     dfoldr :: ((a,a) -> b -> b) -> b -> t a -> t a -> b
@@ -175,14 +189,69 @@ class (F.Foldable t) => DualFoldable t where
 ---------------------------------------
 -- space algorithms
 
-knn_basecase :: (Ord (Ring dp), MetricSpace dp) => dp -> dp -> Maybe dp -> Maybe dp 
-knn_basecase query reference Nothing = Just reference
-knn_basecase query reference (Just curbest) = Just $ if distance query curbest > distance query reference
+nn_basecase :: (Ord (Ring dp), MetricSpace dp) => dp -> dp -> Maybe dp -> Maybe dp 
+nn_basecase query reference Nothing = Just reference
+nn_basecase query reference (Just curbest) = Just $ if distance query curbest > distance query reference
     then reference
     else curbest 
 
+nn_score :: Maybe dp -> KDTree dp -> Bool
+nn_score Nothing t = True
+nn_score (Just query) t = True
+
+mindist :: 
+    ( HasDimensions dp
+    , DimensionBase dp ~ Ring dp
+    , MetricSpace dp
+    , Ord (Ring dp)
+    , Show dp, Show (Ring dp), Show (DimensionIndex dp)
+    ) => dp -> KDTree dp -> (Ring dp, dp)
+mindist query Leaf = error "KDTree.mindist on Leaf"
+mindist query t = qfoldr prune cata start t
+    where
+        prune (dist,dp) t TH_Left  = (query ! splitdim t) - (val t ! splitdim t) < dist 
+        prune (dist,dp) t TH_Right = (val t ! splitdim t) - (query ! splitdim t) < dist
+
+        cata a (dist,dp) = if dist > distance query a
+            then (distance query a, a)
+            else (dist,dp)
+
+        start = (distance query (val t), val t) 
+
+mindist_noprune :: 
+    ( MetricSpace dp
+    , Ord (Ring dp)
+    ) => dp -> KDTree dp -> (Ring dp, dp)
+mindist_noprune query t = F.foldr cata start t
+    where
+        cata a (dist,dp) = if dist > distance query a
+            then (distance query a, a)
+            else (dist,dp)
+
+        start = (distance query (val t), val t) 
+
+-- mindistworks dp = mindist dp m2 == mindist_noprune dp m2
+mindistworks (dp,t :: KDTree (V.Vector Double)) = 
+    depth t > 0 ==> mindist dp t == mindist_noprune dp t
+
+-- mindist :: (MetricSpace dp, Ord (Ring dp)) => dp -> KDTree dp -> Ring dp
+-- mindist query Leaf = error "KDTree.mindist on Leaf"
+-- mindist query t = minimum $ (getdist $ left t) ++ (getdist $ right t) ++  [distance query (val t)] 
+--     where
+--         getdist Leaf = []
+--         getdist t = [mindist query t]
+--         leftdist = if left t == Leaf
+--             then []
+--             else [mindist query (left t)]
+--         rightdist = if right t == Leaf
+--             then []
+--             else [mindist query (right t)]
+
 nn :: (Ord (Ring dp), MetricSpace dp) => dp -> KDTree dp -> Maybe dp
-nn query t = F.foldr (knn_basecase query) Nothing t
+nn query t = pfoldr nn_score (nn_basecase query) Nothing t
+
+nn_noprune :: (Ord (Ring dp), MetricSpace dp) => dp -> KDTree dp -> Maybe dp
+nn_noprune query t = F.foldr (nn_basecase query) Nothing t
 
 -------------------------------------------------------------------------------
 -- model
