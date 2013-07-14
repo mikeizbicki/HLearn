@@ -15,13 +15,13 @@ import HLearn.Algebra
 -------------------------------------------------------------------------------
 -- data types
 
--- type DP = V.Vector Double
--- type family (Dimension dp)
--- 
--- (!) :: DP -> Dimension -> Double
--- (!) = (V.!)
-
-class (Num (DimensionIndex x), Bounded (DimensionIndex x), Ord (DimensionIndex x), Ord (DimensionBase x)) => HasDimensions x where
+class 
+    ( Num (DimensionIndex x)
+    , Bounded (DimensionIndex x)
+    , Ord (DimensionIndex x)
+    , Ord (DimensionBase x)
+    ) => HasDimensions x 
+        where
     type DimensionIndex x 
     type DimensionBase x
     (!) :: x -> DimensionIndex x -> DimensionBase x
@@ -29,7 +29,6 @@ class (Num (DimensionIndex x), Bounded (DimensionIndex x), Ord (DimensionIndex x
 data KDTree dp
     = Leaf 
     | Node { val :: dp, splitdim :: DimensionIndex dp, left :: KDTree dp, right :: KDTree dp}
---     deriving (Read,Show,Eq,Ord)
 
 deriving instance (Show dp, Show (DimensionIndex dp)) => Show (KDTree dp)
 deriving instance (Read dp, Read (DimensionIndex dp)) => Read (KDTree dp)
@@ -146,20 +145,11 @@ instance (HasDimensions dp) => Monoid (KDTree dp) where
         
 ---------------------------------------
 
--- instance Functor KDTree where
---     fmap f Leaf = Leaf
---     fmap f t = Node 
---         { val = f $ val t
---         , splitdim = fromInteger $ toInteger $ splitdim t
---         , left = fmap f $ left t
---         , right = fmap f $ right t
---         }
-
 instance F.Foldable KDTree where
     foldr f i Leaf = i
     foldr f i t = F.foldr f (F.foldr f (f (val t) i) (right t)) (left t)
 
-class Prunable t selector | t -> selector, selector -> t where
+class Prunable t selector | t -> selector where
     pfoldr :: (b -> t a ->             Bool) -> (a -> b -> b) -> b -> t a -> b
     qfoldr :: (b -> t a -> selector -> Bool) -> (a -> b -> b) -> b -> t a -> b
 
@@ -183,8 +173,6 @@ instance Prunable KDTree Selector_KDTree where
 class (F.Foldable t) => DualFoldable t where
     dfoldr :: ((a,a) -> b -> b) -> b -> t a -> t a -> b
     dfoldr f i t1 t2 = foldr f i [(x,y) | x <- (F.toList t1), y <- (F.toList t2)]
-
--- instance T.Traversable KDTree where
 
 ---------------------------------------
 -- space algorithms
@@ -231,7 +219,7 @@ mindist_noprune query t = F.foldr cata start t
         start = (distance query (val t), val t) 
 
 -- mindistworks dp = mindist dp m2 == mindist_noprune dp m2
-mindistworks (dp,t :: KDTree (V.Vector Double)) = 
+mindistworks (dp,t :: KDTree (Double,Double)) = 
     depth t > 0 ==> mindist dp t == mindist_noprune dp t
 
 -- mindist :: (MetricSpace dp, Ord (Ring dp)) => dp -> KDTree dp -> Ring dp
@@ -263,48 +251,62 @@ instance (HasDimensions dp) => HomTrainer (KDTree dp) where
 -------------------------------------------------------------------------------
 -- testing
 
-instance Arbitrary (V.Vector Double) where
+instance Arbitrary (Double,Double) where
     arbitrary = do
         a <- choose (-100,100)
         b <- choose (-100,100)
-        return $ V.fromList $ [a,b]
+        return (a,b) 
 
 instance (HasDimensions dp, Arbitrary dp) => Arbitrary (KDTree dp) where
     arbitrary = do
         xs <- arbitrary
         return $ train (xs :: [Datapoint (KDTree dp)])
 
-instance HasDimensions (V.Vector Double) where
-    type DimensionIndex (V.Vector Double) = Int
-    type DimensionBase (V.Vector Double) = Double
-    (!) = (V.!)
+class DependentIndex datatype index result | datatype index -> result where
+    (#) :: datatype -> index -> result
 
-instance HasRing (V.Vector Double) where
-    type Ring (V.Vector Double) = Double
+data TI_1 = TI_1
+data TI_2 = TI_2
+data TI_3 = TI_3
 
-instance MetricSpace (V.Vector Double) where
-    distance v1 v2 = sqrt $ V.sum $ V.zipWith (\x y -> (x-y)^^2) v1 v2
+class Index datatype index result | datatype -> index result where
+    (##) :: datatype -> index -> result
 
-ds1 = map V.fromList [[1,5],[-1,4],[0,2],[2,-1],[-2,3],[-3,1]] :: [V.Vector Double]
-ds2 = map V.fromList [[-1,5],[1,4],[1,2],[-2,-1],[-3,3],[-3,1]] :: [V.Vector Double]
-m1 = train ds1 :: KDTree (V.Vector Double) 
-m2 = train ds2 :: KDTree (V.Vector Double)
-m' = foldl insert Leaf ds1
+-- instance Index (a,a) Index_Tuple2 a where
+--     (##) (a0,a1) 0 = a0
+--     (##) (a0,a1) 1 = a1
 
-xs 1 = map V.fromList [[93,79],[15,35],[55,6]]
-xs 2 = map V.fromList [[93,79],[55,6],[15,35]]
-xs 3 = map V.fromList [[15,35],[93,79],[55,6]]
-xs 4 = map V.fromList [[15,35],[55,6],[93,79]]
-xs 5 = map V.fromList [[55,6],[93,79],[15,35]]
-xs 6 = map V.fromList [[55,6],[15,35],[93,79]]
-m i = train (xs i) :: KDTree (V.Vector Double)
+data Index_Tuple2 = Index_Tuple2_1 | Index_Tuple2_2
 
-[q1,q2,q3]=map train1dp $ xs 6 :: [KDTree (V.Vector Double)]
+instance DependentIndex (a,b) TI_1 a where (a,b) # TI_1 = a
+instance DependentIndex (a,b) TI_2 b where (a,b) # TI_2 = b
 
+class CompareTypeLens base index where
+    compareTL :: base -> base -> index -> Bool 
 
-randmodel = fmap (train) $ replicateM 100000 (do
+instance (Ord a, Ord b) => CompareTypeLens (a,b) Index_Tuple2 where
+    compareTL b1 b2 Index_Tuple2_1 = b1 # TI_1 < b2 # TI_1
+    compareTL b1 b2 Index_Tuple2_2 = b1 # TI_2 < b2 # TI_2
+
+instance (Ord a) => HasDimensions (a,a) where
+    type DimensionIndex (a,a) = Int
+    type DimensionBase (a,a) = a
+
+    (!) (a0,a1) 0 = a0
+    (!) (a0,a1) 1 = a1
+
+instance (Num a) => HasRing (a,a) where
+    type Ring (a,a) = a
+
+instance (Floating a) => MetricSpace (a,a) where
+    distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)^2 + (y1-y2)^2
+
+instance DependentIndex (a,b,c) TI_1 a where (a,b,c) # TI_1 = a
+instance DependentIndex (a,b,c) TI_2 b where (a,b,c) # TI_2 = b
+instance DependentIndex (a,b,c) TI_3 c where (a,b,c) # TI_3 = c
+
+randmodel len = fmap (train) $ replicateM len $ do
     x <- randomIO
     y <- randomIO
-    return $ V.fromList [x::Double,y::Double]
-    )
-    :: IO (KDTree (V.Vector Double))
+    return (x,y) 
+    :: IO (KDTree (Double,Double))
