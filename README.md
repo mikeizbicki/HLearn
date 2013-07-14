@@ -69,6 +69,8 @@ Hackage links:
 * [HLearn-algebra](http://hackage.haskell.org/package/HLearn-algebra)
 * [HLearn-distributions](http://hackage.haskell.org/package/HLearn-distributions)
 * [HLearn-classification](http://hackage.haskell.org/package/HLearn-classification)
+* [HLearn-datastructures](http://hackage.haskell.org/package/HLearn-datastructures)
+* [HLearn-approximation](http://hackage.haskell.org/package/HLearn-approximation)
 
 ## Future directions
 
