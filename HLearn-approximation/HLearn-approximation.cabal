@@ -37,9 +37,9 @@ Library
         BangPatterns
         TypeOperators
         GeneralizedNewtypeDeriving
-        DataKinds
+--        DataKinds
         TypeFamilies
-        PolyKinds
+--        PolyKinds
         StandaloneDeriving
         GADTs
         KindSignatures

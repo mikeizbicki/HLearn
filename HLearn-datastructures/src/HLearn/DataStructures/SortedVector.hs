@@ -1,3 +1,5 @@
+-- | A `SortedVector` is a vector that maintains the invariant that all elements are sorted.  Whenever an element is added/removed, the vector is automatically adjusted.  Because element positions can be changed in this way, it does not make sense to index the vector by specific locations.
+
 module HLearn.DataStructures.SortedVector
     ( SortedVector
     )

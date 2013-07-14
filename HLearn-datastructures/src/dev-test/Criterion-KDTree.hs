@@ -15,6 +15,6 @@ main = do
     m <- randmodel
     print $  "depth randmodel="++show (depth m)
     defaultMainWith myConfig (return ())
-        [ bench "mindist" $ nf (mindist $ V.fromList [0,0]) m 
-        , bench "mindist_noprune" $ nf (mindist_noprune $ V.fromList [0,0]) m 
+        [ bench "mindist" $ nf (mindist $ V.fromList [-1e0,-1e0]) m 
+        , bench "mindist_noprune" $ nf (mindist_noprune $ V.fromList [-1e0,-1e0]) m 
         ]

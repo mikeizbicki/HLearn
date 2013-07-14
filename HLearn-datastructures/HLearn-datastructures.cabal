@@ -1,6 +1,6 @@
 Name:                HLearn-datastructures
 Version:             1.0.0
-Description:         This module contains commonly used data structures
+Description:         This package contains commonly used data structures
 Category:            Data Mining, Machine Learning, Data Structures
 License:             BSD3
 --License-file:        LICENSE
@@ -27,7 +27,7 @@ Library
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:
         HLearn.DataStructures.SortedVector
-        HLearn.DataStructures.KDTree
+        --HLearn.DataStructures.KDTree
     Extensions:
         FlexibleInstances
         FlexibleContexts
@@ -38,11 +38,11 @@ Library
         BangPatterns
         TypeOperators
         GeneralizedNewtypeDeriving
-        DataKinds
+--        DataKinds
         TypeFamilies
-        PolyKinds
+--        PolyKinds
         StandaloneDeriving
         GADTs
         KindSignatures
         ConstraintKinds
-        MultiWayIf
+--        MultiWayIf

@@ -1,5 +1,18 @@
+{-# LANGUAGE DataKinds #-}
+
+-- | See the wikipedia article for details about the Multiprocessor Scheduling problem <https://en.wikipedia.org/wiki/Multiprocessor_scheduling>
+
 module HLearn.NPHard.Scheduling
-    where
+    (
+    
+    Scheduling (..)
+
+    -- * Operations
+    , getSchedules
+    , maxpartition
+    , minpartition
+    , spread
+    ) where
           
 import qualified Control.ConstraintKinds as CK
 import qualified Data.Foldable as F
@@ -48,24 +61,41 @@ emptyheap p = Heap.fromAscList [(0,i) | i<-[1..p]]
 
 ---------------------------------------
 
+-- | Returns a list of all schedules.  The schedules are represented by a list of the elements within them.
 getSchedules :: Scheduling n a -> [[a]]
 getSchedules = Map.elems . schedule
 
+-- | Returns the size of the largest bin
 maxpartition :: (Ord (Ring a), Norm a) => Scheduling n a -> Ring a
 maxpartition p = maximum $ map (sum . map magnitude) $ Map.elems $ schedule p
 
+-- | Returns the size of the smallest bin
 minpartition :: (Ord (Ring a), Norm a) => Scheduling n a -> Ring a
 minpartition p = minimum $ map (sum . map magnitude) $ Map.elems $ schedule p
 
+-- | A schedule's spread is a measure of it's \"goodness.\"  The smaller the spread, the better the schedule.  It is equal to `maxpartition` - `minpartition`
 spread :: (Ord (Ring a), Norm a) => Scheduling n a -> Ring a
 spread p = (maxpartition p)-(minpartition p)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
+instance (Ord a, Ord (Ring a), Norm a, SingI n) => Abelian (Scheduling n a) 
 instance (Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (Scheduling n a) where
     mempty = lptf mempty
     p1 `mappend` p2 = lptf $ (vector p1) <> (vector p2)
+
+instance (Ord a, Ord (Ring a), Norm a, SingI n, Group (SortedVector a)) => Group (Scheduling n a) where
+    inverse p = Scheduling
+        { vector = inverse $ vector p
+        , schedule = error "Scheduling.inverse: schedule does not exist for inverses"
+        }
+
+instance (HasRing (SortedVector a)) => HasRing (Scheduling n a) where
+    type Ring (Scheduling n a) = Ring (SortedVector a)
+
+instance (Ord a, Ord (Ring a), Norm a, SingI n, Module (SortedVector a)) => Module (Scheduling n a) where
+    r .* p = p { vector = r .* vector p }
 
 ---------------------------------------
 
