@@ -8,6 +8,13 @@ data Funky = Funky
     , c :: (String,Double)
     }
 
-makeIndexData ''Funky
-makeDependentIndexData ''Funky
-makeDependentIndexClass ''Funky
+data Same = Same
+    { s1 :: String
+    , s2 :: String
+    }
+
+-- makeIndexData ''Funky
+-- makeDependentIndexData ''Funky
+-- makeDependentIndexClass ''Funky
+makeIndex ''Funky
+makeIndex ''Same
