@@ -16,7 +16,7 @@ Library
     Build-Depends:      
         base                >= 3 && < 5,
         ConstraintKinds     >= 0.0.1,
-        vector-heterogenous >= 0.1.2,
+        vector-heterogenous >= 0.1.1,
         
         random              >= 1.0.1,
         parallel            >= 3.2,
