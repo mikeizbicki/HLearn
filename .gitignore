@@ -1,6 +1,9 @@
 *
+cabal-dev
+dist
 !*.hs
 !*.lhs
 !*.md
 !*.cabal
 !*/
+
