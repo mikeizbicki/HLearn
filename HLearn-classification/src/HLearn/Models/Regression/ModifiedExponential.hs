@@ -1,3 +1,4 @@
+-- | Exponential regression weights all data points equally, whereas this modified version places more emphasis on the larger values.  In some cases, this can result in a better fit.  See <http://mathworld.wolfram.com/LeastSquaresFittingExponential.html> for more details.
 module HLearn.Models.Regression.ModifiedExponential
     where
 
