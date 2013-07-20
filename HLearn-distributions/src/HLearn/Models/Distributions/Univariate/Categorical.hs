@@ -63,14 +63,14 @@ instance (Ord label, Num prob) => Module (Categorical prob label) where
 ---------------------------------------
 
 instance CK.Functor (Categorical prob) where
-    type FunctorConstraint (Categorical prob) label = Ord label
-    fmap f cat = Categorical $ Map.mapKeys f $ pdfmap cat
+    type FunctorConstraint (Categorical prob) label = (Ord label, Num prob)
+    fmap f cat = Categorical $ Map.mapKeysWith (+) f $ pdfmap cat
 
-instance (Num prob) => CK.Pointed (Categorical prob) where
-    point dp = Categorical $ Map.singleton dp 1
+-- instance (Num prob) => CK.Pointed (Categorical prob) where
+--     point dp = Categorical $ Map.singleton dp 1
     
 instance (Num prob, Ord prob) => CK.Monad (Categorical prob) where
-    type MonadConstraint (Categorical prob) label = Ord label
+    return dp = Categorical $ Map.singleton dp 1
     x >>= f = join $ CK.fmap f x
 
 join :: (Num prob, Ord label) => Categorical prob (Categorical prob label) -> Categorical prob label

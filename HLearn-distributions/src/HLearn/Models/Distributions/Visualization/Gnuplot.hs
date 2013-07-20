@@ -133,12 +133,15 @@ gnuplotHeader params
 --     ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
     ++ "zero(x)=0\n"
     ++ "set border 2; set style fill solid 1\n"
+    ++ "set xlabel tc rgb \"#555555\"\n"
+    ++ "set ylabel \"Probability\" tc rgb \"#555555\"\n"
+    ++ "set tics textcolor rgb \"#444444\"\n"
     where 
         terminal = case picType params of
             EPS -> "set terminal postscript \"Times-Roman\" 25 \n"
                 ++ "set size 0.81, 1\n"
 --             PNG _ _ -> "png"
-            PNG w h -> "set terminal pngcairo size "++show w++","++show h++" enhanced font 'Times-Roman,10' \n"
+            PNG w h -> "set terminal pngcairo size "++show w++","++show h++" enhanced font 'Times-Roman,8' \n"
         
 -- class PlotHList t where
 --     plotargs :: t -> [(String,String)] -> [String]
@@ -159,7 +162,7 @@ gnuplot params dist
                 ++ "set xzeroaxis lt 1 lc rgb '#000000'\n"
 --                 ++ "set ylabel \"Probability\"\n"
                 ++ "set style data histogram; set style histogram cluster gap 1\n"
-                ++ "plot '"++(dataFile params)++"' using 2:xticlabels(1) lw 4 linecolor rgb '#0000ff' fs solid 1\n"
+                ++ "plot '"++(dataFile params)++"' using 2:xticlabels(1) linecolor rgb '#0000ff' #fs solid 1\n"
             Continuous -> "plot '"++(dataFile params)++"' using 1:2:(zero($2)) lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
 --             Continuous -> "plot '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#ccccff' with filledcurves, "
                         ++ "     '"++(dataFile params)++"' using 1:2 lt 1 lw 4 lc rgb '#0000ff' with lines"

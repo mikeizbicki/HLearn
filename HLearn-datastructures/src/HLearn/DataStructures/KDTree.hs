@@ -14,6 +14,7 @@ import qualified Data.Foldable as F
 import qualified Data.Traversable as T
 
 import Data.DependentIndexing
+import Data.Prunable
 import HLearn.Algebra hiding (Index)
 
 -------------------------------------------------------------------------------
@@ -23,19 +24,16 @@ data KDTree dp
     = Leaf 
     | Node { val :: dp, splitdim :: IndexType dp, left :: KDTree dp, right :: KDTree dp}
 
-data TreeIndex = TreeLeft | TreeRight
-    deriving (Read,Show,Eq,Ord,Bounded,Enum)
+deriving instance (Show dp, Show (IndexType dp)) => Show (KDTree dp)
+deriving instance (Read dp, Read (IndexType dp)) => Read (KDTree dp)
+deriving instance (Eq dp, Eq (IndexType dp)) => Eq (KDTree dp)
+deriving instance (Ord dp, Ord (IndexType dp)) => Ord (KDTree dp)
 
 instance (Ord (IndexType dp), Ord dp) => Index (KDTree dp) where
     type IndexType (KDTree dp) = TreeIndex
     type IndexResult (KDTree dp) = KDTree dp
     (!) t TreeLeft  = left t
     (!) t TreeRight = right t
-
-deriving instance (Show dp, Show (IndexType dp)) => Show (KDTree dp)
-deriving instance (Read dp, Read (IndexType dp)) => Read (KDTree dp)
-deriving instance (Eq dp, Eq (IndexType dp)) => Eq (KDTree dp)
-deriving instance (Ord dp, Ord (IndexType dp)) => Ord (KDTree dp)
 
 ---------------------------------------
 
@@ -145,39 +143,21 @@ instance (Index dp) => Monoid (KDTree dp) where
                 }
         else debug "c1" a b $ ((train1dp $ val a) {splitdim = splitdim a} ) <> (right a <> (left a <> b))
        
-       
-        
 ---------------------------------------
 
 instance F.Foldable KDTree where
     foldr f i Leaf = i
     foldr f i t = F.foldr f (F.foldr f (f (val t) i) (right t)) (left t)
 
-class Prunable t where
-    pfoldr :: (b -> t a ->                    Bool) -> (a -> b -> b) -> b -> t a -> b
-    qfoldr :: (b -> t a -> IndexType (t a) -> Bool) -> (a -> b -> b) -> b -> t a -> b
-
 instance Prunable KDTree where
-    pfoldr p f i Leaf = i
-    pfoldr p f i t = if p i t 
-        then pfoldr p f (pfoldr p f (f (val t) i) (right t)) (left t) 
-        else i
-
-    qfoldr p f i Leaf = i
-    qfoldr p f i t = if p i t TreeLeft
-        then qfoldr p f dorightfold (left t)
+    prunefoldr p f i Leaf = i
+    prunefoldr p f i t = if p i t TreeLeft
+        then prunefoldr p f dorightfold (left t)
         else trace ("TreeLeft False" ++ show (size $ left t)) $ dorightfold
         where
             dorightfold = if p i t TreeRight
-                then qfoldr p f (f (val t) i) (right t)
-                else trace ("TreeRight False "++show (size $ right t)
-    --                 ++ "\n  i:"++show i
-    --                 ++ "\n  t:"++basicshow t
-                    ) $ i
-
-class (F.Foldable t) => DualFoldable t where
-    dfoldr :: ((a,a) -> b -> b) -> b -> t a -> t a -> b
-    dfoldr f i t1 t2 = foldr f i [(x,y) | x <- (F.toList t1), y <- (F.toList t2)]
+                then prunefoldr p f (f (val t) i) (right t)
+                else trace ("TreeRight False "++show (size $ right t)) $ i
 
 ---------------------------------------
 -- space algorithms
@@ -217,7 +197,7 @@ mindist ::
     , Show dp, Show (Ring dp), Show (IndexType dp)
     ) => dp -> KDTree dp -> (Ring dp, dp)
 mindist query Leaf = error "KDTree.mindist on Leaf"
-mindist query t = qfoldr (mindist_prune query) (mindist_cata query) start t
+mindist query t = prunefoldr (mindist_prune query) (mindist_cata query) start t
     where
         start = (distance query (val t), val t) 
 
@@ -249,9 +229,6 @@ mindistworks (dp,t :: KDTree (Double,Double)) =
 --         rightdist = if right t == Leaf
 --             then []
 --             else [mindist query (right t)]
-
-nn :: (Ord (Ring dp), MetricSpace dp) => dp -> KDTree dp -> Maybe dp
-nn query t = pfoldr nn_score (nn_basecase query) Nothing t
 
 nn_noprune :: (Ord (Ring dp), MetricSpace dp) => dp -> KDTree dp -> Maybe dp
 nn_noprune query t = F.foldr (nn_basecase query) Nothing t

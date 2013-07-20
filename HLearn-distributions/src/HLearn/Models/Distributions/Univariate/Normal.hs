@@ -64,17 +64,13 @@ instance (Floating prob) => PDF (Normal prob prob) where
             sigma2 = variance dist
             mu = mean dist
 
-<<<<<<< HEAD
-instance (Fractional prob) => Mean (Normal prob prob) where
-=======
-instance (Floating prob, Erf prob) => CDF (Normal prob) where
+instance (Floating prob, Erf prob) => CDF (Normal prob prob) where
     cdf dist dp = ( 0.5 * ( 1 + erf ( (dp - mu) / (sqrt $ sigma2 *2) )))
         where
             sigma2 = variance dist
             mu = mean dist
 
-instance (Fractional prob) => Mean (Normal prob) where
->>>>>>> master
+instance (Fractional prob) => Mean (Normal prob prob) where
     mean (Normal dist) = m1 dist / m0 dist
 
 instance (Fractional prob) => Variance (Normal prob prob) where
