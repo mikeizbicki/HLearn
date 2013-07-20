@@ -14,8 +14,10 @@ import qualified Data.Vector as V
 
 import qualified Control.ConstraintKinds as CK
 
-import HLearn.Algebra
-import HLearn.Models.Distributions
+import Data.Prunable
+import Data.DependentIndexing
+import HLearn.Algebra hiding (Index)
+import HLearn.Models.Distributions hiding (Index)
 
 -------------------------------------------------------------------------------
 -- data types
@@ -58,6 +60,34 @@ instance (Ord a, Invertible a) => Group (SortedVector a) where
     inverse (SortedVector vec) = SortedVector $ V.map mkinverse vec
 
 ---------------------------------------
+
+instance ({-Ord (IndexType dp), Ord dp-}) => Index (SortedVector dp) where
+    type IndexType (SortedVector dp) = TreeIndex
+    type IndexResult (SortedVector dp) = SortedVector dp
+    (!) (SortedVector vec) TreeLeft  = SortedVector $ V.take (floor $ (fromIntegral $ V.length $ vec)/2) $ vec
+    (!) (SortedVector vec) TreeRight = SortedVector $ V.drop (floor $ (fromIntegral $ V.length $ vec)/2) $ vec
+
+instance Prunable SortedVector where
+    prunefoldr p f b v@(SortedVector vec)
+        | V.length vec == 1 = f (vec V.! 0) b
+        | otherwise = if p b (SortedVector vec) TreeLeft
+            then goright 
+            else prunefoldr p f goright (v ! TreeLeft)
+
+            where 
+                goright = if p b (SortedVector vec) TreeRight
+                    then b
+                    else prunefoldr p f b (v ! TreeRight)
+
+search_cata :: (Eq dp) => dp -> dp -> Bool -> Bool
+search_cata query dp bool = query==dp || bool
+
+search_prune :: (Ord dp) => dp -> Bool -> SortedVector dp -> TreeIndex -> Bool
+search_prune query _ v TreeLeft  = (vector v) V.! (floor $ (fromIntegral $ V.length $ vector v)/2) < query
+search_prune query _ v TreeRight = (vector v) V.! (floor $ (fromIntegral $ V.length $ vector v)/2) > query
+
+binarySearch :: (Ord dp) => dp -> SortedVector dp -> Bool
+binarySearch query sv = prunefoldr (search_prune query) (search_cata query) False sv
 
 instance F.Foldable SortedVector where
     foldr f b (SortedVector vec) = V.foldr f b vec

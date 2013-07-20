@@ -25,7 +25,7 @@ class
     ( Eq (IndexType datatype)
     , Bounded (IndexType datatype)
     , Enum (IndexType datatype)
-    , Ord (IndexResult datatype)
+--     , Ord (IndexResult datatype)
     ) => Index datatype 
         where
     type IndexType datatype
