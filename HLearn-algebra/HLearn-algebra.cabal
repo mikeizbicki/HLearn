@@ -17,8 +17,10 @@ Library
         base                >= 3 && < 5,
         ConstraintKinds     >= 0.1.0,
         vector-heterogenous >= 0.1.1,
-        
+        template-haskell,
+
         random              >= 1.0.1,
+        MonadRandom         >= 0.1,
         parallel            >= 3.2,
         deepseq             >= 1.3,
         containers          >= 0.5,
@@ -30,8 +32,12 @@ Library
     Exposed-modules:
         HLearn.Algebra
         HLearn.Algebra.Functions
-        HLearn.Algebra.HVector
+        --HLearn.Algebra.HVector
+        HLearn.Algebra.Types.Indexing
+        HLearn.Algebra.Types.HList
+        HLearn.Algebra.Types.Nat1
         HLearn.Algebra.Models.HomTrainer
+        HLearn.Algebra.Models.CoHomTrainer
         HLearn.Algebra.Models.Lame
         --HLearn.Algebra.Morphism
         HLearn.Algebra.Structures.Groups

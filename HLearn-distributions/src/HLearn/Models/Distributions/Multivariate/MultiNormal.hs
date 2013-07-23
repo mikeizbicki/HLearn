@@ -1,5 +1,6 @@
 module HLearn.Models.Distributions.Multivariate.MultiNormal
     ( MultiNormal (..)
+    , MultiNormalVec (..)
     )
     where
 
@@ -33,13 +34,13 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
 instance NFData (MultiNormalVec n prob) where
     rnf mn = seq mn ()
 
-newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
+newtype MultiNormal prob (xs::[*]) = MultiNormal (MultiNormalVec (Length xs) prob)
     deriving (Read,Show,Eq,Ord,NFData)
 
-deriving instance (Monoid  (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal xs prob)
-deriving instance (Abelian (MultiNormalVec (Length xs) prob)) => Abelian (MultiNormal xs prob)
-deriving instance (Group   (MultiNormalVec (Length xs) prob)) => Group (MultiNormal xs prob)
-deriving instance (Module  (MultiNormalVec (Length xs) prob)) => Module (MultiNormal xs prob)
+deriving instance (Monoid  (MultiNormalVec (Length xs) prob)) => Monoid (MultiNormal prob xs)
+deriving instance (Abelian (MultiNormalVec (Length xs) prob)) => Abelian (MultiNormal prob xs)
+deriving instance (Group   (MultiNormalVec (Length xs) prob)) => Group (MultiNormal prob xs)
+deriving instance (Module  (MultiNormalVec (Length xs) prob)) => Module (MultiNormal prob xs)
 
 -------------------------------------------------------------------------------
 -- algebra
@@ -78,8 +79,8 @@ instance (Num prob, VU.Unbox prob, SingI n) => Module (MultiNormalVec n prob) wh
     
 ---------------------------------------
 
-instance (Num prob) => HasRing (MultiNormal xs prob) where
-    type Ring (MultiNormal xs prob) = prob
+instance (Num prob) => HasRing (MultiNormal prob xs) where
+    type Ring (MultiNormal prob xs) = prob
     
 -------------------------------------------------------------------------------
 -- training
@@ -98,13 +99,13 @@ instance
     ( SingI (Length xs)
     , Num prob
     , VU.Unbox prob
-    , HList2List (Datapoint (MultiNormal xs prob)) prob
-    ) => HomTrainer (MultiNormal xs prob) 
+    , HList2List (Datapoint (MultiNormal prob xs)) prob
+    ) => HomTrainer (MultiNormal prob xs) 
         where
-    type Datapoint (MultiNormal xs prob) = HList xs
+    type Datapoint (MultiNormal prob xs) = HList xs
     train1dp dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
-instance (Num prob) => NumDP (MultiNormal xs prob) where
+instance (Num prob) => NumDP (MultiNormal prob xs) where
     numdp (MultiNormal mn) = q0 mn
 
 -------------------------------------------------------------------------------
@@ -144,9 +145,9 @@ instance
     , VU.Unbox prob
     , Num prob
     , SingI (FromNat1 (Length1 dpL))
-    ) => Probabilistic (MultiNormal dpL prob) 
+    ) => Probabilistic (MultiNormal prob dpL) 
         where
-    type Probability (MultiNormal dpL prob) = prob
+    type Probability (MultiNormal prob dpL) = prob
 
 instance
     ( HList2List (HList dpL) prob
@@ -157,7 +158,7 @@ instance
     , SingI (FromNat1 (Length1 dpL))
 --     , Covariance (MultiNormal dpL prob)
     , Storable prob
-    ) => PDF (MultiNormal dpL prob) 
+    ) => PDF (MultiNormal prob dpL) 
         where
     pdf (MultiNormal dist) dpL = 1/(sqrt $ (2*pi)^(k)*(det sigma))*(exp $ (-1/2)*(top) )
         where
@@ -195,5 +196,5 @@ ds =
     , 3:::1:::1:::HNil
     , 3:::2:::1:::HNil
     ]
-test = train ds :: MultiNormal '[Double,Double,Double] Double
+test = train ds :: MultiNormal Double '[Double,Double,Double] 
         

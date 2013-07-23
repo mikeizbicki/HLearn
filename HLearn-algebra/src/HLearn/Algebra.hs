@@ -2,7 +2,9 @@
 
 module HLearn.Algebra
     ( module HLearn.Algebra.Functions
-    , module HLearn.Algebra.HVector
+--     , module HLearn.Algebra.HVector
+    , module HLearn.Algebra.Types.HList
+    , module HLearn.Algebra.Types.Indexing
     , module HLearn.Algebra.Models.HomTrainer
     , module HLearn.Algebra.Models.Lame
 --     , module HLearn.Algebra.Models.Free.MonoidChain
@@ -18,7 +20,9 @@ module HLearn.Algebra
     where
           
 import HLearn.Algebra.Functions
-import HLearn.Algebra.HVector
+-- import HLearn.Algebra.HVector
+import HLearn.Algebra.Types.HList
+import HLearn.Algebra.Types.Indexing
 import HLearn.Algebra.Models.HomTrainer
 import HLearn.Algebra.Models.Lame
 -- import HLearn.Algebra.Models.Free.MonoidChain
