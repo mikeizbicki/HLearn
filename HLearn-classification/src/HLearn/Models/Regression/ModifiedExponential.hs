@@ -7,6 +7,8 @@ import Control.DeepSeq
 import HLearn.Algebra
 import HLearn.Models.Classifiers.Common
 import HLearn.Evaluation.RSquared
+import HLearn.Models.Regression.Common
+
 -- ModifiedExponential is similar from Exponential
 -- Exponential ==> ModifiedExponential
 -- n ==> y1
@@ -73,14 +75,6 @@ instance (Num ring) => Module (ModifiedExponential ring) where
 
 -------------------------------------------------------------------------------
 -- training
-
-data Coord ring = Coord {x::ring,y::ring}
-
-instance Labeled (Coord ring) where
-    type Label (Coord ring)= ring
-    type Attributes (Coord ring)= ring
-    getLabel = y
-    getAttributes = x
 
 instance (Num ring) => NumDP (ModifiedExponential ring) where
     numdp = n
