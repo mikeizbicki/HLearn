@@ -6,6 +6,7 @@ import Control.DeepSeq
 import HLearn.Algebra
 import HLearn.Models.Classifiers.Common
 import HLearn.Evaluation.RSquared
+import HLearn.Models.Regression.Common
 
 -------------------------------------------------------------------------------
 -- data types
@@ -65,14 +66,6 @@ instance (Num ring) => Module (PowerLaw ring) where
 -------------------------------------------------------------------------------
 -- training
     
-data Coord ring = Coord {x::ring,y::ring}
-    
-instance Labeled (Coord ring) where
-    type Label (Coord ring)= ring
-    type Attributes (Coord ring)= ring
-    getLabel = y
-    getAttributes = x
-
 instance (Num ring) => NumDP (PowerLaw ring) where
     numdp = n
 
