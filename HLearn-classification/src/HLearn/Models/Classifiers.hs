@@ -8,6 +8,10 @@ module HLearn.Models.Classifiers
     , module HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
     , module HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
     , module HLearn.Models.Regression.PowerLaw
+    , module HLearn.Models.Regression.Common
+    , module HLearn.Models.Regression.Logarithmic
+    , module HLearn.Models.Regression.Exponential
+    , module HLearn.Models.Regression.ModifiedExponential
     , module HLearn.Evaluation.CrossValidation
     , module HLearn.Evaluation.RSquared
     )
@@ -19,6 +23,10 @@ import HLearn.Models.Classifiers.NearestNeighbor
 import HLearn.Models.Classifiers.Perceptron
 import HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
 import HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+import HLearn.Models.Regression.Common
+import HLearn.Models.Regression.Logarithmic
+import HLearn.Models.Regression.Exponential
+import HLearn.Models.Regression.ModifiedExponential
 import HLearn.Models.Regression.PowerLaw
 import HLearn.Evaluation.CrossValidation
 import HLearn.Evaluation.RSquared

@@ -53,7 +53,7 @@ Library
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Kernels
         HLearn.Models.Distributions.Visualization.Gnuplot
-        HLearn.Models.Distributions.Visualization.Graphviz
+        --HLearn.Models.Distributions.Visualization.Graphviz
         HLearn.Models.Distributions.Univariate.Binomial
         HLearn.Models.Distributions.Univariate.Categorical
         HLearn.Models.Distributions.Univariate.Exponential
@@ -71,7 +71,6 @@ Library
         HLearn.Models.Distributions.Multivariate.Internal.Container
         HLearn.Models.Distributions.Multivariate.Internal.Ignore
         HLearn.Models.Distributions.Multivariate.Internal.Marginalization
-        HLearn.Models.Distributions.Multivariate.Internal.TypeLens
         HLearn.Models.Distributions.Multivariate.Internal.Unital
 
     Extensions:

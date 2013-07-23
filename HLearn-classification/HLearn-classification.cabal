@@ -60,6 +60,7 @@ Library
         HLearn.Models.Classifiers.Centroid
         HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
         HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+        HLearn.Models.Regression.Common
         HLearn.Models.Regression.PowerLaw
         HLearn.Models.Regression.Exponential
         HLearn.Models.Regression.ModifiedExponential
