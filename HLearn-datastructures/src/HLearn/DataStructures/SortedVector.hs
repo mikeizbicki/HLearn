@@ -6,6 +6,7 @@ module HLearn.DataStructures.SortedVector
     where
     
 import Control.Applicative
+import Control.DeepSeq
 import qualified Data.Foldable as F
 import Data.List
 import Debug.Trace
@@ -15,9 +16,7 @@ import qualified Data.Vector as V
 import qualified Control.ConstraintKinds as CK
 
 import Data.Prunable
-import Data.DependentIndexing
-import HLearn.Algebra hiding (Index)
-import HLearn.Models.Distributions hiding (Index)
+import HLearn.Algebra 
 
 -------------------------------------------------------------------------------
 -- data types
@@ -37,10 +36,14 @@ elem a (SortedVector vec) = go 0 (V.length vec - 1)
             | a < (vec V.! mid) = go lower (mid-1)
             | otherwise         = True -- a==(vec V.! mid)
             where mid = floor $ (fromIntegral $ lower+upper)/2
+   
+instance (NFData a) => NFData (SortedVector a) where
+    rnf (SortedVector v) = rnf v
     
 -------------------------------------------------------------------------------
 -- Algebra
 
+instance (Ord a) => Abelian (SortedVector a)
 instance (Ord a) => Monoid (SortedVector a) where
     {-# INLINE mempty #-}
     mempty = SortedVector $ V.empty
@@ -103,7 +106,8 @@ instance CK.Applicative SortedVector where
     (<*>) = undefined
 
 instance CK.Monad SortedVector where
-    type MonadConstraint SortedVector a = Ord a
+--     type MonadConstraint SortedVector a = Ord a
+    return = SortedVector . V.singleton 
     (>>=) = flip concatMapa
 
 concatMapa :: (Ord a, Ord b) => (a -> SortedVector b) -> SortedVector a -> SortedVector b

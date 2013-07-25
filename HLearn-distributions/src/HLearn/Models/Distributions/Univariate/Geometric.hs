@@ -21,31 +21,31 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- Geometric
 
-newtype Geometric sample prob = Geometric {  moments :: (Moments3 sample) }
+newtype Geometric prob dp = Geometric {  moments :: (Moments3 dp) }
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
-instance (Num sample) => HomTrainer (Geometric sample prob) where
-    type Datapoint (Geometric sample prob) = sample
+instance (Num dp) => HomTrainer (Geometric prob dp) where
+    type Datapoint (Geometric prob dp) = dp
     train1dp dp = Geometric $ train1dp dp
 
-instance (Num sample) => Probabilistic (Geometric sample prob) where
-    type Probability (Geometric sample prob) = prob
+instance (Num dp) => Probabilistic (Geometric prob dp) where
+    type Probability (Geometric prob dp) = prob
 
-instance (Integral sample, Floating prob) => PDF (Geometric sample prob) where
+instance (Integral dp, Floating prob) => PDF (Geometric prob dp) where
     pdf dist dp = p*(1-p)^^dp
         where
             p = geo_p dist
 
 instance 
-    ( PDF (Geometric sample prob)
+    ( PDF (Geometric prob dp)
     , Show prob
-    , Show sample
-    , Ord sample
+    , Show dp
+    , Ord dp
     , Ord prob
     , Fractional prob
     , RealFrac prob
-    , Integral sample
-    ) => PlottableDistribution (Geometric sample prob) 
+    , Integral dp
+    ) => PlottableDistribution (Geometric prob dp) 
         where
 
     plotType _ = Points
@@ -55,13 +55,13 @@ instance
             min = 0
             max = maximum [20,round $ 3*(fromIntegral $ mean dist)]
 
-geo_p :: (Fractional prob, Integral sample) => Geometric sample prob -> prob
+geo_p :: (Fractional prob, Integral dp) => Geometric prob dp -> prob
 geo_p (Geometric dist) = 1/((fromIntegral $ m1 dist)/(fromIntegral $ m0 dist) +1)
     
-instance (Integral sample, RealFrac prob) => Mean (Geometric sample prob) where
+instance (Integral dp, RealFrac prob) => Mean (Geometric prob dp) where
     mean dist = round $ 1/(geo_p dist)
 
-instance (Integral sample, Fractional prob) => Variance (Geometric sample prob) where
+instance (Integral dp, Fractional prob) => Variance (Geometric prob dp) where
     variance dist = (1-p)/(p*p)
         where
             p = geo_p dist

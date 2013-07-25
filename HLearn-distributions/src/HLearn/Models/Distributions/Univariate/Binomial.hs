@@ -18,44 +18,44 @@ import Statistics.Distribution.Binomial
 -------------------------------------------------------------------------------
 -- data types
 
-newtype Binomial sample prob = Binomial {  bmoments :: (Moments3 sample) }
+newtype Binomial prob dp = Binomial {  bmoments :: (Moments3 dp) }
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Num sample) => HomTrainer (Binomial sample prob) where
-    type Datapoint (Binomial sample prob) = sample
+instance (Num dp) => HomTrainer (Binomial prob dp) where
+    type Datapoint (Binomial prob dp) = dp
     train1dp dp = Binomial $ train1dp dp
 
 -------------------------------------------------------------------------------
 -- distribution
 
-instance (Num sample) => Probabilistic (Binomial sample prob) where
-    type Probability (Binomial sample prob) = prob
+instance (Num dp) => Probabilistic (Binomial prob dp) where
+    type Probability (Binomial prob dp) = prob
     
-instance (Floating prob) => PDF (Binomial Int Double) where
+instance (Floating prob) => PDF (Binomial Double Int) where
     pdf (Binomial dist) dp = S.probability (binomial n p) dp
         where
             n = bin_n $ Binomial dist
             p = bin_p $ Binomial dist
 
-bin_n :: Binomial Int Double -> Int
+bin_n :: Binomial Double Int -> Int
 bin_n (Binomial dist) = round $ ((fromIntegral $ m1 dist :: Double) / (fromIntegral $ m0 dist)) / (bin_p $ Binomial dist)
 
-bin_p :: Binomial Int Double -> Double
+bin_p :: Binomial Double Int -> Double
 bin_p (Binomial dist) = ((fromIntegral $ m1 dist) / (fromIntegral $ m0 dist)) + 1 - (fromIntegral $ m2 dist)/(fromIntegral $ m1 dist)
 
 instance 
-    ( PDF (Binomial sample prob)
---     , PlottableDataPoint sample
+    ( PDF (Binomial prob dp)
+--     , PlottableDataPoint dp
     , Show prob
-    , Show sample
-    , Ord sample
+    , Show dp
+    , Ord dp
     , Ord prob
     , Num prob
-    , Integral sample
-    ) => PlottableDistribution (Binomial sample prob) 
+    , Integral dp
+    ) => PlottableDistribution (Binomial prob dp) 
 -- instance PlottableDistribution (Poisson Int Double) 
         where
 
