@@ -16,23 +16,23 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- data types
 
-newtype LogNormal prob = LogNormal (Moments3 prob)
+newtype LogNormal prob dp = LogNormal (Moments3 prob)
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 -------------------------------------------------------------------------------
 -- training
 
-instance (Floating prob) => HomTrainer (LogNormal prob) where
-    type Datapoint (LogNormal prob) = prob
+instance (Floating prob) => HomTrainer (LogNormal prob prob) where
+    type Datapoint (LogNormal prob prob) = prob
     train1dp dp = LogNormal $ train1dp $ dp
 
 -------------------------------------------------------------------------------
 -- distribution
 
-instance Probabilistic (LogNormal prob) where
-    type Probability (LogNormal prob) = prob
+instance Probabilistic (LogNormal prob dp) where
+    type Probability (LogNormal prob dp) = prob
 
-instance (Floating prob) => PDF (LogNormal prob) where
+instance (Floating prob) => PDF (LogNormal prob prob) where
     pdf (LogNormal dist) dp = (1 / (dp * (sqrt $ s2 * 2 * pi)))*(exp $ (-1)*((log dp)-m)^2/(2*s2))
         where
 --             sigma2 = variance dist
@@ -47,7 +47,7 @@ instance (Floating prob) => PDF (LogNormal prob) where
             raw1 = (m1 dist)/(m0 dist)
             raw2 = (m2 dist)/(m0 dist)
 
-instance (Floating prob, Erf prob) => CDF (LogNormal prob) where
+instance (Floating prob, Erf prob) => CDF (LogNormal prob prob) where
     cdf (LogNormal dist) dp = ( 0.5 + 0.5 * ( 1 + erf ( (log (dp - m) ) / (sqrt $ s2 *2) )))
         where
             m = 2*log1 - (1/2) *log1
@@ -59,7 +59,7 @@ instance (Floating prob, Erf prob) => CDF (LogNormal prob) where
             raw1 = (m1 dist)/(m0 dist)
             raw2 = (m2 dist)/(m0 dist)
 
-instance (Floating prob) => Mean (LogNormal prob) where
+instance (Floating prob) => Mean (LogNormal prob prob) where
     mean (LogNormal dist) = exp $ m+s2/2
         where
             m  = 2*log1 - (1/2)*log1
@@ -71,7 +71,7 @@ instance (Floating prob) => Mean (LogNormal prob) where
             raw1 = (m1 dist)/(m0 dist)
             raw2 = (m2 dist)/(m0 dist)
 
-instance (Show prob, Floating prob) => Variance (LogNormal prob) where
+instance (Show prob, Floating prob) => Variance (LogNormal prob prob) where
     variance (LogNormal dist) = trace ("m="++show m++"; s2="++show s2) $ ((exp s2) -1)*(exp $ 2*m+s2)
         where
             m  = 2*log1 - (1/2)*log1
@@ -88,7 +88,7 @@ instance
     , Enum prob
     , Show prob
     , Ord prob
-    ) => PlottableDistribution (LogNormal prob) where
+    ) => PlottableDistribution (LogNormal prob prob) where
     
     plotType _ = Continuous
 

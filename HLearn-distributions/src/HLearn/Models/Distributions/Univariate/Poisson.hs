@@ -23,17 +23,17 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- Poisson
 
-newtype Poisson sample prob = Poisson {  pmoments :: (Moments3 sample) }
+newtype Poisson prob dp = Poisson {  pmoments :: (Moments3 dp) }
     deriving (Read,Show,Eq,Ord,Monoid,Group)
 
-instance (Num sample) => HomTrainer (Poisson sample prob) where
-    type Datapoint (Poisson sample prob) = sample
+instance (Num dp) => HomTrainer (Poisson prob dp) where
+    type Datapoint (Poisson prob dp) = dp
     train1dp dp = Poisson $ train1dp dp
 
-instance (Num sample) => Probabilistic (Poisson sample prob) where
-    type Probability (Poisson sample prob) = prob
+instance (Num dp) => Probabilistic (Poisson prob dp) where
+    type Probability (Poisson prob dp) = prob
 
--- instance (Integral sample, Floating prob) => PDF (Poisson sample prob) where
+-- instance (Integral dp, Floating prob) => PDF (Poisson prob dp) where
 --     pdf (Poisson dist) dp 
 --         | dp < 0    = 0
 --         | dp > 100  = pdf (Normal $ Moments3 (fromIntegral $ m0 dist) (fromIntegral $ m1 dist) (fromIntegral $ m2 dist)) $ fromIntegral dp
@@ -44,21 +44,21 @@ instance (Num sample) => Probabilistic (Poisson sample prob) where
 -- factorial 0 = 1
 -- factorial n = n*(factorial $ n-1)
 
-instance (Integral sample, Floating prob) => PDF (Poisson sample Double) where
+instance (Integral dp, Floating prob) => PDF (Poisson Double dp) where
     pdf (Poisson dist) dp = S.probability (poisson lambda) $ fromIntegral dp
         where
             lambda = (fromIntegral $ m1 dist) / (fromIntegral $ m0 dist)
 
 instance 
-    ( PDF (Poisson sample prob)
---     , PlottableDataPoint sample
+    ( PDF (Poisson prob dp)
+--     , PlottableDataPoint dp
     , Show prob
-    , Show sample
-    , Ord sample
+    , Show dp
+    , Ord dp
     , Ord prob
     , Fractional prob
-    , Integral sample
-    ) => PlottableDistribution (Poisson sample prob) 
+    , Integral dp
+    ) => PlottableDistribution (Poisson prob dp) 
 -- instance PlottableDistribution (Poisson Int Double) 
         where
 
@@ -70,8 +70,8 @@ instance
             max = maximum [20,floor $ 3*lambda]
             lambda = (fromIntegral $ m1 $ pmoments dist) / (fromIntegral $ m0 $ pmoments dist)
     
--- instance (Fractional prob) => Mean (Poisson sample prob) where
+-- instance (Fractional prob) => Mean (Poisson prob dp) where
 --     mean (Poisson dist) = (fromIntegral $ m1 $ pmoments dist) / (fromIntegral $ m0 $ pmoments dist)
 -- 
--- instance (Fractional prob) => Variance (Poisson sample prob) where
+-- instance (Fractional prob) => Variance (Poisson prob dp) where
 --     variance dist = mean dist

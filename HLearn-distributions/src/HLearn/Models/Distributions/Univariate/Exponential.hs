@@ -18,27 +18,27 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- Exponential
 
-newtype Exponential prob = Exponential (Moments3 prob)
+newtype Exponential prob dp = Exponential (Moments3 prob)
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
-instance (Num prob) => HomTrainer (Exponential prob) where
-    type Datapoint (Exponential prob) = prob
+instance (Num prob) => HomTrainer (Exponential prob prob) where
+    type Datapoint (Exponential prob prob) = prob
     train1dp dp = Exponential $ train1dp dp
 
-instance (Num prob) => Probabilistic (Exponential prob) where
-    type Probability (Exponential prob) = prob
+instance (Num prob) => Probabilistic (Exponential prob dp) where
+    type Probability (Exponential prob dp) = prob
 
-instance (Floating prob) => PDF (Exponential prob) where
+instance (Floating prob) => PDF (Exponential prob prob) where
     pdf dist dp = lambda*(exp $ (-1)*lambda*dp)
         where
             lambda = e_lambda dist
 
 e_lambda (Exponential dist) = (m0 dist)/(m1 dist)
 
-instance (Fractional prob) => Mean (Exponential prob) where
+instance (Fractional prob) => Mean (Exponential prob prob) where
     mean dist = 1/(e_lambda dist)
 
-instance (Fractional prob) => Variance (Exponential prob) where
+instance (Fractional prob) => Variance (Exponential prob prob) where
     variance dist = 1/(e_lambda dist)^^2
 
 instance 
@@ -46,7 +46,7 @@ instance
     , Enum prob
     , Show prob
     , Ord prob
-    ) => PlottableDistribution (Exponential prob) where
+    ) => PlottableDistribution (Exponential prob prob) where
     
     plotType _ = Continuous
 

@@ -54,13 +54,13 @@ deriving instance (Group  (MultivariateTF (Concat xs) prob)) => Group  (Multivar
 deriving instance (NFData (MultivariateTF (Concat xs) prob)) => NFData (Multivariate dp xs prob)
    
 instance 
-    ( Monoid (Multivariate dp xs prob){-HomTrainer (MultivariateTF (Concat xs) prob)
+    ( HomTrainer (MultivariateTF (Concat xs) prob)
     , HasDepIndex dp
-    , HList (ValueList dp) ~ Datapoint (MultivariateTF (Concat xs) prob)-}
+    , HList (ValueList dp) ~ Datapoint (MultivariateTF (Concat xs) prob)
     ) => HomTrainer (Multivariate dp xs prob) 
         where
     type Datapoint (Multivariate dp xs prob) = dp
---     train1dp dp = Multivariate $ train1dp $ datatype2valueList dp
+    train1dp dp = Multivariate $ train1dp $ datatype2valueList dp
     
 instance Probabilistic (Multivariate dp xs prob) where
     type Probability (Multivariate dp xs prob) = prob

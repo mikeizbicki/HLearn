@@ -2,7 +2,7 @@ module Data.Prunable
     where
 
 import qualified Data.Foldable as F
-import Data.DependentIndexing
+import HLearn.Algebra
 
 class Prunable t where
     prunefoldr :: (b -> t a -> IndexType (t a) -> Bool) -> (a -> b -> b) -> b -> t a -> b
