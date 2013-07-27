@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 -- | Adapts any distribution into one that can handle missing data
 module HLearn.Models.Distributions.Univariate.Internal.MissingData
     ( MissingData

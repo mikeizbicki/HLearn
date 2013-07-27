@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Algebra.Structures.Free.Bagging
     ( Bagging
     , Bagging'

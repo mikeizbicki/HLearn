@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module HLearn.Models.Distributions.Multivariate.Internal.Unital
     where
 

@@ -15,7 +15,7 @@ bug-reports:         http://github.com/mikeizbicki/HLearn/issues
 Library
     Build-Depends:      
         base                >= 3 && < 5,
-        ConstraintKinds     >= 0.1.0,
+        ConstraintKinds     >= 1.1.0,
         vector-heterogenous >= 0.1.1,
         template-haskell,
 
@@ -57,9 +57,9 @@ Library
         BangPatterns
         TypeOperators
         GeneralizedNewtypeDeriving
-        DataKinds
+        --DataKinds
         TypeFamilies
-        PolyKinds
+        --PolyKinds
         StandaloneDeriving
         GADTs
         KindSignatures

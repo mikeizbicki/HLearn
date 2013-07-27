@@ -1,4 +1,5 @@
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE PolyKinds #-}
 
 module HLearn.Algebra.Structures.Free.FreeHomTrainer
     ( FreeHomTrainer (..)

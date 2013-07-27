@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module HLearn.Algebra.Types.Indexing
     ( 
     Index(..)

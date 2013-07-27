@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 -- | This module provides convenient TemplateHaskell functions for making type lens suitable for use with multivariate distributions.
 -- 
 -- Given a data type that looks like:
