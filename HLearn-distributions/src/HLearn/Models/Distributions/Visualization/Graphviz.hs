@@ -1,5 +1,21 @@
+
+
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-   
+
 -- | Displays Multivariate dependencies
 
 module HLearn.Models.Distributions.Visualization.Graphviz
@@ -115,3 +131,4 @@ gStyle = [ GraphAttrs [RankDir FromLeft, {-Splines SplineEdges, -}FontName "cour
 graphToDotPng :: FilePath -> [(String,[String])] -> IO Bool
 graphToDotPng fpre g = handle (\(e::GraphvizException) -> return False)
                        $ addExtension (runGraphviz (graphToDot g)) Png fpre >> return True
+

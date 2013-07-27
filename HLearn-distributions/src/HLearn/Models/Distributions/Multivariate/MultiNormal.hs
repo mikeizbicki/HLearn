@@ -1,6 +1,25 @@
+
+
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 module HLearn.Models.Distributions.Multivariate.MultiNormal
     ( MultiNormal (..)
-    , MultiNormalVec (..)
     )
     where
 
@@ -145,7 +164,7 @@ instance
     , VU.Unbox prob
     , Num prob
     , SingI (FromNat1 (Length1 dpL))
-    ) => Probabilistic (MultiNormal prob dpL) 
+    ) => Probabilistic (MultiNormal prob dpL)  
         where
     type Probability (MultiNormal prob dpL) = prob
 
@@ -196,5 +215,6 @@ ds =
     , 3:::1:::1:::HNil
     , 3:::2:::1:::HNil
     ]
-test = train ds :: MultiNormal Double '[Double,Double,Double] 
+test = train ds :: MultiNormal Double '[Double,Double,Double]
         
+
