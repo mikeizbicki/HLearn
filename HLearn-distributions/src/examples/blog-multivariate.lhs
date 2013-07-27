@@ -1,4 +1,4 @@
-In this post, we’re going to look at how to manipulate multivariate distributions in Haskell’s HLearn library.  There are many ways to represent multivariate distributions, but we’ll use a technique called Markov networks.  These networks have the algebraic structure called a monoid (and group and vector space), and training them is a homomorphism.  Despite the scary names, these mathematical structures make working with our distributions really easy and convenient—they give us online and parallel training algorithms “for free.”  If you want to go into the details of how, you can check out my TFP13 submission, but in this post we’ll ignore those mathy details to focus on how to use the library in practice.  We’ll use a running example of creating a distribution over characters in the show Futurama.
+n this post, we’re going to look at how to manipulate multivariate distributions in Haskell’s HLearn library.  There are many ways to represent multivariate distributions, but we’ll use a technique called Markov networks.  These networks have the algebraic structure called a monoid (and group and vector space), and training them is a homomorphism.  Despite the scary names, these mathematical structures make working with our distributions really easy and convenient—they give us online and parallel training algorithms “for free.”  If you want to go into the details of how, you can check out my TFP13 submission, but in this post we’ll ignore those mathy details to focus on how to use the library in practice.  We’ll use a running example of creating a distribution over characters in the show Futurama.
 
 Prelimiaries: Creating the data Types
 
@@ -35,11 +35,7 @@ FuturamaCast
 
 Now, in order for our library to be able to interpret the Character type, we call the template haskell function:
 
->makeIndex ''Character
-
->instance HasDepIndex Character where
->   type DepIndexList Character = '[TH_name,TH_species,TH_job,TH_isGood,TH_age,TH_height,TH_weight ]
->   depIndexList _ = TH_name:::TH_species:::TH_job:::TH_isGood:::TH_age:::TH_height:::TH_weight:::HNil
+>makeTypeLenses ''Character
 
 This function creates a bunch of data types and type classes for us.  These “type lenses” give us a type-safe way to reference the different variables in our multivariate distribution.  We’ll see how to use these type level lenses a bit later.  There’s no need to understand what’s going on under the hood, but if you’re curious then checkout the hackage documentation or source code.
 Training a distribution
@@ -328,5 +324,3 @@ futurama-spacesuits
 The best part of all of this is still coming.  Next, we’ll take a look at full on Bayesian classification and why it forms a monoid.  Besides online and parallel trainers, this also gives us a fast cross-validation method.
 
 There’ll also be a posts about the monoid structure of Markov chains, the Free HomTrainer, and how this whole algebraic framework applies to NP-approximation algorithms as well.
-
-Subscribe to the RSS feed to stay tuned.

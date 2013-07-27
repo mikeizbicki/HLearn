@@ -72,6 +72,7 @@ Library
         HLearn.Models.Distributions.Multivariate.Internal.Container
         HLearn.Models.Distributions.Multivariate.Internal.Ignore
         HLearn.Models.Distributions.Multivariate.Internal.Marginalization
+        HLearn.Models.Distributions.Multivariate.Internal.TypeLens
         HLearn.Models.Distributions.Multivariate.Internal.Unital
 
     Extensions:
