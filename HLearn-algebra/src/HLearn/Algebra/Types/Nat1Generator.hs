@@ -26,7 +26,7 @@ string_FromNat1 :: Int -> String
 string_FromNat1 i = "type instance FromNat1 ("++show (int2Nat1 i)++") = "++show i
 
 numNat :: Int
-numNat = 500
+numNat = 1000
 
 main = do
     putStrLn decl

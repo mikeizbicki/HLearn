@@ -121,7 +121,7 @@ reduceCK ::
 reduceCK = reduceL . CK.toList
 
 reduceL :: (Monoid sg) => [sg] -> sg
-reduceL []  = error "reduce: cannot reduce empty list"
+reduceL []  = mempty -- error "reduce: cannot reduce empty list"
 reduceL [x] = x
 reduceL xs  = reduceL $ itr xs
     where
