@@ -72,7 +72,7 @@ As you can see, the Multivariate distribution takes three type parameters.  The 
 
 What can we do with this distribution?  One simple task we can do is to find marginal distributions.  The marginal distribution is the distribution of a certain variable ignoring all the other variables.  For example, let’s say I want a distribution of the species that work at planet express.  I can get this by:
 
--- >dist1a = getMargin TH_species dist1
+>dist1a = getMargin TH_species dist1
 
 Notice that we specified which variable we’re taking the marginal of by using the type level lens TH_species.  This data constructor was automatically created for us by out template haskell function makeTypeLenses.  Every one of our records in the data type has its own unique type lens.  It’s name is the name of the record, prefixed by TH.  These lenses let us infer the types of our marginal distributions at compile time, rather than at run time.  For example, the type of the marginal distribution of species is:
 
@@ -81,7 +81,7 @@ dist1a :: Categorical String Double
 
 That is, a categorical distributions whose data points are Strings and which stores probabilities as a Double.  Now, if I wanted a distribution of the weights of the employees, I can get that by:
 
--- >dist1b = getMargin TH_weight dist1
+>dist1b = getMargin TH_weight dist1
 
 And the type of this distribution is:
 

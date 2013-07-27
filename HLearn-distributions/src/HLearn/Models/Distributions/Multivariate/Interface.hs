@@ -1,19 +1,18 @@
 -- | Used for Multivariate distributions
 
 module HLearn.Models.Distributions.Multivariate.Interface
---     (
---     Multivariate
---     
---     -- * Type functions
--- --     , Ignore
---     , MultiCategorical (..)
---     , Independent (..)
---     , Dependent (..)
---     
---     -- * Modules
---     , module HLearn.Models.Distributions.Multivariate.Internal.Ignore
---     , module HLearn.Models.Distributions.Multivariate.Internal.Marginalization
---     )
+    (
+    Multivariate
+    
+    -- * Type functions
+    , MultiCategorical (..)
+    , Independent (..)
+    , Dependent (..)
+    
+    -- * Modules
+    , module HLearn.Models.Distributions.Multivariate.Internal.Ignore
+    , module HLearn.Models.Distributions.Multivariate.Internal.Marginalization
+    )
     where
 
 import Control.DeepSeq
@@ -99,14 +98,14 @@ instance
 -- type instance Index (x ': xs) Zero = x
 -- type instance Index (x ': xs) (Succ i) = Index xs i
 
--- type family Replace2D (n :: Nat1) (xs :: [ [ a ] ]) (newval :: a) :: [ [ a ] ]
--- type instance Replace2D Zero ((x ': xs) ': ys) newval = (newval ': xs) ': ys
--- type instance Replace2D (Succ n) ((x ': xs) ': ys) newval = AppendFront x (Replace2D n (xs ': ys) newval)
--- type instance Replace2D n ('[] ': ys) newval = '[] ': (Replace2D n ys newval)
--- 
--- type family AppendFront (x :: a) (xs :: [[a]]) :: [[a]]
--- type instance AppendFront x (xs ': ys) = (x ': xs) ': ys
--- 
+type family Replace2D (n :: Nat1) (xs :: [ [ a ] ]) (newval :: a) :: [ [ a ] ]
+type instance Replace2D Zero ((x ': xs) ': ys) newval = (newval ': xs) ': ys
+type instance Replace2D (Succ n) ((x ': xs) ': ys) newval = AppendFront x (Replace2D n (xs ': ys) newval)
+type instance Replace2D n ('[] ': ys) newval = '[] ': (Replace2D n ys newval)
+
+type family AppendFront (x :: a) (xs :: [[a]]) :: [[a]]
+type instance AppendFront x (xs ': ys) = (x ': xs) ': ys
+
 -- data Boxer xs = Boxer
 
 -------------------------------------------------------------------------------
