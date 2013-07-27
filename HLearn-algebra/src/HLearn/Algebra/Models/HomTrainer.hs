@@ -10,6 +10,12 @@ module HLearn.Algebra.Models.HomTrainer
     HomTrainer (..)
     , WeightedHomTrainer (..)
     , NumDP(..)
+
+    -- * useful functions
+    , sub1dp
+    , subBatch
+    , sub1dpW
+    , subBatchW
     
     )
     where
@@ -88,6 +94,8 @@ class (Monoid model) => HomTrainer model where
 -------------------------------------------------------------------------------
 -- WeightedHomTrainer
 
+type WeightedDatapoint model = (Ring model, Datapoint model)
+
 class (Module model, HomTrainer model) => 
     WeightedHomTrainer model 
         where
@@ -99,12 +107,32 @@ class (Module model, HomTrainer model) =>
         container (Ring model,Datapoint model) -> model
     trainW = batch train1dpW
 
-    add1dpW :: model -> (Ring model,Datapoint model) -> model
+    add1dpW :: model -> WeightedDatapoint model -> model
     add1dpW = online $ unbatch $ offline addBatchW
     
     addBatchW :: (Foldable container, Functor container) => 
-        model -> container (Ring model,Datapoint model) -> model
+        model -> container (WeightedDatapoint model) -> model
     addBatchW = online trainW
     
 instance (Module model, HomTrainer model) => WeightedHomTrainer model
     
+-------------------------------------------------------------------------------
+-- helper functions
+
+-- | subtracts a single data point from the model
+sub1dp :: (Group model, HomTrainer model) => model -> Datapoint model -> model
+sub1dp m dp = m <> inverse (train1dp dp)
+
+-- | subtracts a multiple data point from the model
+subBatch :: (Group model, HomTrainer model, Foldable container, Functor container) => 
+    model -> container (Datapoint model) -> model
+subBatch m dpL = m <> inverse (train dpL)
+
+-- | subtracts a single weighted data point from the model
+sub1dpW :: (Group model, WeightedHomTrainer model) => model -> WeightedDatapoint model -> model
+sub1dpW m dp = m <> inverse (train1dpW dp)
+
+-- | subtracts multiple weighted data points from the model
+subBatchW :: (Group model, WeightedHomTrainer model, Foldable container, Functor container) => 
+    model -> container (WeightedDatapoint model) -> model
+subBatchW m dpL = m <> inverse (trainW dpL)

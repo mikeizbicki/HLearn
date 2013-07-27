@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 -- | Used for ignoring data
 module HLearn.Models.Distributions.Multivariate.Internal.Ignore
     ( Ignore 

@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 module HLearn.Models.Distributions.Multivariate.Internal.Container
     ( Container
     , MultiContainer

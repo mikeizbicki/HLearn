@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 -- | The categorical distribution is used for discrete data.  It is also sometimes called the discrete distribution or the multinomial distribution.  For more, see the wikipedia entry: <https://en.wikipedia.org/wiki/CatContainer_distribution>
 module HLearn.Models.Distributions.Multivariate.Internal.CatContainer
 {-    ( 
