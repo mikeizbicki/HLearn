@@ -2,7 +2,7 @@
 
 HLearn is a suite of libraries for interpretting machine learning models according to their algebraic structure.  Every structure has associated algorithms useful for learning.  when we show that a model is an instance of a particular structure, we get the associated algorithms "for free."
 
-| Algebraic structure | What we get |
+| Structure | What we get |
 |:-----------|:------------|
 | Monoid | parallel batch training |
 | Monoid     | online training    |
@@ -11,6 +11,8 @@ HLearn is a suite of libraries for interpretting machine learning models accordi
 | Abelian group | more fast cross-validation |
 | R-Module    | weighted data points |
 | Vector space | fractionally weighted data points |
+| Functor | fast simple preprocsesing of data |
+| Monad |  fast complex preprocessing of data |
 
 This interpretation of machine learning is somewhat limitting in that not all models have obvious algebraic structure.  But many important models do.  Currently implemented models include:
 
@@ -18,13 +20,15 @@ This interpretation of machine learning is somewhat limitting in that not all mo
 
 * **Multivariate distributions**:  normal, categorical, subset of markov networks
 
-* **Classifiers**: naive bayes, full bayes, decision stumps, decision trees, k-nearest neighbor (naive and kd-tree), perceptron, bagging, boosting (sort of)
+* **Classifiers**: naive bayes, full bayes, perceptron, bagging, boosting (sort of)
+
+* **Univariate regression**: exponential, logistic, power law, polynomial
 
 * **NP-hard approximations**: k-centers, bin packing, multiprocessor scheduling
 
 * **Other**: markov chains
 
-Note: not all of these are included in the latest hackage releases simply because I haven't had time to finish a major refactoring
+Note: These models not included in the latest hackage releases: decision stumps/trees, and k-nearest neighbor (kd-tree based)
 
 ## Example: normal distribution
 
@@ -54,10 +58,19 @@ There are three main sources of documentation.  First, there are a number of tut
 
 Tutorial links:
 
-* [Markov Networks, Monoids, and Futurama](http://izbicki.me/blog/markov-networks-monoids-and-futurama)
-* [The Categorical Distribution's Algebraic Structure](http://izbicki.me/blog/the-categorical-distributions-algebraic-structure)
-* [Nuclear Weapon Statistics Using Monoids, Groups, and Modules in Haskell](http://izbicki.me/blog/nuclear-weapon-statistics-using-monoids-groups-and-modules-in-haskell)
-* [Gaussian distributions form a monoid](http://izbicki.me/blog/gausian-distributions-are-monoids)
+* Current version:
+    * [The categorical distribution's monoid/group/module Structure](http://izbicki.me/blog/the-categorical-distributions-algebraic-structure)
+    * [The categorical distribution's functor/monad structure](http://izbicki.me/blog/functors-and-monads-for-analyzing-data)
+    * [Markov Networks, monoids, and futurama](http://izbicki.me/blog/markov-networks-monoids-and-futurama)
+
+* Previous versions:
+    * [Nuclear weapon statistics using monoids, groups, and modules](http://izbicki.me/blog/nuclear-weapon-statistics-using-monoids-groups-and-modules-in-haskell)
+    * [Gaussian distributions form a monoid](http://izbicki.me/blog/gausian-distributions-are-monoids)
+
+Comparison to other libraries:
+
+* [HLearn cross-validates >400x faster than Weka](http://izbicki.me/blog/hlearn-cross-validates-400x-faster-than-weka)
+* [HLearn's code is shorter and clearer than Weka's](http://izbicki.me/blog/hlearns-code-is-shorter-and-clearer-than-wekas)
 
 Paper links:
 
