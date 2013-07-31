@@ -52,6 +52,18 @@ instance (Num prob) => HasRing (Normal prob dp) where
 join :: Normal prob (Normal prob dp) -> Normal prob dp
 join (Normal moments) = Normal moments
 
+add :: (Num prob) => prob -> Normal prob prob -> Normal prob prob
+add x (Normal moments) = Normal $ moments
+    { m1 = m1 moments + m0 moments * x
+    , m2 = m2 moments + 2*m1 moments*x + x*x*m0 moments
+    }
+
+mul :: (Num prob) => prob -> Normal prob prob -> Normal prob prob
+mul x (Normal moments) = Normal $ moments
+    { m1 = m1 moments *x
+    , m2 = m2 moments *x*x 
+    }
+
 -------------------------------------------------------------------------------
 -- distribution
 
