@@ -63,6 +63,8 @@ Tutorial links:
     * [The categorical distribution's functor/monad structure](http://izbicki.me/blog/functors-and-monads-for-analyzing-data)
     * [Markov Networks, monoids, and futurama](http://izbicki.me/blog/markov-networks-monoids-and-futurama)
 
+    * [Solving NP-complete problems with HLearn, and how to write your own HomTrainer instances](http://izbicki.me/public/papers/monoids-for-approximating-np-complete-problems.pdf)
+
 * Previous versions:
     * [Nuclear weapon statistics using monoids, groups, and modules](http://izbicki.me/blog/nuclear-weapon-statistics-using-monoids-groups-and-modules-in-haskell)
     * [Gaussian distributions form a monoid](http://izbicki.me/blog/gausian-distributions-are-monoids)
