@@ -103,6 +103,10 @@ instance CK.Functor (Scheduling n) where
     type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, SingI n)
     fmap f sched = lptf $ CK.fmap f $ vector sched
 
+instance CK.Monad (Scheduling n) where
+    return = train1dp
+    join (Scheduling v _) = lptf $ CK.join $ CK.fmap vector v
+
 -------------------------------------------------------------------------------
 -- Training
 

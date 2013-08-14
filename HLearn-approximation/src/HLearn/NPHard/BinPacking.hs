@@ -75,6 +75,10 @@ instance CK.Functor (BinPacking n) where
     type FunctorConstraint (BinPacking n) x = (Ord x, Norm x, SingI n)
     fmap f sched = bfd $ CK.fmap f $ vector sched
 
+instance CK.Monad (BinPacking n) where
+    return = train1dp
+    join (BinPacking v _) = bfd $ CK.join $ CK.fmap vector v
+
 -------------------------------------------------------------------------------
 -- Training
 

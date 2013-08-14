@@ -28,7 +28,7 @@ Library
         hashable            >= 1.1.2
         
     hs-source-dirs:     src
-    ghc-options:        -rtsopts -auto-all -caf-all -O2 
+    ghc-options:        -rtsopts -auto-all -caf-all -O2
     Exposed-modules:
         HLearn.Algebra
         HLearn.Algebra.Functions
