@@ -1,16 +1,22 @@
->{-# LANGUAGE RebindableSyntax #-}
->{-# LANGUAGE TemplateHaskell #-}
+> {-# LANGUAGE RebindableSyntax #-}
 
-Functors and monads are powerful design patterns used in Haskell. They give us two cool tricks for analyzing data.  First, we can “preprocess” data after we’ve already trained a model.  The model will be automatically updated to reflect the changes.  Second, this whole process happens asymptotically faster than the standard method of preprocessing.  In some cases, you can do it in constant time no matter how many data points you have!
+Functors and monads for analyzing data
 
-This post focuses on how to use functors and monads in practice with the HLearn library.  We won’t talk about their category theoretic foundations; instead, we’ll go through several examples involving the categorical distribution. This distribution is somewhat awkwardly named for our purposes because it has nothing to do with category theory—it is the most general distribution over non-numeric (i.e. categorical) data. It’s simplicity should make the examples a little easier to follow.
+July 29, 2013 in Computer Science, Haskell, HLearn | No comments (edit)
 
-HLearn also provides functor and monad instances for more complex models, such as the kernel density estimator, multivariate distributions, and bayesian classifiers.  All the general principles you see here apply equally to those models as well.
+marblesDist-modFunctors and monads are powerful design patterns used in Haskell. They give us two cool tricks for analyzing data.  First, we can “preprocess” data after we’ve already trained a model.  The model will be automatically updated to reflect the changes.  Second, this whole process happens asymptotically faster than the standard method of preprocessing.  In some cases, you can do it in constant time no matter how many data points you have!
+
+This post focuses on how to use functors and monads in practice with the HLearn library.  We won’t talk about their category theoretic foundations; instead, we’ll go through ten concrete examples involving the categorical distribution. This distribution is somewhat awkwardly named for our purposes because it has nothing to do with category theory—it is the most general distribution over non-numeric (i.e. categorical) data. It’s simplicity should make the examples a little easier to follow.  Some more complicated models (e.g. the kernel density estimator and Bayesian classifier) also have functor and monad instances, but we’ll save those for another post.
 Setting up the problem
 
-Before we dive into using functors and monads, we need to set up our code and create some data. Let’s import our modules:
+Before we dive into using functors and monads, we need to set up our code and create some data. Let’s install the packages:
 
-> import Control.ConstraintKinds
+$ cabal install HLearn-distributions-1.1
+
+Import our modules:
+
+> import Control.ConstraintKinds.Functor
+> import Control.ConstraintKinds.Monad
 > import Prelude hiding (Functor(..), Monad (..))
 >
 > import HLearn.Algebra
@@ -48,7 +54,7 @@ map :: (a -> b) -> [a] -> [b]
 
 Example 1:
 
-Let’s say instead of a distribution over the marble color, I want a distribution over the marble’s weights. I might have a function that associates a weight with each type of marble:
+Let’s say instead of a distribution over the marbles’ colors, I want a distribution over the marbles’ weights. I might have a function that associates a weight with each type of marble:
 
 > marbleWeight :: Marble -> Int -- weight in grams
 > marbleWeight Red   = 3
@@ -59,13 +65,13 @@ Let’s say instead of a distribution over the marble color, I want a distributi
 
 I can generate my new distribution by first transforming my data set, and then training on the result.  Notice that the type of our distribution has changed.  It is no longer a categorical distribution over marbles; it’s a distribution over ints.
 
-> weightsDist = train $ fmap marbleWeight bagOfMarbles :: Categorical Double Int
+> weightsDist = train $ map marbleWeight bagOfMarbles :: Categorical Double Int
 
 ghci> plotDistribution (plotFile "weightsDist" $ PNG 400 300) weightsDist
 
 weightsDist-mod
 
-This is the standard way of preprocessing data. But we can do better because the categorical distribution is also a functor. We have a function fmap that we can apply directly to the distribution:
+This is the standard way of preprocessing data. But we can do better because the categorical distribution is also a functor. Functors have a function called fmap that is analogous to calling map on a list.  This is its type signature specialized for the Categorical type:
 
 fmap :: (Ord dp0, Ord dp1) => (dp0 -> dp1) -> Categorical prob dp0 -> Categorical prob dp1
 
@@ -99,28 +105,24 @@ ghci> plotDistribution (plotFile "nopinkDist" $ PNG 400 300) nopinkDist
 
 nopinkDist-mod
 
-Example 3:
-
-
-
 That’s about all that a Functor can do by itself. When we call fmap, we can only process individual data points.  We can’t change the number of points in the resulting distribution or do other complex processing. Monads give us this power.
 Monads
 
-Monads are functors with two more functions. The first is called return. It’s type signature is
+Monads are functors with two more functions. The first is called return. Its type signature is
 
 return :: (Ord dp) => dp -> Categorical prob dp
 
 We’ve actually seen this function already in previous posts. It’s equivalent to the train1dp function found in the HomTrainer type class. All it does is train a categorical distribution on a single data point.
 
-The next function is called join. It’s a little bit trickier, and it’s where all the magic lies. It’s type signature is:
+The next function is called join. It’s a little bit trickier, and it’s where all the magic lies. Its type signature is:
 
 join :: (Ord dp) => Categorical prob (Categorical prob dp) -> Categorical prob dp
 
 As input, join takes a categorical distribution whose data points are other categorical distributions. It then “flattens” the distribution into one that does not take other distributions as input.
 
-Example 1
+Example 3
 
-For our first example, let’s write a function that removes all the pink marbles from out data set.  Whenever we encounter a pink marble, we’ll want to replace it with an empty categorical distribution.  If the marble is not pink, we’ll create a singleton distribution from it.
+Let’s write a function that removes all the pink marbles from out data set.  Whenever we encounter a pink marble, we’ll want to replace it with an empty categorical distribution.  If the marble is not pink, we’ll create a singleton distribution from it.
 
 > forgetPink :: (Num prob) => Marble -> Categorical prob Marble
 > forgetPink Pink = mempty
@@ -132,7 +134,7 @@ ghci> plotDistribution (plotFile "nopinkDist2" $ PNG 400 300) nopinkDist2
 
 nopinkDist2-mod
 
-This idiom of join ( fmap … ) is used a lot. So we can use another function called bind (>>=) that combines these steps for us.
+This idiom of join ( fmap … ) is used a lot. For convenience, the >>= operator (called bind) combines these steps for us.  It is defined as:
 
 (>>=) :: Categorical prob dp0 -> (dp0 -> Categorical prob dp1) -> Categorical prob dp1
 dist >>= f = join $ fmap f dist
@@ -141,9 +143,9 @@ Under this notation, our new distribution can be defined as:
 
 > nopinkDist2' = marblesDist >>= forgetPink
 
-Example 2
+Example 4
 
-Besides removing data points, we can also add new ones. Let’s double the importance of pink marbles in our distribution:
+Besides removing data points, we can also add new ones. Let’s double the number of pink marbles in our training data:
 
 > doublePink :: (Num prob) => Marble -> Categorical prob Marble
 > doublePink Pink = 2 .* train1dp Pink
@@ -155,9 +157,9 @@ ghci> plotDistribution (plotFile "doublepinkDist" $ PNG 400 300) doublepinkDist
 
 doublepinkDist-mod
 
-Example 3
+Example 5
 
-One common machine learning task is to factor noise into our sampling process.  Mistakes are often made when collecting data.  Adding noise let’s us consider the likelihood of those mistakes on our final distribution.  In this example, we’ll add a uniform noise to every sample.
+One common machine learning task is to factor noise into our sampling process.  Mistakes are often made when collecting data.  Adding noise lets us consider the likelihood of those mistakes on our final distribution.  In this example, we’ll add a uniform noise to every sample.
 
 Notice that we are using fractional weights for our noise, and that the weights are carefully adjusted so that the total number of marbles in the distribution still sums to one.  We don’t want to add or remove marbles while creating noise.
 
@@ -172,11 +174,11 @@ noiseDist-mod
 
 Adding uniform noise just made all our probabilities closer together.
 
-Example 4
+Example 6
 
 Of course, the amount of noise we add to each sample doesn’t have to be the same everywhere. If I suffer from red-green color blindness, then I might use this as my noise function:
 
-> rgNoise :: Marble -> Categorical Double Marble
+> rgNoise :: (Fractional prob) => Marble -> Categorical prob Marble
 > rgNoise Red   = trainW [(0.7,Red),(0.3,Green)]
 > rgNoise Green = trainW [(0.1,Red),(0.9,Green)]
 > rgNoise dp    = train1dp dp 
@@ -187,36 +189,38 @@ ghci> plotDistribution (plotFile "rgNoiseDist" $ PNG 400 300) rgNoiseDist
 
 rgNoiseDist-mod
 
-Because of my color blindness, the probability of drawing a red marble from the bag is now higher than drawing a green marble.  This is despite the fact that we had more green marbles in our training data.
+Because of my color blindness, the probability of drawing a red marble from the bag is higher than drawing a green marble.  This is despite the fact that we observed more green marbles in our training data.
 
-===========
+Example 7
 
-Example 4b
+In the real world, we can never know exactly how much error we have in the samples. Luckily, we can try to learn it by conducting a second experiment. We’ll first experimentally determine how red-green color blind I am, then we’ll use that to update our already trained distribution.
 
-In the real world, we can never know exactly how much error we have in the samples.  Luckily, we can try to learn it by conducting a second experiment.
+To determine the true error rate, we need some unbiased source of truth. In this case, we can just use someone with good vision. They will select ten red marbles and ten green marbles, and I will guess what color they are.
 
-To determine our true error rate, we'll send off 50 marbles to a lab that has a spectrometer.  The spectrometer is very accurate, but it's also very expensive.  That's why we can only send 50 marbles.  Then, we'll also use a much cheaper method to determine the color of those same marbles.  We'll force undergrads to do it :)  This will give us a good estimate on the error rate of having undergrads determine the colors.
-
-Here are our results.  The first parameter
+Let’s train a distribution on what I think green marbles look like:
 
 > greenMarbles = [Green,Red,Green,Red,Green,Red,Red,Green,Green,Green]
-> redMarbles = [Red,Green,Red,Green,Red,Red,Green,Green,Red,Red]
-
 > greenDist = train greenMarbles  :: Categorical Double Marble
+
+and what I think red marbles look like:
+
+> redMarbles = [Red,Green,Red,Green,Red,Red,Green,Green,Red,Red]
 > redDist = train redMarbles :: Categorical Double Marble
 
-> rgNoise2 :: Marble -> Categorical Double Marble
-> rgNoise2 Green = greenDist /. numdp greenDist 
-> rgNoise2 Red   = redDist /. numdp redDist 
-> rgNoise2 dp    = train1dp dp 
+Now we’ll create the noise function based off of our empirical data. The (/.) function is scalar division, and we can use it because the categorical distribution is a vector space. We’re dividing by the number of data points in the distribution so that the distribution we output has an effective training size of one. This ensures that we’re not accidentally creating new data points when applying our function to another distribution.
 
+> rgNoise2 :: Marble -> Categorical Double Marble
+> rgNoise2 Green = greenDist /. numdp greenDist
+> rgNoise2 Red   = redDist /. numdp redDist
+> rgNoise2 dp    = train1dp dp
+>
 > rgNoiseDist2  = marblesDist >>= rgNoise2
 
 ghci> plotDistribution (plotFile "rgNoiseDist2" $ PNG 400 300) rgNoiseDist2
 
-===========
+rgNoiseDist2-mod
 
-Example 5
+Example 8
 
 Finally, we can chain our preprocessing functions together in arbitrary ways.
 
@@ -226,7 +230,7 @@ ghci> plotDistribution (plotFile "allDist" $ PNG 400 300) allDist
 
 allDist-mod
 
-But wait!  Where’d that pink come from?  Wasn’t the call to forgetPink supposed to remove it?  The answer is that we did remove it, but then we added it back in with our noise functions.  When using monadic functions, we must be careful about the order we apply them in.  This is no different than when regular functions.
+But wait!  Where’d that pink come from?  Wasn’t the call to forgetPink supposed to remove it?  The answer is that we did remove it, but then we added it back in with our noise functions.  When using monadic functions, we must be careful about the order we apply them in.  This is just as true when using regular functions.
 
 Here’s another distribution created from those same functions in a different order:
 
@@ -238,23 +242,19 @@ allDist2-mod
 
 We can also use Haskell’s do notation to accomplish the same exact thing:
 
-
 > allDist2' :: Categorical Double Marble
 > allDist2' = do 
->    dp <- marblesDist -- train bagOfMarbles
+>    dp <- train bagOfMarbles
 >    dp <- addNoise dp
 >    dp <- rgNoise dp
 >    dp <- forgetPink dp
 >    return dp
 
-(Since we’re using a custom Monad definition, this requires the RebindableSyntax extension.)
-Conclusion
+(Since we’re using a custom Monad definition, do notation requires the RebindableSyntax extension.)
 
-===========
+Example 9
 
-Example 6
-
-Do notation gives us a convenient way to preprocess multiple data sets into a single data set.  Let's create two new data sets and their corresponding distributions for us to work with:
+Do notation gives us a convenient way to preprocess multiple data sets into a single data set. Let’s create two new data sets and their corresponding distributions for us to work with:
 
 > bag1 = [Red,Pink,Green,Blue,White]
 > bag2 = [Red,Blue,White]
@@ -262,7 +262,7 @@ Do notation gives us a convenient way to preprocess multiple data sets into a si
 > bag1dist = train bag1 :: Categorical Double Marble
 > bag2dist = train bag2 :: Categorical Double Marble
 
-Now, we'll create a third data set that is a weighted combination of bag1 and bag2.  We will do this by repeated sampling.  On every iteration, with a 20% probability we'll sample from bag1, and with an 80% probability we'll sample from bag2.  Imperative pseudo-code for this algorithm is:
+Now, we’ll create a third data set that is a weighted combination of bag1 and bag2. We will do this by repeated sampling. On every iteration, with a 20% probability we’ll sample from bag1, and with an 80% probability we’ll sample from bag2. Imperative pseudo-code for this algorithm is:
 
 let comboDist be an empty distribution
 loop until desired accuracy achieved:
@@ -274,7 +274,7 @@ loop until desired accuracy achieved:
         sample dp2 from bag2
         add dp2 to comboDist
 
-This sampling procedure will obviously not give us an exact answer.  But since the categorical distribution supports weighted data points, we can use this simpler pseudo-code to generate an exact answer:
+This sampling procedure will obviously not give us an exact answer. But since the categorical distribution supports weighted data points, we can use this simpler pseudo-code to generate an exact answer:
 
 let comboDist be an empty distribution
 foreach datapoint dp1 in bag1:
@@ -290,19 +290,20 @@ Using do notation, we can express this as:
 >   dp2 <- bag2dist
 >   trainW [(0.2,dp1),(0.8,dp2)]
 
-And because the Categorical functor takes constant time, calculating comboDist also takes constant time.  The imperative algorithm would take time $latex \Theta (|bag1|*|bag2|)$.
+plotDistribution (plotFile "comboDist" $ PNG 400 300) comboDist
+
+comboDist-mod
+
+And because the Categorical functor takes constant time, constructing comboDist also takes constant time. The naive imperative algorithm would have taken time \Theta (|\text{bag1}|*|\text{bag2}|).
 
 When combining multiple distributions this way, the number of data points in our final distribution will be the product of the number of data points in the initial distributions:
 
 ghci> numdp combination
 15
 
+Example 10
 
----
-
-Example 7
-
-Finally, arbitrarily complex preprocessing functions can be written using Haskell's do notation.  And remember, no matter how complicated these functions are, their run time never depends on the number of elements in the initial data set.
+Finally, arbitrarily complex preprocessing functions can be written using Haskell’s do notation. And remember, no matter how complicated these functions are, their run time never depends on the number of elements in the initial data set.
 
 This function adds uniform sampling noise to our bagOfMarbles, but only on those marbles that are also contained in bag2 above.
 
@@ -314,11 +315,13 @@ This function adds uniform sampling noise to our bagOfMarbles, but only on those
 >       then addNoise dp1
 >       else return dp1
 
+plotDistribution (plotFile "comboDist2" $ PNG 400 300) comboDist2
 
-==============
+comboDist2-mod
+Conclusion
 
-This application of monads to machine learning generalizes the monad used in probabilistic functional programming.  PFP focused on manipulating already known distributions, not training them from data.  Also, if you enjoy this kind of thing, you might be interested in the n-category cafe discussion on category theory in machine learning from a few years back.
+This application of monads to machine learning generalizes the monad used in probabilistic functional programming.  The main difference is that PFP focused on manipulating already known distributions, not training them from data.  Also, if you enjoy this kind of thing, you might be interested in the n-category cafe discussion on category theory in machine learning from a few years back.
 
-In future posts, we’ll look at functors and monads for continuous distributions, multivariate distributions, and classifiers.  Things will get really interesting when we start working with multiple models at the same time.
+In future posts, we’ll look at functors and monads for continuous distributions, multivariate distributions, and classifiers.
 
 Subscribe to the RSS feed to stay tuned!

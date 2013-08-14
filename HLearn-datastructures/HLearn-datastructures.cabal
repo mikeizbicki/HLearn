@@ -1,5 +1,5 @@
 Name:                HLearn-datastructures
-Version:             1.1.0
+Version:             1.2.0
 Description:         This package contains commonly used data structures
 Category:            Data Mining, Machine Learning, Data Structures
 License:             BSD3
@@ -13,9 +13,13 @@ Library
     Build-Depends:      
         HLearn-algebra          >= 1.1.0,
         --HLearn-distributions    >= 1.0.0,
-        ConstraintKinds         >= 0.1.0,
+        ConstraintKinds         >= 0.2.0,
         base                    >= 3 && < 5,
 
+        vector-th-unbox         >= 0.2,
+        bits                    >= 0.3.2,
+        vector-algorithms       >= 0.5.4,
+        primitive               >= 0.5,
         QuickCheck              >= 2.3.1,
         MonadRandom             >= 0.1.9,
         deepseq                 >= 1.3,
@@ -27,8 +31,10 @@ Library
     ghc-options:        -rtsopts -auto-all -caf-all -O2 
     Exposed-modules:
         Data.Prunable
+        Data.BitTwiddler
         HLearn.DataStructures.SortedVector
-        --HLearn.DataStructures.KDTree
+        HLearn.DataStructures.KDTree
+        HLearn.DataStructures.KDIsomorphism
     Extensions:
         FlexibleInstances
         FlexibleContexts

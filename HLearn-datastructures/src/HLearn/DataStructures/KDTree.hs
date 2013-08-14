@@ -1,8 +1,9 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell,MultiWayIf #-}
 
 module HLearn.DataStructures.KDTree
     where
     
+import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import qualified Data.Vector as V
@@ -13,16 +14,16 @@ import Data.Ix
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T
 
-import Data.DependentIndexing
+-- import Data.DependentIndexing
 import Data.Prunable
-import HLearn.Algebra hiding (Index)
+import HLearn.Algebra --hiding (Index)
 
 -------------------------------------------------------------------------------
 -- data types
 
 data KDTree dp
     = Leaf 
-    | Node { val :: dp, splitdim :: IndexType dp, left :: KDTree dp, right :: KDTree dp}
+    | Node { val :: !dp, splitdim :: !(IndexType dp), left :: KDTree dp, right :: KDTree dp}
 
 deriving instance (Show dp, Show (IndexType dp)) => Show (KDTree dp)
 deriving instance (Read dp, Read (IndexType dp)) => Read (KDTree dp)
@@ -34,6 +35,10 @@ instance (Ord (IndexType dp), Ord dp) => Index (KDTree dp) where
     type IndexResult (KDTree dp) = KDTree dp
     (!) t TreeLeft  = left t
     (!) t TreeRight = right t
+
+instance (NFData dp) => NFData (KDTree dp) where
+    rnf Leaf = ()
+    rnf (Node val splitdim l r) = deepseq val $ seq splitdim $ deepseq l $ rnf r
 
 ---------------------------------------
 
@@ -56,13 +61,13 @@ nextSplitDim t
     | splitdim t == maxBound = minBound
     | otherwise = succ $ splitdim t
 
-insert :: (Index dp) => KDTree dp -> dp -> KDTree dp
+insert :: (Index dp, Ord (IndexResult dp)) => KDTree dp -> dp -> KDTree dp
 insert Leaf dp = Node dp minBound Leaf Leaf
 insert t dp
     | dp ! splitdim t >  val t ! splitdim t = t { right = insert (right t) dp }
     | dp ! splitdim t <= val t ! splitdim t = t { left = insert (left t) dp }
 
-isValid :: (Index dp) => KDTree dp -> Bool
+isValid :: (Index dp, Ord (IndexResult dp)) => KDTree dp -> Bool
 isValid Leaf = True
 isValid t    = thisvalid && isValid (left t) && isValid (right t)
     where
@@ -117,7 +122,7 @@ debug _ _ _ action = action
 --     )
 --     action
 
-instance (Index dp) => Monoid (KDTree dp) where
+instance (Index dp, Ord (IndexResult dp)) => Monoid (KDTree dp) where
     mempty = Leaf
     mappend Leaf Leaf = Leaf
     mappend Leaf a = a
@@ -153,11 +158,11 @@ instance Prunable KDTree where
     prunefoldr p f i Leaf = i
     prunefoldr p f i t = if p i t TreeLeft
         then prunefoldr p f dorightfold (left t)
-        else trace ("TreeLeft False" ++ show (size $ left t)) $ dorightfold
+        else {-trace ("TreeLeft False" ++ show (size $ left t)) $ -}dorightfold
         where
             dorightfold = if p i t TreeRight
                 then prunefoldr p f (f (val t) i) (right t)
-                else trace ("TreeRight False "++show (size $ right t)) $ i
+                else {-trace ("TreeRight False "++show (size $ right t)) $ -}i
 
 ---------------------------------------
 -- space algorithms
@@ -236,7 +241,7 @@ nn_noprune query t = F.foldr (nn_basecase query) Nothing t
 -------------------------------------------------------------------------------
 -- model
 
-instance (Index dp) => HomTrainer (KDTree dp) where
+instance (Index dp, Ord (IndexResult dp)) => HomTrainer (KDTree dp) where
     type Datapoint (KDTree dp) = dp
     train1dp dp = Node dp minBound Leaf Leaf
 
@@ -249,7 +254,7 @@ instance Arbitrary (Double,Double) where
         b <- choose (-100,100)
         return (a,b) 
 
-instance (Index dp, Arbitrary dp) => Arbitrary (KDTree dp) where
+instance (Index dp, Ord (IndexResult dp), Arbitrary dp) => Arbitrary (KDTree dp) where
     arbitrary = do
         xs <- arbitrary
         return $ train (xs :: [Datapoint (KDTree dp)])
@@ -260,7 +265,7 @@ instance (Num a) => HasRing (a,a) where
 instance (Floating a) => MetricSpace (a,a) where
     distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)^2 + (y1-y2)^2
 
-randmodel len = fmap (train) $ replicateM len $ do
+randkdtree len = fmap (train) $ replicateM len $ do
     x <- randomRIO (-1000,1000)
     y <- randomRIO (-1000,1000)
     return (x,y) 
