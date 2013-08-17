@@ -72,22 +72,19 @@ offline train = \dp -> train mempty dp
 -- | Converts a singleton trainer into a batch trainer, which is also a semigroup homomorphism.
 batch ::
     ( Monoid model
-    , Functor container
     , F.Foldable container
     ) => (datapoint -> model) -- ^ singleton trainer
       -> (container datapoint -> model) -- ^ batch trainer
-batch train = \dps -> F.foldl mappend mempty $ fmap train dps
+batch = F.foldMap
 
 batchCK ::
     ( Monoid model
-    , CK.Functor container
-    , CK.FunctorConstraint container model
-    , CK.FunctorConstraint container datapoint
     , CK.Foldable container
     , CK.FoldableConstraint container model
+    , CK.FoldableConstraint container datapoint
     ) => (datapoint -> model) -- ^ singleton trainer
       -> (container datapoint -> model) -- ^ batch trainer
-batchCK train = \dps -> CK.foldl' mappend mempty $ CK.fmap train dps
+batchCK = CK.foldMap
 
 -- | Inverse of 'unbatch'.  Converts a semigroup homomorphism into a singleton trainer.
 unbatch :: 
