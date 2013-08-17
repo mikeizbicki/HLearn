@@ -49,10 +49,7 @@ class (Monoid model) => HomTrainer model where
     
     -- | The batch trainer
     {-# INLINE train #-}
-    train ::     
-        ( Functor container
-        , Foldable container
-        ) => container (Datapoint model) -> model
+    train :: (Foldable container) => container (Datapoint model) -> model
     train = batch train1dp
 
     -- | The online trainer
@@ -61,19 +58,14 @@ class (Monoid model) => HomTrainer model where
     add1dp model = online train1dp model
     
     -- | The batch online trainer; will be more efficient than simply calling 'add1dp' for each element being added
-    addBatch ::
-        ( Functor container
-        , Foldable container
-        ) =>  model -> container (Datapoint model) -> model
+    {-# INLINE addBatch #-}
+    addBatch :: (Foldable container) => model -> container (Datapoint model) -> model
     addBatch model = online train model
 
     -- | CK methods take advantage of the ContraintKinds extension to allow containers that require constraints.  In particular, they allow the use of Unboxed Vectors, which can improve performance.
     {-# INLINE trainCK #-}
     trainCK ::     
-        ( CK.Functor container
-        , CK.FunctorConstraint container model
-        , CK.FunctorConstraint container (Datapoint model)
-        , CK.Foldable container
+        ( CK.Foldable container
         , CK.FoldableConstraint container model
         , CK.FoldableConstraint container (Datapoint model)
         ) => container (Datapoint model) -> model
@@ -81,10 +73,7 @@ class (Monoid model) => HomTrainer model where
 
     {-# INLINE addBatchCK #-}
     addBatchCK ::
-        ( CK.Functor container
-        , CK.FunctorConstraint container model
-        , CK.FunctorConstraint container (Datapoint model)
-        , CK.Foldable container
+        ( CK.Foldable container
         , CK.FoldableConstraint container model
         , CK.FoldableConstraint container (Datapoint model)
         ) =>  model -> container (Datapoint model) -> model
@@ -96,22 +85,18 @@ class (Monoid model) => HomTrainer model where
 
 type WeightedDatapoint model = (Ring model, Datapoint model)
 
-class (Module model, HomTrainer model) => 
-    WeightedHomTrainer model 
-        where
+class (Module model, HomTrainer model) => WeightedHomTrainer model where
         
     train1dpW :: (Ring model,Datapoint model) -> model
     train1dpW (r,dp) = r .* train1dp dp
     
-    trainW :: (Foldable container, Functor container) => 
-        container (Ring model,Datapoint model) -> model
+    trainW :: (Foldable container) => container (Ring model,Datapoint model) -> model
     trainW = batch train1dpW
 
     add1dpW :: model -> WeightedDatapoint model -> model
     add1dpW = online $ unbatch $ offline addBatchW
     
-    addBatchW :: (Foldable container, Functor container) => 
-        model -> container (WeightedDatapoint model) -> model
+    addBatchW :: (Foldable container) => model -> container (WeightedDatapoint model) -> model
     addBatchW = online trainW
     
 instance (Module model, HomTrainer model) => WeightedHomTrainer model
