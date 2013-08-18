@@ -11,9 +11,10 @@ import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy.Char8 as BS
 
 import HLearn.Algebra
-import HLearn.DataStructures.KDTree
-import HLearn.DataStructures.KDIsomorphism hiding (mindist)
+import HLearn.DataStructures.KDTree hiding (mindist)
+import HLearn.DataStructures.KDIsomorphism --hiding (mindist)
 import HLearn.DataStructures.SortedVector
+import HLearn.DataStructures.FourD
 
 instance FromRecord FourD where
     parseRecord v = FourD <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
@@ -29,8 +30,10 @@ main = do
     Right (qs :: V.Vector FourD) <- timeIO "Loading query" $ fmap (decode False) $ BS.readFile "query.csv"
     let kdtree = train xs :: KDVector FourD
     timeIO "Building kd-tree" $ return $ rnf $ kdtree
-    (dist,dp) <- timeIO "KNN" $ return $ mindist'' (qs V.! 0) kdtree
-    print (dist,dp)
+    dp <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
+    print dp
+--     (dist,dp) <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
+--     print (dist,dp)
     putStrLn "end"
  
 

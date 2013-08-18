@@ -12,334 +12,208 @@ import Data.Primitive.ByteArray
 import GHC.Word
 import Unsafe.Coerce
 import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Generic as VG
 import Data.Vector.Unboxed.Deriving
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Foldable as F
 import Test.QuickCheck hiding ((.&.),(.|.),vector)
+import Test.HUnit
 import Debug.Trace
 
+
 import qualified Control.ConstraintKinds as CK
-import Data.Prunable
+-- import Data.Prunable
 import HLearn.Algebra
 import HLearn.DataStructures.SortedVector
-import Data.BitTwiddler
-
-
--------------------------------------------------------------------------------
--- FourD
-
-fd1 = FourD 0.5 0.5 0.5 0.5
-fd2 = FourD 1 1 1 1
-fd3 = FourD 2 2 2 2
-fd4 = FourD 3 3 3 3
-bw1 = toBitTwiddler fd1
-bw2 = toBitTwiddler fd2
-bw3 = toBitTwiddler fd3
-bw4 = toBitTwiddler fd4
-
-expand_boundingbox_FourD :: (FourD,FourD) -> (FourD,FourD)
-expand_boundingbox_FourD (x,y) = (fromBitTwiddler common, fromBitTwiddler $ (complement mask) .|. common)
-    where
-        common = mask .&. x'
-        mask = bitwisemask 4 $ leadingcommonbits x' y'
-        x' = toBitTwiddler x
-        y' = toBitTwiddler y
-
-isOverlap :: (BitTwiddler a,BitTwiddler a) -> (BitTwiddler a,BitTwiddler a) -> Bool
-isOverlap (a,b) (c,d) = a .&. mask == c .&. mask
-    where
-        mask = mask1 .&. mask2
-        mask1 = bitwisemask 4 (leadingcommonbits a b)
-        mask2 = bitwisemask 4 (leadingcommonbits c d)
-
-boundingbox_FourD :: FourD -> Ring (FourD) -> (FourD,FourD)
-boundingbox_FourD center@(FourD a b c d) dist = (minus,plus)
-    where
-        minus = FourD (a-dist) (b-dist) (c-dist) (d-dist)
-        plus  = FourD (a+dist) (b+dist) (c+dist) (d+dist)
-
-boundingbox_BitTwiddler :: BitTwiddler FourD -> Ring (FourD) -> (BitTwiddler FourD,BitTwiddler FourD)
-boundingbox_BitTwiddler bw dist = (toBitTwiddler a,toBitTwiddler b)
-    where
-        (a,b) = boundingbox_FourD (fromBitTwiddler bw) dist
-
-leadingcommonbits :: BitTwiddler a -> BitTwiddler a -> Int
-leadingcommonbits (BitTwiddler a) (BitTwiddler b) = go 0
-    where
-        size = sizeofByteArray a `intdiv` 8
-
-        go :: Int -> Int 
-        go i = if i== size
-            then 64*size
-            else if worda == wordb
-                then go (i+1)
-                else i*64 + (nlz $ worda `xor` wordb)
-            where 
-                worda = indexByteArray a (size-i-1) :: Word64
-                wordb = indexByteArray b (size-i-1) :: Word64
-
-leadingcommonbits_old :: BitTwiddler a -> BitTwiddler a -> Int
-leadingcommonbits_old (BitTwiddler a) (BitTwiddler b) = go 0
-    where
-        go :: Int -> Int 
-        go 5 = 64*4
-        go i = if worda == wordb
-            then go (i+1)
-            else i*64 + (rank $ worda `xor` wordb) -1
-            where 
-                worda = indexByteArray a i :: Word64
-                wordb = indexByteArray b i :: Word64
-
-bitwisemask :: Int -> Int -> BitTwiddler a
-bitwisemask numWord64 n = BitTwiddler $ runST $ do
-    arr <- newByteArray $ numWord64*8
-    forM_ [0..numWord64-1] $ \i -> do
-        let ni = n-64*i
-        writeByteArray arr (numWord64-i-1) $ word64mask ni
-    arr <- unsafeFreezeByteArray arr
-    return arr
-
-word64mask :: Int -> Word64
-word64mask n
-    | n<0  = word64vec V.! 0
-    | n>64 = word64vec V.! 64
-    | otherwise = word64vec V.! n
-
-word64vec :: V.Vector Word64
-word64vec = runST $ do 
-    v <- VM.new 65
-    VM.write v 0 (0::Word64)
-    forM_ [1..64] $ \i -> do
-        x <- VM.read v (i-1)
-        VM.write v i $ bit (64-i) .|. x
-    v <- V.freeze v
-    return v
-
-
----------------------------------------
-
-data FourD = FourD 
-    { _d0 :: !Double
-    , _d1 :: !Double
-    , _d2 :: !Double
-    , _d3 :: !Double
-    }
-    deriving (Read,Show,Eq,Ord)
-
-makeIndex ''FourD
-
-derivingUnbox "FourD"
-    [t| FourD -> (Double,Double,Double,Double) |]
-    [| \(FourD a b c d) -> (a,b,c,d) |]
-    [| \(a,b,c,d) -> (FourD a b c d) |]
-
--- derivingUnbox "BitTwiddler"
---     [t| (VU.Unbox a) => BitTwiddler a -> a |]
---     [| \(BitTwiddler arr) -> (indexByteArray 0) |]
---     [| \(a) -> runST $ do arr <- newByteArray 16; writeByteArray arr 0 a; return $ unsafeThawByteArray arr |]
-
-instance NFData FourD where
-    rnf a = seq a ()
-
-instance ToBitTwiddler FourD where
-    toBitTwiddler (FourD a b c d) = BitTwiddler arr
-        where
-            (BitTwiddler arr) = bitzip (bitzip a' b') (bitzip c' d')
-            a' = toBitTwiddler a
-            b' = toBitTwiddler b
-            c' = toBitTwiddler c
-            d' = toBitTwiddler d
---              toBitTwiddler ((a,b),(c,d))
-    fromBitTwiddler (BitTwiddler arr) = FourD (fromBitTwiddler a) (fromBitTwiddler b) (fromBitTwiddler c) (fromBitTwiddler d)
-        where
-            twid = BitTwiddler arr :: BitTwiddler ((Double,Double),(Double,Double))
-            (ab,cd) = bitunzip twid
-            (a,b) = bitunzip ab 
-            (c,d) = bitunzip cd
-
---     toBitTwiddler (FourD a b c d) = toBitTwiddler [a,b,c,d]
---     fromBitTwiddler arr = FourD a b c d
---         where
---             a:b:c:d:[] = fromBitTwiddler arr
-
-instance HasRing FourD where
-    type Ring FourD = Double
-
-instance MetricSpace FourD where
-    distance (FourD a1 b1 c1 d1) (FourD a2 b2 c2 d2) = sqrt $ (a1-a2)^^2 + (b1-b2)^^2 -- + (c1-c2)^^2 + (d1-d2)^^2
-
-type Prop1 a = a -> Bool
-type Prop2 a = a -> a -> Bool
-type Prop3 a = a -> a -> a -> Bool
-
-property_distance0 :: (Eq (Ring a), MetricSpace a) => a -> Bool
-property_distance0 a = distance a a == 0
-
-property_triangle :: (Ord (Ring a), MetricSpace a, Monoid a) => a -> a -> a -> Bool
-property_triangle a b c = distance a c + distance b c >= distance (a<>b) c
-
-
-instance Arbitrary FourD where
-    arbitrary = do
-        a <- arbitrary
-        b <- arbitrary
-        c <- arbitrary
-        d <- arbitrary
-        return $ FourD a b c d
+-- import Data.BitTwiddler
+import HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
+import HLearn.DataStructures.FourD
 
 -------------------------------------------------------------------------------
--- KDVector
+-- data types
 
-newtype KDVector a = KDVector (SortedVector' V.Vector FourD (BitTwiddler a))
-    deriving ({-Read,-}Show,Eq,Ord,Monoid,Abelian)
+newtype KDVector a = KDVector (SortedVector' VS.Vector TimSort BitTwiddler4)
+    deriving (Eq,Ord,Monoid,Abelian)
+
+instance Show (KDVector FourD) where
+    show (KDVector (SortedVector' v)) = concatMap show $ VS.toList v
 
 instance NFData (KDVector a) where
     rnf (KDVector sv) = rnf sv
 
-instance (ToBitTwiddler a) => HomTrainer (KDVector a) where
-    type Datapoint (KDVector a) = a
-    train1dp = KDVector . train1dp . toBitTwiddler 
+-------------------------------------------------------------------------------
+-- algebra
 
 instance CK.Foldable KDVector where
-    type FoldableConstraint KDVector a = (Ord a, ToBitTwiddler a)
-    foldr f b (KDVector sv) = CK.foldr f b $ CK.fmap fromBitTwiddler sv
-    foldr1 f (KDVector sv) = CK.foldr1 f $ CK.fmap fromBitTwiddler sv
+    type FoldableConstraint KDVector a = (Ord a, ToBitTwiddler a, BitTwiddler a ~ BitTwiddler4, VS.Storable a)
+    foldr f b (KDVector (SortedVector' v)) = VS.foldr f b $ VS.map fromBitTwiddler v
+    foldr1 f (KDVector (SortedVector' v)) = VS.foldr1 f $ VS.map fromBitTwiddler v
+    foldl = undefined
+    foldl' = undefined
+    foldl1 = undefined
 
--- instance Prunable KDVector where
---     prunefoldr p f b v@(KDVector (SortedVector' vec))
---         | V.length vec == 1 = f (vec V.! 0) b
---         | otherwise = if p b (KDVector (SortedVector' vec)) TreeLeft
---             then goright 
---             else prunefoldr p f goright (v ! TreeLeft)
--- 
---             where 
---                 goright = if p b (KDVector (SortedVector' vec)) TreeRight
---                     then b
---                     else prunefoldr p f b (v ! TreeRight)
+instance (ToBitTwiddler a, BitTwiddler a ~ BitTwiddler4) => HomTrainer (KDVector a) where
+    type Datapoint (KDVector a) = a
+    train1dp = KDVector . train1dp . toBitTwiddler 
+    train = KDVector . train . fmap toBitTwiddler
 
-kvfoldr f b (KDVector sv) = CK.foldr f b $ CK.fmap fromBitTwiddler sv
+-------------------------------------------------------------------------------
+-- search
 
-pf :: (ToBitTwiddler a) =>  (b -> KDVector a -> TreeIndex -> Bool) -> (a -> b -> b) -> b -> KDVector a -> b
-pf p f b kv@(KDVector sv@(SortedVector' vec))
-    | V.length vec == 1 = f (fromBitTwiddler $ vec V.! 0) b
-    | otherwise = if p b kv TreeLeft
-        then trace "prune TreeLeft" goright
-        else pf p f goright (KDVector $ sv ! TreeLeft) 
-    
+testcase1 = 1 @=? boundDistance (FourD 0 0 0 0) (Bound (FourD 0 0 1 1) (FourD 0 0 1 (-1))) 
+testcase2 = 2 @=? boundDistance (FourD 0 0 0 0) (Bound (FourD 1 2 1 2) (FourD 2 1 2 1))
+
+boundDistance :: FourD -> Bound FourD -> Double
+boundDistance query bound = distance query $ FourD
+    { _d0 = dim2val _d0
+    , _d1 = dim2val _d1
+    , _d2 = dim2val _d2
+    , _d3 = dim2val _d3
+    }
+    where    
+        dim2val :: (FourD -> Double) -> Double
+        dim2val dim = if q > l && q < u
+            then q
+            else if abs (u-q) > abs (l-q)
+                then l
+                else u
+            where
+                q = dim query 
+                u = dim $ upper bound
+                l = dim $ lower bound
+
+data NNRet = NNRet
+    { nnret_dist :: Double
+    }
+
+nn :: NNRet -> FourD -> KDVector FourD -> NNRet
+nn ret query kv@(KDVector (SortedVector' v)) = if VG.length v == 0
+    then ret
+    else if VG.length v == 1 || boundDistance query (vec2bound kv) < nnret_dist ret
+        then ret'
+        else if (toBitTwiddler query) < midval_BitTwiddler
+             then undefined 
+             else undefined
     where
-        goright = if p b kv TreeRight
-            then trace "prune TreeRight" $ b
-            else pf p f b (KDVector $ sv ! TreeRight) 
+        midpt = floor $ (fromIntegral $ VG.length v :: Float)/2
+        midval_BitTwiddler = v VG.! midpt
+        midval_FourD = fromBitTwiddler midval_BitTwiddler
 
--- pf2 :: (ToBitTwiddler a) =>  (b -> KDVector a -> Bool) -> (a -> b -> b) -> b -> KDVector a -> b
-pf2 p f b kv@(KDVector sv@(SortedVector' vec))
-    | V.length vec == 1 = f (fromBitTwiddler $ vec V.! 0) b
-    | V.length vec < 100 = F.foldr f b $ fmap fromBitTwiddler vec 
-    | otherwise = if p b' kv 
-        then {-trace (concat $ -- map (++"\n") 
-            ["prune"
-            , "  count = "++ show (V.length vec)
---             , "  b=" ++ show b
---             , "  ex_boundingbox=" ++ show (expand_boundingbox_FourD $ boundingbox_FourD (snd b') (fst b'))
---             , "  boundingbox=" ++ show (boundingbox_FourD (snd b') (fst b'))
---             , "  ex_(c,d) = " ++ show (expand_boundingbox_FourD (fromBitTwiddler $ vec V.! 0 :: FourD, fromBitTwiddler $ vec V.! (V.length vec -1) :: FourD))
---             , "  (c,d) = " ++ show ((fromBitTwiddler $ vec V.! 0 :: FourD, fromBitTwiddler $ vec V.! (V.length vec -1) :: FourD))
-            ]) $-}  b
-        else if distance (snd b) (fromBitTwiddler rval) < distance (snd b) (fromBitTwiddler lval)
-            then rightleft
-            else leftright 
-        where
-            
---             rsvec@(SortedVector' rvec) = sv ! TreeRight
---             rsvec@(SortedVector' lvec) = sv ! TreeLeft
-            midpt = V.length vec `intdiv` 2
-            rsvec@(SortedVector' rvec) = SortedVector' $ V.slice 0 (midpt) vec 
-            lsvec@(SortedVector' lvec) = SortedVector' $ V.slice (midpt) (V.length vec-midpt-1) vec
-            rmidpt = V.length rvec `intdiv` 2
-            lmidpt = V.length lvec `intdiv` 2
-            rval = rvec V.! rmidpt
-            lval = lvec V.! lmidpt
+        dist' = min (nnret_dist ret) (distance query midval_FourD)
+        ret' = ret
+            { nnret_dist = dist'
+            }
 
-            rightleft = pf2 p f (pf2 p f b' (KDVector rsvec)) (KDVector lsvec) 
-            leftright = pf2 p f (pf2 p f b' (KDVector lsvec)) (KDVector rsvec) 
---             b' = f (fromBitTwiddler $ vec V.! (floor $ (fromIntegral $ V.length vec :: Double) / 2)) b
-            b' = f (fromBitTwiddler $ vec V.! midpt) b
+vec2bound :: KDVector FourD -> Bound FourD
+vec2bound (KDVector (SortedVector' v)) = Bound
+    { upper = fromBitTwiddler $ v VG.! (VG.length v-1)
+    , lower = fromBitTwiddler $ v VG.! 0
+    }
+--         dist' = min (nnret_dist ret) (distance query midval)
 
--- mindist_prune query (dist,dp) t TreeLeft  = (query ! splitdim t) - (val t ! splitdim t) < dist 
--- mindist_prune query (dist,dp) t TreeRight = (val t ! splitdim t) - (query ! splitdim t) < dist
--- 
--- mindist kv@(KDVector (SortedVector' v)) dp = CK.foldr mindist_cata (distance origin dp1,dp1) kv
---     where
---         dp1 = v ! 0
 
-badfourd = FourD 1e100 1e100 1e100 1e100
-inf = 1/0 :: Double
+mindist query = CK.foldr1 (mindist_cata query)
 
-mindist query = pf noprune (mindist_cata query) (inf,badfourd)
-mindist' query = pf2 noprune2 (mindist_cata query) (inf,badfourd)
-mindist'' query = pf2 mindist_prune (mindist_cata query) (inf,badfourd)
+mindist_cata :: FourD -> FourD -> FourD -> FourD
+mindist_cata query a b = if distance query a < distance query b
+    then a
+    else b
 
--- mindist_prune (dist,dp) kv TreeLeft = 
-
-noprune b kv ti = False
-noprune2 b kv = False
-
-mindist_prune (dist,dp) kv@(KDVector(SortedVector' v)) = not $ isOverlap (a,b) (c,d)
-    where
-        (a,b) = boundingbox_BitTwiddler (toBitTwiddler dp) dist
-        (c,d) = (v V.! 0, v V.! (V.length v-1))
-
-mindist_cata query a (dist,dp) = if dist > dista
-    then (dista,a)
+mindist_cata2 :: FourD -> FourD -> (Double,FourD) -> (Double,FourD)
+mindist_cata2 query newdp (dist,dp) = if newdist < dist
+    then (newdist,newdp)
     else (dist,dp)
     where
-        dista = distance query a
+        newdist = distance query dp
 
-mindist_cata1 query a dp = if distance query dp > distance query a
-    then a
-    else dp
+data Hylo = Hylo
+    { bound :: !(Bound BitTwiddler4)
+    , dist  :: !(Double)
+    , dp    :: !(FourD)
 
-test4d = FourD 1000 1000 1000 1000
+    , query_FourD :: !FourD
+    , query_BitTwiddler4 :: !BitTwiddler4
+--     , misc :: a
+    }
+    deriving Show
+
+inf = 1/0
+emptyhylo query = Hylo
+    { bound = Bound
+        { upper = toBitTwiddler $ FourD inf inf inf inf
+        , lower = toBitTwiddler $ FourD (-inf) (-inf) (-inf) (-inf)
+        }
+    , dist = inf
+    , dp = FourD inf inf inf inf
+    , query_FourD = query
+    , query_BitTwiddler4 = toBitTwiddler query
+    }
+
+prunefoldr :: Hylo -> KDVector FourD -> Hylo
+prunefoldr hylo kv@(KDVector sv@(SortedVector' v)) 
+    | VG.length v == 0 = hylo
+    | otherwise = prunefoldr (prunefoldr hylo' kvl) kvr
+
+    where
+        rightleft = prunefoldr (prunefoldr hylo' kvr) kvl
+        leftright = prunefoldr (prunefoldr hylo' kvl) kvr
+
+        midpt = VG.length v `intdiv` 2
+        midval_BitTwiddler4 = v VG.! midpt :: BitTwiddler4
+        midval_FourD = fromBitTwiddler midval_BitTwiddler4 :: FourD
+        midval_dist = distance (query_FourD hylo) midval_FourD
+
+        kvr = KDVector (SortedVector' $ VG.slice midpt (VG.length v-midpt-1) v)
+        kvl = KDVector (SortedVector' $ VG.slice 0 midpt v) 
+
+        hylo' = if midval_dist > dist hylo
+            then hylo
+            else hylo
+                { dist = midval_dist
+                , dp = midval_FourD
+                , bound = calcBound_BitTwiddler4 (midval_dist,midval_FourD)
+                }
+
+intdiv :: Int -> Int -> Int
+intdiv a b = floor $ (fromIntegral a / fromIntegral b :: Float)
+
+-- maxvisit :: Bound BitTwiddler4 -> KDVector FourD -> Int
+-- maxvisit bound (KDVector (SortedVector' v)) = VG.foldr1 (\x -> if x then 1; else 0) $ VG.map (\x -> x>lower bound && x<upper bound) v
+
+-- maxvisit bound (KDVector (SortedVector' v)) = VG.map (\x -> x>=lower bound && x<=upper bound) v
+
+minvisit :: Bound BitTwiddler4 -> KDVector FourD -> Int
+minvisit bound (KDVector (SortedVector' v)) = length . filter (\x->x>=lower bound&&x<=upper bound) $ VG.toList v
+
+minvisit_theory :: Bound BitTwiddler4 -> KDVector FourD -> Int
+minvisit_theory bound (KDVector (SortedVector' v)) = length . filter theory $ VG.toList v
+    where
+        theory x = _d0 fd < _d0 hi && _d0 fd > _d0 lo
+                && _d1 fd < _d1 hi && _d1 fd > _d1 lo
+                && _d2 fd < _d2 hi && _d2 fd > _d2 lo
+                && _d3 fd < _d3 hi && _d3 fd > _d3 lo
+            where
+                fd = fromBitTwiddler x :: FourD
+
+        hi = fromBitTwiddler $ upper bound :: FourD
+        lo = fromBitTwiddler $ lower bound :: FourD
+
+---------------------------------------
+-- test
+
+offset=0
+tdata = map (\x -> FourD x x x x) [offset..offset+1000]
+tquery = FourD (offset+200) (offset+21) (offset+220) (offset+23)
+tmodel = train tdata :: KDVector FourD
 
 randdata len offset r = replicateM len $ do
     let range = (-r+offset,r+offset)
     a <- randomRIO range
     b <- randomRIO range
-    let c = offset -- c <- randomRIO range
-    let d = offset -- d <- randomRIO range
+    c <- randomRIO range
+    d <- randomRIO range
     return $ FourD a b c d
 
-randmodel :: Int -> IO (KDVector FourD)
-randmodel len = fmap train $ randdata len 0 1000
-
-origin = FourD 0 0 0 0
-
-grid = [FourD a b c d | a<-range, b<-range, c<-[1], d<-[1]]
-    where range=[-15..15]
-
-tdata = map (\x -> FourD x x x x) [-1000..1000]
-tquery = FourD 900 901 902 903
-tmodel = train tdata :: KDVector FourD
-tmodelgrid = train grid :: KDVector FourD
-(KDVector (SortedVector' v)) = tmodel
-(v1,v2) = half v
-len = V.length v
-
-midpt :: V.Vector a -> Int
-midpt vec = V.length vec `intdiv` 2
-
-half :: V.Vector a -> (V.Vector a,V.Vector a)
-half v = (V.slice 0 len1 v, V.slice (midpt v+1) len2 v)
-    where
-        len1 = midpt v
-        len2 = V.length v - midpt v - 1
-
-vec2boundingbox :: V.Vector (BitTwiddler a) -> (BitTwiddler a,BitTwiddler a)
-vec2boundingbox v = (v V.! 0, v V.! (V.length v -1))
-
-mindist2prunelist :: (Double,FourD) -> KDVector FourD -> V.Vector Bool
-mindist2prunelist (dist,dp) (KDVector (SortedVector' v)) = fmap (\x -> x<a' || x > b') v
-    where
-        (a,b) = boundingbox_FourD dp dist
-        (a',b') = (toBitTwiddler a,toBitTwiddler b)
+randmodel :: IO (KDVector FourD)
+randmodel = fmap train $ randdata 1000 0 1000

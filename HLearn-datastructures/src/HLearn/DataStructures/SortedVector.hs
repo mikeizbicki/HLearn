@@ -2,8 +2,9 @@
 -- | A `SortedVector'` is a vector that maintains the invariant that all elements are sorted.  Whenever an element is added/removed, the vector is automatically adjusted.  Because element positions can be changed in this way, it does not make sense to index the vector by specific locations.
 
 module HLearn.DataStructures.SortedVector
-    ( SortedVector, SortedVector' (..)
-    )
+--     ( SortedVector, SortedVector' (..)
+--     , AnySort, TimSort
+--     )
     where
     
 import Control.Applicative
@@ -16,12 +17,14 @@ import GHC.TypeLits
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Mutable as VM
+import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Algorithms.Intro as Intro
 
 import qualified Control.ConstraintKinds as CK
 
 import Data.Prunable
 import HLearn.Algebra 
+import HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 
 -------------------------------------------------------------------------------
 -- data types
@@ -108,6 +111,9 @@ instance CK.Foldable (SortedVector' vec sort) where
     type FoldableConstraint (SortedVector' vec sort) dp = VG.Vector vec dp
     foldr f b (SortedVector' vec) = VG.foldr f b vec
     foldr1 f (SortedVector' vec) = VG.foldr1 f vec
+    foldl = undefined
+    foldl1 = undefined
+    foldl' = undefined
 
 instance CK.Functor (SortedVector' vec sort) where
     type FunctorConstraint (SortedVector' vec sort) dp = (Ord dp, VG.Vector vec dp, Functor vec)
@@ -134,7 +140,7 @@ instance CK.Pointed (SortedVector' vec sort) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (VG.Vector vec dp, Ord dp) => HomTrainer (SortedVector' vec sort dp) where
+instance (VG.Vector vec dp, Ord dp) => HomTrainer (SortedVector' vec AnySort  dp) where
     type Datapoint (SortedVector' vec sort dp) = dp
     train1dp dp = SortedVector' $ VG.singleton dp
     train xs = SortedVector' $ runST $ do
@@ -142,3 +148,26 @@ instance (VG.Vector vec dp, Ord dp) => HomTrainer (SortedVector' vec sort dp) wh
         Intro.sort v
         v <- VG.freeze v
         return v
+
+data TimSort
+
+instance (VS.Storable dp, Sortable dp, Ord dp) => HomTrainer (SortedVector' VS.Vector TimSort dp) where
+    type Datapoint (SortedVector' vec sort dp) = dp
+    train1dp dp = SortedVector' $ VG.singleton dp
+--     train xs = SortedVector' $ VS.fromList $ F.toList xs
+--     train xs = SortedVector' $ quickSort $ VS.fromList $ F.toList xs
+    train xs = runST $ do 
+        v <- VS.unsafeThaw $ VS.fromList $ F.toList xs
+--         timSortM v
+        Intro.sort v
+        v <- VS.freeze v
+        return $ SortedVector' v
+
+isSorted :: (VG.Vector vec dp, Ord dp) => SortedVector' vec sort dp -> Bool
+isSorted (SortedVector' v) = go $ VG.toList v
+    where
+        go ([]) = True
+        go (x:[]) = True
+        go (a:b:xs) = if a > b
+            then False
+            else go (b:xs)
