@@ -64,4 +64,4 @@ instance
             n = numdp kde
             h = fromIntegral $ fromSing (sing :: Sing h)
 --             dpList = Map.keys (getMap $ freemod kde)
-            dpList = F.toList (freemod kde) 
+            dpList = CK.toList (freemod kde) 
