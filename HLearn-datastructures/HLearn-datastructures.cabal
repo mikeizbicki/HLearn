@@ -20,10 +20,14 @@ Library
         ConstraintKinds         >= 0.2.0,
         base                    >= 3 && < 5,
 
+        diagrams-svg,
+        diagrams-lib,
+
         vector-th-unbox         >= 0.2,
         bits                    >= 0.3.2,
         vector-algorithms       >= 0.5.4,
         primitive               >= 0.5,
+        HUnit                   >= 1.2,
         QuickCheck              >= 2.3.1,
         MonadRandom             >= 0.1.9,
         deepseq                 >= 1.3,
@@ -45,6 +49,7 @@ Library
         Data.Prunable
         Data.BitTwiddler
         HLearn.DataStructures.SortedVector
+        HLearn.DataStructures.CoverTree
         HLearn.DataStructures.KDTree
         HLearn.DataStructures.KDIsomorphism
         HLearn.DataStructures.BitTwiddlerSort.BitTwiddler

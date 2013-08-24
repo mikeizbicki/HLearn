@@ -15,6 +15,7 @@ import HLearn.DataStructures.KDTree hiding (mindist)
 import HLearn.DataStructures.KDIsomorphism --hiding (mindist)
 import HLearn.DataStructures.SortedVector
 import HLearn.DataStructures.FourD
+import HLearn.DataStructures.CoverTree
 
 instance FromRecord FourD where
     parseRecord v = FourD <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
@@ -28,10 +29,10 @@ instance FromRecord FourD where
 main = do
     Right (xs :: V.Vector FourD) <- timeIO "Loading dataset" $ fmap (decode False) $ BS.readFile "dataset.csv"
     Right (qs :: V.Vector FourD) <- timeIO "Loading query" $ fmap (decode False) $ BS.readFile "query.csv"
-    let kdtree = train xs :: KDVector FourD
-    timeIO "Building kd-tree" $ return $ rnf $ kdtree
-    dp <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
-    print dp
+    let kdtree = parallel train xs :: CoverTree FourD
+    timeIO "Building kd-tree" $ return $ rnf kdtree
+--     dp <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
+--     print dp
 --     (dist,dp) <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
 --     print (dist,dp)
     putStrLn "end"
