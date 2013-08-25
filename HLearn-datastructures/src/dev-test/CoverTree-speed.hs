@@ -9,7 +9,8 @@ import HLearn.Algebra
 import HLearn.DataStructures.CoverTree
 
 main = do
-    xs <- replicateM 100000 $ do
+--     xs <- replicateM 100000 $ do
+    xs <- replicateM 10000 $ do
         x <- randomRIO (-2^5,2^5)
         y <- randomRIO (-2^5,2^5)
         return $ (x,y)

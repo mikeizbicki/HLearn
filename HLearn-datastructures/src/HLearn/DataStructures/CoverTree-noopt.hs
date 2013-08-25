@@ -28,17 +28,11 @@ import HLearn.Algebra hiding ((#),(<>))
 type CoverTree dp = Option (CoverTree' dp)
 
 data CoverTree' dp = Node 
-    { nodedp     :: !dp
-    , sepdist    :: !(Maybe (Ring dp))
---     , sepdistMin :: !(Ring dp)
---     , sepdistMax :: !(Ring dp)
-    , children'  :: !(Map.Map dp (CoverTree' dp)) 
-    }
-
-deriving instance (Read (Ring dp), Read dp, Ord dp) => Read (CoverTree' dp)
-deriving instance (Show (Ring dp), Show dp, Ord dp) => Show (CoverTree' dp)
-deriving instance (Eq (Ring dp), Eq dp) => Eq (CoverTree' dp)
-deriving instance (Ord (Ring dp), Ord dp) => Ord (CoverTree' dp)
+        { nodedp    :: !dp
+        , level     :: !Int
+        , children' :: !(Map.Map dp (CoverTree' dp)) 
+        }
+    deriving (Read,Show,Eq,Ord)
 
 instance NFData dp => NFData (CoverTree' dp) where
     rnf ct = deepseq (nodedp ct) $ rnf (children' ct)
@@ -50,23 +44,45 @@ instance NFData a => NFData (Option a) where
 isSingleton :: CoverTree' dp -> Bool
 isSingleton node = Map.size (children' node) == 0
 
--- children = children'
-children :: (Ord dp, Fractional (Ring dp)) => CoverTree' dp -> Map.Map dp (CoverTree' dp)
+children :: (Ord dp) => CoverTree' dp -> Map.Map dp (CoverTree' dp)
 children tree = mapinsertSCCWith 
     (\x y -> y) 
     (nodedp tree) 
-    (Node (nodedp tree) Nothing mempty)
+    (Node (nodedp tree) (level tree-1) mempty)
     (children' tree)
 
--- sepChildDist :: (Fractional (Ring dp)) => CoverTree' dp -> Ring dp
--- sepChildDist node = sepdist node/2 
+sepChildDist :: Fractional r => CoverTree' dp -> r
+sepChildDist node = 2^^(level node-1)
 
-sepdistNum node = case sepdist node of
-    Nothing -> 0.0000000000000000001
-    Just x -> x
+sepDist :: Floating r => CoverTree' dp -> r
+sepDist !node = 2**(fromIntegral $ level node)
+-- sepDist !node = pow2 (level node)
 
-coverDist :: (Fractional (Ring dp)) => CoverTree' dp -> Ring dp
-coverDist node = sepdistNum node*2 
+pow2 :: Int -> Double
+pow2 i = pow2vec VU.! (i-minindex) 
+
+minindex= -100
+pow2vec :: VU.Vector Double
+pow2vec = VU.fromList $ map  (^^2) [minindex..100]
+
+coverDist :: Fractional r => CoverTree' dp -> r
+coverDist node = 2^^(level node+1)
+
+growct :: CoverTree' dp -> Int -> CoverTree' dp
+growct node i = if level node == i
+    then node
+    else growct node' i
+    where 
+        node'=Node
+            { nodedp = nodedp node
+            , level = level node+1
+            , children' = Map.singleton (nodedp node) node
+            }
+
+prunect :: CoverTree' dp -> CoverTree' dp
+prunect node = if Map.size (children' node) == 1
+    then prunect $ head $ mapelemsSCC $ children' node
+    else node
 
 ctMinDistance :: (MetricSpace dp, Fractional (Ring dp)) => CoverTree' dp -> CoverTree' dp -> Ring dp
 ctMinDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) - ct1_adj - ct2_adj
@@ -89,7 +105,7 @@ ctMaxDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2)
 --     , Ord dp, Fractional (Ring dp)
 --     , Ring dp ~ Double
 --     ) => CoverTree' dp -> dp -> Maybe (CoverTree' dp)
--- insert node dp = if distance dp (nodedp node) > sepdist node
+-- insert node dp = if distance dp (nodedp node) > sepDist node
 --     then Nothing
 --     else Just $ node
 --         { children' = if hasInsert
@@ -125,31 +141,19 @@ instance
     , Fractional (Ring dp)
     , Ord dp
     , Ring dp ~ Double
-    , Show (CoverTree dp)
-    , Show (dp)
     ) => Semigroup (CoverTree' dp) 
         where
     {-# INLINE (<>) #-}
-    ct1 <> ct2 = merge ct1 ct2 
+    ct1 <> ct2 = merge ct1 ct2
 
 -- {-# INLINE merge #-}
-merge ct1 ct2 = if sepdistNum ct2>sepdistNum ct1
-    then merge ct2 ct1
-    else case merge' ct1 ct2 of
-        Just x -> x
-        Nothing -> fromJust $ -- trace ("ct1="++show ct1++", ct2="++show ct2) $ 
-             merge' (updatesep ct1 ct2) ct2
-
-updatesep :: 
-    ( MetricSpace dp
-    , RealFrac (Ring dp)
-    , Floating (Ring dp)
-    ) => CoverTree' dp -> CoverTree' dp -> CoverTree' dp
-updatesep ct1 ct2 = ct1 { sepdist = Just $ minsep ct1 ct2 }
+merge ct1 ct2 = case merge' (growct ct1 maxlevel) (growct ct2 maxlevel) of
+    Just x -> x
+    Nothing -> merge (growct ct1 (maxlevel+1)) ct2
     where
-        minsep ct1 ct2 = 2^^((ceiling $ log (distance (nodedp ct1) (nodedp ct2)) / (log 2) :: Int) )
+        maxlevel = max (level ct1) (level ct2)
 
-merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > sepdistNum ct1
+merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > sepDist ct1
     then Nothing
     else Just $ ct1
         { children' = go (children ct1) (mapelemsSCC $ children ct2)
@@ -157,10 +161,8 @@ merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > sepdistNum ct1
     where
         go !childmap ![] = childmap
         go !childmap !(x:xs) = case catMaybesSnd $ map (\(k,v)->(k,merge' v x)) $ mapassocsSCC childmap of
-            []           -> trace "[]"$ go (mapinsertSCC (nodedp x) (updatesep x child) childmap) xs
-            (old,new):ys -> trace ":" $ go (mapinsertSCC (nodedp new) (updatesep new child) $ mapdeleteSCC old childmap) xs
-            where
-                child = head $ Map.elems childmap
+            []           -> go (mapinsertSCC (nodedp x) x childmap) xs
+            (old,new):ys -> go (mapinsertSCC (nodedp new) new $ mapdeleteSCC old childmap) xs
 
 mapinsertSCCWith = {-# SCC "Map.insertWith" #-} Map.insertWith
 mapinsertSCC = {-# SCC "Map.insert" #-} Map.insert 
@@ -182,12 +184,11 @@ instance
     , Fractional (Ring dp)
     , Ord dp
     , Ring dp ~ Double
-    , Show dp
     ) => HomTrainer (CoverTree dp) 
         where
     type Datapoint (CoverTree dp) = dp
     {-# INLINE train1dp #-}
-    train1dp dp = Option $ Just $ Node dp Nothing mempty
+    train1dp dp = Option $ Just $ Node dp 0 mempty
 
 -------------------------------------------------------------------------------
 -- tests
@@ -201,28 +202,33 @@ instance Arbitrary (CoverTree (Double,Double)) where
             return (x,y)
         return $ train xs 
 
-property_covering :: CoverTree (Double,Double) -> Bool
+property_covering :: 
+    ( MetricSpace dp
+    , Fractional (Ring dp)
+    , Ord (Ring dp)
+    , Ord dp
+    ) => CoverTree dp -> Bool
 property_covering (Option Nothing) = True
 property_covering (Option (Just node)) = if Map.size (children' node) > 1 
     then maximum (map (distance (nodedp node) . nodedp) $ mapelemsSCC $ children' node) < coverDist node 
       && and (map (property_covering . Option . Just) $ mapelemsSCC $ children' node)
     else True
 
-property_leveled :: CoverTree (Double,Double) -> Bool
-property_leveled (Option Nothing) = True
-property_leveled (Option (Just node)) = case map sepdist (Map.elems $ children' node) of
-    [] -> True
-    xs -> all (== head xs) xs
-       && and (map (property_leveled . Option . Just) $ mapelemsSCC $ children' node)
-
-property_separating :: CoverTree (Double,Double) -> Bool 
-property_separating (Option Nothing) = True
-property_separating (Option (Just node)) = if Map.size (children' node) > 1
-    then minimum ((mapFactorial ctMaxDistance) $ mapelemsSCC $ children node) > (sepdistNum $ head $ Map.elems $ children' node)
-      && and (map (property_separating . Option . Just) $ mapelemsSCC $ children' node)
+property_separation :: 
+    ( MetricSpace dp
+    , Fractional (Ring dp)
+    , Ord (Ring dp)
+    , Ord dp
+    , Show (Ring dp)
+    , Show dp
+    ) => CoverTree dp -> Bool
+property_separation (Option Nothing) = True
+property_separation (Option (Just node)) = if Map.size (children' node) > 1
+    then minimum ((mapFactorial ctMaxDistance) $ mapelemsSCC $ children node) > sepChildDist node
+      && and (map (property_separation . Option . Just) $ mapelemsSCC $ children' node)
     else True
     where
-        f = trace ("mapFact="++show ((mapFactorial ctMaxDistance) $ mapelemsSCC $ children node)++", sepdist="++show (sepdist node)++ "nodes="++show (Map.keys $ children node))
+        f = trace ("mapFact="++show ((mapFactorial ctMaxDistance) $ mapelemsSCC $ children node)++", sepDist="++show (sepDist node)++ "nodes="++show (Map.keys $ children node))
 
 mapFactorial :: (a -> a -> b) -> [a] -> [b]
 mapFactorial f [] = []
@@ -258,34 +264,30 @@ randL n = replicateM n $ do
 
 ys :: [(Double,Double)]
 ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
-my = train ys :: CoverTree (Double,Double)
 -- my = prunect $ insertBatch ys
 
 ys' :: [(Double,Double)]
 ys' = [(1,2),(2,1)]
-my' = train ys' :: CoverTree (Double,Double)
 -- my' = prunect $ insertBatch ys'
 
 zs :: [(Double,Double)]
 zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(19,20),(20,10),(22,21)]
-mz = train zs :: CoverTree (Double,Double)
 -- mz = prunect $ insertBatch zs
 
 -------------------------------------------------------------------------------
 -- diagrams
 
-drawez (Option (Just node)) = draw node
 draw tree = mkConnections $
                    (named (label++show depth) $ fontSize 0.5 $ text label <> circle 1 # fc red) 
-               === (pad 1.05 $ centerName (label++show (depth/2)) $ 
+               === (pad 1.05 $ centerName (label++show (depth-1)) $ 
                    Map.foldr (|||) mempty $ Map.map draw $ children' tree)
                 
     where
-        depth = sepdistNum tree
+        depth = level tree
         label = intShow $ nodedp tree
 
-        mkConnections = connect (label++show depth) (label++show (depth/2) ) 
-          . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth/2))) (Map.keys $ children tree))
+        mkConnections = connect (label++show depth) (label++show (depth-1) ) 
+          . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth-1))) (Map.keys $ children tree))
             
 apList :: [a -> a] -> a -> a
 apList [] a = a
