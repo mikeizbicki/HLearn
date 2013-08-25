@@ -58,6 +58,7 @@ instance
     , F.Foldable container
     , MetricSpace dp
     , Ord (Ring dp)
+    , label ~ Ring (dp)
     ) => ProbabilityClassifier (NaiveNN container label dp)
         where
     type ResultDistribution (NaiveNN container label dp) = Categorical label (Ring dp)

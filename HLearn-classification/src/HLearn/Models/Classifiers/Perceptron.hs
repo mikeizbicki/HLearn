@@ -55,6 +55,7 @@ instance
     , MetricSpace (Centroid dp)
     , Monoid dp
     , HasRing dp
+    , label ~ Ring dp
     ) => ProbabilityClassifier (Perceptron label dp)
         where
     type ResultDistribution (Perceptron label dp) = (Categorical label (Ring dp))

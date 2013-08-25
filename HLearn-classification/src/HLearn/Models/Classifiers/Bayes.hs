@@ -42,6 +42,7 @@ instance
     , PDF (MarginalizeOut labelLens dist)
     , PDF (Margin labelLens dist)
     , Marginalize labelLens dist
+    , label ~ prob
     ) => ProbabilityClassifier (Bayes labelLens dist) 
         where
     type ResultDistribution (Bayes labelLens dist) = Margin labelLens dist

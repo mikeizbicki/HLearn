@@ -117,7 +117,7 @@ errorRate model dataL = (fromIntegral $ length $ filter (==True) resultsL) / (fr
         classifyL = map (classify model . getAttributes) dataL
 
 crossValidate :: (HomTrainer model, Eq (Datapoint model)) => 
-    [[Datapoint model]] -> LossFunction model -> Normal Double
+    [[Datapoint model]] -> LossFunction model -> Normal Double Double
 crossValidate xs f = train $ do
     testset <- xs
     let trainingset = concat $ filter (/=testset) xs
@@ -125,7 +125,7 @@ crossValidate xs f = train $ do
     return $ f model testset
     
 crossValidate_monoid :: (HomTrainer model, Eq (Datapoint model)) => 
-    [[Datapoint model]] -> LossFunction model -> Normal Double
+    [[Datapoint model]] -> LossFunction model -> Normal Double Double
 crossValidate_monoid xs f = train $ do
     testset <- xs
     let trainingset = concat $ filter (/=testset) xs
@@ -133,7 +133,7 @@ crossValidate_monoid xs f = train $ do
     return $ f model testset    
     
 crossValidate_group :: (HomTrainer model, Group model) => 
-    [[Datapoint model]] -> LossFunction model -> Normal Double
+    [[Datapoint model]] -> LossFunction model -> Normal Double Double
 crossValidate_group xs f = train $ do
     (testset,testModel) <- modelL
     let model = fullmodel <> inverse testModel
@@ -187,7 +187,7 @@ genTestList xs = zip xs $ listAllBut xs
 --     , CK.FoldableConstraint container (LDPS label)
 --     , CK.FoldableConstraint container [LDPS label]
 --     , Classifier model DPS label
---     ) => PerformanceMeasure Accuracy model container (LDPS label) (Normal Double)
+--     ) => PerformanceMeasure Accuracy model container (LDPS label) (Normal Double Double)
 --         where
 --         
 --     measure metricparams model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)
@@ -214,7 +214,7 @@ genTestList xs = zip xs $ listAllBut xs
 --     , UnlabeledDatapoint model ~ datapoint 
 --     , Label model ~ label 
 --     , Eq label
---     ) => model -> container (Labeled datapoint label) -> (Normal Double)
+--     ) => model -> container (Labeled datapoint label) -> (Normal Double Double)
 -- accuracy model testdata = train1dp ((foldl1 (+) checkedL)/(fromIntegral $ numdp) :: Double)
 --     where
 --         checkdp (label,dp) = indicator $ label==(classify model dp)

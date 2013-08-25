@@ -31,7 +31,7 @@ data ModifiedExponential ring = ModifiedExponential
 
 -- exhaust data
 instance (NFData ring) => NFData (ModifiedExponential ring) where
-    rnf pl = deepseq (y1pl)
+    rnf pl = deepseq (y1)
            $ deepseq (ylny pl)
            $ deepseq (yx2 pl)
            $ deepseq (yx1 pl)
@@ -66,7 +66,7 @@ instance (Num ring) => HasRing (ModifiedExponential ring) where
 
 instance (Num ring) => Module (ModifiedExponential ring) where
     r .* pl = ModifiedExponential
-        { y1  = r * (y1pl)
+        { y1  = r * (y1)
         , ylny = r * (ylny pl)
         , yx2 = r * (yx2 pl)
         , yx1  = r * (yx1 pl)
