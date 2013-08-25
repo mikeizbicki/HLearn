@@ -1,4 +1,6 @@
 module HLearn.Models.Regression.PowerLaw
+    ( PowerLaw
+    )
     where
 
 import Control.DeepSeq

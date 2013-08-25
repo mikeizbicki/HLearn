@@ -42,12 +42,12 @@ instance
 -------------------------------------------------------------------------------
 -- algebra
 
-testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
-    :: MonoidBoost 3 (Normal Rational)
-    -> MonoidBoost 3 (Normal Rational)
-    -> MonoidBoost 3 (Normal Rational)
-    -> Bool
-    )
+-- testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
+--     :: MonoidBoost 3 (Normal Rational)
+--     -> MonoidBoost 3 (Normal Rational)
+--     -> MonoidBoost 3 (Normal Rational)
+--     -> Bool
+--     )
 
 leave :: Int -> Seq.Seq a -> Seq.Seq a
 leave k xs = Seq.drop (Seq.length xs - k) xs

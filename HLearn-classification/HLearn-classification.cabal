@@ -63,7 +63,7 @@ Library
         HLearn.Models.Regression.Common
         HLearn.Models.Regression.PowerLaw
         HLearn.Models.Regression.Exponential
-        HLearn.Models.Regression.ModifiedExponential
+        --HLearn.Models.Regression.ModifiedExponential
         HLearn.Models.Regression.Logarithmic
         HLearn.Evaluation.CrossValidation
         HLearn.Evaluation.RSquared
