@@ -7,22 +7,29 @@ import Data.Monoid
 import HLearn.Algebra.Structures.Modules
                     
 -------------------------------------------------------------------------------
--- MetricSpaces
+-- classes
 
 -- | We assume that the MetricSpace on s is compatible with the ordering on s
-class (HasRing s) => MetricSpace s where
+class 
+    ( HasRing s
+    , Ord (Ring s)
+    , Fractional (Ring s)
+    , Real (Ring s)
+    , RealFrac (Ring s)
+    ) => MetricSpace s 
+        where
+
     distance :: s -> s -> Ring s
     
--------------------------------------------------------------------------------
--- Norms
+    distanceFastBound :: s -> s -> Ring s -> Ring s
+    distanceFastBound s1 s2 b = distance s1 s2
+
+    distanceFastMono :: s -> s -> Ring s
+    distanceFastMono = distance
 
 class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m
 
--- class (Module m, MetricSpace m) => Norm m where
---     {-# INLINE magnitude #-}
---     magnitude :: m -> Ring m
---     magnitude m = distance m mempty
+-------------------------------------------------------------------------------
+-- instances
 
--- instance (Module m, MetricSpace m) => Norm m where
-          
