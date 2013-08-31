@@ -1,0 +1,94 @@
+Name:                HLearn-distributions
+Version:             1.1.0.1
+Synopsis:            Distributions for use with the HLearn library
+Description:         This module is used to estimate statistical distributions from data.  It is based on the algebraic properties of the "HomTrainer" type class from the HLearn-algebra package.
+Category:            Data Mining, Machine Learning, Statistics
+License:             BSD3
+--License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+homepage:            http://github.com/mikeizbicki/HLearn/
+bug-reports:         http://github.com/mikeizbicki/HLearn/issues
+
+Library
+    Build-Depends:      
+        HLearn-algebra          >= 1.0.0.1,
+        HLearn-datastructures   >= 1.1,
+        ConstraintKinds         >= 0.0.1,
+        base                    >= 3 && < 5,
+        
+        template-haskell,
+        deepseq                 >= 1.3.0.1,
+        list-extras             >= 0.4.1,
+        containers              >= 0.5,
+        statistics              >= 0.10.2,
+        
+        QuickCheck              >= 2.5.1,
+        vector                  >= 0.9,
+        vector-th-unbox         >= 0.2,
+        graphviz                >= 2999.16,
+        hmatrix                 >= 0.14,
+        gamma                   >= 0.9.0.2,        
+        erf                     >= 2.0.0.0,
+
+        -- are these really necessary?
+        array                   >= 0.4.0,
+        process                 >= 1.1.0.2,
+        MonadRandom             >= 0.1.6,
+        math-functions          >= 0.1.1,
+        normaldistribution      >= 1.1.0
+
+        
+    hs-source-dirs:     src
+    ghc-options:        
+        -rtsopts 
+        -- -auto-all 
+        -- -caf-all 
+        -funbox-strict-fields
+        -O2 
+        -- -fllvm
+    Exposed-modules:
+        HLearn.Models.Distributions
+        HLearn.Models.Distributions.Common
+        HLearn.Models.Distributions.Kernels
+        HLearn.Models.Distributions.Visualization.Gnuplot
+        HLearn.Models.Distributions.Visualization.Graphviz
+        HLearn.Models.Distributions.Univariate.Binomial
+        HLearn.Models.Distributions.Univariate.Categorical
+        HLearn.Models.Distributions.Univariate.Exponential
+        HLearn.Models.Distributions.Univariate.Geometric
+        HLearn.Models.Distributions.Univariate.KernelDensityEstimator
+        HLearn.Models.Distributions.Univariate.LogNormal
+        HLearn.Models.Distributions.Univariate.Normal
+        HLearn.Models.Distributions.Univariate.Poisson
+        --HLearn.Models.Distributions.Univariate.Uniform
+        HLearn.Models.Distributions.Univariate.Internal.MissingData
+        HLearn.Models.Distributions.Univariate.Internal.Moments
+        HLearn.Models.Distributions.Multivariate.Interface
+        HLearn.Models.Distributions.Multivariate.MultiNormal
+        HLearn.Models.Distributions.Multivariate.Internal.CatContainer
+        HLearn.Models.Distributions.Multivariate.Internal.Container
+        HLearn.Models.Distributions.Multivariate.Internal.Ignore
+        HLearn.Models.Distributions.Multivariate.Internal.Marginalization
+        HLearn.Models.Distributions.Multivariate.Internal.TypeLens
+        HLearn.Models.Distributions.Multivariate.Internal.Unital
+
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        --DataKinds
+        TypeFamilies
+        --PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+
