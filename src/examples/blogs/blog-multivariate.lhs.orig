@@ -1,4 +1,4 @@
-n this post, we’re going to look at how to manipulate multivariate distributions in Haskell’s HLearn library.  There are many ways to represent multivariate distributions, but we’ll use a technique called Markov networks.  These networks have the algebraic structure called a monoid (and group and vector space), and training them is a homomorphism.  Despite the scary names, these mathematical structures make working with our distributions really easy and convenient—they give us online and parallel training algorithms “for free.”  If you want to go into the details of how, you can check out my TFP13 submission, but in this post we’ll ignore those mathy details to focus on how to use the library in practice.  We’ll use a running example of creating a distribution over characters in the show Futurama.
+In this post, we’re going to look at how to manipulate multivariate distributions in Haskell’s HLearn library.  There are many ways to represent multivariate distributions, but we’ll use a technique called Markov networks.  These networks have the algebraic structure called a monoid (and group and vector space), and training them is a homomorphism.  Despite the scary names, these mathematical structures make working with our distributions really easy and convenient—they give us online and parallel training algorithms “for free.”  If you want to go into the details of how, you can check out my TFP13 submission, but in this post we’ll ignore those mathy details to focus on how to use the library in practice.  We’ll use a running example of creating a distribution over characters in the show Futurama.
 
 Prelimiaries: Creating the data Types
 
@@ -35,7 +35,11 @@ FuturamaCast
 
 Now, in order for our library to be able to interpret the Character type, we call the template haskell function:
 
->makeTypeLenses ''Character
+>makeIndex ''Character
+
+>instance HasDepIndex Character where
+>   type DepIndexList Character = '[TH_name,TH_species,TH_job,TH_isGood,TH_age,TH_height,TH_weight ]
+>   depIndexList _ = TH_name:::TH_species:::TH_job:::TH_isGood:::TH_age:::TH_height:::TH_weight:::HNil
 
 This function creates a bunch of data types and type classes for us.  These “type lenses” give us a type-safe way to reference the different variables in our multivariate distribution.  We’ll see how to use these type level lenses a bit later.  There’s no need to understand what’s going on under the hood, but if you’re curious then checkout the hackage documentation or source code.
 Training a distribution
@@ -56,11 +60,12 @@ hermes-zoom
 
 Let’s train a distribution from this data.  Here’s how we would train a distribution where every variable is independent of every other variable:
 
->dist1 = train planetExpress :: Multivariate Character
+>dist1 = train planetExpress :: Multivariate 
 >  '[ Independent Categorical '[String,String,Job,Maybe Bool]
 >   , Independent Normal '[Double,Double,Double]
 >   ]
 >   Double
+>   Character
 
 In the HLearn library, we always use the function train to train a model from data points.  We specify which model to train in the type signature.
 
@@ -68,7 +73,7 @@ As you can see, the Multivariate distribution takes three type parameters.  The 
 
 What can we do with this distribution?  One simple task we can do is to find marginal distributions.  The marginal distribution is the distribution of a certain variable ignoring all the other variables.  For example, let’s say I want a distribution of the species that work at planet express.  I can get this by:
 
->dist1a = getMargin TH_species dist1
+-- >dist1a = getMargin TH_species dist1
 
 Notice that we specified which variable we’re taking the marginal of by using the type level lens TH_species.  This data constructor was automatically created for us by out template haskell function makeTypeLenses.  Every one of our records in the data type has its own unique type lens.  It’s name is the name of the record, prefixed by TH.  These lenses let us infer the types of our marginal distributions at compile time, rather than at run time.  For example, the type of the marginal distribution of species is:
 
@@ -77,7 +82,7 @@ dist1a :: Categorical String Double
 
 That is, a categorical distributions whose data points are Strings and which stores probabilities as a Double.  Now, if I wanted a distribution of the weights of the employees, I can get that by:
 
->dist1b = getMargin TH_weight dist1
+-- >dist1b = getMargin TH_weight dist1
 
 And the type of this distribution is:
 
@@ -136,13 +141,14 @@ ghci> plotNetwork "dist1-network" dist1
 
 dist1-networkAs expected, there are no edges in our graph because everything is independent.  Let’s create a more interesting distribution and plot its Markov network.
 
->dist2 = train planetExpress :: Multivariate Character
+>dist2 = train planetExpress :: Multivariate 
 >  '[ Ignore                  '[String]
 >   , MultiCategorical        '[String]
 >   , Independent Categorical '[Job,Maybe Bool]
 >   , Independent Normal      '[Double,Double,Double]
 >   ]
 >   Double
+>   Character
 
 ghci> plotNetwork "dist2-network" dist2
 
@@ -207,14 +213,16 @@ dist4-network
 
 We still don’t have enough data to to train this network, so let’s create some more.  We start by creating a type for our Markov network called FuturamaDist.  This is just for convenience so we don’t have to retype the dependence structure many times.
 
->type FuturamaDist = Multivariate Character
->  '[ Ignore '[String]
+>type FuturamaDist = Multivariate 
+>  -- '[Ignore  '[String]
+>  '[ MultiCategorical '[String]
 >   , MultiCategorical '[String,Job]
 >   , Independent Categorical '[Maybe Bool]
 >   , Independent Normal '[Double]
 >   , Dependent MultiNormal '[Double,Double]
 >   ]
 >   Double
+>   Character
 
 Next, we train some more distribubtions of this type on some of the characters.  We’ll start with Mom Corporation and the brave Space Forces.
 
@@ -324,3 +332,5 @@ futurama-spacesuits
 The best part of all of this is still coming.  Next, we’ll take a look at full on Bayesian classification and why it forms a monoid.  Besides online and parallel trainers, this also gives us a fast cross-validation method.
 
 There’ll also be a posts about the monoid structure of Markov chains, the Free HomTrainer, and how this whole algebraic framework applies to NP-approximation algorithms as well.
+
+Subscribe to the RSS feed to stay tuned.
