@@ -1,0 +1,47 @@
+Name:                HLearn-approximation
+Version:             1.1.0
+Description:         Approximation algorithms for NP-hard problems
+Category:            Data Mining, Machine Learning, Data Structures
+License:             BSD3
+--License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+
+Library
+    Build-Depends:      
+        HLearn-algebra          >= 1.0.2,
+        HLearn-distributions    >= 1.0.0,
+        HLearn-datastructures   >= 1.0.0,
+        ConstraintKinds         >= 0.0.2,
+        base                    >= 3 && < 5,
+        
+        vector                  >= 0.10.0,
+        containers              >= 0.5.0,
+        list-extras             >= 0.4.1,
+        heap                    >= 1.0.0
+        
+    hs-source-dirs:     src
+    ghc-options:        -rtsopts -auto-all -caf-all -O2 
+    Exposed-modules:
+        HLearn.NPHard.Scheduling
+        HLearn.NPHard.BinPacking
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+--        DataKinds
+        TypeFamilies
+--        PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds
+        

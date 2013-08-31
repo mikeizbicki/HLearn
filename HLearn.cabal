@@ -1,0 +1,134 @@
+Name:                HLearn
+Version:             2.0.0.0
+Synopsis:            Homomorphic machine learning for classification, regression, distributions, etc.
+Description:         Homomorphic machine learning description. 
+Category:            Data Mining, Machine Learning, Algorithms, Data structures
+License:             BSD3
+License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+homepage:            http://github.com/mikeizbicki/HLearn/
+bug-reports:         http://github.com/mikeizbicki/HLearn/issues
+
+Library
+    Build-Depends:      
+        -- common dependencies
+        base                >= 3 && < 5,
+        template-haskell,
+        containers          >= 0.5,
+        vector              >= 0.10,
+        
+        erf                 >= 2.0,
+        gamma               >= 0.9,
+        logfloat            >= 0.12,
+
+        -- my packages
+        ConstraintKinds     >= 1.1.0,
+        vector-heterogenous >= 0.1.1,
+
+        -- are these needed?
+        statistics          >= 0.10,
+        random              >= 1.0.1,
+        MonadRandom         >= 0.1,
+        parallel            >= 3.2,
+        deepseq             >= 1.3,
+        hashable            == 1.1.2.5,
+        primitive           >= 0.5,
+        vector-algorithms   >= 0.5.4,
+        vector-th-unbox     >= 0.2,
+        list-extras         >= 0.4,
+        heap                >= 1.0.0,
+        hmatrix             >= 0.15.0.1,
+        dlist               >= 0.5,
+        split               >= 0.2.2,
+        
+        QuickCheck          >= 2.6,
+
+        -- visualize
+        diagrams-svg        >= 0.6,
+        diagrams-lib        >= 0.6,
+        process             >= 1.1,
+        graphviz            >= 2999.16
+        
+    hs-source-dirs:     src
+    ghc-options:        -rtsopts -auto-all -caf-all -O2
+    Exposed-modules:
+        HLearn.Algebra
+        HLearn.Algebra.Functions
+        HLearn.Algebra.Types.Indexing
+        HLearn.Algebra.Types.HList
+        HLearn.Algebra.Types.Nat1
+        HLearn.Algebra.Models.HomTrainer
+        HLearn.Algebra.Models.CoHomTrainer
+        HLearn.Algebra.Models.Lame
+        HLearn.Algebra.Structures.Groups
+        HLearn.Algebra.Structures.MetricSpace
+        HLearn.Algebra.Structures.Modules
+        HLearn.Algebra.Structures.Triangles
+        HLearn.Algebra.Structures.Free.Bagging
+        HLearn.Algebra.Structures.Free.FreeHomTrainer
+        HLearn.Algebra.Structures.Free.FreeModule
+        HLearn.DataStructures.SortedVector
+        HLearn.DataStructures.CoverTree
+        HLearn.DataStructures.KDTree
+        HLearn.Evaluation.CrossValidation
+        HLearn.Evaluation.RSquared
+        HLearn.Models.Classifiers
+        HLearn.Models.Classifiers.Common
+        HLearn.Models.Classifiers.Bayes
+        --HLearn.Models.Classifiers.NearestNeighbor
+        --HLearn.Models.Classifiers.Perceptron
+        --HLearn.Models.Classifiers.Centroid
+        --HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
+        --HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+        HLearn.Models.Distributions
+        HLearn.Models.Distributions.Common
+        HLearn.Models.Distributions.Kernels
+        HLearn.Models.Distributions.Visualization.Gnuplot
+        HLearn.Models.Distributions.Visualization.Graphviz
+        HLearn.Models.Distributions.Univariate.Binomial
+        HLearn.Models.Distributions.Univariate.Categorical
+        HLearn.Models.Distributions.Univariate.Exponential
+        HLearn.Models.Distributions.Univariate.Geometric
+        HLearn.Models.Distributions.Univariate.KernelDensityEstimator
+        HLearn.Models.Distributions.Univariate.LogNormal
+        HLearn.Models.Distributions.Univariate.Normal
+        HLearn.Models.Distributions.Univariate.Poisson
+        --HLearn.Models.Distributions.Univariate.Uniform
+        HLearn.Models.Distributions.Univariate.Internal.MissingData
+        HLearn.Models.Distributions.Univariate.Internal.Moments
+        HLearn.Models.Distributions.Multivariate.Interface
+        HLearn.Models.Distributions.Multivariate.MultiNormal
+        HLearn.Models.Distributions.Multivariate.Internal.CatContainer
+        HLearn.Models.Distributions.Multivariate.Internal.Container
+        HLearn.Models.Distributions.Multivariate.Internal.Ignore
+        HLearn.Models.Distributions.Multivariate.Internal.Marginalization
+        HLearn.Models.Distributions.Multivariate.Internal.TypeLens
+        HLearn.Models.Distributions.Multivariate.Internal.Unital
+        --HLearn.Models.Markov.MarkovChain
+        HLearn.Models.Regression.Common
+        HLearn.Models.Regression.PowerLaw
+        HLearn.Models.Regression.Exponential
+        --HLearn.Models.Regression.ModifiedExponential
+        HLearn.Models.Regression.Logarithmic
+        HLearn.NPHard.Scheduling
+        HLearn.NPHard.BinPacking
+    Extensions:
+        FlexibleInstances
+        FlexibleContexts
+        MultiParamTypeClasses
+        FunctionalDependencies
+        UndecidableInstances
+        ScopedTypeVariables
+        BangPatterns
+        TypeOperators
+        GeneralizedNewtypeDeriving
+        --DataKinds
+        TypeFamilies
+        --PolyKinds
+        StandaloneDeriving
+        GADTs
+        KindSignatures
+        ConstraintKinds
