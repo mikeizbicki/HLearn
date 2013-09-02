@@ -2,7 +2,8 @@ This directory contains the details you need to reproduce HLearn outperforming W
 
 First, you must get the appropriate version of the HLearn library from hackage.  You will need GHC >= 7.6.
 
-> cabal install HLearn-classification-1.0.0
+> cabal install HLearn-2.0.0
+> cabal install cassava
 
 Next, compile the hlearn-cv.lhs file.  
 

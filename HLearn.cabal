@@ -70,11 +70,16 @@ Library
         HLearn.Algebra.Structures.Free.Bagging
         HLearn.Algebra.Structures.Free.FreeHomTrainer
         HLearn.Algebra.Structures.Free.FreeModule
+        
+        Data.Prunable
         HLearn.DataStructures.SortedVector
         HLearn.DataStructures.CoverTree
         HLearn.DataStructures.KDTree
+        --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
+
         HLearn.Evaluation.CrossValidation
         HLearn.Evaluation.RSquared
+        
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
         HLearn.Models.Classifiers.Bayes
@@ -83,6 +88,7 @@ Library
         --HLearn.Models.Classifiers.Centroid
         --HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
         --HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+        
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
         HLearn.Models.Distributions.Kernels
@@ -107,14 +113,19 @@ Library
         HLearn.Models.Distributions.Multivariate.Internal.Marginalization
         HLearn.Models.Distributions.Multivariate.Internal.TypeLens
         HLearn.Models.Distributions.Multivariate.Internal.Unital
+        
         --HLearn.Models.Markov.MarkovChain
+        
         HLearn.Models.Regression.Common
         HLearn.Models.Regression.PowerLaw
         HLearn.Models.Regression.Exponential
         --HLearn.Models.Regression.ModifiedExponential
         HLearn.Models.Regression.Logarithmic
+        
         HLearn.NPHard.Scheduling
         HLearn.NPHard.BinPacking
+
+
     Extensions:
         FlexibleInstances
         FlexibleContexts

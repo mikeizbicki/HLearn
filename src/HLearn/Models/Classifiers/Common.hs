@@ -28,6 +28,7 @@ num2bool a =
 -------------------------------------------------------------------------------
 -- Labeled datapoints
 
+
 class Labeled dp where
     type Label dp
     type Attributes dp

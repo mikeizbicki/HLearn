@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 module HLearn.Evaluation.CrossValidation
     where
 
@@ -6,49 +5,74 @@ import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.Vector as V
-import Data.List.Split
+-- import qualified Data.Vector as V
 
 import Debug.Trace
+
 import qualified Data.DList as D
 
 import HLearn.Algebra
+-- import HLearn.Evaluation.Metrics
 import HLearn.Models.Distributions
+import HLearn.Models.Classifiers.Common
+import qualified Control.ConstraintKinds as CK
 
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
-data FoldStrategy = LeaveOneOut | Folds Int
+type LossFunction model = model -> [Datapoint model] -> Double
 
-data CVParams model = CVParams
-    { foldstrat :: FoldStrategy
-    , lossfunction :: forall f. (Function f (Datapoint model) (Probability model)) => f
-    }
-    
--- crossvalidate [1..1000] (CVParams LeaveOneOut (Ave PDF) :: CVParams (Normal Double))
--- 
--- crossvalidation model xs loss k = (train :: [Double] -> Normal Double) $ crossvalidationL model xs loss k
+leaveOneOut :: [dp] -> [[dp]]
+leaveOneOut xs = map (\x -> [x]) xs
 
--- | This is the standard cross-validation technique for use with the HomTrainer type class.  It is asymptotically faster than standard k-fold cross-validation (implemented with lame_crossvalidation), yet is guaranteed to get the exact same answer.
-crossvalidation :: 
-    ( HomTrainer model
-    , Monoid (container (Datapoint model))
-    , Partitionable container
-    , F.Foldable container
-    , Functor container
-    ) => model                                          -- ^ specifies which model to use cross-validation for; may be undefined
-      -> FoldStrategy                                   -- ^ number of folds
-      -> (model -> container (Datapoint model) -> ret)  -- ^ loss function
-      -> container (Datapoint model)                    -- ^ Data points
-      -> [ret]                                          -- ^ return type
-crossvalidation _model LeaveOneOut perfmeasure dataset = crossvalidation _model (Folds $ length $ F.toList dataset) perfmeasure dataset 
-crossvalidation _model (Folds k)   perfmeasure dataset = do
-    (testdata,model) <- zip datasetL $ listAllBut modelL
-    let score = perfmeasure model testdata
-    return score
+folds :: Int -> [dp] -> [[dp]]
+folds n xs = [map snd $ filter (\(i,x)->i `mod` n==j) ixs | j<-[0..n-1]]
     where
-        modelL = fmap train datasetL
-        datasetL = partition k dataset
+        ixs = addIndex 0 xs
+        addIndex i [] = []
+        addIndex i (x:xs) = (i,x):(addIndex (i+1) xs)
+
+errorRateTmp :: LossFunction model
+errorRateTmp = undefined
+
+errorRate ::
+    ( Classifier model
+    , Labeled (Datapoint model)
+    , Eq (Label (Datapoint model))
+    ) => LossFunction model
+errorRate model dataL = (fromIntegral $ length $ filter (==True) resultsL) / (fromIntegral $ length dataL)
+    where
+        resultsL = map (\(l1,l2) -> l1/=l2) $ zip trueL classifyL
+        trueL = map getLabel dataL
+        classifyL = map (classify model . getAttributes) dataL
+
+crossValidate :: (HomTrainer model, Eq (Datapoint model)) =>
+    [[Datapoint model]] -> LossFunction model -> Normal Double Double
+crossValidate xs f = train $ do
+    testset <- xs
+    let trainingset = concat $ filter (/=testset) xs
+    let model = train trainingset
+    return $ f model testset
     
+
+cv_group :: (HomTrainer model, Group model) => 
+    model -> [Datapoint model] -> (model -> [Datapoint model] -> Double) -> Normal Double Double
+cv_group m dps f = train $ do
+    dp <- dps
+    let m' = sub1dp m dp
+    return $ f m [dp]
+
+crossValidate_group :: (HomTrainer model, Group model) =>
+    [[Datapoint model]] -> LossFunction model -> Normal Double Double
+crossValidate_group xs f = train $ do
+    (testset,testModel) <- modelL
+    let model = fullmodel <> inverse testModel
+    return $ f model testset
+    where
+        modelL = zip xs $ map train xs
+        fullmodel = reduce $ map snd modelL
+
+
 listAllBut2 :: (Monoid a) => [a] -> [a]
 listAllBut2 !xs = [reduce $ testL i | i <- itrL]
     where
@@ -62,42 +86,6 @@ listAllBut !xs = [reduce $ testL i | i <- itrL]
         testL i = D.toList $ (D.fromList $ take (i) xs) `mappend` (D.fromList $ drop (i+1) xs)
 
 genTestList :: (Monoid a) => [a] -> [(a,a)]
-genTestList xs = zip xs $ listAllBut xs            
+genTestList xs = zip xs $ listAllBut xs
 
 
-pdfAve :: 
-    ( Floating (Probability model)
-    , F.Foldable container
-    , PDF model
-    , Functor container
-    ) => model -> container (Datapoint model) -> Probability model
-pdfAve dist xs = exp $ (F.foldl' (+) 0 $ fmap (log . pdf dist) xs) / (fromIntegral $ length $ F.toList xs)
-
-
-            
-class Partitionable t where
-    partition :: Int -> t a -> [t a]
-
-instance Partitionable [] where
-    partition n xs = [map snd $ filter (\(i,x)->i `mod` n==j) ixs | j<-[0..n-1]]
-        where
-            ixs = addIndex 0 xs
-            addIndex i [] = []
-            addIndex i (x:xs) = (i,x):(addIndex (i+1) xs)
-
-
--- instance Partitionable [] where
---     partition n xs = splitEvery (ceiling $ (fromIntegral $ length xs) / (fromIntegral n :: Double)) xs
-
-
-instance Partitionable V.Vector where
-    partition n vec = go 0
-        where
-            go i = if i>=V.length vec
-                then []
-                else (V.slice i len vec):(go $ i+lenmax)
-                where
-                    len = if i+lenmax >= V.length vec
-                        then (V.length vec)-i
-                        else lenmax
-                    lenmax = ceiling $ (fromIntegral $ V.length vec) / (fromIntegral n)
