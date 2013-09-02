@@ -14,7 +14,7 @@ import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 
 -------------------------------------------------------------------------------
--- data types
+-- dataDouble
 
 newtype Bayes label dist = Bayes dist
     deriving (Read,Show,Eq,Ord,Monoid,Abelian,Group)
@@ -33,7 +33,7 @@ instance Probabilistic (Bayes labelLens dist) where
     type Probability (Bayes labelLens dist) = Probability dist
 
 instance
-    ( Margin labelLens dist ~ Categorical label prob
+    ( Margin labelLens dist ~ Categorical prob label
     , Ord label, Ord prob, Fractional prob
     , label ~ Label (Datapoint dist)
     , prob ~ Probability (MarginalizeOut labelLens dist)
@@ -42,11 +42,12 @@ instance
     , PDF (MarginalizeOut labelLens dist)
     , PDF (Margin labelLens dist)
     , Marginalize labelLens dist
-    , label ~ prob
     ) => ProbabilityClassifier (Bayes labelLens dist) 
         where
     type ResultDistribution (Bayes labelLens dist) = Margin labelLens dist
     
+--     probabilityClassify (Bayes dist) dp = undefined
+
     probabilityClassify (Bayes dist) dp = Categorical $ Map.fromList $ map (\k -> (k,prob k)) labelL
         where
             prob k = pdf labelDist k * pdf (attrDist k) dp
@@ -61,6 +62,8 @@ instance
     ( ProbabilityClassifier (Bayes labelLens dist)
     , Label (Datapoint (Bayes labelLens dist)) ~ Datapoint (Margin labelLens dist)
     , Mean (Margin labelLens dist)
+--      Labeled (Datapoint dist)
     ) => Classifier (Bayes labelLens dist)
         where
+--     classify = undefined
     classify model dp = mean $ probabilityClassify model dp
