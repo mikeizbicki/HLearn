@@ -2,7 +2,7 @@
 
 {-# LANGUAGE BangPatterns, FlexibleContexts,FlexibleInstances,UndecidableInstances,TypeFamilies,ScopedTypeVariables #-}
 
-module HLearn.DataStructures.CoverTree
+module HLearn.DataStructures.CoverTreeNoopt
     where
 
 import Control.Monad
@@ -153,7 +153,8 @@ merge ct1 ct2 = case merge' (growct ct1 maxlevel) (growct ct2 maxlevel) of
     where
         maxlevel = max (level ct1) (level ct2)
 
-merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > sepDist ct1
+-- merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > sepDist ct1
+merge' !ct1 !ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepDist ct1)
     then Nothing
     else Just $ ct1
         { children' = go (children ct1) (mapelemsSCC $ children ct2)
@@ -248,14 +249,6 @@ dpSet = Set.fromList . dpList
 
 ---------------------------------------
 
-instance HasRing (Double,Double) where
-    type Ring (Double,Double) = Double
-
-instance MetricSpace (Double,Double) where
-    {-# INLINE distance #-}
-    distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
---     distance (x1,y1) (x2,y2) = (abs $ x1-x2) + (abs $ y1-y2)
-         
 randL :: Int -> IO [(Double,Double)]
 randL n = replicateM n $ do
     x <- randomRIO (-100,100)

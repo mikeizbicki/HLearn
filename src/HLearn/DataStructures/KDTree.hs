@@ -259,12 +259,6 @@ instance (Index dp, Ord (IndexResult dp), Arbitrary dp) => Arbitrary (KDTree dp)
         xs <- arbitrary
         return $ train (xs :: [Datapoint (KDTree dp)])
 
-instance (Num a) => HasRing (a,a) where
-    type Ring (a,a) = a
-
-instance (Floating a, Real a) => MetricSpace (a,a) where
-    distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)^2 + (y1-y2)^2
-
 randkdtree len = fmap (train) $ replicateM len $ do
     x <- randomRIO (-1000,1000)
     y <- randomRIO (-1000,1000)
