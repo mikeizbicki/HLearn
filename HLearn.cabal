@@ -74,6 +74,8 @@ Library
         Data.Prunable
         HLearn.DataStructures.SortedVector
         HLearn.DataStructures.CoverTree
+        HLearn.DataStructures.CoverTreeNoopt
+        HLearn.DataStructures.SpaceTree
         HLearn.DataStructures.KDTree
         --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 

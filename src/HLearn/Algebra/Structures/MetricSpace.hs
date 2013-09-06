@@ -1,4 +1,4 @@
--- | Metric spaces are mathematical structures that have a notion of distance between objects.  See wikipedia for more information: <https://en.wikipedia.org/wiki/Metric_space>
+-- | Metric spaces are mathematical structures that have a notion of distance between objects. See wikipedia for more information: <https://en.wikipedia.org/wiki/Metric_space>
 module HLearn.Algebra.Structures.MetricSpace
     where
           
@@ -10,20 +10,55 @@ import HLearn.Algebra.Structures.Modules
 -- classes
 
 -- | We assume that the MetricSpace on s is compatible with the ordering on s
-class 
+class
     ( HasRing s
     , Ord (Ring s)
     , Fractional (Ring s)
     , Real (Ring s)
-    ) => MetricSpace s 
+    , RealFrac (Ring s)
+    ) => MetricSpace s
         where
+
     distance :: s -> s -> Ring s
     
+    isFartherThan :: s -> s -> Ring s -> Bool
+    isFartherThan s1 s2 b = distance s1 s2>b
+
+    distanceFastBound :: s -> s -> Ring s -> Ring s
+    distanceFastBound s1 s2 b = distance s1 s2
+
+    distanceFastMono :: s -> s -> Ring s
+    distanceFastMono = distance
+
 class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m
 
 -------------------------------------------------------------------------------
 -- instances
 
+instance Num a => HasRing (a,a) where
+    type Ring (a,a) = a
 
+instance (RealFrac a, Floating a) => MetricSpace (a,a) where
+-- {-# INLINE distance #-}
+    distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
 
+    {-# INLINABLE isFartherThan #-}
+    isFartherThan (!x1,!y1) (!x2,!y2) !b = if pt1 > threshold
+        then True
+        else pt1 + (y1-y2)*(y1-y2) > threshold
+        where
+            {-# INLINE pt1 #-}
+            {-# INLINE threshold #-}
+            pt1 = (x1-x2)*(x1-x2)
+            threshold=b*b
+
+    distanceFastBound (x1,y1) (x2,y2) b = if pt1 > threshold
+        then b
+        else sqrt $ pt1 + (y1-y2)*(y1-y2)
+        where
+            pt1 = (x1-x2)*(x1-x2)
+            threshold = b*b
+
+    distanceFastMono (x1,y1) (x2,y2) = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
+         
