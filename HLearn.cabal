@@ -52,8 +52,15 @@ Library
         process             >= 1.1,
         graphviz            >= 2999.16
         
-    hs-source-dirs:     src
-    ghc-options:        -rtsopts -auto-all -caf-all -O2
+    hs-source-dirs:     
+        src
+
+    ghc-options:        
+        -rtsopts 
+        -auto-all 
+        -caf-all 
+        -O2
+
     Exposed-modules:
         HLearn.Algebra
         HLearn.Algebra.Functions
@@ -76,6 +83,7 @@ Library
         HLearn.DataStructures.CoverTree
         HLearn.DataStructures.CoverTreeNoopt
         HLearn.DataStructures.SpaceTree
+        HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
         HLearn.DataStructures.KDTree
         --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 
