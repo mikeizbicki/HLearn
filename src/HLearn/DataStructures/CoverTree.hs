@@ -22,6 +22,8 @@ import Diagrams.Backend.SVG.CmdLine
 
 import HLearn.Algebra hiding ((#),(<>),(|>))
 import HLearn.DataStructures.SpaceTree
+import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 
 -------------------------------------------------------------------------------
 -- data types
@@ -51,6 +53,9 @@ instance (SpaceTree CoverTree' dp) => SpaceTree CoverTree dp where
     stNode Unit = error "stNode Unit"
     stNode (UnitLift x) = stNode x
 
+    stIsLeaf Unit = False
+    stIsLeaf (UnitLift x) = stIsLeaf x 
+
 ---------------------------------------
 
 data CoverTree' dp = Node 
@@ -61,8 +66,6 @@ data CoverTree' dp = Node
 
 deriving instance (Read (Ring dp), Read dp, Ord dp) => Read (CoverTree' dp)
 deriving instance (Show (Ring dp), Show dp, Ord dp) => Show (CoverTree' dp)
-deriving instance (Eq (Ring dp), Eq dp) => Eq (CoverTree' dp)
-deriving instance (Ord (Ring dp), Ord dp) => Ord (CoverTree' dp)
 
 instance NFData dp => NFData (CoverTree' dp) where
     rnf ct = deepseq (nodedp ct) $ rnf (children' ct)
@@ -71,10 +74,10 @@ instance
     ( HasRing dp
     , MetricSpace dp
     , Ring dp ~ Ring (CoverTree' dp)
+    , Ord dp
     ) => SpaceTree CoverTree' dp
         where
-    stMinDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2)
-    stMaxDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) - ct1_adj - ct2_adj
+    stMinDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) - ct1_adj - ct2_adj
         where
             ct1_adj = if isSingleton ct1
                 then 0
@@ -83,8 +86,18 @@ instance
                 then 0
                 else coverDist ct2
 
-    stChildren = Map.elems . children'
+    stMaxDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) + ct1_adj + ct2_adj
+        where
+            ct1_adj = if isSingleton ct1
+                then 0
+                else coverDist ct1
+            ct2_adj = if isSingleton ct2
+                then 0
+                else coverDist ct2
+
+    stChildren = Map.elems . children
     stNode = nodedp
+    stIsLeaf ct = Map.size (children' ct) == 0
 
 
 ---------------------------------------
@@ -296,6 +309,7 @@ randL n = replicateM n $ do
 ys :: [(Double,Double)]
 ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
 my = train ys :: CoverTree (Double,Double)
+my2 = train $ take 3 ys :: CoverTree (Double,Double)
 -- my = prunect $ insertBatch ys
 
 ys' :: [(Double,Double)]
