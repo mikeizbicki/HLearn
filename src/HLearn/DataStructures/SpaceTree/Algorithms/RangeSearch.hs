@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, DataKinds #-}
 module HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
     where
 
@@ -12,18 +12,6 @@ import HLearn.DataStructures.SpaceTree
 
 -------------------------------------------------------------------------------
 -- data structures
-
-data TypeFloat = (%) Nat Nat 
-
-data instance Sing (n::TypeFloat) = SFloat Integer Integer
-
-instance (SingI a, SingI b) => SingI ((%) a b) where
-    sing = SFloat (fromSing (sing :: Sing a)) (fromSing (sing :: Sing b))
-
-instance Fractional r => SingE (Kind :: TypeFloat) r where
-    fromSing (SFloat a b) = fromIntegral a/fromIntegral b
-
----------------------------------------
 
 newtype RangeSearch (mindist::TypeFloat) (maxdist::TypeFloat) dp = RangeSearch 
     { getrange :: Set.Set dp
