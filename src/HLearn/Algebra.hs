@@ -5,6 +5,7 @@ module HLearn.Algebra
 --     , module HLearn.Algebra.HVector
     , module HLearn.Algebra.Types.HList
     , module HLearn.Algebra.Types.Indexing
+    , module HLearn.Algebra.Types.TypeFloat
     , module HLearn.Algebra.Models.HomTrainer
     , module HLearn.Algebra.Models.Lame
 --     , module HLearn.Algebra.Models.Free.MonoidChain
@@ -23,6 +24,7 @@ import HLearn.Algebra.Functions
 -- import HLearn.Algebra.HVector
 import HLearn.Algebra.Types.HList
 import HLearn.Algebra.Types.Indexing
+import HLearn.Algebra.Types.TypeFloat
 import HLearn.Algebra.Models.HomTrainer
 import HLearn.Algebra.Models.Lame
 -- import HLearn.Algebra.Models.Free.MonoidChain
