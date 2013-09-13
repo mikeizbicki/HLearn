@@ -40,46 +40,46 @@ instance NFData (KernelBox num) where
     
 data Uniform = Uniform deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Uniform num where
-    evalKernel Uniform u = if abs u < 1
+    evalKernel _ u = if abs u < 1
         then 1/2
         else 0
 
 data Triangular = Triangular deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Triangular num where
-    evalKernel Triangular u = if abs u<1
+    evalKernel _ u = if abs u<1
         then 1-abs u
         else 0
         
 data Epanechnikov = Epanechnikov deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Epanechnikov num where
-    evalKernel Epanechnikov u = if abs u<1
+    evalKernel _ u = if abs u<1
         then (3/4)*(1-u^^2)
         else 0
 
 data Quartic = Quartic deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Quartic num where
-    evalKernel Quartic u = if abs u<1
+    evalKernel _ u = if abs u<1
         then (15/16)*(1-u^^2)^^2
         else 0
         
 data Triweight = Triweight deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Triweight num where
-    evalKernel Triweight u = if abs u<1
+    evalKernel _ u = if abs u<1
         then (35/32)*(1-u^^2)^^3
         else 0
 
 data Tricube = Tricube deriving (Read,Show)
 instance (Fractional num, Ord num) => Kernel Tricube num where
-    evalKernel Tricube u = if abs u<1
+    evalKernel _ u = if abs u<1
         then (70/81)*(1-u^^3)^^3
         else 0
         
 data Cosine = Cosine deriving (Read,Show)
 instance (Floating num, Ord num) => Kernel Cosine num where
-    evalKernel Cosine u = if abs u<1
+    evalKernel _ u = if abs u<1
         then (pi/4)*(cos $ (pi/2)*u)
         else 0
         
 data Gaussian = Gaussian deriving (Read,Show)
 instance (Floating num, Ord num) => Kernel Gaussian num where
-    evalKernel Gaussian u = (1/(2*pi))*(exp $ (-1/2)*u^^2)
+    evalKernel _ u = (1/(2*pi))*(exp $ (-1/2)*u^^2)

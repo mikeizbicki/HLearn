@@ -12,13 +12,14 @@ import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Kernels
+import HLearn.Models.Distributions.Visualization.Gnuplot
 import HLearn.DataStructures.SortedVector
 
 -------------------------------------------------------------------------------
 -- data types
 
 -- | The KDE type is implemented as an isomorphism with the FreeModule
-newtype KDE kernel (h::Nat) prob dp = KDE
+newtype KDE kernel (h::TypeFloat) (prob:: *) (dp:: *) = KDE
 --     { freemod :: FreeModule prob dp 
     { freemod :: SortedVector dp 
     }
@@ -28,7 +29,6 @@ newtype KDE kernel (h::Nat) prob dp = KDE
 -- Training
     
 instance (Num (Ring (SortedVector dp))) => HasRing (KDE kernel h prob dp) where
---     type Ring (KDE kernel h prob dp) = prob
     type Ring (KDE kernel h prob dp) = Ring (SortedVector dp) 
     
 instance (Num prob, NumDP (SortedVector dp)) => NumDP (KDE kernel h prob dp) where
@@ -62,6 +62,51 @@ instance
         where 
             f = evalKernel (undefined::kernel)
             n = numdp kde
-            h = fromIntegral $ fromSing (sing :: Sing h)
+            h = fromSing (sing :: Sing h)
 --             dpList = Map.keys (getMap $ freemod kde)
             dpList = CK.toList (freemod kde) 
+
+-- instance 
+--     ( Floating prob
+--     , Enum prob
+--     , Show prob
+--     , Ord prob
+--     ) => PlottableDistribution (kDE kernel h prob prob) where
+--     
+--     plotType _ = Continuous
+-- 
+--     samplePoints dist = samplesFromMinMax min max
+--         where
+--             min = (mean dist)-5*(sqrt $ variance dist)
+--             max = (mean dist)+5*(sqrt $ variance dist)
+instance 
+    ( PDF (KDE kernel h prob prob)
+    , Kernel kernel prob
+    , SingI h
+    , Fractional prob
+    , Show prob
+    , Enum prob
+    , Ord prob
+    ) => PlottableDistribution (KDE kernel h prob prob) 
+        where
+    plotType _ = Continuous 
+    samplePoints kde = map (/100) [-1000..3000]
+        where
+--             start = (freemod $ vector kde)
+-- class 
+--     ( Plottable (Datapoint dist)
+--     , Plottable (Probability dist), Num (Probability dist)
+--     , PDF dist
+--     , MaybeShow (Datapoint dist)
+--     ) => PlottableDistribution dist where
+-- 
+--     samplePoints :: dist -> [Datapoint dist]
+--     plotType :: dist -> PlotType
+--     
+--     pdfL :: dist -> [Probability dist]
+--     pdfL dist = map (pdf dist) $ samplePoints dist
+-- 
+--     plotdata :: dist -> String
+--     plotdata dist = mconcat [maybeshow (x::Datapoint dist) ++ " " ++ show (pdf dist x::Probability dist) ++"\n" | x <- plotPoints]
+--         where
+--             plotPoints = samplePoints dist

@@ -130,12 +130,12 @@ gnuplotHeader params
     =  terminal
     ++ "set output \"" ++ (picFile params) ++ "\" \n"
     ++ "unset xtics; unset ytics; unset key \n"
---     ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
+    ++ "set border 0; set xzeroaxis lt 1; set yzeroaxis lt 1 \n"
     ++ "zero(x)=0\n"
-    ++ "set border 2; set style fill solid 1\n"
-    ++ "set xlabel tc rgb \"#555555\"\n"
-    ++ "set ylabel \"Probability\" tc rgb \"#555555\"\n"
-    ++ "set tics textcolor rgb \"#444444\"\n"
+--     ++ "set border 2; set style fill solid 1\n"
+--     ++ "set xlabel tc rgb \"#555555\"\n"
+--     ++ "set ylabel \"Probability\" tc rgb \"#555555\"\n"
+--     ++ "set tics textcolor rgb \"#444444\"\n"
     where 
         terminal = case picType params of
             EPS -> "set terminal postscript \"Times-Roman\" 25 \n"
