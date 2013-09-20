@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable #-}
 
 import System.Environment
 import System.IO
@@ -9,34 +9,55 @@ import Control.Applicative
 import Data.Csv
 import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy.Char8 as BS
+import System.Console.CmdArgs.Implicit
 
 import HLearn.Algebra
 import HLearn.DataStructures.KDTree hiding (mindist)
-import HLearn.DataStructures.KDIsomorphism --hiding (mindist)
-import HLearn.DataStructures.SortedVector
-import HLearn.DataStructures.FourD
+-- import HLearn.DataStructures.KDIsomorphism --hiding (mindist)
+-- import HLearn.DataStructures.SortedVector
 import HLearn.DataStructures.CoverTree
 
-instance FromRecord FourD where
-    parseRecord v = FourD <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
+-- instance FromRecord (a,a) where
+--     parseRecord v = FourD <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
 
--- derivingUnbox "FourD"
---     [t| FourD -> (Double,Double,Double,Double) |]
---     [| \ FourD a b c d -> (a,b,c,d) |]
---     [| \ (a,b,c,d) -> FourD a b c d |]
+type DP = (Double,Double)
 
+data Params = Params
+    { reference_file :: String 
+    , k :: Int
+    , distances_file :: String
+    , neighbors_file :: String 
+    , query_file :: Maybe String
+    , verbose :: Bool
+    } 
+    deriving (Show, Data, Typeable)
+
+sample = Params 
+    { reference_file = def &= help "File containing the reference data set in CSV format" &= typFile
+    , k = def &= help "Number of nearest neighbors to find" 
+    , distances_file = def &= help "File to output distances into" &= typFile
+    , neighbors_file = def &= help "File to output the neighbors into" &= typFile
+    , query_file = def &= help "query data set in CSV format" &= typFile &= opt (Nothing :: Maybe String)
+    , verbose = def &= help "print debugging information" &= typFile 
+    }
+    &= summary "HLearn k-nearest neighbor, version 1.0"
 
 main = do
-    Right (xs :: V.Vector FourD) <- timeIO "Loading dataset" $ fmap (decode False) $ BS.readFile "dataset.csv"
-    Right (qs :: V.Vector FourD) <- timeIO "Loading query" $ fmap (decode False) $ BS.readFile "query.csv"
-    let kdtree = parallel train xs :: CoverTree FourD
+    params <- cmdArgs sample
+    let ref = reference_file params
+    let query = case query_file params of
+            Nothing -> reference_file params
+            Just file -> file
+    Right (xs :: V.Vector DP) <- timeIO "Loading dataset" $ fmap (decode False) $ BS.readFile $ ref 
+    Right (qs :: V.Vector DP) <- timeIO "Loading query" $ fmap (decode False) $ BS.readFile query
+    let kdtree = parallel train xs :: CoverTree DP
     timeIO "Building kd-tree" $ return $ rnf kdtree
 --     dp <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
 --     print dp
 --     (dist,dp) <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
 --     print (dist,dp)
     putStrLn "end"
- 
+
 
 timeIO :: String -> (IO a) -> (IO a)
 timeIO str f = do 

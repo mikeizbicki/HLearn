@@ -4,6 +4,7 @@ module HLearn.DataStructures.SpaceTree
     where
 
 import Data.List
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import HLearn.Algebra
@@ -14,9 +15,15 @@ import HLearn.Algebra
 class (MetricSpace dp) => SpaceTree t dp where
     stMinDistance :: t dp -> t dp -> Ring dp
     stMaxDistance :: t dp -> t dp -> Ring dp
+    
+    stMinDistanceDp :: t dp -> dp -> Ring dp
+    stMaxDistanceDp :: t dp -> dp -> Ring dp
+
     stChildren :: t dp -> [t dp]
     stNode :: t dp -> dp
     stIsLeaf :: t dp -> Bool
+
+--     stParentMap :: t dp -> Map.Map (t dp) (t dp)
 
 ---------------------------------------
 -- single tree algs

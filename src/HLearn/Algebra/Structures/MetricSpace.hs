@@ -24,14 +24,18 @@ class
     isFartherThan :: s -> s -> Ring s -> Bool
     isFartherThan s1 s2 b = distance s1 s2>b
 
-    distanceFastBound :: s -> s -> Ring s -> Ring s
-    distanceFastBound s1 s2 b = distance s1 s2
-
     distanceFastMono :: s -> s -> Ring s
     distanceFastMono = distance
 
 class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m
+
+class MetricSpaceParams params space where
+    
+data MetricWrapper params dp = MetricWrapper
+    { getdp :: dp
+    , params :: params
+    }
 
 -------------------------------------------------------------------------------
 -- instances
@@ -40,7 +44,7 @@ instance Num a => HasRing (a,a) where
     type Ring (a,a) = a
 
 instance (RealFrac a, Floating a) => MetricSpace (a,a) where
--- {-# INLINE distance #-}
+    {-# INLINABLE distance #-}
     distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
 
     {-# INLINABLE isFartherThan #-}
@@ -52,13 +56,6 @@ instance (RealFrac a, Floating a) => MetricSpace (a,a) where
             {-# INLINE threshold #-}
             pt1 = (x1-x2)*(x1-x2)
             threshold=b*b
-
-    distanceFastBound (x1,y1) (x2,y2) b = if pt1 > threshold
-        then b
-        else sqrt $ pt1 + (y1-y2)*(y1-y2)
-        where
-            pt1 = (x1-x2)*(x1-x2)
-            threshold = b*b
 
     distanceFastMono (x1,y1) (x2,y2) = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
          
