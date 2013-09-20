@@ -7,11 +7,15 @@ module HLearn.DataStructures.SortedVector
     
 import Control.Applicative
 import Control.DeepSeq
+import Control.Monad.ST
 import qualified Data.Foldable as F
+import qualified Data.Vector.Algorithms.Intro as Intro
 import Data.List
 import Debug.Trace
 import GHC.TypeLits
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
+import qualified Data.Vector.Generic as VG
 
 import qualified Control.ConstraintKinds as CK
 
@@ -111,8 +115,8 @@ instance CK.Functor SortedVector where
 instance CK.Pointed SortedVector where
     point = SortedVector . V.singleton
 
-instance CK.Applicative SortedVector where
-    (<*>) = undefined
+-- instance CK.Applicative SortedVector where
+--     (<*>) = undefined
 
 instance CK.Monad SortedVector where
 -- type MonadConstraint SortedVector a = Ord a
@@ -131,3 +135,12 @@ join = undefined
 instance (Ord a) => HomTrainer (SortedVector a) where
     type Datapoint (SortedVector a) = a
     train1dp dp = SortedVector $ V.singleton dp
+    train xs = SortedVector $ runST $ do
+        let v = V.fromList $ F.toList xs
+        vm <- V.unsafeThaw v
+        Intro.sort vm
+        V.freeze vm
+--         runST $ do
+--         v <- VG.fromList $ F.toList xs
+-- --         Intro.sort v
+--         V.freeze v

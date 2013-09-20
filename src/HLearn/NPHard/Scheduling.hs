@@ -14,6 +14,7 @@ module HLearn.NPHard.Scheduling
     , spread
     ) where
           
+import Control.DeepSeq
 import qualified Control.ConstraintKinds as CK
 import qualified Data.Foldable as F
 import qualified Data.Heap as Heap
@@ -32,10 +33,16 @@ import HLearn.DataStructures.SortedVector
 type Bin = Int
 
 data Scheduling (n::Nat) a = Scheduling
-    { vector      :: !(SortedVector a)
+    { vector   :: !(SortedVector a)
     , schedule :: Map.Map Bin [a]
     }
     deriving (Read,Show,Eq,Ord)
+
+instance NFData a => NFData (Scheduling n a) where
+    rnf s = deepseq (vector s)
+          $ rnf (schedule s)
+
+---------------------------------------
 
 lptf :: forall a n. (Norm a, Ord (Ring a), SingI n) => SortedVector a -> Scheduling n a
 lptf vector = Scheduling
@@ -113,6 +120,7 @@ instance CK.Functor (Scheduling n) where
 instance (Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (Scheduling n a) where
     type Datapoint (Scheduling n a) = a
     train1dp dp = lptf $ train1dp dp
+    train dp = lptf $ train dp
     
 -------------------------------------------------------------------------------
 -- Visualization

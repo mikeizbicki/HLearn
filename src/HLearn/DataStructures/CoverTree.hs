@@ -1,10 +1,11 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE NoMonomorphismRestriction,DataKinds #-}
 
 {-# LANGUAGE BangPatterns, FlexibleContexts,FlexibleInstances,UndecidableInstances,TypeFamilies,ScopedTypeVariables #-}
 
 module HLearn.DataStructures.CoverTree
     where
 
+import GHC.TypeLits
 import Control.Monad
 import Control.Monad.Random
 import Control.DeepSeq
@@ -47,6 +48,12 @@ instance (SpaceTree CoverTree' dp) => SpaceTree CoverTree dp where
     stMaxDistance x Unit = 1/0
     stMaxDistance (UnitLift x) (UnitLift y) = stMaxDistance x y
 
+    stMinDistanceDp Unit x = 1/0
+    stMinDistanceDp (UnitLift x) dp = stMinDistanceDp x dp
+
+    stMaxDistanceDp Unit x = 1/0
+    stMaxDistanceDp (UnitLift x) dp = stMaxDistanceDp x dp
+
     stChildren Unit = []
     stChildren (UnitLift x) = map UnitLift $ stChildren x
 
@@ -67,6 +74,13 @@ data CoverTree' dp = Node
 deriving instance (Read (Ring dp), Read dp, Ord dp) => Read (CoverTree' dp)
 deriving instance (Show (Ring dp), Show dp, Ord dp) => Show (CoverTree' dp)
 
+instance (Eq dp, Eq (Ring dp)) => Eq (CoverTree' dp) where
+    ct1 == ct2 = sepdist ct1 == sepdist ct2 && nodedp ct1 == nodedp ct2
+
+instance (Ord dp, Ord (Ring dp)) => Ord (CoverTree' dp) where
+    compare ct1 ct2 = compare (sepdist ct1) (sepdist ct2)
+                   <> compare (nodedp ct1) (nodedp ct2)
+
 instance NFData dp => NFData (CoverTree' dp) where
     rnf ct = deepseq (nodedp ct) $ rnf (children' ct)
 
@@ -77,28 +91,26 @@ instance
     , Ord dp
     ) => SpaceTree CoverTree' dp
         where
-    stMinDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) - ct1_adj - ct2_adj
-        where
-            ct1_adj = if isSingleton ct1
-                then 0
-                else coverDist ct1
-            ct2_adj = if isSingleton ct2
-                then 0
-                else coverDist ct2
+    stMinDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) - (coverDist ct1) - (coverDist ct2) 
+    stMaxDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) + (coverDist ct1) + (coverDist ct2) 
 
-    stMaxDistance ct1 ct2 = distance (nodedp ct1) (nodedp ct2) + ct1_adj + ct2_adj
-        where
-            ct1_adj = if isSingleton ct1
-                then 0
-                else coverDist ct1
-            ct2_adj = if isSingleton ct2
-                then 0
-                else coverDist ct2
+    stMinDistanceDp ct dp = distance (nodedp ct) dp - coverDist ct
+    stMaxDistanceDp ct dp = distance (nodedp ct) dp + coverDist ct
 
     stChildren = Map.elems . children
     stNode = nodedp
     stIsLeaf ct = Map.size (children' ct) == 0
 
+--     stParentMap ct = Map.foldr (<>)  
+--         where
+--             init = Map.foldr (\c -> Map.insert c ct) (Map.singleton ct undefined) $ children' ct
+-- 
+--             go map parent ct = Map.foldr (\c -> Map.insert c ct
+
+stDescendents :: SpaceTree t dp => t dp -> [dp]
+stDescendents t = if stIsLeaf t 
+    then [stNode t]
+    else concatMap stDescendents $ stChildren t
 
 ---------------------------------------
 
@@ -107,6 +119,23 @@ isSingleton node = Map.size (children' node) == 0
 
 coverDist :: (Fractional (Ring dp)) => CoverTree' dp -> Ring dp
 coverDist node = sepdist node*2 
+
+cover_knn2' (UnitLift x) (UnitLift y) = cover_knn2 x [y]
+
+cover_knn2 :: forall k dp. (MetricSpace dp, Ord dp) => CoverTree' dp -> [CoverTree' dp] -> KNN2 1 dp 
+cover_knn2 !q !rs = if and $ map stIsLeaf rs
+    then KNN2 $ Map.fromList $ map mkKNN $ stDescendents q
+    else if sepdist q < sepdist (head rs)
+        then cover_knn2 q rs_children 
+        else reduce $ map (\q' -> cover_knn2 q' rs) $ stChildren q
+    where
+        rs_children = concatMap stChildren rs
+        minchild = minimum $ map (\r -> Neighbor (stNode r) (distance (stNode q) (stNode r))) rs
+        rs_children' = filter (\r -> stMaxDistance q r <= neighborDistance minchild) rs_children
+
+        mkKNN !dp = (dp, KNN [minimum $ map mkNeighbor rs])
+            where
+                mkNeighbor r' = Neighbor (stNode r') $ distance (stNode r') dp
 
 ---------------------------------------
 
