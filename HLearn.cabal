@@ -43,6 +43,7 @@ Library
         hmatrix             >= 0.15.0.1,
         dlist               >= 0.5,
         split               >= 0.2.2,
+        semigroups          >= 0.9,
         
         QuickCheck          >= 2.6,
 
@@ -63,6 +64,7 @@ Library
 
     Exposed-modules:
         HLearn.Algebra
+        HLearn.Algebra.Common
         HLearn.Algebra.Functions
         HLearn.Algebra.Types.Indexing
         HLearn.Algebra.Types.HList
@@ -85,6 +87,8 @@ Library
         HLearn.DataStructures.CoverTreeNoopt
         HLearn.DataStructures.SpaceTree
         HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+        HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
+        HLearn.DataStructures.SpaceTree.DualTreeMonoids
         HLearn.DataStructures.KDTree
         --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 

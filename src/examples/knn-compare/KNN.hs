@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds #-}
 
 import System.Environment
 import System.IO
@@ -7,18 +7,20 @@ import System.CPUTime
 import Control.DeepSeq
 import Control.Applicative
 import Data.Csv
+import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy.Char8 as BS
 import System.Console.CmdArgs.Implicit
 
-import HLearn.Algebra
-import HLearn.DataStructures.KDTree hiding (mindist)
--- import HLearn.DataStructures.KDIsomorphism --hiding (mindist)
--- import HLearn.DataStructures.SortedVector
-import HLearn.DataStructures.CoverTree
+import Debug.Trace
+import Diagrams.TwoD.Size
+import Diagrams.Backend.SVG
 
--- instance FromRecord (a,a) where
---     parseRecord v = FourD <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
+import HLearn.Algebra
+import HLearn.DataStructures.CoverTree
+import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.DataStructures.SpaceTree
+import HLearn.Models.Distributions
 
 type DP = (Double,Double)
 
@@ -43,30 +45,45 @@ sample = Params
     &= summary "HLearn k-nearest neighbor, version 1.0"
 
 main = do
+    -- cmd line args
     params <- cmdArgs sample
     let ref = reference_file params
     let query = case query_file params of
             Nothing -> reference_file params
             Just file -> file
-    Right (xs :: V.Vector DP) <- timeIO "Loading dataset" $ fmap (decode False) $ BS.readFile $ ref 
-    Right (qs :: V.Vector DP) <- timeIO "Loading query" $ fmap (decode False) $ BS.readFile query
-    let kdtree = parallel train xs :: CoverTree DP
-    timeIO "Building kd-tree" $ return $ rnf kdtree
---     dp <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
---     print dp
---     (dist,dp) <- timeIO "KNN" $ return $ mindist (qs V.! 0) kdtree
---     print (dist,dp)
+
+    -- reference tree
+    Right (xs :: V.Vector DP) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
+    let reftree = parallel train xs :: CoverTree DP
+    timeIO "building reference tree" $ return $ rnf reftree
+    putStrLn $ "reference tree nodes = " ++ show (stNumNodes reftree)
+    putStrLn $ "reference tree max depth = " ++ show (stMaxDepth reftree)
+    putStrLn $ "reference tree max children = " ++ show (stMaxChildren reftree)
+    putStrLn $ "reference tree ave children = " ++ show (mean $ stAveChildren reftree)
+    putStrLn $ "reference tree check --- covering = " ++ show (property_covering reftree)
+    putStrLn $ "reference tree check --- leveled = " ++ show (property_leveled reftree)
+    putStrLn $ "reference tree check --- separating = " ++ show (property_separating reftree)
+    -- renderSVG "reftree.svg" (Width 500) (draw reftree)
+
+    -- query tree
+    Right (qs :: V.Vector DP) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile query
+    let querytree = parallel train xs :: CoverTree DP
+    timeIO "building query tree" $ return $ rnf querytree
+
+    -- knn
+    let res=knn2 (DualTree reftree querytree) :: KNN2 1 (Double,Double)
+    timeIO "computing knn" $ return $ rnf res
+     
+    -- end
     putStrLn "end"
 
-
-timeIO :: String -> (IO a) -> (IO a)
+timeIO :: String -> IO a -> IO a
 timeIO str f = do 
     putStr $ str ++ "... "
     hFlush stdout
     time1 <- getCPUTime
     ret <- f
     seq ret $ return ()
---     Right (xs :: V.Vector FourD) <- fmap (decode False) $ BS.readFile "dataset.csv"
     time2 <- getCPUTime
     putStrLn $ "done. " ++ show ((fromIntegral $ time2-time1)/1e12 :: Double) ++ " seconds"
     return ret

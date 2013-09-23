@@ -23,47 +23,14 @@ import Diagrams.Backend.SVG.CmdLine
 
 import HLearn.Algebra hiding ((#),(<>),(|>))
 import HLearn.DataStructures.SpaceTree
+import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 
 -------------------------------------------------------------------------------
 -- data types
 
-data CoverTree dp
-    = Unit
-    | UnitLift (CoverTree' dp)
-
-instance NFData a => NFData (CoverTree a) where
-    rnf Unit = ()
-    rnf (UnitLift x) = rnf x
-
-deriving instance (Show (CoverTree' dp)) => Show (CoverTree dp)
-
-instance (SpaceTree CoverTree' dp) => SpaceTree CoverTree dp where
-    stMinDistance Unit x = 0
-    stMinDistance x Unit = 0
-    stMinDistance (UnitLift x) (UnitLift y) = stMinDistance x y
-
-    stMaxDistance Unit x = 1/0
-    stMaxDistance x Unit = 1/0
-    stMaxDistance (UnitLift x) (UnitLift y) = stMaxDistance x y
-
-    stMinDistanceDp Unit x = 1/0
-    stMinDistanceDp (UnitLift x) dp = stMinDistanceDp x dp
-
-    stMaxDistanceDp Unit x = 1/0
-    stMaxDistanceDp (UnitLift x) dp = stMaxDistanceDp x dp
-
-    stChildren Unit = []
-    stChildren (UnitLift x) = map UnitLift $ stChildren x
-
-    stNode Unit = error "stNode Unit"
-    stNode (UnitLift x) = stNode x
-
-    stIsLeaf Unit = False
-    stIsLeaf (UnitLift x) = stIsLeaf x 
-
----------------------------------------
+type CoverTree dp = AddUnit CoverTree' dp
 
 data CoverTree' dp = Node 
     { nodedp     :: !dp
@@ -99,18 +66,8 @@ instance
 
     stChildren = Map.elems . children
     stNode = nodedp
+    stHasNode _ = True
     stIsLeaf ct = Map.size (children' ct) == 0
-
---     stParentMap ct = Map.foldr (<>)  
---         where
---             init = Map.foldr (\c -> Map.insert c ct) (Map.singleton ct undefined) $ children' ct
--- 
---             go map parent ct = Map.foldr (\c -> Map.insert c ct
-
-stDescendents :: SpaceTree t dp => t dp -> [dp]
-stDescendents t = if stIsLeaf t 
-    then [stNode t]
-    else concatMap stDescendents $ stChildren t
 
 ---------------------------------------
 
@@ -122,7 +79,10 @@ coverDist node = sepdist node*2
 
 cover_knn2' (UnitLift x) (UnitLift y) = cover_knn2 x [y]
 
-cover_knn2 :: forall k dp. (MetricSpace dp, Ord dp) => CoverTree' dp -> [CoverTree' dp] -> KNN2 1 dp 
+cover_knn2 :: forall k tag dp. 
+    ( MetricSpace dp
+    , Ord dp
+    ) => CoverTree' dp -> [CoverTree' dp] -> KNN2 1 dp 
 cover_knn2 !q !rs = if and $ map stIsLeaf rs
     then KNN2 $ Map.fromList $ map mkKNN $ stDescendents q
     else if sepdist q < sepdist (head rs)
@@ -175,12 +135,6 @@ cover_knn2 !q !rs = if and $ map stIsLeaf rs
 -------------------------------------------------------------------------------
 -- algebra
 
-instance Semigroup (CoverTree' dp) => Monoid (CoverTree dp) where
-    mempty = Unit
-    mappend Unit x = x
-    mappend x Unit = x
-    mappend (UnitLift x) (UnitLift y) = UnitLift $ x<>y
-
 instance (HasRing dp) => HasRing (CoverTree' dp) where
     type Ring (CoverTree' dp) = Ring dp
 
@@ -189,37 +143,83 @@ instance
     , Ord (Ring dp)
     , Fractional (Ring dp)
     , Ord dp
---     , Ring dp ~ Double
-    , Show (CoverTree dp)
-    , Show (dp)
-    , Show (Ring dp) 
+    , Show (Ring dp)
+    , Show dp
     ) => Semigroup (CoverTree' dp) 
         where
     {-# INLINE (<>) #-}
     ct1 <> ct2 = merge ct1 ct2 
 
-merge ct1 ct2 = case merge' (growct ct1 maxlevel) (growct ct2 maxlevel) of
-    Just x -> x
-    Nothing -> merge (growct ct1 (maxlevel*2)) ct2
+merge ct1 ct2 = 
+--     trace ("maxlevel="++show maxlevel
+--                      ++"; stNumNodes = ("++show (stNumNodes ct1)++","++show (stNumNodes ct2)++")"
+--                      ++"; nodedp = ("++show (nodedp ct1)++","++show (nodedp ct2)++")"
+--                      ) $ 
+  case merge' ct1' ct2'  of
+    Just (ct,[]) -> ct
+    Just (ct,xs) -> foldr merge ct xs
+    Nothing -> merge (growct ct1' (maxlevel*2)) ct2'
     where
+        ct1' = growct ct1 maxlevel
+        ct2' = growct ct2 maxlevel
         maxlevel = maximum [(sepdist ct1), (sepdist ct2),1]
 
-merge' !ct1 !ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
+merge' :: (Ord dp, MetricSpace dp) => CoverTree' dp -> CoverTree' dp -> Maybe (CoverTree' dp, [CoverTree' dp])
+merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > (sepdist ct1)
     then Nothing
-    else Just $ ct1
-        { children' = go (children ct1) (mapelemsSCC $ children ct2)
-        }
+    else Just ( ct1 { children' = newchildren' `Map.union` Map.fromList (map (\x -> (nodedp x,growct x (sepdist ct1/2))) valid_newleftovers) }
+              , invalid_newleftovers++invalidchildren
+              )
+        
     where
-        go !childmap ![] = childmap
-        go !childmap !(x:xs) = case filter (isJust.snd) $ map (\(k,v)->(k,merge' v x)) $ mapassocsSCC childmap of
-            []                -> go (mapinsertSCC (nodedp x)   (x   {sepdist=sepdist ct1/2}) childmap) xs
-            (old,Just new):ys -> go (mapinsertSCC (nodedp new) (new {sepdist=sepdist ct1/2}) $ mapdeleteSCC old childmap) xs
+        validchild x = distance (nodedp ct1) (nodedp x) <= sepdist ct1
+        validchildren = filter validchild $ Map.elems $ children ct2
+        invalidchildren = filter (not . validchild) $ Map.elems $ children ct2
+
+        (newchildren',newleftovers) = go (children ct1,[]) validchildren
+        valid_newleftovers = filter validchild newleftovers
+        invalid_newleftovers = filter (not.validchild) newleftovers
+
+--         go :: Map.Map dp (CoverTree' dp) -> [CoverTree' dp] -> Map.Map dp (CoverTree' dp)
+        go (!childmap,leftovers) ![] = (childmap,leftovers)
+        go (!childmap,leftovers) !(x:xs) = 
+            case filter (isJust.snd) $ map (\(k,v)->(k,merge' v x)) $ Map.assocs childmap of
+                [] -> 
+                    go ( Map.insert (nodedp x) (x {sepdist=sepdist ct1/2}) childmap
+                       , leftovers
+                       ) xs
+                (old,Just (new,leftovers')):ys -> 
+                    go ( Map.insert (nodedp new) (new {sepdist=sepdist ct1/2}) 
+                          $ Map.delete old childmap
+                       , leftovers'++leftovers
+                       ) xs
+
+m :: MetricSpace dp => CoverTree' dp -> CoverTree' dp -> (CoverTree' dp, [CoverTree' dp])
+m ct1 ct2 = if distance (nodedp ct1) (nodedp ct2) < sepdist ct1
+    then undefined -- add to children
+    else (ct1,[ct2])
+
+-- merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > (sepdist ct1)
+--     then Nothing
+--     else Just $ ct1
+--         { children' = go (children ct1) (Map.elems $ children ct2)
+--         }
+--     where
+--         go !childmap ![] = childmap
+--         go !childmap !(x:xs) = case filter (isJust.snd) $ map (\(k,v)->(k,merge' v x)) $ Map.assocs childmap of
+--             []                -> go (Map.insert (nodedp x)   (x   {sepdist=sepdist ct1/2}) childmap) xs
+--             (old,Just new):ys -> go (Map.insert (nodedp new) (new {sepdist=sepdist ct1/2}) $ Map.delete old childmap) xs
 
 children :: (Ord dp,Fractional (Ring dp)) => CoverTree' dp -> Map.Map dp (CoverTree' dp)
 children tree = mapinsertSCCWith 
     (\x y -> y) 
     (nodedp tree) 
-    (Node (nodedp tree) (sepdist tree/2) mempty)
+    (Node 
+        { nodedp    = nodedp tree
+        , sepdist   = sepdist tree/2
+        , children' = mempty
+--         , tag = error "children tag"
+        })
     (children' tree)
 
 prunect :: CoverTree' dp -> CoverTree' dp
@@ -228,13 +228,14 @@ prunect ct = if Map.size (children' ct) == 1
     else ct
 
 growct :: (Num (Ring dp),Ord (Ring dp)) => CoverTree' dp -> Ring dp -> CoverTree' dp
-growct ct d = if sepdist ct==0
+growct ct d = if sepdist ct==0 || Map.size (children' ct)==0
     then ct { sepdist=d }
     else if d > sepdist ct
         then growct (Node
             { nodedp=nodedp ct
             , sepdist=sepdist ct*2
             , children' = Map.singleton (nodedp ct) ct 
+--             , tag=error "growct tag"
             }
             ) d
         else ct
@@ -282,18 +283,25 @@ instance Arbitrary (CoverTree (Double,Double)) where
         xs <- replicateM num $ do
 --             x <- arbitrary
 --             y <- arbitrary
-            x <- choose (-2^^500,2^^500)
-            y <- choose (-2^^500,2^^500)
+            x <- choose (-2^^5,2^^5)
+            y <- choose (-2^^5,2^^5)
 --             trace ("(x,y)="++show (x,y)) $ return (x,y)
             return (x,y)
         return $ train xs 
 
 property_covering :: CoverTree (Double,Double) -> Bool
 property_covering Unit = True
-property_covering (UnitLift node) = if Map.size (children' node) > 1 
+property_covering (UnitLift node) = if Map.size (children' node) > 0 
     then maximum (map (distance (nodedp node) . nodedp) $ mapelemsSCC $ children' node) < coverDist node 
       && and (map (property_covering . UnitLift) $ mapelemsSCC $ children' node)
     else True
+
+-- property_covering :: CoverTree (Double,Double) -> Bool
+-- property_covering Unit = True
+-- property_covering (UnitLift node) = if Map.size (children' node) > 1 
+--     then maximum (map (distance (nodedp node) . nodedp) $ mapelemsSCC $ children' node) < coverDist node 
+--       && and (map (property_covering . UnitLift) $ mapelemsSCC $ children' node)
+--     else True
 
 property_leveled :: CoverTree (Double,Double) -> Bool
 property_leveled (Unit) = True
@@ -351,6 +359,19 @@ zs :: [(Double,Double)]
 zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
 mz = train zs :: CoverTree (Double,Double)
 -- mz = prunect $ insertBatch zs
+
+grid :: Int -> Int -> [(Double,Double)]
+grid n 2 = take n [(x,y) | x <- [1..w], y <- [1..w]]
+    where
+        n' = fromIntegral n
+        w = fromIntegral $ ceiling $ n' ** (1/2)
+
+gs = grid 9 2
+gs' i = take i gs
+mg = train gs :: CoverTree (Double,Double)
+mg' i = train $ gs' i :: CoverTree (Double,Double)
+
+mg3 = train1dp (1,1) `mappend` ( train1dp (1,2) `mappend` train1dp (1,3) ) :: CoverTree (Double,Double)
 
 -------------------------------------------------------------------------------
 -- diagrams

@@ -17,6 +17,7 @@ import qualified Data.Traversable as T
 -- import Data.DependentIndexing
 import Data.Prunable
 import HLearn.Algebra --hiding (Index)
+import HLearn.DataStructures.SpaceTree
 
 -------------------------------------------------------------------------------
 -- data types

@@ -1,7 +1,10 @@
 -- | This is the base module for the HLearn library.  It exports all the functions / data structures needed.
 
 module HLearn.Algebra
-    ( module HLearn.Algebra.Functions
+    ( module GHC.TypeLits
+
+    , module HLearn.Algebra.Common
+    , module HLearn.Algebra.Functions
 --     , module HLearn.Algebra.HVector
     , module HLearn.Algebra.Types.HList
     , module HLearn.Algebra.Types.Indexing
@@ -20,6 +23,9 @@ module HLearn.Algebra
     )
     where
           
+import GHC.TypeLits
+
+import HLearn.Algebra.Common
 import HLearn.Algebra.Functions
 -- import HLearn.Algebra.HVector
 import HLearn.Algebra.Types.HList

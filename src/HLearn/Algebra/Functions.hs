@@ -1,3 +1,4 @@
+{-# LANGUAGE PolyKinds #-}
 
 -- | This module contains \"low-level higher order functions\" for manipulating algebraic homomorphisms.  You probably want to use the "HomTrainer" type-class rather than using these functions directly.
 

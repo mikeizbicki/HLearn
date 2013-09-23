@@ -4,7 +4,7 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     where
 
 import Control.DeepSeq
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
@@ -57,6 +57,9 @@ deriving instance (Read dp, Read (Ring dp), Ord dp, Read (KNN k dp)) => Read (KN
 deriving instance (Show dp, Show (Ring dp), Ord dp, Show (KNN k dp)) => Show (KNN2 k dp)
 deriving instance (NFData dp, NFData (Ring dp)) => NFData (KNN2 k dp)
 
+instance (SpaceTree t dp, Ord dp, SingI k) => Function (KNN2 k dp) (DualTree (t dp)) (KNN2 k dp) where
+    function _ = knn2
+
 -------------------------------------------------------------------------------
 -- algebra
 
@@ -74,10 +77,13 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
 -- dual tree
 
 knn2 :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2 = prunefold2init initKNN2 knn2_prune (knn2_cata)
+knn2=knn2_fast
+
+knn2_fast :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
+knn2_fast = prunefold2init initKNN2 knn2_prune knn2_cata
 
 knn2_slow :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2_slow = prunefold2init initKNN2 noprune (knn2_cata)
+knn2_slow = prunefold2init initKNN2 noprune knn2_cata
 
 initKNN2 :: SpaceTree t dp => DualTree (t dp) -> KNN2 k dp
 initKNN2 dual = KNN2 $ Map.singleton qnode val
@@ -102,21 +108,13 @@ maxdist knn2 tree = if stIsLeaf tree
         : (fmap (maxdist knn2) $ stChildren tree)
 
 knn2_cata :: (SingI k, Ord dp, MetricSpace dp) => DualTree dp -> KNN2 k dp -> KNN2 k dp 
-knn2_cata dual knn2 = KNN2 $ Map.insertWith (<>) qnode knn' $ getknn2 knn2
+knn2_cata !dual !knn2 = KNN2 $ Map.insertWith (<>) qnode knn' $ getknn2 knn2
     where
         rnode = reference dual 
         qnode = query dual 
         dualdist = distance rnode qnode
         knn' = KNN [ Neighbor rnode dualdist ]
 
-
--- prunefold2init :: SpaceTree t dp =>
---     (DualTree (t dp) -> res) -> 
---         (res -> DualTree (t dp) -> Bool) -> (DualTree dp -> res -> res) -> DualTree (t dp) -> res
--- prunefold2init init prune f pair = foldl' 
---     (prunefold2 prune f) 
---     (init pair) 
---     (dualTreeMatrix (stChildren $ reference pair) (stChildren $ query pair))
 
 -------------------------------------------------------------------------------
 -- single tree
@@ -165,7 +163,7 @@ knnMaxDistance (KNN xs) = neighborDistance $ last xs
 init_knn :: SpaceTree t dp => dp -> t dp -> KNN k dp
 init_knn query t = KNN [Neighbor (stNode t) (distance (stNode t) query)]
 
--- interleave :: Ord a => [a] -> [a] -> [a]
+interleave :: (Eq a, Ord (Ring a)) => [Neighbor a] -> [Neighbor a] -> [Neighbor a]
 interleave xs [] = xs
 interleave [] ys = ys
 interleave (x:xs) (y:ys) = case compare x y of
