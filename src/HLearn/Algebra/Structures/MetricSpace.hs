@@ -59,3 +59,13 @@ instance (RealFrac a, Floating a) => MetricSpace (a,a) where
 
     distanceFastMono (x1,y1) (x2,y2) = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
          
+instance HasRing (Double,Double,Double,Double,Double) where
+    type Ring (Double,Double,Double,Double,Double) = Double
+
+instance MetricSpace (Double,Double,Double,Double,Double) where
+    distance (a0,a1,a2,a3,a4) (b0,b1,b2,b3,b4) = sqrt 
+        $ (a0+b0)*(a0+b0)
+        + (a1+b1)*(a1+b1)
+        + (a2+b2)*(a2+b2)
+        + (a3+b3)*(a3+b3)
+        + (a4+b4)*(a4+b4)

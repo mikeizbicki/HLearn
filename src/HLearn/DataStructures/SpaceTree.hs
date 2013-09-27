@@ -6,6 +6,7 @@ module HLearn.DataStructures.SpaceTree
 import Control.DeepSeq
 import Data.Semigroup
 import Data.List
+import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -14,6 +15,11 @@ import HLearn.Models.Distributions
 
 -------------------------------------------------------------------------------
 -- SpaceTree 
+
+class HasTag t where
+    type Tag t
+    getTag :: t -> Maybe (Tag t)
+    setTag :: Tag t -> t -> t
 
 class (MetricSpace dp) => SpaceTree t dp where
     stMinDistance :: t dp -> t dp -> Ring dp
@@ -33,7 +39,10 @@ stDescendents t = if stIsLeaf t
     else concatMap stDescendents $ stChildren t
 
 stNumNodes :: SpaceTree t dp => t dp -> Int
-stNumNodes = prunefold noprune (\ _ y -> y+1) 0
+-- stNumNodes = prunefold noprune (\ _ y -> y+1) 0
+stNumNodes t = if stIsLeaf t
+    then 1
+    else 1 + sum (map stNumNodes $ stChildren t)
 
 stMaxChildren :: SpaceTree t dp => t dp -> Int
 stMaxChildren t = if stIsLeaf t
@@ -64,14 +73,13 @@ prunefoldinit init prune f t = foldl'
 
 prunefold :: SpaceTree t a => (b -> t a -> Bool) -> (a -> b -> b) -> b -> t a -> b
 prunefold prune f b t = if prune b t
-    then b
+    then b'
     else if stIsLeaf t
         then b'
         else foldl' (prunefold prune f) b' (stChildren t) 
     where
         b' = f (stNode t) b
 
--- noprune :: SpaceTree t a => b -> t a -> Bool
 noprune :: b -> a -> Bool
 noprune _ _ = False
 
@@ -129,13 +137,19 @@ data AddUnit sg dp
     | UnitLift (sg dp)
     deriving (Read,Show,Eq,Ord)
 
-instance NFData (sg dp) => NFData (AddUnit sg dp)
+instance NFData (sg dp) => NFData (AddUnit sg dp) where
+    rnf Unit = ()
+    rnf (UnitLift sg) = rnf sg
 
 instance Semigroup (sg dp) => Monoid (AddUnit sg dp) where
     mempty = Unit
     mappend Unit x = x
     mappend x Unit = x
     mappend (UnitLift x) (UnitLift y) = UnitLift $ x<>y
+ 
+instance F.Foldable sg => F.Foldable (AddUnit sg) where
+    foldr f i Unit = error "foldr Unit"
+    foldr f i (UnitLift x) = F.foldr f i x
 
 instance SpaceTree sg dp => SpaceTree (AddUnit sg) dp where
     stMinDistance Unit x = 0

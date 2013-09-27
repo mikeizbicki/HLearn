@@ -11,8 +11,8 @@ import HLearn.DataStructures.SpaceTree
 -- query == reference 
 
 data TreeAlg (result:: * -> *) (tree:: * -> *) (dp:: *) = TreeAlg
-    { dptree :: tree dp
-    , results :: result dp
+    { dptree  :: !(tree dp)
+    , results :: !(result dp)
     }
 
 instance (NFData (result dp), NFData (tree dp)) => NFData (TreeAlg result tree dp) where
@@ -53,6 +53,13 @@ instance
         { dptree = train1dp dp
         , results = mempty
         }
+
+    train dps = TreeAlg
+        { dptree = tree
+        , results = function (undefined::result dp) (DualTree tree tree)
+        }
+        where
+            tree = train dps
 
 -------------------------------------------------------------------------------
 -- query /= reference

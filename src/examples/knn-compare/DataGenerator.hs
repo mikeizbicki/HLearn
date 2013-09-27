@@ -12,7 +12,7 @@ main = do
     dpstr:dimstr:xs <- getArgs
     let numdp = read dpstr :: Int
     let numdim = read dimstr :: Int
-    printdata_grid numdp numdim
+    printdata numdp numdim
 
 printdata_spaceleak numdp numdim = do
     (xs :: [[Double]]) <- replicateM numdp $ replicateM numdim $ randomRIO (minval,maxval)

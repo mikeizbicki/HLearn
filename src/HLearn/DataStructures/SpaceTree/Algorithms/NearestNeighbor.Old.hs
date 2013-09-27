@@ -9,7 +9,6 @@ import Debug.Trace
 import Control.Monad
 import Control.Monad.ST
 import Control.DeepSeq
-import Data.List
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
@@ -40,17 +39,20 @@ instance (NFData dp, NFData (Ring dp)) => NFData (Neighbor dp) where
 
 ---------------------------------------
 
-newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
--- newtype KNN (k::Nat) dp = KNN { getknn :: V.Vector (Neighbor dp) }
+-- newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
+newtype KNN (k::Nat) dp = KNN { getknn :: V.Vector (Neighbor dp) }
 
 deriving instance (Read dp, Read (Ring dp)) => Read (KNN k dp)
 deriving instance (Show dp, Show (Ring dp)) => Show (KNN k dp)
 deriving instance (NFData dp, NFData (Ring dp)) => NFData (KNN k dp)
 
 knn_maxdist :: forall k dp. (SingI k,Ord dp,Fractional (Ring dp)) => KNN k dp -> Ring dp
-knn_maxdist (KNN v) = if length v > 0
-    then neighborDistance $ last v 
-    else infinity
+knn_maxdist (KNN v) = if V.length v > 0
+    then neighborDistance $ v V.! (V.length v-1) 
+    else inf
+
+inf :: Fractional n => n
+inf = 1/0
 
 ---------------------------------------
 
@@ -62,17 +64,33 @@ deriving instance (Read dp, Read (Ring dp), Ord dp, Read (KNN k dp)) => Read (KN
 deriving instance (Show dp, Show (Ring dp), Ord dp, Show (KNN k dp)) => Show (KNN2 k dp)
 deriving instance (NFData dp, NFData (Ring dp)) => NFData (KNN2 k dp)
 
-instance (SpaceTree t dp, F.Foldable t, Ord dp, SingI k) => Function (KNN2 k dp) (DualTree (t dp)) (KNN2 k dp) where
+instance (SpaceTree t dp, Ord dp, SingI k) => Function (KNN2 k dp) (DualTree (t dp)) (KNN2 k dp) where
     function _ = knn2
 
 -------------------------------------------------------------------------------
 -- algebra
 
 instance (SingI k, MetricSpace dp, Eq dp) => Monoid (KNN k dp) where
-    mempty = KNN mempty 
-    mappend (KNN xs) (KNN ys) = KNN $ take k $ interleave xs ys
+    mempty = KNN mempty
+    mappend (KNN v1) (KNN v2) = KNN $ runST $ do
+        v' <- VM.new k'
+        go v' 0 0 0    
+        V.unsafeFreeze v'
         where
+            go :: VM.MVector s (Neighbor dp) -> Int -> Int -> Int -> ST s ()
+            go v' i i1 i2 = if i>=k'
+                then return ()
+                else if v1 V.! i1 < v2 V.! i2
+                    then VM.write v' i (v1 V.! i1) >> go v' (i+1) (i1+1) i2
+                    else VM.write v' i (v2 V.! i2) >> go v' (i+1) i1 (i2+1)
+                    
+            k'=min k (V.length v1+V.length v2)
             k=fromIntegral $ fromSing (sing :: Sing k)
+--
+--     mempty = KNN []
+--     mappend (KNN xs) (KNN ys) = KNN $ take k $ interleave xs ys
+--         where
+--             k=fromIntegral $ fromSing (sing :: Sing k)
 
 instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
     mempty = KNN2 mempty
@@ -81,8 +99,8 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
 -------------------------------------------------------------------------------
 -- dual tree
 
-knn2 :: (SpaceTree t dp, F.Foldable t, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2=knn2_single
+knn2 :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
+knn2=knn2_fast
 
 knn2_fast :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
 knn2_fast = prunefold2init initKNN2 knn2_prune knn2_cata
@@ -95,7 +113,7 @@ initKNN2 dual = KNN2 $ Map.singleton qnode val
     where
         rnode = stNode $ reference dual
         qnode = stNode $ query dual
-        val = KNN [Neighbor rnode (distance qnode rnode)]
+        val = KNN $ V.singleton $ Neighbor rnode (distance qnode rnode)
 
 knn2_prune :: forall k t dp. (SingI k, SpaceTree t dp, Ord dp) => KNN2 k dp -> DualTree (t dp) -> Bool
 knn2_prune knn2 dual = stMinDistance (reference dual) (query dual) > bound
@@ -118,9 +136,7 @@ knn2_cata !dual !knn2 = KNN2 $ Map.insertWith (<>) qnode knn' $ getknn2 knn2
         rnode = reference dual 
         qnode = query dual 
         dualdist = distance rnode qnode
-        knn' = if rnode == qnode
-            then mempty
-            else KNN $ [Neighbor rnode dualdist]
+        knn' = KNN $ V.singleton $ Neighbor rnode dualdist
 
 
 -------------------------------------------------------------------------------
@@ -136,7 +152,7 @@ nearestNeighbor :: SpaceTree t dp => dp -> t dp -> Neighbor dp
 nearestNeighbor query t = prunefoldinit (init_neighbor query) (nn_prune query) (nn_cata query) t
 
 nearestNeighbor_slow :: SpaceTree t dp => dp -> t dp -> Neighbor dp
-nearestNeighbor_slow query t = prunefoldinit (init_neighbor query) noprune (nn_cata query) t
+nearestNeighbor_slow query t = prunefoldinit undefined noprune (nn_cata query) t
 
 nn_prune :: SpaceTree t dp => dp -> Neighbor dp -> t dp -> Bool
 nn_prune query b t = neighborDistance b < distance query (stNode t)
@@ -151,25 +167,24 @@ nn_cata query next current = if neighborDistance current < nextDistance
 ---------------------------------------
 
 knn :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knn query t = prunefoldmempty (knn_prune query) (knn_cata query) t
-
-knn_slow :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knn_slow query t = prunefold noprune (knn_cata query) mempty t
+knn query t = prunefoldinit (init_knn query) (knn_prune query) (knn_cata query) t
 
 knn_prune :: forall k t dp. (SingI k, SpaceTree t dp) => dp -> KNN k dp -> t dp -> Bool
-knn_prune query res t = knnMaxDistance res < (stMinDistanceDp t query) && isFull res
+knn_prune query res t = knnMaxDistance res < distance query (stNode t) && knnFull res
+
+knn_cata :: (SingI k, MetricSpace dp, Eq dp) => dp -> dp -> KNN k dp -> KNN k dp
+knn_cata query next current = KNN (V.singleton (Neighbor next $ distance query next)) <> current
+
+knnFull :: forall k dp. SingI k => KNN k dp -> Bool
+knnFull knn = V.length (getknn knn) > k
     where
         k = fromIntegral $ fromSing (sing :: Sing k)
 
-        isFull knn = length (getknn knn) >= k
+knnMaxDistance :: KNN k dp -> Ring dp
+knnMaxDistance (KNN xs) = neighborDistance $ V.last xs
 
-        knnMaxDistance (KNN []) = infinity
-        knnMaxDistance (KNN xs) = neighborDistance $ last xs
-
-knn_cata :: (SingI k, MetricSpace dp, Eq dp) => dp -> dp -> KNN k dp -> KNN k dp
-knn_cata query next current = if next==query
-    then current
-    else KNN [Neighbor next $ distance query next] <> current
+init_knn :: SpaceTree t dp => dp -> t dp -> KNN k dp
+init_knn query t = KNN $ V.singleton $ Neighbor (stNode t) (distance (stNode t) query)
 
 interleave :: (Eq a, Ord (Ring a)) => [Neighbor a] -> [Neighbor a] -> [Neighbor a]
 interleave xs [] = xs
@@ -181,31 +196,7 @@ interleave (x:xs) (y:ys) = case compare x y of
         then x:interleave xs ys
         else x:y:interleave xs ys
 
--- property_sorts :: [Double] -> [Double] -> Bool
-property_sorts xs ys = go $ interleave xs' ys'
-    where
-        xs' = sort xs
-        ys' = sort ys
-
-        go [] = True
-        go (x:[]) = True
-        go (x1:x2:xs) = if x1<x2
-            then go (x2:xs)
-            else False
-
 ---------------------------------------
 
 knn2_single :: (SingI k, SpaceTree t dp, Eq dp, F.Foldable t, Ord dp) => DualTree (t dp) -> KNN2 k dp
 knn2_single dual = F.foldMap (\dp -> KNN2 $ Map.singleton dp $ knn dp $ reference dual) (query dual)
-
-knn2_single_slow :: (SingI k, SpaceTree t dp, Eq dp, F.Foldable t, Ord dp) => DualTree (t dp) -> KNN2 k dp
-knn2_single_slow dual = F.foldMap (\dp -> KNN2 $ Map.singleton dp $ knn_slow dp $ reference dual) (query dual)
-
-knn2_parallel :: 
-    ( SingI k
-    , SpaceTree t dp
-    , Eq dp, F.Foldable t, Ord dp
-    , NFData (Ring dp), NFData dp
-    ) => DualTree (t dp) -> KNN2 k dp
-knn2_parallel dual = (parallel reduce) $ map (\dp -> KNN2 $ Map.singleton dp $ knn dp $ reference dual) (F.toList $ query dual)
-
