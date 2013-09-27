@@ -69,3 +69,10 @@ instance MetricSpace (Double,Double,Double,Double,Double) where
         + (a2+b2)*(a2+b2)
         + (a3+b3)*(a3+b3)
         + (a4+b4)*(a4+b4)
+
+-------------------------------------------------------------------------------
+-- quick check
+
+property_isFartherThan :: MetricSpace dp => dp -> dp -> Ring dp -> Bool
+property_isFartherThan dp1 dp2 dist = (distance dp1 dp2 > abs dist) == isFartherThan dp1 dp2 (abs dist)
+

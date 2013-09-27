@@ -33,13 +33,15 @@ class (MetricSpace dp) => SpaceTree t dp where
     stHasNode :: t dp -> Bool
     stIsLeaf :: t dp -> Bool
 
+-------------------------------------------------------------------------------
+-- generic algorithms
+
 stDescendents :: SpaceTree t dp => t dp -> [dp]
 stDescendents t = if stIsLeaf t 
     then [stNode t]
     else concatMap stDescendents $ stChildren t
 
 stNumNodes :: SpaceTree t dp => t dp -> Int
--- stNumNodes = prunefold noprune (\ _ y -> y+1) 0
 stNumNodes t = if stIsLeaf t
     then 1
     else 1 + sum (map stNumNodes $ stChildren t)
@@ -59,11 +61,11 @@ stMaxDepth t = if stIsLeaf t
     then 1
     else 1+maximum (map stMaxDepth $ stChildren t)
 
+-------------------------------------------------------------------------------
+-- pruning folds
+
 ---------------------------------------
 -- single tree algs
-
-prunefold1 :: SpaceTree t dp => (dp -> t dp -> Bool) -> (dp -> dp -> dp) -> t dp -> dp
-prunefold1 prune f t = foldl' (prunefold prune f) (stNode t) (stChildren t)
 
 prunefoldinit :: SpaceTree t dp => (t dp -> res) -> (res -> t dp -> Bool) -> (dp -> res -> res) -> t dp -> res
 prunefoldinit init prune f t = foldl'
@@ -87,8 +89,8 @@ noprune _ _ = False
 -- dual tree algs
 
 data DualTree a = DualTree 
-    { reference :: a
-    , query :: a
+    { reference :: !a
+    , query     :: !a
     }
     deriving (Read,Show,Eq,Ord)
 

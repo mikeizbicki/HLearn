@@ -41,7 +41,6 @@ instance (NFData dp, NFData (Ring dp)) => NFData (Neighbor dp) where
 ---------------------------------------
 
 newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
--- newtype KNN (k::Nat) dp = KNN { getknn :: V.Vector (Neighbor dp) }
 
 deriving instance (Read dp, Read (Ring dp)) => Read (KNN k dp)
 deriving instance (Show dp, Show (Ring dp)) => Show (KNN k dp)
@@ -85,17 +84,10 @@ knn2 :: (SpaceTree t dp, F.Foldable t, Ord dp, SingI k) => DualTree (t dp) -> KN
 knn2=knn2_single
 
 knn2_fast :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2_fast = prunefold2init initKNN2 knn2_prune knn2_cata
+knn2_fast = prunefold2 initKNN2 knn2_prune mempty knn2_cata
 
 knn2_slow :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2_slow = prunefold2init initKNN2 noprune knn2_cata
-
-initKNN2 :: SpaceTree t dp => DualTree (t dp) -> KNN2 k dp
-initKNN2 dual = KNN2 $ Map.singleton qnode val
-    where
-        rnode = stNode $ reference dual
-        qnode = stNode $ query dual
-        val = KNN [Neighbor rnode (distance qnode rnode)]
+knn2_slow = prunefold2 initKNN2 noprune mempty knn2_cata
 
 knn2_prune :: forall k t dp. (SingI k, SpaceTree t dp, Ord dp) => KNN2 k dp -> DualTree (t dp) -> Bool
 knn2_prune knn2 dual = stMinDistance (reference dual) (query dual) > bound
@@ -151,13 +143,13 @@ nn_cata query next current = if neighborDistance current < nextDistance
 ---------------------------------------
 
 knn :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knn query t = prunefoldmempty (knn_prune query) (knn_cata query) t
+knn query t = prunefold (knn_prune query) (knn_cata query) mempty t
 
 knn_slow :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
 knn_slow query t = prunefold noprune (knn_cata query) mempty t
 
 knn_prune :: forall k t dp. (SingI k, SpaceTree t dp) => dp -> KNN k dp -> t dp -> Bool
-knn_prune query res t = knnMaxDistance res < (stMinDistanceDp t query) && isFull res
+knn_prune query res t = knnMaxDistance res < stMinDistanceDp t query && isFull res
     where
         k = fromIntegral $ fromSing (sing :: Sing k)
 
@@ -180,18 +172,6 @@ interleave (x:xs) (y:ys) = case compare x y of
     EQ -> if neighbor x == neighbor y
         then x:interleave xs ys
         else x:y:interleave xs ys
-
--- property_sorts :: [Double] -> [Double] -> Bool
-property_sorts xs ys = go $ interleave xs' ys'
-    where
-        xs' = sort xs
-        ys' = sort ys
-
-        go [] = True
-        go (x:[]) = True
-        go (x1:x2:xs) = if x1<x2
-            then go (x2:xs)
-            else False
 
 ---------------------------------------
 
