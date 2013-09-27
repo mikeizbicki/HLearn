@@ -6,6 +6,7 @@ import Control.Applicative
 import Data.Csv
 import Data.List
 import Data.Maybe
+import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
@@ -31,10 +32,7 @@ import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.Models.Distributions
 
--- type DP = VU.Vector Float
 type DP = VU.Vector Double
--- type DP = (Double,Double)
--- type DP = (Double,Double,Double,Double,Double)
 
 instance Num r => HasRing (VU.Vector r) where
     type Ring (VU.Vector r) = r
@@ -59,9 +57,6 @@ instance (VU.Unbox r, RealFrac r,Floating r,Show r) => MetricSpace (VU.Vector r)
                 where
                     tot' = tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
-
-property_isFartherThan :: VU.Vector Double -> VU.Vector Double -> Double -> Bool
-property_isFartherThan dp1 dp2 dist = (distance dp1 dp2 > abs dist) == isFartherThan dp1 dp2 (abs dist)
 
 instance Arbitrary (VU.Vector Double) where
     arbitrary = do
@@ -96,26 +91,46 @@ main = do
     let checkfail x t = if x then error t else return ()
     checkfail (reference_file params == Nothing) "must specify a reference file"
 
+    case k params of 
+        1 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 1 DP)
+        2 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 2 DP)
+        3 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 3 DP)
+        4 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 4 DP)
+        5 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 5 DP)
+        6 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 6 DP)
+        7 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 7 DP)
+        8 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 8 DP)
+        9 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 9 DP)
+        10 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 10 DP)
+        otherwise -> error "specified k value not supported"
+
+runit :: forall k tree dp ring. 
+    ( Datapoint (tree dp)~dp
+    , dp ~ DP
+    , HomTrainer (tree dp)
+    , NFData (tree dp)
+    , F.Foldable tree
+    , SpaceTree tree dp
+    , SingI k
+    ) => Params -> tree dp -> KNN2 k dp -> IO ()
+runit params tree knn = do
     -- build reference tree
     let ref = fromJust $ reference_file params
-    Right (rs :: V.Vector DP) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
-    let reftree = parallel train rs :: CoverTree DP 
+    Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
+    let reftree = parallel train rs :: tree dp -- CoverTree DP 
     timeIO "building reference tree" $ return $ rnf reftree
-
---     renderSVG "reftree.svg" (Width 500) $ draw reftree
+    --renderSVG "reftree.svg" (Width 500) $ draw reftree
 
     -- build query tree
     querytree <- case query_file params of
         Nothing -> return reftree
         Just file -> do
-            Right (qs::V.Vector DP) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
-            let tmptree=parallel train qs :: CoverTree DP
+            Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
+            let tmptree=parallel train qs :: tree dp -- CoverTree DP
             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
     -- do knn search
---     let action = knn2_single_slow (DualTree reftree querytree) :: KNN2 2 DP
-    let action = knn2_parallel (DualTree reftree querytree) :: KNN2 2 DP
---     let action = knn2_slow (DualTree reftree querytree) :: KNN2 2 DP
+    let action = knn2_parallel (DualTree reftree querytree) :: KNN2 k dp
     res <- timeIO "computing knn_p" $ return $ deepseq action action 
 
     -- output to files
