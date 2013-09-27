@@ -98,9 +98,9 @@ Library
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
         HLearn.Models.Classifiers.Bayes
-        --HLearn.Models.Classifiers.NearestNeighbor
-        --HLearn.Models.Classifiers.Perceptron
-        --HLearn.Models.Classifiers.Centroid
+        HLearn.Models.Classifiers.NearestNeighbor
+        HLearn.Models.Classifiers.Perceptron
+        HLearn.Models.Classifiers.Centroid
         --HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
         --HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
         
