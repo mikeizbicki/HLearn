@@ -36,7 +36,6 @@ instance
     ( Monoid dp
     , HasRing dp
     , Ord label
---     , Triangle dp (Ring dp) 
     ) => HomTrainer (Perceptron label dp) 
         where
     type Datapoint (Perceptron label dp) = (label,dp)
@@ -57,8 +56,18 @@ instance
     , HasRing dp
     ) => ProbabilityClassifier (Perceptron label dp)
         where
-    type ResultDistribution (Perceptron label dp) = (Categorical label (Ring dp))
+    type ResultDistribution (Perceptron label dp) = (Categorical (Ring dp) label)
               
     probabilityClassify model dp = probabilityClassify nn (train1dp (dp) :: Centroid dp)
         where
             nn = NaiveNN $ Map.toList $ centroids model
+
+instance 
+    ( ProbabilityClassifier (Perceptron label dp)
+    , Ord dp
+    , Ord (Ring dp)
+    , Ord label
+    , Num (Ring dp)
+    ) => Classifier (Perceptron label dp)
+        where
+    classify model dp = mean $ probabilityClassify model dp

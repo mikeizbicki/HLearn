@@ -60,8 +60,8 @@ instance
     , Ord (Ring dp)
     ) => ProbabilityClassifier (NaiveNN container label dp)
         where
-    type ResultDistribution (NaiveNN container label dp) = Categorical label (Ring dp)
+    type ResultDistribution (NaiveNN container label dp) = Categorical (Ring dp) label
               
-    probabilityClassify nn dp = trainW (map (\(l,dp) -> (1,l)) $ take k $ neighborList dp nn)
+    probabilityClassify nn dp = train (map fst $ take k $ neighborList dp nn)
         where
             k = 1
