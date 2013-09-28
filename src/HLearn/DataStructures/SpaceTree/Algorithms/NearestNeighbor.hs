@@ -84,10 +84,10 @@ knn2 :: (SpaceTree t dp, F.Foldable t, Ord dp, SingI k) => DualTree (t dp) -> KN
 knn2=knn2_single
 
 knn2_fast :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2_fast = prunefold2 initKNN2 knn2_prune mempty knn2_cata
+knn2_fast = prunefold2 knn2_prune knn2_cata mempty
 
 knn2_slow :: (SpaceTree t dp, Ord dp, SingI k) => DualTree (t dp) -> KNN2 k dp
-knn2_slow = prunefold2 initKNN2 noprune mempty knn2_cata
+knn2_slow = prunefold2 noprune knn2_cata mempty
 
 knn2_prune :: forall k t dp. (SingI k, SpaceTree t dp, Ord dp) => KNN2 k dp -> DualTree (t dp) -> Bool
 knn2_prune knn2 dual = stMinDistance (reference dual) (query dual) > bound
