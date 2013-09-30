@@ -26,11 +26,10 @@ leaveOneOut :: [dp] -> [[dp]]
 leaveOneOut xs = map (\x -> [x]) xs
 
 folds :: Int -> [dp] -> [[dp]]
-folds n xs = [map snd $ filter (\(i,x)->i `mod` n==j) ixs | j<-[0..n-1]]
+folds n xs = [takeEvery n $ drop j xs | j<-[0..n-1]]
     where
-        ixs = addIndex 0 xs
-        addIndex i [] = []
-        addIndex i (x:xs) = (i,x):(addIndex (i+1) xs)
+        takeEvery n [] = []
+        takeEvery n xs = head xs : (takeEvery n $ drop n xs)
 
 errorRateTmp :: LossFunction model
 errorRateTmp = undefined
