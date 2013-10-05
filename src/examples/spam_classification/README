@@ -1,0 +1,2 @@
+$ ghc --make perceptron.hs
+$ ./perceptron train.data test.data
