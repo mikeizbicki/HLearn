@@ -17,6 +17,7 @@ module HLearn.Algebra
     , module HLearn.Algebra.Structures.MetricSpace
     , module HLearn.Algebra.Structures.Modules
     , module HLearn.Algebra.Structures.Triangles
+    , module HLearn.Algebra.Structures.Topology
     , module HLearn.Algebra.Structures.Free.Bagging
     , module HLearn.Algebra.Structures.Free.FreeHomTrainer
     , module HLearn.Algebra.Structures.Free.FreeModule
@@ -39,6 +40,7 @@ import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.MetricSpace
 import HLearn.Algebra.Structures.Modules
 import HLearn.Algebra.Structures.Triangles
+import HLearn.Algebra.Structures.Topology
 import HLearn.Algebra.Structures.Free.Bagging
 import HLearn.Algebra.Structures.Free.FreeHomTrainer
 import HLearn.Algebra.Structures.Free.FreeModule

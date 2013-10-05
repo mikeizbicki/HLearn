@@ -50,7 +50,6 @@ parallel ::
     ) => (container datapoint -> model) -- ^ sequential batch trainer
       -> (container datapoint -> model) -- ^ parallel batch trainer
 parallel train = \datapoint ->
---     F.foldl' (mappend) mempty $ parMap strat train (CK.partition n datapoint)
     reduce $ parMap strat train (CK.partition n datapoint)
     where
         strat = rdeepseq
