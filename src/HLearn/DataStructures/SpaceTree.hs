@@ -26,6 +26,7 @@ module HLearn.DataStructures.SpaceTree
     , noprune
 
     -- ** Dual tree
+    , dualfold
     , prunefold2init
     , prunefold2
     , dualNodes
@@ -36,8 +37,6 @@ import Control.DeepSeq
 import Data.Semigroup
 import Data.List
 import qualified Data.Foldable as F
-import qualified Data.Map as Map
-import qualified Data.Set as Set
 
 import HLearn.Algebra hiding ((<>))
 import HLearn.Models.Distributions
@@ -47,10 +46,10 @@ import HLearn.Models.Distributions
 
 class Taggable t where
 
-    getTag :: t tag dp -> Maybe tag
+    getTag :: t tag dp -> tag
     setTag :: tag -> t tag dp -> t tag dp
 
-    mapTag :: (Maybe tag1 -> tag2) -> t tag1 dp -> t tag2 dp
+    mapTag :: (tag1 -> tag2) -> t tag1 dp -> t tag2 dp
 
 class (MetricSpace dp) => SpaceTree t dp where
     stMinDistance :: t dp -> t dp -> Ring dp
@@ -70,6 +69,9 @@ class (MetricSpace dp) => SpaceTree t dp where
     stNode :: t dp -> dp
     stHasNode :: t dp -> Bool
     stIsLeaf :: t dp -> Bool
+
+    ro :: t dp -> Ring dp
+    lambda :: t dp -> Ring dp
 
 -------------------------------------------------------------------------------
 -- generic algorithms
@@ -160,6 +162,28 @@ prunefold2init init prune f pair = foldl'
     (init pair) 
     (dualTreeMatrix (stChildren $ reference pair) (stChildren $ query pair))
 
+{-# INLINABLE dualfold #-}
+dualfold :: 
+    ( SpaceTree t dp 
+    ) 
+    => (DualTree (t dp) -> DualTree (t dp))
+    -> (res -> DualTree (t dp) -> Bool) 
+    -> (DualTree dp -> res -> res) 
+    -> res 
+    -> DualTree (t dp) 
+    -> res
+dualfold tag prune f b pair = if prune b pair'
+    then b
+    else if stIsLeaf (reference pair') && stIsLeaf (query pair')
+        then b' 
+        else foldl' 
+            (dualfold tag prune f) 
+            b' 
+            (dualTreeMatrix (stChildren $ reference pair') (stChildren $ query pair'))
+    where
+        b' = f (dualNodes pair) b
+        pair' = tag pair
+
 {-# INLINABLE prunefold2 #-}
 prunefold2 :: 
     ( SpaceTree t dp 
@@ -214,7 +238,7 @@ instance Taggable sg => Taggable (AddUnit sg) where
     {-# INLINE setTag #-}
     {-# INLINE mapTag #-}
 
-    getTag Unit = Nothing
+--     getTag Unit = Nothing
     getTag (UnitLift sg) = getTag sg
 
     setTag _ Unit = Unit
@@ -266,3 +290,9 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
 
     stIsLeaf Unit = False
     stIsLeaf (UnitLift x) = stIsLeaf x 
+
+    ro Unit = error "ro Unit"
+    ro (UnitLift x) = ro x
+
+    lambda Unit = error "lambda Unit"
+    lambda (UnitLift x) = lambda x

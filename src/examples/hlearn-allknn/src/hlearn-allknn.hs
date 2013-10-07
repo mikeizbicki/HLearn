@@ -170,7 +170,8 @@ runit params tree knn = do
             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
     -- do knn search
-    let action = knn2_single_parallel (DualTree reftree querytree) :: KNN2 k dp
+    let action = ct_knn2' (DualTree reftree querytree) :: KNN2 k dp
+--     let action = knn2_single_parallel (DualTree reftree querytree) :: KNN2 k dp
     res <- timeIO "computing knn_p" $ return $ deepseq action action 
 
     -- output to files
@@ -222,6 +223,17 @@ timeIO "computing knn2" $ return $ rnf (knn2 (DualTree reftree querytree) :: KNN
 timeIO "computing knn2" $ return $ rnf (knn2 (DualTree reftree querytree) :: KNN2 1 (Double,Double))
 timeIO "computing knn2" $ return $ rnf (knn2 (DualTree reftree querytree) :: KNN2 1 (Double,Double))
 -}
+
+-- ct_knn2' !dual = dualfold ct_tagdual noprune knn2_cata mempty $ DualTree q r
+-- ct_knn2' !dual = dualfold id noprune knn2_cata mempty $ DualTree q r
+ct_knn2' !dual = dualfold ct_tagdual knn2_prune_tag no_cata mempty $ DualTree q r
+    where
+        q = inittags $ query dual
+        r = inittags $ reference dual
+
+no_cata _ = id
+
+
 
 timeIO :: NFData a => String -> IO a -> IO a
 timeIO str f = do 

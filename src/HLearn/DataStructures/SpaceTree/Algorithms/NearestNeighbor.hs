@@ -15,6 +15,11 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     , knn
     , knn_slow
     , knnA
+    , knn_maxdist
+
+    , Tag_KNN2 (..)
+    , knn2_prune_tag
+    , knn2_cata
 
     , knn2
     , knn2_single
@@ -125,26 +130,18 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
 -------------------------------------------------------------------------------
 -- dual tree
 
-knn2_tag :: (SpaceTree (t (Ring dp)) dp, Taggable t, Ord dp, SingI k) => DualTree (t tag dp) -> KNN2 k dp
-knn2_tag dual = prunefold2 knn2_prune_tag knn2_cata mempty $ dual
-    { reference = mapTag (\x -> infinity) $ reference dual
-    , query     = mapTag (\x -> infinity) $ query dual
+data Tag_KNN2 (k::Nat) dp = Tag_KNN2
+    { tagknn :: !(KNN k dp)
+    , tagb1  :: !(Ring dp)
     }
 
-knn2_prune_tag :: forall k t dp. 
-    ( SingI k
-    , SpaceTree (t (Ring dp)) dp
-    , Taggable t
-    , Ord dp
-    ) => KNN2 k dp -> DualTree (t (Ring dp) dp) -> Bool
-knn2_prune_tag knn2 dual = stMinDistance (reference dual) (query dual) > case (getTag $ query dual) of
-    Nothing -> infinity
-    Just x -> x
+deriving instance (Show (Ring dp), Show dp) => Show (Tag_KNN2 l dp)
 
-printTags :: (Show tag, SpaceTree (t tag) dp, Taggable t) => t tag dp -> String
-printTags st = show (getTag st) ++ "\n" ++ if stIsLeaf st
-    then ""
-    else concat $ map printTags $ stChildren st
+instance (MetricSpace dp, Fractional (Ring dp), Ord dp, SingI k) => Monoid (Tag_KNN2 k dp) where
+    mempty = Tag_KNN2 mempty infinity
+    mappend = undefined
+
+knn2_prune_tag !knn2 !dual = stMinDistance (reference dual) (query dual) > tagb1 (getTag $ query dual)
 
 ---------------------------------------
 
