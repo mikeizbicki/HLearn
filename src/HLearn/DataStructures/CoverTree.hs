@@ -65,7 +65,6 @@ instance
     , MetricSpace dp
     , Ring dp ~ Ring (CoverTree' tag dp)
     , Ord dp
-    , Monoid tag
     ) => SpaceTree (CoverTree' tag) dp
         where
     {-# INLINABLE stMinDistance #-}
@@ -91,17 +90,42 @@ instance
     ro _ = 0
     lambda ct = sepdist ct * coverfactor
 
-instance Taggable CoverTree' where
+instance Ord dp => Taggable CoverTree' dp where
     {-# INLINABLE getTag #-}
-    {-# INLINABLE setTag #-}
-    {-# INLINABLE mapTag #-}
+    {-# INLINABLE initTags #-}
+    {-# INLINABLE clearTags #-}
     
     getTag = tag
-    setTag tag ct = ct { tag = tag } 
 
-    mapTag f ct = ct
-        { children' = Map.map (mapTag f) $ children' ct
-        , tag       = f $ tag ct
+--     initTags ct = (\(x,_,_) -> x)  $ initTags' ct (nodedp ct) 0 1 0
+    initTags ct = let (a,(_,b),c) = initTags' ct (nodedp ct) 0 1 0 in (a,c+1,b)
+        where
+            initTags' ct parentdp parenttag dptag nodetag = (ct
+                { tag = (nodetag, snd cttag)
+                , children' = new_children
+                }
+                ,new_dptag
+                ,new_nodetag
+                )
+                where
+                    cttag = if nodedp ct == parentdp then parenttag else dptag
+                    dptag' = if nodedp ct == parentdp then dptag else dptag+1
+
+                    go [] (new_children,new_dptag,new_nodetag) 
+                        = (new_children,new_dptag,new_nodetag)
+                    go (x:xs) (new_children,new_dptag,new_nodetag) 
+                        = go xs (new_children',new_dptag',new_nodetag')
+                        where
+                            new_children' = Map.insert (nodedp x') x' new_children
+                            (x',new_dptag',new_nodetag') = initTags' x (nodedp ct) cttag new_dptag (new_nodetag+1)
+                    
+                    (new_children,new_dptag,new_nodetag) 
+                        = go (Map.elems $ children' ct) (Map.empty,dptag',nodetag)
+
+    
+    clearTags ct = ct
+        { tag = ()
+        , children' = Map.map clearTags $ children' ct
         }
 
 ---------------------------------------
@@ -269,7 +293,7 @@ merge' !ct1 !ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
                        , leftovers'++leftovers
                        ) xs
 
-children :: (Ord dp,Fractional (Ring dp),Monoid tag) => CoverTree' tag dp -> Map.Map dp (CoverTree' tag dp)
+children :: (Ord dp,Fractional (Ring dp)) => CoverTree' tag dp -> Map.Map dp (CoverTree' tag dp)
 children tree = Map.insertWith 
     (\x y -> y) 
     (nodedp tree) 
@@ -277,7 +301,7 @@ children tree = Map.insertWith
         { nodedp    = nodedp tree
         , sepdist   = sepdist tree/coverfactor
         , children' = mempty
-        , tag       = mempty 
+        , tag       = tag tree
         })
     (children' tree)
 
@@ -304,56 +328,6 @@ dist2up d = dist2down d * coverfactor
 
 dist2down :: (Floating d,RealFrac d) => d -> d
 dist2down d = coverfactor^^(floor $ log d / log coverfactor :: Int)
-
--------------------------------------------------------------------------------
--- dual knn
-
-inittags :: forall k t tag0 tag dp. 
-    ( Taggable t 
-    , MetricSpace dp
-    , Fractional (Ring dp)
-    , Ord dp
-    ) => t tag0 dp -> t (Tag_KNN2 1 dp) dp
-inittags = mapTag (\ _ -> Tag_KNN2 mempty infinity)
-
-ct_knn2 !dual = dualfold ct_tagdual knn2_prune_tag knn2_cata mempty $ DualTree q r
-    where
-        q = inittags $ query dual
-        r = inittags $ reference dual
-
-ct_tagdual !dual = DualTree 
-    { reference = UnitLift r
-    , query = UnitLift $ ct_tag (stNode r) q
-    }
-    where
-        UnitLift r = reference dual
-        UnitLift q = query dual
-
-ct_tag :: forall t k dp. 
-    ( Ord (Ring dp)
-    , Ord dp
-    , SingI k
-    , MetricSpace dp
-    ) => dp -> CoverTree' (Tag_KNN2 k dp) dp -> CoverTree' (Tag_KNN2 k dp) dp
-ct_tag !dp !ct = if tagb1 (getTag ct) < mindist 
-    then ct
-    else ct
-        { tag = Tag_KNN2
-            { tagknn = newtagknn 
-            , tagb1  = minimum [newb1,newb2,newb3]
-            }
-        , children' = newchildren
-        }
-    where
-        (mindist,dist) = stMinDistanceDpWithDistance ct dp
---         dist = distance dp (stNode ct)
-        newchildren = Map.map (ct_tag dp) (children' ct)
-        newtagknn = tagknn (getTag ct) `mappend` KNN [ Neighbor dp dist ]
-        newb1 = maximum $ (knn_maxdist newtagknn) : map (tagb1 . getTag) (Map.elems newchildren)
-        newb2 = knn_maxdist newtagknn + ro ct + lambda ct
-        newb3 = minimum $ map (\c -> tagb1 (getTag c) + 2*l) $ stChildren ct
-            where
-                l = lambda ct - lambda (head $ stChildren ct)
 
 -------------------------------------------------------------------------------
 -- training
@@ -454,6 +428,8 @@ zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
 mz = train zs :: CoverTree (Double,Double)
 -- mz = prunect $ insertBatch zs
 
+mq = mz `mappend` my
+
 grid :: Int -> Int -> [(Double,Double)]
 grid n 2 = take n [(x,y) | x <- [1..w], y <- [1..w]]
     where
@@ -481,7 +457,9 @@ draw' depth tree = mkConnections $
                    (named (label++show depth) $ fontSize 0.5 $ 
                         (
                              (text label <> strutY 1) 
-                         === (text (show(sepdist tree)) <> strutY 0.5)) 
+                         === (text (show (sepdist tree)) <> strutY 0.5) 
+                         === (text (show (tag tree)) <> strutY 0.5)
+                        ) 
                           <> circle 1 # fc red) 
                === (pad 1.05 $ centerName (label++show (depth+1)) $ 
                    Map.foldr (|||) mempty $ Map.map (draw' (depth+1)) $ children' tree)
