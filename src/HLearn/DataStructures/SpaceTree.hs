@@ -44,12 +44,18 @@ import HLearn.Models.Distributions
 -------------------------------------------------------------------------------
 -- SpaceTree 
 
-class Taggable t where
+class Taggable t dp where
 
     getTag :: t tag dp -> tag
-    setTag :: tag -> t tag dp -> t tag dp
 
-    mapTag :: (tag1 -> tag2) -> t tag1 dp -> t tag2 dp
+    nodeIndex :: t (Int,Int) dp -> Int
+    nodeIndex = fst . getTag
+
+    dpIndex :: t (Int,Int) dp -> Int
+    dpIndex = snd . getTag
+
+    initTags :: t () dp -> (t (Int,Int) dp,Int,Int)
+    clearTags :: t tag dp -> t () dp
 
 class (MetricSpace dp) => SpaceTree t dp where
     stMinDistance :: t dp -> t dp -> Ring dp
@@ -166,23 +172,23 @@ prunefold2init init prune f pair = foldl'
 dualfold :: 
     ( SpaceTree t dp 
     ) 
-    => (DualTree (t dp) -> DualTree (t dp))
+    => (DualTree (t dp) -> res -> res)
     -> (res -> DualTree (t dp) -> Bool) 
     -> (DualTree dp -> res -> res) 
     -> res 
     -> DualTree (t dp) 
     -> res
-dualfold tag prune f b pair = if prune b pair'
-    then b
-    else if stIsLeaf (reference pair') && stIsLeaf (query pair')
+dualfold tag prune f b pair = if prune b_tagged pair
+    then b' -- b_tagged
+    else if stIsLeaf (reference pair) && stIsLeaf (query pair)
         then b' 
         else foldl' 
             (dualfold tag prune f) 
             b' 
-            (dualTreeMatrix (stChildren $ reference pair') (stChildren $ query pair'))
+            (dualTreeMatrix (stChildren $ reference pair) (stChildren $ query pair))
     where
-        b' = f (dualNodes pair) b
-        pair' = tag pair
+        b_tagged = tag pair b 
+        b' = f (dualNodes pair) b_tagged
 
 {-# INLINABLE prunefold2 #-}
 prunefold2 :: 
@@ -233,19 +239,21 @@ instance F.Foldable (sg tag) => F.Foldable (AddUnit sg tag) where
     foldr f i Unit = error "foldr Unit"
     foldr f i (UnitLift x) = F.foldr f i x
 
-instance Taggable sg => Taggable (AddUnit sg) where
+instance Taggable sg dp => Taggable (AddUnit sg) dp where
     {-# INLINE getTag #-}
-    {-# INLINE setTag #-}
-    {-# INLINE mapTag #-}
+    {-# INLINE initTags #-}
+    {-# INLINE clearTags #-}
 
 --     getTag Unit = Nothing
     getTag (UnitLift sg) = getTag sg
 
-    setTag _ Unit = Unit
-    setTag x (UnitLift sg) = UnitLift $ setTag x sg
-    
-    mapTag f Unit = Unit
-    mapTag f (UnitLift sg) = UnitLift $ mapTag f sg
+    initTags Unit = (Unit,0,0)
+    initTags (UnitLift sg) = (UnitLift a,b,c)
+        where
+            (a,b,c) = initTags sg
+
+    clearTags Unit = Unit
+    clearTags (UnitLift sg) = UnitLift $ clearTags sg
 
 instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
     {-# INLINE stMinDistance #-}
