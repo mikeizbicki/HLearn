@@ -70,6 +70,28 @@ instance MetricSpace (L2 (VU.Vector Double)) where
                     tot' = tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
 
+instance MetricSpace (L2 (VU.Vector Float)) where
+    {-# INLINABLE distance #-}
+    {-# INLINABLE isFartherThan #-}
+
+    distance !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ go 0 (VU.length v1-1)
+        where
+            go tot (-1) = tot
+            go tot i = go (tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
+                              *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)) (i-1)
+
+    isFartherThan !(L2 v1) !(L2 v2) !dist = {-# SCC isFartherThan #-} go 0 (VU.length v1-1) 
+        where
+            dist2=dist*dist
+
+            go tot (-1) = False 
+            go tot i = if tot'>dist2
+                then True
+                else go tot' (i-1)
+                where
+                    tot' = tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
+                              *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
+
 -------------------------------------------------------------------------------
 -- Linf
 
