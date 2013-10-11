@@ -21,7 +21,7 @@ executable hlearn-allknn
   ghc-options:        
         -rtsopts
         -threaded
-        -fllvm
+        -- -fllvm
         -O2
         -funbox-strict-fields
         -- -prof

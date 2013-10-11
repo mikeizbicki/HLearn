@@ -35,12 +35,13 @@ import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.Metrics.Lebesgue
 import HLearn.Models.Distributions
 
-type DP = L2 (VU.Vector Double)
+-- type DP = L2 (VU.Vector Double)
+type DP = L2 (VU.Vector Float)
 
 instance Num r => HasRing ((VU.Vector r)) where
     type Ring ((VU.Vector r)) = r
 
-instance MetricSpace ((VU.Vector Double)) where
+instance MetricSpace ((VU.Vector Float)) where
 --     distance !v1 !v2 = sqrt $ VU.foldl1' (+) $ VU.zipWith (\a b -> (a-b)*(a-b)) v1 v2
     {-# INLINABLE distance #-}
     {-# INLINABLE isFartherThan #-}
@@ -62,6 +63,7 @@ instance MetricSpace ((VU.Vector Double)) where
                 where
                     tot' = tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
+
 instance Arbitrary (VU.Vector Double) where
     arbitrary = do
         x1 <- arbitrary
@@ -100,15 +102,15 @@ main = do
 
     case k params of 
         1 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 1 DP)
-        2 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 2 DP)
-        3 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 3 DP)
-        4 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 4 DP)
-        5 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 5 DP)
-        6 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 6 DP)
-        7 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 7 DP)
-        8 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 8 DP)
-        9 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 9 DP)
-        10 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 10 DP)
+--         2 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 2 DP)
+--         3 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 3 DP)
+--         4 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 4 DP)
+--         5 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 5 DP)
+--         6 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 6 DP)
+--         7 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 7 DP)
+--         8 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 8 DP)
+--         9 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 9 DP)
+--         10 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 10 DP)
         otherwise -> error "specified k value not supported"
 
 {-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 1 DP -> IO ()#-}
@@ -139,27 +141,30 @@ runit params tree knn = do
     Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
     let reftree = parallel train rs :: CoverTree dp -- CoverTree DP 
     timeIO "building reference tree" $ return $ rnf reftree
+    let reftree_prune = pruneExtraLeaves $ pruneSingletons $ unUnit reftree
+--     let reftree_prune = pruneSingletons $ unUnit reftree
+    timeIO "pruning reference tree" $ return $ rnf reftree_prune
 
     -- verbose prints tree stats
     if verbose params 
         then do
-            putStr "reftree stNumNodes....." >> hFlush stdout >> putStrLn (show $ stNumNodes reftree) 
-            putStr "reftree stMaxChildren.." >> hFlush stdout >> putStrLn (show $ stMaxChildren reftree) 
-            putStr "reftree stAveChildren.." >> hFlush stdout >> putStrLn (show $ mean $ stAveChildren reftree) 
-            putStr "reftree stMaxDepth....." >> hFlush stdout >> putStrLn (show $ stMaxDepth reftree) 
+            printTreeStats "reftree" reftree 
+            printTreeStats "reftree'" reftree_prune 
+            printTreeStats "reftree''" $ pruneExtraLeaves reftree_prune 
         else return ()
 
     if debug params
         then do 
-            putStr "reftree covering......." >> hFlush stdout >> putStrLn (show $ property_covering reftree) 
-            putStr "reftree leveled........" >> hFlush stdout >> putStrLn (show $ property_leveled reftree) 
-            putStr "reftree separating....." >> hFlush stdout >> putStrLn (show $ property_separating reftree) 
+            putStr "reftree covering..............." >> hFlush stdout >> putStrLn (show $ property_covering reftree) 
+            putStr "reftree leveled................" >> hFlush stdout >> putStrLn (show $ property_leveled reftree) 
+            putStr "reftree separating............." >> hFlush stdout >> putStrLn (show $ property_separating reftree)
+            putStr "reftree maxDescendentDistance.." >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance reftree) 
             --renderSVG "reftree.svg" (Width 500) $ draw reftree
         else return () 
 
     -- build query tree
     querytree <- case query_file params of
-        Nothing -> return reftree
+        Nothing -> return $ UnitLift reftree_prune
         Just file -> do
             Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
 --             let xs = map train $ CK.partition 4 qs :: [CoverTree dp]
@@ -171,8 +176,11 @@ runit params tree knn = do
             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
     -- do knn search
-    let action = dknn (DualTree reftree querytree) :: KNN2 k dp
+--     let action = dknn (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
+--     let action = dknn (DualTree (unUnit reftree) (unUnit querytree)) :: KNN2 k dp
 --     let action = knn2_single_parallel (DualTree reftree querytree) :: KNN2 k dp
+--     let action = knn2_single_parallelM (DualTree (unUnit reftree) (unUnit querytree)) :: KNN2 k dp
+    let action = knn2_single_parallel (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
     res <- timeIO "computing knn_p" $ return $ deepseq action action 
 
     -- output to files
@@ -203,6 +211,14 @@ runit params tree knn = do
     putStrLn "end"
 
 
+printTreeStats :: (SpaceTree t dp,Eq dp) => String -> t dp -> IO ()
+printTreeStats str t = do
+    putStr (str++" stNumNodes.......") >> hFlush stdout >> putStrLn (show $ stNumNodes t) 
+    putStr (str++" stMaxChildren....") >> hFlush stdout >> putStrLn (show $ stMaxChildren t) 
+    putStr (str++" stAveChildren....") >> hFlush stdout >> putStrLn (show $ mean $ stAveChildren t) 
+    putStr (str++" stMaxDepth.......") >> hFlush stdout >> putStrLn (show $ stMaxDepth t) 
+    putStr (str++" stNumSingletons..") >> hFlush stdout >> putStrLn (show $ stNumSingletons t) 
+    putStr (str++" stExtraLeaves....") >> hFlush stdout >> putStrLn (show $ stExtraLeaves t) 
 
 {-
 timeIO "computing nn_fast" $ return $ rnf (nearestNeighbor (0,0) reftree :: Neighbor(Double,Double))

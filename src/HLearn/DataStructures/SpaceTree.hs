@@ -10,11 +10,15 @@ module HLearn.DataStructures.SpaceTree
     , DualTree (..)
 
     -- * Generic algorithms
+    , stToList
     , stDescendents
     , stNumNodes
     , stMaxChildren
     , stAveChildren
     , stMaxDepth
+    , stNumSingletons
+    , stExtraLeaves
+    , toTagList
 
     -- * Pruning folds
 
@@ -23,6 +27,7 @@ module HLearn.DataStructures.SpaceTree
     , prunefoldinit
     , prunefold
     , prunefoldA
+--     , prunefoldM
     , noprune
 
     -- ** Dual tree
@@ -34,6 +39,8 @@ module HLearn.DataStructures.SpaceTree
     where
 
 import Control.DeepSeq
+import Control.Monad
+import Control.Monad.ST
 import Data.Semigroup
 import Data.List
 import qualified Data.Foldable as F
@@ -57,10 +64,20 @@ class Taggable t dp where
     initTags :: t () dp -> (t (Int,Int) dp,Int,Int)
     clearTags :: t tag dp -> t () dp
 
+
 class (MetricSpace dp) => SpaceTree t dp where
+
+    {-# INLINE stMinDistance #-}
+    {-# INLINE stMaxDistance #-}
     stMinDistance :: t dp -> t dp -> Ring dp
+    stMinDistance t1 t2 = fst $ stMinDistanceWithDistance t1 t2
     stMaxDistance :: t dp -> t dp -> Ring dp
+    stMaxDistance t1 t2 = fst $ stMaxDistanceWithDistance t1 t2
     
+    stMinDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
+    stMaxDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
+
+
     {-# INLINE stMinDistanceDp #-}
     {-# INLINE stMaxDistanceDp #-}
     stMinDistanceDp :: t dp -> dp -> Ring dp
@@ -70,6 +87,9 @@ class (MetricSpace dp) => SpaceTree t dp where
 
     stMinDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
     stMaxDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
+
+    stMinDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
+    stMaxDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
 
     stChildren :: t dp -> [t dp]
     stNode :: t dp -> dp
@@ -82,30 +102,72 @@ class (MetricSpace dp) => SpaceTree t dp where
 -------------------------------------------------------------------------------
 -- generic algorithms
 
+{-# INLINABLE stToList #-}
+stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
+stToList t = if stIsLeaf t
+    then [stNode t]
+    else go (concat $ map stToList $ stChildren t)
+    where
+        go xs = if stNode t `Data.List.elem` (map stNode $ stChildren t)
+            then xs
+            else (stNode t) : xs
+    
+{-# INLINABLE toTagList #-}
+toTagList :: (Eq dp, SpaceTree (t tag) dp, Taggable t dp) => t tag dp -> [(dp,tag)]
+toTagList t = if stIsLeaf t
+    then [(stNode t,getTag t)]
+    else go (concat $ map toTagList $ stChildren t)
+    where 
+        go xs = if stNode t `Data.List.elem` (map stNode $ stChildren t)
+            then xs
+            else (stNode t,getTag t) : xs
+
+{-# INLINABLE stDescendents #-}
 stDescendents :: SpaceTree t dp => t dp -> [dp]
 stDescendents t = if stIsLeaf t 
     then [stNode t]
     else concatMap stDescendents $ stChildren t
 
+{-# INLINABLE stNumNodes #-}
 stNumNodes :: SpaceTree t dp => t dp -> Int
 stNumNodes t = if stIsLeaf t
     then 1
     else 1 + sum (map stNumNodes $ stChildren t)
 
+{-# INLINABLE stMaxChildren #-}
 stMaxChildren :: SpaceTree t dp => t dp -> Int
 stMaxChildren t = if stIsLeaf t
     then 0
     else maximum $ (length $ stChildren t):(map stMaxChildren $ stChildren t)
 
+{-# INLINABLE stAveChildren #-}
 stAveChildren :: SpaceTree t dp => t dp -> Normal Double Double
 stAveChildren t = if stIsLeaf t
     then mempty
     else (train1dp . fromIntegral . length $ stChildren t) `mappend` (reduce . map stAveChildren $ stChildren t)
 
+{-# INLINABLE stMaxDepth #-}
 stMaxDepth :: SpaceTree t dp => t dp -> Int
 stMaxDepth t = if stIsLeaf t
     then 1
     else 1+maximum (map stMaxDepth $ stChildren t)
+
+{-# INLINABLE stNumSingletons #-}
+stNumSingletons :: SpaceTree t dp => t dp -> Int
+stNumSingletons t = if stIsLeaf t
+    then 0
+    else sum (map stNumSingletons $ stChildren t) + if length (stChildren t) == 1
+        then 1
+        else 0 
+
+{-# INLINABLE stExtraLeaves #-}
+stExtraLeaves :: (Eq dp, SpaceTree t dp) => t dp -> Int
+stExtraLeaves t = if stIsLeaf t
+    then 0
+    else sum (map stExtraLeaves $ stChildren t) 
+        + if or $ map (\c -> stNode c==stNode t && stIsLeaf c) $ stChildren t
+            then 1
+            else 0
 
 -------------------------------------------------------------------------------
 -- pruning folds
@@ -137,6 +199,7 @@ prunefoldA f b t = case f t b of
     Just b' -> if stIsLeaf t
         then b'
         else foldl' (prunefoldA f) b' (stChildren t)
+
 
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool
@@ -179,7 +242,7 @@ dualfold ::
     -> DualTree (t dp) 
     -> res
 dualfold tag prune f b pair = if prune b_tagged pair
-    then b' -- b_tagged
+    then b_tagged
     else if stIsLeaf (reference pair) && stIsLeaf (query pair)
         then b' 
         else foldl' 
@@ -258,6 +321,8 @@ instance Taggable sg dp => Taggable (AddUnit sg) dp where
 instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
+    {-# INLINE stMinDistanceWithDistance #-}
+    {-# INLINE stMaxDistanceWithDistance #-}
     {-# INLINE stMinDistanceDp #-}
     {-# INLINE stMaxDistanceDp #-}
     {-# INLINE stMinDistanceDpWithDistance #-}
@@ -275,17 +340,25 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
     stMaxDistance x Unit = infinity
     stMaxDistance (UnitLift x) (UnitLift y) = stMaxDistance x y
 
-    stMinDistanceDp Unit x = 0
+    stMinDistanceWithDistance (UnitLift x) (UnitLift y) = stMinDistanceWithDistance x y
+    stMaxDistanceWithDistance (UnitLift x) (UnitLift y) = stMaxDistanceWithDistance x y
+
+    stMinDistanceDp Unit dp = 0
     stMinDistanceDp (UnitLift x) dp = stMinDistanceDp x dp
 
-    stMaxDistanceDp Unit x = infinity
+    stMaxDistanceDp Unit dp = infinity
     stMaxDistanceDp (UnitLift x) dp = stMaxDistanceDp x dp
 
-    stMinDistanceDpWithDistance Unit x = (0,0)
+    stMinDistanceDpWithDistance Unit dp = (0,0)
     stMinDistanceDpWithDistance (UnitLift x) dp = stMinDistanceDpWithDistance x dp
 
-    stMaxDistanceDpWithDistance Unit x = (infinity,infinity)
+    stMaxDistanceDpWithDistance Unit dp = (infinity,infinity)
     stMaxDistanceDpWithDistance (UnitLift x) dp = stMaxDistanceDpWithDistance x dp
+
+    stMinDistanceDpFromDistance Unit _ _ = 0
+    stMinDistanceDpFromDistance (UnitLift x) dp dist = stMinDistanceDpFromDistance x dp dist
+    stMaxDistanceDpFromDistance Unit _ _ = infinity
+    stMaxDistanceDpFromDistance (UnitLift x) dp dist = stMaxDistanceDpFromDistance x dp dist
 
     stChildren Unit = []
     stChildren (UnitLift x) = map UnitLift $ stChildren x
