@@ -423,13 +423,11 @@ knnA query t = prunefoldA (knn_cataA query) mempty t
 
 {-# INLINABLE knnATag #-}
 knnATag :: (SingI k, SpaceTree (t (Int,Int)) dp, Taggable t dp, Eq dp) => dp -> (t (Int,Int)) dp -> KNN k dp
-knnATag query t = prunefoldA (knn_cataA query) mempty t --'
---     where
---         (t',_,_) = initTags t
+knnATag query t = prunefoldA (knn_cataA query) mempty t
 
 {-# INLINABLE knn_cataA #-}
 knn_cataA :: forall k t dp. (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp -> Maybe (KNN k dp)
-knn_cataA !query !t !res = if knn_maxdist res <= mindist && length (getknn res) >= k
+knn_cataA !query !t !res = if knn_maxdist res < mindist && length (getknn res) >= k
     then Nothing
     else Just $ if stNode t==query
         then res
