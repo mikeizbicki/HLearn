@@ -110,7 +110,7 @@ instance
 --         where dist = distance (nodedp ct1) (nodedp ct2) 
  
 
-    stMinDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist - coverDist ct, dist)
+    stMinDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist - maxDescendentDistance ct, dist)
     stMaxDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist + maxDescendentDistance ct, dist)
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist - maxDescendentDistance ct
@@ -319,9 +319,12 @@ merge' :: (Ord dp, MetricSpace dp, Monoid tag) => CoverTree' tag dp -> CoverTree
 -- merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > (sepdist ct1)
 merge' !ct1 !ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
     then Nothing
-    else Just ( ct1 { children' = newchildren' `Map.union` Map.fromList (map (\x -> (nodedp x,growct x (sepdist ct1/coverfactor))) valid_newleftovers) }
-              , invalid_newleftovers++invalidchildren
-              )
+    else Just ( ct1 
+        { children' = newchildren' `Map.union` Map.fromList (map (\x -> (nodedp x,growct x (sepdist ct1/coverfactor))) valid_newleftovers) 
+        , maxDescendentDistance = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
+        }
+        , invalid_newleftovers++invalidchildren
+        )
         
     where
 --         validchild x = distance (nodedp ct1) (nodedp x) <= sepdist ct1
