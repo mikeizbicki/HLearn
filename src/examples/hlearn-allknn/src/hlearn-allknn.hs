@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators #-}
 
 
 import Control.DeepSeq
@@ -37,38 +37,9 @@ import HLearn.Models.Distributions
 
 -- type DP = L2 (VU.Vector Double)
 type DP = L2 (VU.Vector Float)
-
-instance Num r => HasRing ((VU.Vector r)) where
-    type Ring ((VU.Vector r)) = r
-
-instance MetricSpace ((VU.Vector Float)) where
---     distance !v1 !v2 = sqrt $ VU.foldl1' (+) $ VU.zipWith (\a b -> (a-b)*(a-b)) v1 v2
-    {-# INLINABLE distance #-}
-    {-# INLINABLE isFartherThan #-}
-
-    distance !(v1) !(v2) = {-# SCC distance #-} sqrt $ go 0 (VU.length v1-1)
-        where
-            go tot (-1) = tot
-            go tot i = go (tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
-                              *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)) (i-1)
-
-    isFartherThan !(v1) !(v2) !dist = {-# SCC isFartherThan #-} go 0 (VU.length v1-1) 
-        where
-            dist2=dist*dist
-
-            go tot (-1) = False 
-            go tot i = if tot'>dist2
-                then True
-                else go tot' (i-1)
-                where
-                    tot' = tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
-                              *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
-
-instance Arbitrary (VU.Vector Double) where
-    arbitrary = do
-        x1 <- arbitrary
-        x2 <- arbitrary
-        return $ VU.fromList [x1,x2]
+type Tree = AddUnit (CoverTree' (2%1)) () DP
+-- type Tree = AddUnit (CoverTree' (9%8)) () DP
+-- type Tree = AddUnit (CoverTree' (17%16)) () DP
 
 data Params = Params
     { k :: Int
@@ -101,29 +72,29 @@ main = do
     checkfail (reference_file params == Nothing) "must specify a reference file"
 
     case k params of 
-        1 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 1 DP)
---         2 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 2 DP)
---         3 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 3 DP)
---         4 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 4 DP)
---         5 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 5 DP)
---         6 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 6 DP)
---         7 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 7 DP)
---         8 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 8 DP)
---         9 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 9 DP)
---         10 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 10 DP)
+        1 -> runit params (undefined :: Tree) (undefined :: KNN2 1 DP)
+--         2 -> runit params (undefined :: Tree) (undefined :: KNN2 2 DP)
+--         3 -> runit params (undefined :: Tree) (undefined :: KNN2 3 DP)
+--         4 -> runit params (undefined :: Tree) (undefined :: KNN2 4 DP)
+--         5 -> runit params (undefined :: Tree) (undefined :: KNN2 5 DP)
+--         6 -> runit params (undefined :: Tree) (undefined :: KNN2 6 DP)
+--         7 -> runit params (undefined :: Tree) (undefined :: KNN2 7 DP)
+--         8 -> runit params (undefined :: Tree) (undefined :: KNN2 8 DP)
+--         9 -> runit params (undefined :: Tree) (undefined :: KNN2 9 DP)
+--         10 -> runit params (undefined :: Tree) (undefined :: KNN2 10 DP)
         otherwise -> error "specified k value not supported"
 
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 1 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 2 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 3 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 4 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 5 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 6 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 7 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 8 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 9 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 10 DP -> IO ()#-}
-runit :: forall k tree dp ring. 
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 1 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 2 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 3 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 4 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 5 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 6 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 7 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 8 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 9 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 10 DP -> IO ()#-}
+runit :: forall k tree base dp ring. 
     ( MetricSpace dp
     , Ord dp
     , SingI k
@@ -134,12 +105,12 @@ runit :: forall k tree dp ring.
     , RealFloat (Ring dp)
     , FromRecord dp 
     , VU.Unbox (Ring dp)
-    ) => Params -> CoverTree dp -> KNN2 k dp -> IO ()
+    ) => Params -> AddUnit (CoverTree' base) () dp -> KNN2 k dp -> IO ()
 runit params tree knn = do
     -- build reference tree
     let ref = fromJust $ reference_file params
     Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
-    let reftree = parallel train rs :: CoverTree dp -- CoverTree DP 
+    let reftree = parallel train rs :: CoverTree dp -- Tree 
     timeIO "building reference tree" $ return $ rnf reftree
     let reftree_prune = pruneExtraLeaves $ pruneSingletons $ unUnit reftree
 --     let reftree_prune = pruneSingletons $ unUnit reftree
@@ -171,8 +142,8 @@ runit params tree knn = do
 --             timeIO "building query tree" $ do
 --                 deepseq xs $ return ()
 --                 return $ reduce xs
-            let tmptree=reduce $ parMap rdeepseq train $ CK.partition 4 qs :: CoverTree dp -- CoverTree DP
-            let tmptree=parallel train qs :: CoverTree dp -- CoverTree DP
+            let tmptree=reduce $ parMap rdeepseq train $ CK.partition 4 qs :: CoverTree dp -- Tree
+            let tmptree=parallel train qs :: CoverTree dp -- Tree
             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
     -- do knn search
