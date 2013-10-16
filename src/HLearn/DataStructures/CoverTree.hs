@@ -78,7 +78,6 @@ instance (NFData dp,NFData (Ring dp),NFData tag) => NFData (CoverTree' tag dp) w
 instance 
     ( HasRing dp
     , MetricSpace dp
-    , Ring dp ~ Ring (CoverTree' tag dp)
     , Ord dp
     ) => SpaceTree (CoverTree' tag) dp
         where
@@ -93,21 +92,21 @@ instance
     {-# INLINABLE stHasNode #-}
     {-# INLINABLE stIsLeaf #-}
 
-    stMinDistanceWithDistance !ct1 !ct2 = (dist - (coverDist ct1) - (coverDist ct2), dist)
-        where dist = distance (nodedp ct1) (nodedp ct2) 
-    stMaxDistanceWithDistance !ct1 !ct2 = (dist + (coverDist ct1) + (coverDist ct2), dist)
-        where dist = distance (nodedp ct1) (nodedp ct2) 
-
+--     stMinDistanceWithDistance !ct1 !ct2 = (dist - (coverDist ct1) - (coverDist ct2), dist)
+--         where dist = distance (nodedp ct1) (nodedp ct2) 
+--     stMaxDistanceWithDistance !ct1 !ct2 = (dist + (coverDist ct1) + (coverDist ct2), dist)
+--         where dist = distance (nodedp ct1) (nodedp ct2) 
+-- 
 --     stMinDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist - coverDist ct, dist)
 --     stMaxDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist + coverDist ct, dist)
 
 --     stMinDistanceDpFromDistance !ct !dp !dist = dist - coverDist ct
 --     stMaxDistanceDpFromDistance !ct !dp !dist = dist + coverDist ct
 
---     stMinDistanceWithDistance !ct1 !ct2 = (dist - (maxDescendentDistance ct1) - (maxDescendentDistance ct2), dist)
---         where dist = distance (nodedp ct1) (nodedp ct2) 
---     stMaxDistanceWithDistance !ct1 !ct2 = (dist + (maxDescendentDistance ct1) + (maxDescendentDistance ct2), dist)
---         where dist = distance (nodedp ct1) (nodedp ct2) 
+    stMinDistanceWithDistance !ct1 !ct2 = (dist - (maxDescendentDistance ct1) - (maxDescendentDistance ct2), dist)
+        where dist = distance (nodedp ct1) (nodedp ct2) 
+    stMaxDistanceWithDistance !ct1 !ct2 = (dist + (maxDescendentDistance ct1) + (maxDescendentDistance ct2), dist)
+        where dist = distance (nodedp ct1) (nodedp ct2) 
  
 
     stMinDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist - maxDescendentDistance ct, dist)
@@ -172,9 +171,9 @@ isSingleton node = Map.size (children' node) == 0
 coverDist :: (Fractional (Ring dp)) => CoverTree' tag dp -> Ring dp
 coverDist node = sepdist node*coverfactor
 
-coverfactor = 2
+-- coverfactor = 2
 -- coverfactor = 1.5
--- coverfactor = 1.3
+coverfactor = 1.25
 
 {-# INLINABLE pruneExtraLeaves #-}
 pruneExtraLeaves :: (MetricSpace dp, Ord dp) => CoverTree' tag dp -> CoverTree' tag dp
@@ -267,8 +266,8 @@ insert !node !dp = if isFartherThan dp (nodedp node) (sepdist node)
 
 insertBatch :: 
     ( MetricSpace dp
-    , Ord (Ring dp)
     , Ord dp
+    , Ord (Ring dp)
     , Floating (Ring dp)
     , Monoid tag
     ) => [dp] -> CoverTree' tag dp
@@ -294,12 +293,10 @@ instance (HasRing dp) => HasRing (CoverTree' tag dp) where
 
 instance
     ( MetricSpace dp
+    , Ord dp
     , Ord (Ring dp)
     , Fractional (Ring dp)
-    , Ord dp
     , Monoid tag
---     , Show (Ring dp)
---     , Show dp
     ) => Semigroup (CoverTree' tag dp) 
         where
     {-# INLINE (<>) #-}
@@ -307,7 +304,6 @@ instance
 
 merge ct1 ct2 = case merge' ct1' ct2'  of
     Just (ct,[]) -> ct
---     Just (ct,xs) -> foldr merge ct xs
     Just (ct,xs) -> foldl' merge ct xs
     Nothing -> merge (growct ct1' (maxlevel*coverfactor)) ct2'
     where
@@ -316,7 +312,6 @@ merge ct1 ct2 = case merge' ct1' ct2'  of
         maxlevel = maximum [(sepdist ct1), (sepdist ct2),1]
 
 merge' :: (Ord dp, MetricSpace dp, Monoid tag) => CoverTree' tag dp -> CoverTree' tag dp -> Maybe (CoverTree' tag dp, [CoverTree' tag dp])
--- merge' !ct1 !ct2 = if distance (nodedp ct1) (nodedp ct2) > (sepdist ct1)
 merge' !ct1 !ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
     then Nothing
     else Just ( ct1 
@@ -327,7 +322,6 @@ merge' !ct1 !ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
         )
         
     where
---         validchild x = distance (nodedp ct1) (nodedp x) <= sepdist ct1
         validchild x = not $ isFartherThan (nodedp ct1) (nodedp x) (sepdist ct1)
         validchildren = filter validchild $ Map.elems $ children ct2
         invalidchildren = filter (not . validchild) $ Map.elems $ children ct2
@@ -359,17 +353,6 @@ children tree = if Map.size (children' tree) > 0
         , children' = mempty
         , maxDescendentDistance = 0
         }
-    
---     Map.insertWith 
---     (\x y -> y) 
---     (nodedp tree) 
---     (Node 
---         { nodedp    = nodedp tree
---         , sepdist   = sepdist tree/coverfactor
---         , children' = mempty
---         , tag       = tag tree
---         })
---     (children' tree)
 
 prunect :: CoverTree' tag dp -> CoverTree' tag dp
 prunect ct = if Map.size (children' ct) == 1 

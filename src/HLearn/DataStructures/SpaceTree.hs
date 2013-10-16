@@ -194,7 +194,7 @@ prunefold prune f b t = if prune b t
 
 {-# INLINABLE prunefoldA #-}
 prunefoldA :: SpaceTree t a => (t a -> b -> Maybe b) -> b -> t a -> b
-prunefoldA f b t = case f t b of
+prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
     Nothing -> b
     Just b' -> if stIsLeaf t
         then b'

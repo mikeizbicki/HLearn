@@ -83,14 +83,17 @@ instance (NFData dp, NFData (Ring dp)) => NFData (Neighbor dp) where
 
 ---------------------------------------
 
+-------------------
+
 newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
 
 deriving instance (Read dp, Read (Ring dp)) => Read (KNN k dp)
 deriving instance (Show dp, Show (Ring dp)) => Show (KNN k dp)
 deriving instance (NFData dp, NFData (Ring dp)) => NFData (KNN k dp)
 
-knn_maxdist :: forall k dp. (SingI k,Fractional (Ring dp)) => KNN k dp -> Ring dp
-knn_maxdist (KNN []) = infinity
+knn_maxdist :: forall k dp. (SingI k, Fractional (Ring dp)) => KNN k dp -> Ring dp
+knn_maxdist (KNN [ ]) = infinity
+knn_maxdist (KNN [Neighbor dp dist]) = dist
 knn_maxdist (KNN xs) = neighborDistance $ last xs
 
 -------------------
@@ -322,18 +325,13 @@ instance (SingI k, MetricSpace dp, Eq dp) => Monoid (KNN k dp) where
     {-# INLINE mappend #-}
 
     mempty = KNN mempty 
-    mappend (KNN [ ]) (KNN [ ]) = KNN [ ]
-    mappend (KNN [x]) (KNN [ ]) = KNN [x]
-    mappend (KNN [ ]) (KNN [y]) = KNN [y]
-    mappend (KNN (x:xs)) (KNN (y:ys)) = case k of
+    mappend (KNN [ ]) (KNN [ ]) = {-# SCC mappend_KNN #-} KNN [ ]
+    mappend (KNN [x]) (KNN [ ]) = {-# SCC mappend_KNN #-}KNN [x]
+    mappend (KNN [ ]) (KNN [y]) = {-# SCC mappend_KNN #-}KNN [y]
+    mappend (KNN (x:xs)) (KNN (y:ys)) = {-# SCC mappend_KNN #-} case k of
         1 -> if x < y then KNN [x] else KNN [y]
         otherwise -> KNN $ take k $ interleave (x:xs) (y:ys)
 
--- instance (SingI k, MetricSpace dp, Eq dp) => Monoid (KNN k dp) where
---     {-# INLINE mempty #-}
---     {-# INLINE mappend #-}
--- 
---     mappend (KNN !xs) (KNN !ys) = {-# SCC mappend_KNN #-} KNN $ take k $ interleave xs ys
         where
             k=fromIntegral $ fromSing (sing :: Sing k)
 
@@ -419,7 +417,7 @@ knn_cata query next current = if next==query
 
 {-# INLINABLE knnA #-}
 knnA :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knnA query t = prunefoldA (knn_cataA query) mempty t
+knnA query t = {-# SCC knnA #-} prunefoldA (knn_cataA query) mempty t
 
 {-# INLINABLE knnATag #-}
 knnATag :: (SingI k, SpaceTree (t (Int,Int)) dp, Taggable t dp, Eq dp) => dp -> (t (Int,Int)) dp -> KNN k dp
@@ -427,7 +425,7 @@ knnATag query t = prunefoldA (knn_cataA query) mempty t
 
 {-# INLINABLE knn_cataA #-}
 knn_cataA :: forall k t dp. (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp -> Maybe (KNN k dp)
-knn_cataA !query !t !res = if knn_maxdist res < mindist && length (getknn res) >= k
+knn_cataA !query !t !res = {-# SCC knn_cataA #-} if knn_maxdist res < mindist -- && length (getknn res) >= k
     then Nothing
     else Just $ if stNode t==query
         then res
@@ -483,24 +481,6 @@ knn_cataM_Bool !query !t !knnm = {-# SCC knn_cataM_bool #-} do
                     VGM.unsafeWrite (visitedvecM_Bool knnm) (dpIndex t) True
                     return $ let tmp = KNN [Neighbor (stNode t) $ dist] <> getknnM_Bool knnm  
                         in seq tmp $ Just $ knnm { getknnM_Bool = tmp }
---             if stNode t == query
---             then return $ Just knnm
---             else return $ Just $ knnm { getknnM = KNN [Neighbor (stNode t) $ dist] <> getknnM knnm }
-
-
-
---     visited <- VGM.unsafeRead (visitedvecM knnm) (dpIndex t)
---     if visited 
---         then return Nothing
---         else if query == stNode t 
---             then return Nothing
---             else do
---                 VGM.unsafeWrite (visitedvecM knnm) (dpIndex t) True
---                 let (mindist,dist) = stMinDistanceDpWithDistance t query
---                     k = fromIntegral $ fromSing (sing :: Sing k)
---                 if knn_maxdist (getknnM knnm) < mindist && length (getknn $ getknnM knnm) >= k
---                     then return Nothing
---                     else return $ Just $ knnm { getknnM = KNN [Neighbor (stNode t) $ dist] <> getknnM knnm }
 
 {-# INLINABLE knnM #-}
 knnM :: (SingI k, SpaceTree (t (Int,Int)) dp, Taggable t dp, Eq dp, VUM.Unbox (Ring dp)) => 
@@ -535,13 +515,6 @@ prunefoldM !f !b !t = {-# SCC prunefoldM #-} (
             then {-# SCC prunefoldM_leaf #-} return b'
             else {-# SCC prunefoldM_foldM #-} foldM (prunefoldM f) b' (stChildren t)
     ))
--- prunefoldM !f !b !t = {-# SCC prunefoldM #-} do
---     ret <- {-# SCC prunefoldM_ftb #-} f t b
---     {-# SCC prunefoldM_case #-} case {-# SCC prunefoldM_caseret #-} ret of
---         Nothing -> {-# SCC prunefoldM_pruned #-} return b
---         Just !b' -> if stIsLeaf t
---             then {-# SCC prunefoldM_leaf #-} return b'
---             else {-# SCC prunefoldM_foldM #-} foldM (prunefoldM f) b' (stChildren t)
 
 {-# INLINABLE knn2_single_parallelM #-}
 knn2_single_parallelM :: 
@@ -573,9 +546,10 @@ knn2_single_parallel ::
     ( SingI k
     , SpaceTree t dp
     , Ord dp
-    , NFData (Ring dp), NFData dp
+    , NFData (Ring dp)
+    , NFData dp
     ) => DualTree (t dp) -> KNN2 k dp
-knn2_single_parallel dual = (parallel reduce) $ map (\dp -> KNN2 $ Map.singleton dp $ knnA dp $ reference dual) (stToList $ query dual)
+knn2_single_parallel dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ map (\dp -> KNN2 $ Map.singleton dp $ knnA dp $ reference dual) (stToList $ query dual)
 
 ---------------------------------------
 
