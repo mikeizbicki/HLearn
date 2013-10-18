@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module PerceptronSpec (main, spec) where
+module HLearn.Models.Classifiers.PerceptronSpec (main, spec) where
 
 import HLearn.Algebra
 import HLearn.Models.Classifiers
