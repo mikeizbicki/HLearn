@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Algebra.Models.Free.MonoidChain
     where
 
@@ -44,13 +46,6 @@ instance
 
 -------------------------------------------------------------------------------
 -- algebra
-
--- testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
---     :: MonoidChain 3 (Normal Rational) Rational
---     -> MonoidChain 3 (Normal Rational) Rational
---     -> MonoidChain 3 (Normal Rational) Rational
---     -> Bool
---     )
 
 leave :: Int -> Seq.Seq a -> Seq.Seq a
 leave k xs = Seq.drop (Seq.length xs - k) xs
