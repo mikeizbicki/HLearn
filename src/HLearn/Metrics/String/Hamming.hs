@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module HLearn.Metrics.Hamming
+module HLearn.Metrics.String.Hamming
     where
 
 import GHC.Exts

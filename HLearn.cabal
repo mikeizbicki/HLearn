@@ -44,7 +44,12 @@ Library
         dlist               >= 0.5,
         split               >= 0.2.2,
         semigroups          >= 0.9,
+        memoize             >= 0.6,
+        cassava             >= 0.2.2,
         
+        ghc-prim, 
+
+        -- tests
         QuickCheck          >= 2.6,
 
         -- visualize
@@ -58,9 +63,12 @@ Library
 
     ghc-options:        
         -rtsopts 
+        -threaded
+        -fllvm
+        -O2
+        -funbox-strict-fields
         -auto-all 
         -caf-all 
-        -O2
 
     Exposed-modules:
         HLearn.Algebra
@@ -77,6 +85,7 @@ Library
         HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules
         HLearn.Algebra.Structures.Triangles
+        HLearn.Algebra.Structures.Topology
         HLearn.Algebra.Structures.Free.Bagging
         HLearn.Algebra.Structures.Free.FreeHomTrainer
         HLearn.Algebra.Structures.Free.FreeModule
@@ -103,6 +112,12 @@ Library
         HLearn.Models.Classifiers.Centroid
         --HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
         --HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
+
+        HLearn.Metrics.Generic
+        HLearn.Metrics.Lebesgue
+        HLearn.Metrics.Jaccard
+        HLearn.Metrics.String.Levenshtein
+        HLearn.Metrics.String.Hamming
         
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common

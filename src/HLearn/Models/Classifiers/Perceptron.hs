@@ -40,7 +40,7 @@ instance
         where
     type Datapoint (Perceptron label dp) = (label,dp)
               
-    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp (dp {-|> (1::Ring dp)-})
+    train1dp (label,dp) = Perceptron $ Map.singleton label $ train1dp dp
     
 -------------------------------------------------------------------------------
 -- classification
