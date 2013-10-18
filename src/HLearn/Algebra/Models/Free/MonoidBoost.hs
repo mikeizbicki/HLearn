@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Algebra.Models.Free.MonoidBoost
     where
 
@@ -53,13 +55,6 @@ instance
 
 -------------------------------------------------------------------------------
 -- algebra
-
--- testassociativity = quickCheck ((\m1 m2 m3 -> m1<>(m2<>m3)==(m1<>m2)<>m3) 
---     :: MonoidChain 3 (Normal Rational) Rational
---     -> MonoidChain 3 (Normal Rational) Rational
---     -> MonoidChain 3 (Normal Rational) Rational
---     -> Bool
---     )
 
 instance 
     ( HomTrainer basemodel
