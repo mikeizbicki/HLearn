@@ -25,6 +25,8 @@ import Debug.Trace
 import Diagrams.TwoD.Size
 import Diagrams.Backend.SVG
 
+import Control.Parallel.Strategies
+import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
 import HLearn.DataStructures.CoverTree
 import HLearn.DataStructures.SpaceTree
@@ -33,6 +35,7 @@ import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.Models.Distributions
 
 type DP = VU.Vector Double
+-- type DP = (Double,Double) --VU.Vector Double
 
 instance Num r => HasRing (VU.Vector r) where
     type Ring (VU.Vector r) = r
@@ -40,13 +43,13 @@ instance Num r => HasRing (VU.Vector r) where
 instance (VU.Unbox r, RealFrac r,Floating r,Show r) => MetricSpace (VU.Vector r) where
 --     distance !v1 !v2 = sqrt $ VU.foldl1' (+) $ VU.zipWith (\a b -> (a-b)*(a-b)) v1 v2
 --     distance !v1 !v2 = sqrt $ VU.last $ VU.scanl1' (+) $ VU.zipWith (\a b -> (a-b)*(a-b)) v1 v2
-    distance !v1 !v2 = sqrt $ go 0 (VU.length v1-1)
+    distance !v1 !v2 = {-# SCC distance #-} sqrt $ go 0 (VU.length v1-1)
         where
             go tot (-1) = tot
             go tot i = go (tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)) (i-1)
 
-    isFartherThan !v1 !v2 !dist = go 0 (VU.length v1-1) 
+    isFartherThan !v1 !v2 !dist = {-# SCC isFartherThan #-} go 0 (VU.length v1-1) 
         where
             dist2=dist*dist
 
@@ -71,6 +74,7 @@ data Params = Params
     , distances_file :: String
     , neighbors_file :: String 
     , verbose :: Bool
+    , debug :: Bool
     } 
     deriving (Show, Data, Typeable)
 
@@ -80,9 +84,11 @@ sample = Params
     , query_file     = def &= help "Query data set in CSV format" &= typFile &= opt (Nothing :: Maybe String)
     , distances_file = "distances_hlearn.csv" &= help "File to output distances into" &= typFile
     , neighbors_file = "neighbors_hlearn.csv" &= help "File to output the neighbors into" &= typFile
-    , verbose        = def &= help "print debugging information" &= typFile 
+    , verbose        = False &= help "print tree statistics (takes some extra time)" &= typFile 
+    , debug          = False &= help "test created trees for validity (takes lots of time)" &= typFile 
     }
     &= summary "HLearn k-nearest neighbor, version 1.0"
+
 
 main = do
     -- cmd line args
@@ -104,29 +110,62 @@ main = do
         10 -> runit params (undefined :: CoverTree DP) (undefined :: KNN2 10 DP)
         otherwise -> error "specified k value not supported"
 
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 1 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 2 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 3 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 4 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 5 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 6 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 7 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 8 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 9 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> CoverTree DP -> KNN2 10 DP -> IO ()#-}
 runit :: forall k tree dp ring. 
-    ( Datapoint (tree dp)~dp
-    , dp ~ DP
-    , HomTrainer (tree dp)
-    , NFData (tree dp)
-    , F.Foldable tree
-    , SpaceTree tree dp
+    ( MetricSpace dp
+    , Ord dp
     , SingI k
-    ) => Params -> tree dp -> KNN2 k dp -> IO ()
+    , Show dp
+    , Show (Ring dp)
+    , NFData dp
+    , NFData (Ring dp)
+    , RealFloat (Ring dp)
+    , FromRecord dp
+    ) => Params -> CoverTree dp -> KNN2 k dp -> IO ()
 runit params tree knn = do
     -- build reference tree
     let ref = fromJust $ reference_file params
     Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
-    let reftree = parallel train rs :: tree dp -- CoverTree DP 
+    let reftree = parallel train rs :: CoverTree dp -- CoverTree DP 
     timeIO "building reference tree" $ return $ rnf reftree
-    --renderSVG "reftree.svg" (Width 500) $ draw reftree
+
+    -- verbose prints tree stats
+    if verbose params 
+        then do
+            putStr "reftree stNumNodes....." >> hFlush stdout >> putStrLn (show $ stNumNodes reftree) 
+            putStr "reftree stMaxChildren.." >> hFlush stdout >> putStrLn (show $ stMaxChildren reftree) 
+            putStr "reftree stAveChildren.." >> hFlush stdout >> putStrLn (show $ mean $ stAveChildren reftree) 
+            putStr "reftree stMaxDepth....." >> hFlush stdout >> putStrLn (show $ stMaxDepth reftree) 
+        else return ()
+
+    if debug params
+        then do 
+            putStr "reftree covering......." >> hFlush stdout >> putStrLn (show $ property_covering reftree) 
+            putStr "reftree leveled........" >> hFlush stdout >> putStrLn (show $ property_leveled reftree) 
+            putStr "reftree separating....." >> hFlush stdout >> putStrLn (show $ property_separating reftree) 
+            --renderSVG "reftree.svg" (Width 500) $ draw reftree
+        else return () 
 
     -- build query tree
     querytree <- case query_file params of
         Nothing -> return reftree
         Just file -> do
             Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
-            let tmptree=parallel train qs :: tree dp -- CoverTree DP
+--             let xs = map train $ CK.partition 4 qs :: [CoverTree dp]
+--             timeIO "building query tree" $ do
+--                 deepseq xs $ return ()
+--                 return $ reduce xs
+            let tmptree=reduce $ parMap rdeepseq train $ CK.partition 4 qs :: CoverTree dp -- CoverTree DP
+            let tmptree=parallel train qs :: CoverTree dp -- CoverTree DP
             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
     -- do knn search

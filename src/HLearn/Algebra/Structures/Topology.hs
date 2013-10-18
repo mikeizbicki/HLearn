@@ -20,7 +20,7 @@ class HasElems t where
 -- | Topology must obey the laws:
 -- (x `union` y) `intersect` y = y
 -- (x `intersect` y) `union` y = y
-class HasElems t => Topology t where
+class {-HasElems t =>-} Topology t where
     type TopologyConstraint t a :: Constraint
     type TopologyConstraint t a = ElemConstraint t a
 
