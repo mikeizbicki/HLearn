@@ -9,6 +9,11 @@ import HLearn.Algebra
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 
+import HLearn.DataStructures.CoverTree
+import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.Metrics.Lebesgue
+import qualified Data.Vector.Unboxed as VU
+
 -------------------------------------------------------------------------------
 -- data types
 
@@ -27,6 +32,10 @@ type family Set_Model (a:: *) (model':: *)
 type instance Set_Model (CrossValidation model result infer lossfunction lossresult) model' = 
     CrossValidation model' result infer lossfunction lossresult
 
+
+type DP = L2 (VU.Vector Double)
+type Test = CrossValidation (CoverTree DP) (KNN2 1 DP) KNN ErrorRate Double 
+
 ---------------------------------------
 
 data InferType (a::a)
@@ -41,13 +50,13 @@ instance
 
 function2 a = curry $ function a
 
-data SquaredLoss 
+---------------------------------------
 
+data SquaredLoss 
 instance Num a => Function SquaredLoss (a,a) a where
     function _ (result,target) = (target-result)*(target-result)
 
 data ErrorRate
-
 instance (Num a, Eq a) => Function ErrorRate (a,a) a where
     function _ (result,target) = indicator $ target==result
 
@@ -89,13 +98,13 @@ instance
             infer = function2 (undefined :: InferType infertype)
             loss  = function (undefined :: lossfunction)
 
-data CoverTree
-data KNN
-
-data UndefinedModel
-
-type DefaultCV = CrossValidation UndefinedModel KNN KNN ErrorRate Double
-
+-- data CoverTree
+-- data KNN
+-- 
+-- data UndefinedModel
+-- 
+-- type DefaultCV = CrossValidation UndefinedModel KNN KNN ErrorRate Double
+-- 
 -- train xs :: DefaultCV [tlr| model=NearestNeighbor [tlr| k=5 |], lossfunction=ErrorRate |] 
 
 instance 

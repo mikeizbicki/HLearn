@@ -92,6 +92,10 @@ instance MetricSpace (L2 (VU.Vector Float)) where
                     tot' = tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
 
+instance MkCentroid (L2 (VU.Vector Float)) where
+    {-# INLINABLE mkCentroid #-}
+    mkCentroid (L2 v1) (L2 v2) = {-# SCC mkCentroid #-} L2 $ VU.zipWith (\a b -> (a+b)/2) v1 v2
+
 -------------------------------------------------------------------------------
 -- Linf
 

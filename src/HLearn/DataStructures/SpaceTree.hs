@@ -12,7 +12,11 @@ module HLearn.DataStructures.SpaceTree
     -- * Generic algorithms
     , stToList
     , stDescendents
+    , stNumDp
     , stNumNodes
+    , stNumLeaves
+    , stNumGhosts
+    , stAveGhostChildren
     , stMaxChildren
     , stAveChildren
     , stMaxDepth
@@ -91,10 +95,15 @@ class (MetricSpace dp) => SpaceTree t dp where
     stMinDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
     stMaxDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
 
+    stHasNode  :: t dp -> Bool
+    stIsLeaf   :: t dp -> Bool
     stChildren :: t dp -> [t dp]
-    stNode :: t dp -> dp
-    stHasNode :: t dp -> Bool
-    stIsLeaf :: t dp -> Bool
+    stNode     :: t dp -> dp
+    stWeight   :: t dp -> Ring dp
+    
+    {-# INLINE stNodeW #-}
+    stNodeW :: t dp -> Weighted dp
+    stNodeW t = (stWeight t, stNode t)
 
     ro :: t dp -> Ring dp
     lambda :: t dp -> Ring dp
@@ -104,13 +113,13 @@ class (MetricSpace dp) => SpaceTree t dp where
 
 {-# INLINABLE stToList #-}
 stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
-stToList t = if stIsLeaf t
+stToList t = if stIsLeaf t && stWeight t > 0
     then [stNode t]
     else go (concat $ map stToList $ stChildren t)
     where
-        go xs = if stNode t `Data.List.elem` (map stNode $ stChildren t)
-            then xs
-            else (stNode t) : xs
+        go xs = if stWeight t > 0 
+            then (stNode t) : xs
+            else xs
     
 {-# INLINABLE toTagList #-}
 toTagList :: (Eq dp, SpaceTree (t tag) dp, Taggable t dp) => t tag dp -> [(dp,tag)]
@@ -128,11 +137,36 @@ stDescendents t = if stIsLeaf t
     then [stNode t]
     else concatMap stDescendents $ stChildren t
 
+{-# INLINABLE stNumDp #-}
+stNumDp :: SpaceTree t dp => t dp -> Ring dp
+stNumDp t = if stIsLeaf t
+    then stWeight t
+    else stWeight t + sum (map stNumDp $ stChildren t)
+
 {-# INLINABLE stNumNodes #-}
 stNumNodes :: SpaceTree t dp => t dp -> Int
 stNumNodes t = if stIsLeaf t
     then 1
     else 1 + sum (map stNumNodes $ stChildren t)
+
+{-# INLINABLE stNumLeaves #-}
+stNumLeaves :: SpaceTree t dp => t dp -> Int
+stNumLeaves t = if stIsLeaf t
+    then 1
+    else sum (map stNumLeaves $ stChildren t)
+
+{-# INLINABLE stNumGhosts #-}
+stNumGhosts :: SpaceTree t dp => t dp -> Int
+stNumGhosts t = (if stWeight t == 0 then 1 else 0) + if stIsLeaf t
+    then 0
+    else sum (map stNumGhosts $ stChildren t)
+
+{-# INLINABLE stAveGhostChildren #-}
+stAveGhostChildren :: SpaceTree t dp => t dp -> Normal Double Double
+stAveGhostChildren t = (if stWeight t == 0 then train1dp . fromIntegral . length $ stChildren t else mempty)
+    `mappend` if stIsLeaf t
+        then mempty
+        else (reduce . map stAveGhostChildren $ stChildren t)
 
 {-# INLINABLE stMaxChildren #-}
 stMaxChildren :: SpaceTree t dp => t dp -> Int
@@ -192,13 +226,26 @@ prunefold prune f b t = if prune b t
     where
         b' = f (stNode t) b
 
+{-# INLINABLE prunefoldW #-}
+prunefoldW :: SpaceTree t a => (b -> t a -> Bool) -> (Weighted a -> b -> b) -> b -> t a -> b
+prunefoldW prune f b t = if prune b t
+    then b
+    else if stIsLeaf t
+        then b'
+        else foldl' (prunefoldW prune f) b' (stChildren t) 
+    where
+        b' = f (stNodeW t) b
+
 {-# INLINABLE prunefoldA #-}
 prunefoldA :: SpaceTree t a => (t a -> b -> Maybe b) -> b -> t a -> b
 prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
     Nothing -> b
     Just b' -> if stIsLeaf t
         then b'
-        else foldl' (prunefoldA f) b' (stChildren t)
+--         else foldl' (prunefoldA f) b' (stChildren t)
+        else if stWeight t == 0
+            then foldl' (prunefoldA f) b  (stChildren t)
+            else foldl' (prunefoldA f) b' (stChildren t)
 
 
 {-# INLINE noprune #-}
@@ -365,6 +412,9 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
 
     stNode Unit = error "stNode Unit"
     stNode (UnitLift x) = stNode x
+
+    stWeight Unit = 0
+    stWeight (UnitLift x) = stWeight x
 
     stHasNode Unit = False
     stHasNode (UnitLift x) = stHasNode x

@@ -14,7 +14,7 @@ import HLearn.DataStructures.SpaceTree
 -------------------------------------------------------------------------------
 -- data structures
 
-newtype RangeSearch (mindist::TypeFloat) (maxdist::TypeFloat) dp = RangeSearch 
+newtype RangeSearch (mindist::Frac) (maxdist::Frac) dp = RangeSearch 
     { getrange :: Set.Set dp
     }
     deriving (Read,Show,Monoid)
@@ -23,7 +23,7 @@ deriving instance NFData dp => NFData (RangeSearch mindist maxdist dp)
 
 ---------------------------------------
 
-newtype RangeSearch2 (mindist::TypeFloat) (maxdist::TypeFloat) dp = RangeSearch2 
+newtype RangeSearch2 (mindist::Frac) (maxdist::Frac) dp = RangeSearch2 
     { rsmap :: Map.Map dp (RangeSearch mindist maxdist dp) 
     }
     deriving (Read,Show)

@@ -19,7 +19,7 @@ import HLearn.DataStructures.SortedVector
 -- data types
 
 -- | The KDE type is implemented as an isomorphism with the FreeModule
-newtype KDE kernel (h::TypeFloat) (prob:: *) (dp:: *) = KDE
+newtype KDE kernel (h::Frac) (prob:: *) (dp:: *) = KDE
 --     { freemod :: FreeModule prob dp 
     { freemod :: SortedVector dp 
     }

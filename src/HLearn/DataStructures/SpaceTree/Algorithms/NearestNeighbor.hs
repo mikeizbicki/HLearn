@@ -27,6 +27,9 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     , knn2_cata
 
     , knn2
+    , knn2_slow
+    , knn2_fast
+
     , knn2_single
     , knn2_single_slow
     , knn2_single_parallel
@@ -66,6 +69,7 @@ import HLearn.DataStructures.SpaceTree
 
 data Neighbor dp = Neighbor
     { neighbor         :: !dp
+    , weight           :: !(Ring dp)
     , neighborDistance :: !(Ring dp)
     }
 
@@ -93,15 +97,15 @@ deriving instance (NFData dp, NFData (Ring dp)) => NFData (KNN k dp)
 
 knn_maxdist :: forall k dp. (SingI k, Fractional (Ring dp)) => KNN k dp -> Ring dp
 knn_maxdist (KNN [ ]) = infinity
-knn_maxdist (KNN [Neighbor dp dist]) = dist
-knn_maxdist (KNN xs) = neighborDistance $ last xs
+knn_maxdist (KNN [x]) = neighborDistance x
+knn_maxdist (KNN xs ) = neighborDistance $ last xs
 
 -------------------
 
 data DualKNNM s (k::Nat) dp = DualKNNM
-    { nodevec :: !(VUM.MVector s (Ring dp))
+    { nodevec    :: !(VUM.MVector s (Ring dp))
     , visitedvec :: !(VUM.MVector s Bool)
-    , dpvec :: !(VM.MVector s (KNN k dp))
+    , dpvec      :: !(VM.MVector s (KNN k dp))
     }
 
 -- deriving instance (Show dp, Show (Ring dp), Show (vec (KNN k dp)), Show (vec (Ring dp))) => Show (DualKNN k dp vec)
@@ -122,8 +126,6 @@ dknn :: forall t tag dp s k.
     , Show dp, Show (Ring dp)
     , VUM.Unbox (Ring dp)
     , NFData (Ring dp), NFData dp
---     ) => DualTree ((t ()) dp) -> ST s (DualKNNM s k dp)
---     ) => DualTree ((t ()) dp) -> ST s (KNN2 k dp)
     ) => DualTree ((t ()) dp) -> KNN2 k dp
 dknn dual = {-# SCC dknn #-} runST $ do
     let (r,_,_) = initTags $ reference dual
@@ -143,17 +145,16 @@ dknn dual = {-# SCC dknn #-} runST $ do
             , dpvec = dpvec' 
             }
     
---     dualfoldM dualknn_tag dualknn_prune dualknn_cata knnm dual'
     dualfoldM_inline knnm dual'
-    xs <- go knnm q
-    return $ KNN2 $ Map.fromList xs
 
-    where
-        go knnm q = if stIsLeaf q
+    let go knnm q = if stIsLeaf q
             then do
                 knn <- VGM.read (dpvec knnm) (dpIndex q)
                 return [(stNode q, knn)]
             else fmap concat . mapM (go knnm) $ stChildren q
+
+    xs <- go knnm q
+    return $ KNN2 $ Map.fromList xs
 
 dualfoldM_inline :: 
     ( SpaceTree (t (Int,Int)) dp 
@@ -183,12 +184,12 @@ dualfoldM_inline !knnm !dual = {-# SCC dualFoldM_inline #-} do
     let bound = knn_maxdist knn + ro (query dual) + lambda (query dual)
     let (mindist,dist) = stMinDistanceWithDistance (reference dual) (query dual)
 
-    if mindist > bound
+    if False -- mindist > bound
         then return knnm
         else do
-            if not visited
+            if True -- not visited
                 then do
-                    let knn' = knn <> KNN [Neighbor (stNode $ reference dual) dist] 
+                    let knn' = knn <> KNN [Neighbor (stNode $ reference dual) (stWeight $ reference dual) dist] 
                     deepseq knn' $ VGM.unsafeWrite (dpvec knnm) (dpIndex $ query dual) knn'
                     return ()
                 else return ()
@@ -197,7 +198,9 @@ dualfoldM_inline !knnm !dual = {-# SCC dualFoldM_inline #-} do
                 else {-# SCC foldM #-} foldM
                     (dualfoldM_inline) 
                     knnm 
-                    ( {-# SCC foldm_compression #-}[DualTree r c | r <- (stChildren $ reference dual), c <- (stChildren $ query dual)])
+                    ({-# SCC foldm_compression #-}
+                     [DualTree r q | r <- (stChildren $ reference dual), q <- (stChildren $ query dual)]
+                    )
 
 -- {-# INLINE dualknn_tag #-}
 dualknn_tag :: 
@@ -260,7 +263,7 @@ dualknn_cata !dual !knnm !dist = {-# SCC dualknn_cata #-} do
     knn <- VGM.unsafeRead (dpvec knnm) (dpIndex $ query dual)
     let knn' = if stNode (reference dual) == stNode (query dual)
             then knn
-            else knn <> KNN [Neighbor rdp dist] 
+            else knn <> KNN [Neighbor rdp (stWeight $ reference dual) dist] 
     deepseq knn' $ VGM.unsafeWrite (dpvec knnm) (dpIndex $ query dual) knn'
     return knnm
     where
@@ -272,10 +275,6 @@ dualknn_cata !dual !knnm !dist = {-# SCC dualknn_cata #-} do
 dualfoldM :: 
     ( SpaceTree t dp 
     , Monad m
---     , res ~ DualKNNM s k dp
---     , t ~ t0 (Int,Int)
---     , s ~ PrimState m
---     , VGM.MVector 
     ) 
     => (DualTree (t dp) -> res -> m res)
     -> (res -> DualTree (t dp) -> Ring dp -> m Bool) 
@@ -326,8 +325,8 @@ instance (SingI k, MetricSpace dp, Eq dp) => Monoid (KNN k dp) where
 
     mempty = KNN mempty 
     mappend (KNN [ ]) (KNN [ ]) = {-# SCC mappend_KNN #-} KNN [ ]
-    mappend (KNN [x]) (KNN [ ]) = {-# SCC mappend_KNN #-}KNN [x]
-    mappend (KNN [ ]) (KNN [y]) = {-# SCC mappend_KNN #-}KNN [y]
+    mappend (KNN [x]) (KNN [ ]) = {-# SCC mappend_KNN #-} KNN [x]
+    mappend (KNN [ ]) (KNN [y]) = {-# SCC mappend_KNN #-} KNN [y]
     mappend (KNN (x:xs)) (KNN (y:ys)) = {-# SCC mappend_KNN #-} case k of
         1 -> if x < y then KNN [x] else KNN [y]
         otherwise -> KNN $ take k $ interleave (x:xs) (y:ys)
@@ -391,7 +390,7 @@ knn2_cata !dual !knn2 = KNN2 $ Map.insertWith (<>) qnode knn' $ getknn2 knn2
         qnode = query dual 
         knn' = if rnode == qnode
             then mempty
-            else KNN $ [Neighbor rnode $ distance rnode qnode]
+            else KNN $ [Neighbor rnode 1 $ distance rnode qnode]
 
 
 -------------------------------------------------------------------------------
@@ -413,7 +412,12 @@ knn_prune query res t = knn_maxdist res < stMinDistanceDp t query && length (get
 knn_cata :: (SingI k, MetricSpace dp, Eq dp) => dp -> dp -> KNN k dp -> KNN k dp
 knn_cata query next current = if next==query
     then current
-    else KNN [Neighbor next $ distance query next] <> current
+    else KNN [Neighbor next 1 $ distance query next] <> current
+
+knn_cataW :: (SingI k, MetricSpace dp, Eq dp) => dp -> Weighted dp -> KNN k dp -> KNN k dp
+knn_cataW query (w,dp) current = if dp==query
+    then current
+    else KNN [Neighbor dp w $ distance query dp] <> current
 
 {-# INLINABLE knnA #-}
 knnA :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
@@ -425,11 +429,11 @@ knnATag query t = prunefoldA (knn_cataA query) mempty t
 
 {-# INLINABLE knn_cataA #-}
 knn_cataA :: forall k t dp. (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp -> Maybe (KNN k dp)
-knn_cataA !query !t !res = {-# SCC knn_cataA #-} if knn_maxdist res < mindist -- && length (getknn res) >= k
+knn_cataA !query !t !res = {-# SCC knn_cataA #-} if knn_maxdist res < mindist && length (getknn res) >= k
     then Nothing
-    else Just $ if stNode t==query
+    else Just $ if stWeight t==0 || stNode t==query
         then res
-        else KNN [Neighbor (stNode t) $ dist] <> res 
+        else KNN [Neighbor (stNode t) (stWeight t) $ dist] <> res 
     where
         k = fromIntegral $ fromSing (sing :: Sing k)
         (mindist,dist) = stMinDistanceDpWithDistance t query
@@ -461,7 +465,7 @@ knn_cataM !query !t !knnm = {-# SCC knn_cataM #-} do
                 else do
                     VGM.unsafeWrite (visitedvecM knnm) (dpIndex t) dist
 --                     VGM.unsafeWrite (visitedvecM knnm) (dpIndex t) (True,dist)
-                    return $ Just $ knnm { getknnM = KNN [Neighbor (stNode t) $ dist] <> getknnM knnm }
+                    return $ Just $ knnm { getknnM = KNN [Neighbor (stNode t) (stWeight t) $ dist] <> getknnM knnm }
 
 {-# INLINABLE knn_cataM_Bool #-}
 -- {-# INLINE knn_cataM_Bool #-}
@@ -479,7 +483,7 @@ knn_cataM_Bool !query !t !knnm = {-# SCC knn_cataM_bool #-} do
                 then return $ Just knnm
                 else do
                     VGM.unsafeWrite (visitedvecM_Bool knnm) (dpIndex t) True
-                    return $ let tmp = KNN [Neighbor (stNode t) $ dist] <> getknnM_Bool knnm  
+                    return $ let tmp = KNN [Neighbor (stNode t) (stWeight t) $ dist] <> getknnM_Bool knnm  
                         in seq tmp $ Just $ knnm { getknnM_Bool = tmp }
 
 {-# INLINABLE knnM #-}
@@ -564,6 +568,7 @@ nearestNeighbor_slow query t = prunefoldinit (nn_init query) noprune (nn_cata qu
 nn_init :: SpaceTree t dp => dp -> t dp -> Neighbor dp
 nn_init query t = Neighbor
     { neighbor = stNode t
+    , weight = stWeight t
     , neighborDistance = distance query (stNode t)
     }
 
@@ -573,6 +578,6 @@ nn_prune query b t = neighborDistance b < distance query (stNode t)
 nn_cata :: MetricSpace dp => dp -> dp -> Neighbor dp -> Neighbor dp
 nn_cata query next current = if neighborDistance current < nextDistance
     then current
-    else Neighbor next nextDistance
+    else Neighbor next 1 nextDistance
     where
         nextDistance = distance query next

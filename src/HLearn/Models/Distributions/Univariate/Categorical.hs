@@ -36,11 +36,11 @@ newtype Categorical prob label = Categorical
 instance (NFData label, NFData prob) => NFData (Categorical prob label) where
     rnf d = rnf $ pdfmap d
 
-uniformNoise :: (Fractional prob, Ord label) => prob -> [label] -> label -> Categorical prob label
-uniformNoise n xs dp = trainW xs'
-    where
-        xs' = (1-n,dp):(map (\x -> (weight,x)) xs)
-        weight = n/(fromIntegral $ length xs)
+-- uniformNoise :: (Fractional prob, Ord label) => prob -> [label] -> label -> Categorical prob label
+-- uniformNoise n xs dp = trainW xs'
+--     where
+--         xs' = (1-n,dp):(map (\x -> (weight,x)) xs)
+--         weight = n/(fromIntegral $ length xs)
         
 -------------------------------------------------------------------------------
 -- Algebra
