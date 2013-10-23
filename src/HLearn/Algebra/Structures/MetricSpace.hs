@@ -30,6 +30,13 @@ class
 class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m
 
+---------------------------------------
+
+class MetricSpace s => MkCentroid s where
+    mkCentroid :: s -> s -> s
+
+---------------------------------------
+
 class MetricSpaceParams params space where
     
 data MetricWrapper params dp = MetricWrapper

@@ -77,7 +77,7 @@ Library
         HLearn.Algebra.Types.Indexing
         HLearn.Algebra.Types.HList
         HLearn.Algebra.Types.Nat1
-        HLearn.Algebra.Types.TypeFloat
+        HLearn.Algebra.Types.Frac
         HLearn.Algebra.Models.HomTrainer
         HLearn.Algebra.Models.CoHomTrainer
         HLearn.Algebra.Models.Lame

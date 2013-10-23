@@ -9,6 +9,7 @@ module HLearn.DataStructures.CoverTree
     -- * Pruning
     , pruneExtraLeaves
     , pruneSingletons
+    , addGhostData
 
     -- * QuickCheck properties
     , property_separating
@@ -42,17 +43,18 @@ import Diagrams.Backend.SVG.CmdLine
 import HLearn.Algebra hiding ((#),(<>),(|>))
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
-import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor hiding (weight)
 import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 
 -------------------------------------------------------------------------------
 -- data types
 
-type CoverTree dp = AddUnit (CoverTree' (2%1)) () dp
+type CoverTree dp = AddUnit (CoverTree' (2/1)) () dp
 
-data CoverTree' (base::TypeFloat) tag dp = Node 
+data CoverTree' (base::Frac) tag dp = Node 
     { nodedp     :: !dp
     , sepdist    :: !(Ring dp)
+    , weight     :: !(Ring dp)
     , maxDescendentDistance :: (Ring dp)
     , children'  :: !(Map.Map dp (CoverTree' base tag dp)) 
     , tag        :: !tag
@@ -93,37 +95,27 @@ instance
     {-# INLINABLE stHasNode #-}
     {-# INLINABLE stIsLeaf #-}
 
---     stMinDistanceWithDistance !ct1 !ct2 = (dist - (coverDist ct1) - (coverDist ct2), dist)
---         where dist = distance (nodedp ct1) (nodedp ct2) 
---     stMaxDistanceWithDistance !ct1 !ct2 = (dist + (coverDist ct1) + (coverDist ct2), dist)
---         where dist = distance (nodedp ct1) (nodedp ct2) 
--- 
---     stMinDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist - coverDist ct, dist)
---     stMaxDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist + coverDist ct, dist)
-
---     stMinDistanceDpFromDistance !ct !dp !dist = dist - coverDist ct
---     stMaxDistanceDpFromDistance !ct !dp !dist = dist + coverDist ct
-
-    stMinDistanceWithDistance !ct1 !ct2 = (dist - (maxDescendentDistance ct1) - (maxDescendentDistance ct2), dist)
+    stMinDistanceWithDistance !ct1 !ct2 = (dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2), dist)
         where dist = distance (nodedp ct1) (nodedp ct2) 
-    stMaxDistanceWithDistance !ct1 !ct2 = (dist + (maxDescendentDistance ct1) + (maxDescendentDistance ct2), dist)
+    stMaxDistanceWithDistance !ct1 !ct2 = (dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2), dist)
         where dist = distance (nodedp ct1) (nodedp ct2) 
- 
 
-    stMinDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist - maxDescendentDistance ct, dist)
-    stMaxDistanceDpWithDistance !ct !dp = let dist = distance (nodedp ct) dp in (dist + maxDescendentDistance ct, dist)
+    stMinDistanceDpWithDistance !ct !dp = (dist - maxDescendentDistance ct, dist)
+        where dist = distance (nodedp ct) dp
+    stMaxDistanceDpWithDistance !ct !dp = (dist + maxDescendentDistance ct, dist)
+        where dist = distance (nodedp ct) dp
 
-    stMinDistanceDpFromDistance !ct !dp !dist = dist - maxDescendentDistance ct
-    stMaxDistanceDpFromDistance !ct !dp !dist = dist + maxDescendentDistance ct
+    stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
+    stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
-    stChildren = Map.elems . children
-    stNode = nodedp
+    stChildren  = Map.elems . children
+    stNode      = nodedp
+    stWeight    = weight
     stHasNode _ = True
     stIsLeaf ct = Map.size (children' ct) == 0
 
     ro _ = 0
     lambda !ct = maxDescendentDistance ct 
---     lambda !ct = sepdist ct * coverfactor
 
 instance Ord dp => Taggable (CoverTree' base) dp where
     {-# INLINABLE getTag #-}
@@ -132,7 +124,6 @@ instance Ord dp => Taggable (CoverTree' base) dp where
     
     getTag = tag
 
---     initTags ct = (\(x,_,_) -> x)  $ initTags' ct (nodedp ct) 0 1 0
     initTags ct = let (a,(_,b),c) = initTags' ct (nodedp ct) 0 1 0 in (a,c+1,b)
         where
             initTags' ct parentdp parenttag dptag nodetag = (ct
@@ -169,11 +160,6 @@ instance Ord dp => Taggable (CoverTree' base) dp where
 isSingleton :: CoverTree' base tag dp -> Bool
 isSingleton node = Map.size (children' node) == 0
 
--- coverDist :: 
---     ( Fractional (Ring dp)
---     ) => CoverTree' base tag dp -> Ring dp
--- coverDist node = sepdist node*coverfactor
-
 coverDist :: forall base tag dp.
     ( Fractional (Ring dp)
     , SingI base
@@ -181,10 +167,6 @@ coverDist :: forall base tag dp.
 coverDist node = sepdist node*coverfactor 
     where
         coverfactor = fromSing (sing :: Sing base)
-
--- coverfactor = 2
--- coverfactor = 1.5
--- coverfactor = 1.25
 
 {-# INLINABLE pruneExtraLeaves #-}
 pruneExtraLeaves :: forall base tag dp.
@@ -212,6 +194,72 @@ pruneSingletons ct = if stIsLeaf ct
             then children' $ pruneSingletons c
             else Map.map pruneSingletons $ children' ct
 
+{-# INLINABLE addGhostData #-}
+addGhostData :: forall base tag dp.
+    ( MkCentroid dp
+    , Ord dp
+    , Monoid tag
+    , SingI base
+    ) => CoverTree' base tag dp -> CoverTree' base tag dp
+addGhostData !ct = ct 
+    { children' = Map.map addGhostData $ if Map.size (children' ct) < 3
+        then children' ct
+        else children' $ go (stChildren ct) ct
+    }
+--     else go (stChildren ct) ct
+    where
+        
+        check ct1 ct2 = -- trace ("check "++show (nodedp ct1)++" "++show (nodedp ct2)) $
+          if stIsLeaf ct1
+             && stIsLeaf ct2
+             && not (isFartherThan dp1 c $ child_sepdist ct) && not (isFartherThan dp2 c $ child_sepdist ct)
+            then Just c
+            else Nothing
+            where 
+                dp1 = nodedp ct1
+                dp2 = nodedp ct2
+                c = mkCentroid dp1 dp2
+
+        go [] !ct = ct 
+        go (x:xs) !ct = if not $ stIsLeaf x 
+            then go xs ct
+            else case filter isJust $ map (check x) xs of
+                [] -> go xs ct
+                ((Just ghostdp):ys) -> -- trace ("Just "++show (ghostdp)++" ; length xs="++show (length xs)) $ 
+                  go (fail) $ ct 
+                    { children' 
+                        = Map.insert ghostdp (Node
+                            { nodedp    = ghostdp
+                            , sepdist   = child_sepdist ct
+                            , weight    = 0
+                            , tag       = mempty
+                            , children' = Map.insert (nodedp x) ( x { sepdist = child_sepdist x })
+                                        $ Map.fromList $ zip (map nodedp $ eligibleChildren) eligibleChildren 
+--                             , maxDescendentDistance = child_sepdist ct 
+                            , maxDescendentDistance = maximum $ map (distance ghostdp . nodedp) $ x:eligibleChildren
+                            })
+                        $ Map.delete (nodedp x)
+                        $ foldl' (\map ct -> Map.delete (nodedp ct) map) (children' ct) eligibleChildren
+                    } 
+                    where
+
+                        eligibleChildren = map (\ct -> ct { sepdist = child_sepdist ct }) pass
+
+    --                     ineligibleChildren = Map.delete x fail
+
+                        (pass,fail) = partition 
+                            (\child -> stIsLeaf child 
+                                    && (not $ isFartherThan (nodedp child) ghostdp (child_sepdist ct))) 
+                            $ xs -- stChildren ct
+
+child_sepdist :: forall base tag dp.
+    ( SingI base
+    , MetricSpace dp
+    ) => CoverTree' base tag dp -> Ring dp
+child_sepdist ct = sepdist ct/coverfactor
+    where
+        coverfactor = fromSing (sing :: Sing base) 
+
 ---------------------------------------
 -- insertion as described in the paper
 
@@ -222,17 +270,19 @@ safeInsert :: forall base tag dp.
     , Floating (Ring dp)
     , Monoid tag
     , SingI base
-    ) => CoverTree' base tag dp -> dp -> CoverTree' base tag dp
-safeInsert !node !dp = case insert node dp of
+    ) => CoverTree' base tag dp -> Weighted dp -> CoverTree' base tag dp
+safeInsert !node !(w,dp) = case insert node (w,dp) of
     Just x -> x
     Nothing -> Node
         { nodedp    = nodedp node
         , sepdist   = dist2up (sing::Sing base) dist
+        , weight    = 0 -- weight node
         , tag       = mempty
         , children' = Map.fromList 
             [ (nodedp node, growct node (dist2down (sing::Sing base) dist))
             , (dp, Node 
                 { nodedp    = dp 
+                , weight    = w
                 , sepdist   = dist2down (sing::Sing base) dist
                 , tag       = mempty
                 , children' = mempty
@@ -254,25 +304,26 @@ insert :: forall base tag dp.
     , Fractional (Ring dp)
     , Monoid tag
     , SingI base
-    ) => CoverTree' base tag dp -> dp -> Maybe (CoverTree' base tag dp)
-insert !node !dp = if isFartherThan dp (nodedp node) (sepdist node)
+    ) => CoverTree' base tag dp -> Weighted dp -> Maybe (CoverTree' base tag dp)
+insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
     then Nothing
     else seq justnode $ Just justnode
     where 
         justnode = Node
-            { nodedp = nodedp node
-            , sepdist = sepdist node
-            , tag = tag node
+            { nodedp    = nodedp node
+            , sepdist   = sepdist node
+            , weight    = weight node
+            , tag       = tag node
+            , children' = if hasInsert
+                then Map.insert key val $ children node
+                else Map.insert dp (Node dp (sepdist node/coverfactor) w 0 mempty mempty) $ children node
             , maxDescendentDistance = max
                 (maxDescendentDistance node)
                 (distance (nodedp node) dp)
-            , children' = if hasInsert
-                then Map.insert key val $ children node
-                else Map.insert dp (Node dp (sepdist node/coverfactor) 0 mempty mempty) $ children node
             }
 
         viableChildren = Map.filter (\subtree -> not $ isFartherThan (nodedp subtree) dp (coverDist subtree)) $ children node
-        childrenInserts = Map.map (\tree -> insert tree dp) viableChildren
+        childrenInserts = Map.map (\tree -> insert tree (w,dp)) viableChildren
 
         insertables = Map.filterWithKey filtergo childrenInserts
             where
@@ -294,10 +345,17 @@ insertBatch :: forall base tag dp.
     , Monoid tag
     , SingI base
     ) => [dp] -> CoverTree' base tag dp
-insertBatch ((!x):xs) = go xs $ Node x 0 0 mempty mempty
+insertBatch ((!dp):dps) = go dps $ Node 
+    { nodedp    = dp
+    , sepdist   = 0
+    , weight    = 1
+    , tag       = mempty
+    , children' = mempty
+    , maxDescendentDistance = 0
+    }
     where
         go [] tree = tree
-        go (x:xs) tree = go xs $ safeInsert tree x
+        go (x:xs) tree = go xs $ safeInsert tree (1,x)
 
 -------------------------------------------------------------------------------
 -- algebra
@@ -386,23 +444,19 @@ children :: forall base tag dp.
     , Fractional (Ring dp)
     , SingI base
     ) => CoverTree' base tag dp -> Map.Map dp (CoverTree' base tag dp)
-children tree = if Map.size (children' tree) > 0
-    then children' tree
-    else Map.singleton (nodedp tree) $ Node
-        { nodedp    = nodedp tree
-        , sepdist   = sepdist tree/coverfactor
-        , tag       = tag tree
-        , children' = mempty
-        , maxDescendentDistance = 0
-        }
-    where
-        coverfactor = fromSing (sing :: Sing base)
-
-
-prunect :: CoverTree' base tag dp -> CoverTree' base tag dp
-prunect ct = if Map.size (children' ct) == 1 
-    then head $ Map.elems $ children' ct
-    else ct
+children = children'
+-- children tree = if Map.size (children' tree) > 0
+--     then children' tree
+--     else Map.singleton (nodedp tree) $ Node
+--         { nodedp    = nodedp tree
+--         , sepdist   = sepdist tree/coverfactor
+--         , weight    = weight tree
+--         , tag       = tag tree
+--         , children' = mempty
+--         , maxDescendentDistance = 0
+--         }
+--     where
+--         coverfactor = fromSing (sing :: Sing base)
 
 growct :: forall base tag dp.
     ( Fractional (Ring dp)
@@ -414,11 +468,12 @@ growct ct d = if sepdist ct==0 || Map.size (children' ct)==0
     then ct { sepdist=d }
     else if d > sepdist ct
         then growct (Node
-            { nodedp=nodedp ct
-            , sepdist=sepdist ct*coverfactor
+            { nodedp    = nodedp ct
+            , sepdist   = sepdist ct*coverfactor
+            , weight    = 0 -- weight ct
+            , tag       = mempty
             , children' = Map.singleton (nodedp ct) ct 
             , maxDescendentDistance = maxDescendentDistance ct
-            , tag = mempty
             }
             ) d
         else ct
@@ -431,7 +486,7 @@ dist2up :: forall base d.
     ( Floating d
     , RealFrac d
     , SingI base
-    ) => Sing (base::TypeFloat) -> d -> d
+    ) => Sing (base::Frac) -> d -> d
 dist2up s d = dist2down s d * coverfactor
     where
         coverfactor = fromSing (sing :: Sing base)
@@ -441,7 +496,7 @@ dist2down :: forall base d.
     ( Floating d
     , RealFrac d
     , SingI base
-    ) => Sing (base::TypeFloat) -> d -> d
+    ) => Sing (base::Frac) -> d -> d
 dist2down _ d = coverfactor^^(floor $ log d / log coverfactor :: Int)
     where
         coverfactor = fromSing (sing :: Sing base)
@@ -458,12 +513,17 @@ instance
         where
     type Datapoint (CoverTree dp) = dp
     {-# INLINE train1dp #-}
-    train1dp dp = UnitLift $ Node dp 0 0 mempty mempty 
+    train1dp dp = UnitLift $ Node 
+        { nodedp    = dp
+        , sepdist   = 0
+        , weight    = 1
+        , tag       = mempty
+        , children' = mempty
+        , maxDescendentDistance = 0
+        }
 
     {-# INLINABLE train #-}
     train = UnitLift . insertBatch . F.toList
-
-train_insertBatch = UnitLift . insertBatch . F.toList
 
 -------------------------------------------------------------------------------
 -- tests
@@ -479,7 +539,7 @@ instance Arbitrary (CoverTree (Double,Double)) where
             y <- choose (-2^^5,2^^5)
 --             trace ("(x,y)="++show (x,y)) $ return (x,y)
             return (x,y)
-        return $ train xs 
+        return $ UnitLift $ addGhostData . unUnit $ train xs 
 
 property_covering :: MetricSpace dp => CoverTree dp -> Bool
 property_covering Unit = True
@@ -498,7 +558,7 @@ property_leveled (UnitLift node) = case map sepdist (Map.elems $ children' node)
 property_separating  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_separating Unit = True
 property_separating (UnitLift node) = if Map.size (children' node) > 1
-    then minimum ((mapFactorial stMaxDistance) $ Map.elems $ children' node) > (sepdist $ head $ Map.elems $ children' node)
+    then foldl1' min ((mapFactorial stMaxDistance) $ Map.elems $ children' node) > child_sepdist node
       && and (map (property_separating . UnitLift) $ Map.elems $ children' node)
     else True
 
@@ -507,18 +567,20 @@ property_maxDescendentDistance Unit = True
 property_maxDescendentDistance (UnitLift node) = if stIsLeaf node
     then True
     else and (map (property_maxDescendentDistance . UnitLift) $ stChildren node)
-      && and (map (\dp -> distance dp (nodedp node) <= (maxDescendentDistance node)) $ stDescendents node)
---       && and (map (\dp -> not $ isFartherThan dp (nodedp node) (maxDescendentDistance node)) $ stDescendents node)
+      && and (map (\dp -> weight node == 1 
+                       || distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
 
 mapFactorial :: (a -> a -> b) -> [a] -> [b]
-mapFactorial f [] = []
-mapFactorial f (x:xs) = map (f x) xs ++ mapFactorial f xs
+mapFactorial f xs = go xs []
+    where
+        go [] ys = ys
+        go (x:xs) ys = go xs (map (f x) xs ++ ys)
 
 property_lossless :: [(Double,Double)] ->  Bool
 property_lossless [] = True
 property_lossless xs = Set.fromList xs == dpSet ct
     where
-        UnitLift ct = train xs :: AddUnit (CoverTree' (2%1)) () (Double,Double)
+        UnitLift ct = train xs :: AddUnit (CoverTree' (2/1)) () (Double,Double)
 
 dpSet :: (Ord dp) => CoverTree' base tag dp -> Set.Set dp
 dpSet = Set.fromList . dpList
@@ -528,6 +590,9 @@ dpSet = Set.fromList . dpList
 
 ---------------------------------------
 
+instance MkCentroid (Double,Double) where
+    mkCentroid (a1,a2) (b1,b2) = ((a1+b1)/2,(a2+b2)/2)
+
 randL :: Int -> IO [(Double,Double)]
 randL n = replicateM n $ do
     x <- randomRIO (-100,100)
@@ -535,7 +600,9 @@ randL n = replicateM n $ do
     return (fromIntegral (x :: Int), fromIntegral (y :: Int))
 
 ys :: [(Double,Double)]
-ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
+-- ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
+-- ys = [(0,0),(0,10),(10,10),(10,0),(10,-10),(0,-10),(-10,-10),(-10,0),(-10,10)]
+ys = [(0,0),(0,10),(8,8),(10,0),(8,-8),(0,-10),(-8,-8),(-10,0),(-8,8)]
 my = train ys :: CoverTree (Double,Double)
 my2 = train $ take 3 ys :: CoverTree (Double,Double)
 -- my = prunect $ insertBatch ys
@@ -575,20 +642,23 @@ drawT ct1 ct2 = draw ct1
             ||| (text "=" <> strutX 1) 
             ||| (draw $ ct1 `mappend` ct2)
 
-draw (UnitLift node) = draw' 0 node
+draw node = draw' 0 node
 draw' depth tree = mkConnections $ 
                    (named (label++show depth) $ fontSize 0.5 $ 
                         (
-                             (text label <> strutY 1) 
+                             (text label <> strutY 0.5) 
                          === (text (show (sepdist tree)) <> strutY 0.5) 
-                         === (text (show (maxDescendentDistance tree)) <> strutY 0.5)
+--                          === (text (show (maxDescendentDistance tree)) <> strutY 0.5)
                         ) 
-                          <> circle 1 # fc red) 
+                          <> circle 1 # fc nodecolor) 
                === (pad 1.05 $ centerName (label++show (depth+1)) $ 
                    Map.foldr (|||) mempty $ Map.map (draw' (depth+1)) $ children' tree)
                 
     where
         label = intShow $ nodedp tree
+        nodecolor = if weight tree > 0
+            then red
+            else lightblue
 
         mkConnections = connect (label++show depth) (label++show (depth+1)) 
           . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (Map.keys $ children' tree))

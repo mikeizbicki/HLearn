@@ -1,4 +1,7 @@
 module HLearn.DataStructures.SpaceTree.DualTreeMonoids
+    ( TreeAlg (..)
+    , TreeAlg2 (..)
+    )
     where
 
 import GHC.TypeLits
