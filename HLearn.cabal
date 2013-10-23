@@ -81,6 +81,7 @@ Library
         HLearn.Algebra.Models.HomTrainer
         HLearn.Algebra.Models.CoHomTrainer
         HLearn.Algebra.Models.Lame
+        HLearn.Algebra.Models.Free.MonoidChain
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules
@@ -173,3 +174,58 @@ Library
         GADTs
         KindSignatures
         ConstraintKinds
+
+test-suite tests
+  type:
+      exitcode-stdio-1.0
+  ghc-options:
+      -Wall -Werror
+  hs-source-dirs:
+      src/test
+  main-is:
+      Spec.hs
+  build-depends:
+    base == 4.*,
+    hspec >= 1.0,
+    filepath,
+    directory,
+
+    -- common dependencies
+    base                >= 3 && < 5,
+    template-haskell,
+    containers          >= 0.5,
+    vector              >= 0.10,
+
+    erf                 >= 2.0,
+    gamma               >= 0.9,
+    logfloat            >= 0.12,
+    HLearn,
+
+    -- my packages
+    ConstraintKinds     >= 1.1.0,
+    vector-heterogenous >= 0.1.1,
+
+    -- are these needed?
+    statistics          >= 0.10,
+    random              >= 1.0.1,
+    MonadRandom         >= 0.1,
+    parallel            >= 3.2,
+    deepseq             >= 1.3,
+    hashable            == 1.1.2.5,
+    primitive           >= 0.5,
+    vector-algorithms   >= 0.5.4,
+    vector-th-unbox     >= 0.2,
+    list-extras         >= 0.4,
+    heap                >= 1.0.0,
+    hmatrix             >= 0.15.0.1,
+    dlist               >= 0.5,
+    split               >= 0.2.2,
+    semigroups          >= 0.9,
+
+    QuickCheck          >= 2.6,
+
+    -- visualize
+    diagrams-svg        >= 0.6,
+    diagrams-lib        >= 0.6,
+    process             >= 1.1,
+    graphviz            >= 2999.16
