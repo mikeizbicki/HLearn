@@ -40,7 +40,7 @@ m = train ds :: Perceptron Char Vector2
 -- | main creates an ascii plot of where the decision boundary for the perceptron is
 main = sequence_ $ map putStrLn boundary
 
-boundary = map (map go) [[(x/10,y/10) | x<-[-20..20]] | y<-[-20..20]]
+boundary = map (map go) [[(x/10,y/10) | x<-[-20..20]] | y<-(reverse [-20..20])]
     where
         go (x,y)
             | x == 0 && y == 0 = '+'
