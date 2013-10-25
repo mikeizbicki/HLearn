@@ -26,7 +26,6 @@ Library
 
         -- my packages
         ConstraintKinds     >= 1.1.0,
-        vector-heterogenous >= 0.1.1,
 
         -- are these needed?
         statistics          >= 0.10,
@@ -203,7 +202,6 @@ test-suite tests
 
     -- my packages
     ConstraintKinds     >= 1.1.0,
-    vector-heterogenous >= 0.1.1,
 
     -- are these needed?
     statistics          >= 0.10,
