@@ -48,6 +48,7 @@ executable hlearn-allknn
         diagrams-lib ==0.7.*, 
         diagrams-svg ==0.7.*, 
         parallel ==3.2.*, 
-        MonadRandom ==0.1.*
+        MonadRandom ==0.1.*,
+        vector-algorithms >= 0.5
 
   hs-source-dirs:      src

@@ -1,16 +1,22 @@
 {-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators #-}
 
 
-import Control.DeepSeq
 import Control.Applicative
+import Control.DeepSeq
+import Control.Monad
+import Control.Monad.ST
 import Data.Csv
 import Data.List
 import Data.Maybe
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as VUM
 import qualified Data.ByteString.Lazy.Char8 as BS
+import qualified Data.Vector.Algorithms.Intro as Intro
 import Data.Proxy
 import Data.Reflection
 import Data.Time.Clock
@@ -35,11 +41,11 @@ import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.Metrics.Lebesgue
 import HLearn.Models.Distributions
 
--- type DP = L2 (VU.Vector Double)
-type DP = L2 (VU.Vector Float)
-type Tree = AddUnit (CoverTree' (2/1)) () DP
+-- type DP = L2 VU.Vector Double
+type DP = L2 VU.Vector Float 
+-- type Tree = AddUnit (CoverTree' (2/1)) () DP
 -- type Tree = AddUnit (CoverTree' (3/2)) () DP
--- type Tree = AddUnit (CoverTree' (5/4)) () DP
+type Tree = AddUnit (CoverTree' (5/4)) () DP
 -- type Tree = AddUnit (CoverTree' (9/8)) () DP
 -- type Tree = AddUnit (CoverTree' (17/16)) () DP
 
@@ -113,13 +119,14 @@ runit :: forall k tree base dp ring.
 runit params tree knn = do
     -- build reference tree
     let ref = fromJust $ reference_file params
-    Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
+    rs <- loaddata ref 
+--     Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
 --     let reftree = parallel train rs :: CoverTree dp -- Tree 
     let reftree = {-parallel-} train rs :: CoverTree dp -- Tree 
     timeIO "building reference tree" $ return $ rnf reftree
     let reftree_prune = pruneExtraLeaves $ pruneSingletons $ unUnit reftree
     timeIO "pruning reference tree" $ return $ rnf reftree_prune
-    let reftree_ghost = addGhostData $ unUnit reftree
+    let reftree_ghost = {-addGhostData $-} unUnit reftree
     timeIO "ghosting reference tree" $ return $ rnf reftree_ghost
 
     -- verbose prints tree stats
@@ -154,9 +161,7 @@ runit params tree knn = do
 --     let action = knn2_single_parallel (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
     let action = knn2_single_parallel (DualTree (unUnit reftree) (unUnit reftree)) :: KNN2 k dp
     res <- timeIO "computing knn2_single_parallel" $ return $ deepseq action action 
-    let action = knn2_single_parallel (DualTree reftree_ghost reftree_ghost) :: KNN2 k dp
-    res <- timeIO "computing knn2_single_parallel (ghost)" $ return $ deepseq action action 
--- 
+
 --     let action = knn2_single_parallelM (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
 --     res <- timeIO "computing knn2_single_parallelM" $ return $ deepseq action action 
 --     let action_ghost = knn2_single_parallelM (DualTree reftree_ghost reftree_ghost) :: KNN2 k dp
@@ -176,7 +181,7 @@ runit params tree knn = do
             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
             . Map.elems 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
-            . Map.map (map neighborDistance . getknn) 
+            . Map.map (map neighborDistance . strictlist2list . getknn) 
             $ getknn2 res 
         hClose hDistances
 
@@ -187,7 +192,7 @@ runit params tree knn = do
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
-            . Map.map (map neighbor . getknn) 
+            . Map.map (map neighbor . strictlist2list . getknn) 
             $ getknn2 res 
         hClose hNeighbors
 
@@ -195,11 +200,45 @@ runit params tree knn = do
     putStrLn "end"
 
 
--- printTreeStats :: 
---     ( SpaceTree t dp
---     , Eq dp
---     , Show (Ring dp)
---     ) => String -> t dp -> IO ()
+loaddata :: String -> IO (V.Vector DP)
+loaddata filename = do
+    rse :: Either String (V.Vector DP)  
+        <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile filename
+    rs <- case rse of 
+        Right rs -> return rs
+        Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
+
+    putStrLn "  dataset info:"
+    putStrLn $ "    num dp:  " ++ show (V.length rs)
+    putStrLn $ "    num dim: " ++ show (VG.length $ rs V.! 0)
+    putStrLn ""
+
+    let shufflemap = mkShuffleMap rs
+    putStrLn "  shufflemap:"
+    forM [0..VU.length shufflemap-1] $ \i -> do
+        putStrLn $ "    " ++ show (fst $ shufflemap VU.! i) ++ ": " ++ show (snd $ shufflemap VU.! i) 
+    return $ V.map (shuffleVec $ VU.map fst shufflemap) rs
+
+-- | calculate the variance of each column, then sort so that the highest variance is first
+mkShuffleMap :: (VG.Vector v a, Floating a, Ord a, VU.Unbox a) => V.Vector (v a) -> VU.Vector (Int,a)
+mkShuffleMap v = runST $ do
+    let numdim = VG.length (v V.! 0)
+    varV :: VUM.MVector s (Int, a) <- VGM.new numdim 
+    forM [0..numdim-1] $ \i -> do
+        let xs   = fmap (VG.! i) v
+            dist = train xs :: Normal a a
+            var  = variance dist
+        VGM.write varV i (i,var)
+    Intro.sortBy (\(_,v2) (_,v1) -> compare v2 v1) varV
+    VG.freeze varV
+
+shuffleVec :: VG.Vector v a => VU.Vector Int -> v a -> v a
+shuffleVec vmap v = runST $ do
+    ret <- VGM.new (VG.length v)
+    forM [0..VG.length v-1] $ \i -> do
+        VGM.write ret i $ v VG.! (vmap VG.! i)
+    VG.freeze ret
+
 -- printTreeStats :: String -> Tree -> IO ()
 printTreeStats str t = do
     putStrLn (str++" stats:")

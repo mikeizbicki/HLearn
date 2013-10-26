@@ -46,6 +46,8 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.ST
 import Data.Semigroup
+import qualified Data.Strict.Maybe as Strict
+import qualified Data.Strict.Tuple as Strict
 import Data.List
 import qualified Data.Foldable as F
 
@@ -74,23 +76,29 @@ class (MetricSpace dp) => SpaceTree t dp where
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
     stMinDistance :: t dp -> t dp -> Ring dp
-    stMinDistance t1 t2 = fst $ stMinDistanceWithDistance t1 t2
+    stMinDistance t1 t2 = Strict.fst $ stMinDistanceWithDistance t1 t2
     stMaxDistance :: t dp -> t dp -> Ring dp
-    stMaxDistance t1 t2 = fst $ stMaxDistanceWithDistance t1 t2
+    stMaxDistance t1 t2 = Strict.fst $ stMaxDistanceWithDistance t1 t2
     
-    stMinDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
-    stMaxDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
-
+--     stMinDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
+--     stMaxDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
+    stMinDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Ring dp) (Ring dp)
+    stMaxDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Ring dp) (Ring dp)
 
     {-# INLINE stMinDistanceDp #-}
     {-# INLINE stMaxDistanceDp #-}
     stMinDistanceDp :: t dp -> dp -> Ring dp
-    stMinDistanceDp t dp = fst $ stMinDistanceDpWithDistance t dp
+    stMinDistanceDp t dp = Strict.fst $ stMinDistanceDpWithDistance t dp
     stMaxDistanceDp :: t dp -> dp -> Ring dp
-    stMaxDistanceDp t dp = fst $ stMaxDistanceDpWithDistance t dp
+    stMaxDistanceDp t dp = Strict.fst $ stMaxDistanceDpWithDistance t dp
 
-    stMinDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
-    stMaxDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
+    stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
+    stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
+
+--     stMinDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
+--     stMaxDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
+    stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
+    stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
 
     stMinDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
     stMaxDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
@@ -237,15 +245,15 @@ prunefoldW prune f b t = if prune b t
         b' = f (stNodeW t) b
 
 {-# INLINABLE prunefoldA #-}
-prunefoldA :: SpaceTree t a => (t a -> b -> Maybe b) -> b -> t a -> b
+prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
-    Nothing -> b
-    Just b' -> if stIsLeaf t
+    Strict.Nothing -> b
+    Strict.Just b' -> if stIsLeaf t
         then b'
---         else foldl' (prunefoldA f) b' (stChildren t)
         else if stWeight t == 0
             then foldl' (prunefoldA f) b  (stChildren t)
             else foldl' (prunefoldA f) b' (stChildren t)
+--         else foldl' (prunefoldA f) b' (stChildren t)
 
 
 {-# INLINE noprune #-}
@@ -392,15 +400,16 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
 
     stMinDistanceDp Unit dp = 0
     stMinDistanceDp (UnitLift x) dp = stMinDistanceDp x dp
-
     stMaxDistanceDp Unit dp = infinity
     stMaxDistanceDp (UnitLift x) dp = stMaxDistanceDp x dp
 
-    stMinDistanceDpWithDistance Unit dp = (0,0)
+    stMinDistanceDpWithDistance Unit dp = 0 Strict.:!: 0
     stMinDistanceDpWithDistance (UnitLift x) dp = stMinDistanceDpWithDistance x dp
-
-    stMaxDistanceDpWithDistance Unit dp = (infinity,infinity)
+    stMaxDistanceDpWithDistance Unit dp = infinity Strict.:!: infinity
     stMaxDistanceDpWithDistance (UnitLift x) dp = stMaxDistanceDpWithDistance x dp
+
+    stIsMinDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMinDistanceDpFartherThanWithDistance x dp b
+    stIsMaxDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMaxDistanceDpFartherThanWithDistance x dp b
 
     stMinDistanceDpFromDistance Unit _ _ = 0
     stMinDistanceDpFromDistance (UnitLift x) dp dist = stMinDistanceDpFromDistance x dp dist
