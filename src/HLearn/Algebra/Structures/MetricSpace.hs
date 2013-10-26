@@ -3,6 +3,7 @@ module HLearn.Algebra.Structures.MetricSpace
     where
           
 import Data.List
+import qualified Data.Strict.Maybe as Strict
 import Data.Monoid
 import HLearn.Algebra.Structures.Modules
                     
@@ -18,14 +19,22 @@ class
     , RealFrac (Ring s)
     ) => MetricSpace s
         where
+    {-# INLINABLE isFartherThan #-}
+    {-# INLINABLE isFartherThanWithDistance #-}
 
     distance :: s -> s -> Ring s
     
     isFartherThan :: s -> s -> Ring s -> Bool
-    isFartherThan s1 s2 b = distance s1 s2>b
+    isFartherThan s1 s2 b = case isFartherThanWithDistance s1 s2 b of
+        Strict.Nothing -> True
+        Strict.Just _ -> False 
 
-    distanceFastMono :: s -> s -> Ring s
-    distanceFastMono = distance
+    isFartherThanWithDistance :: s -> s -> Ring s -> Strict.Maybe (Ring s)
+    isFartherThanWithDistance s1 s2 b = if dist > b
+        then Strict.Nothing
+        else Strict.Just $ dist
+        where
+            dist = distance s1 s2
 
 class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m
@@ -64,8 +73,6 @@ instance (RealFrac a, Floating a) => MetricSpace (a,a) where
             pt1 = (x1-x2)*(x1-x2)
             threshold=b*b
 
-    distanceFastMono (x1,y1) (x2,y2) = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
-         
 instance HasRing (Double,Double,Double,Double,Double) where
     type Ring (Double,Double,Double,Double,Double) = Double
 
