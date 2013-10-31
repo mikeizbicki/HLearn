@@ -1,17 +1,17 @@
 This program performs fast cross-validation on the Census Income data set in CSV format.
 It's main purpose is for run time comparison with Weka.
-
+> 
 > {-# LANGUAGE DataKinds #-}
 > {-# LANGUAGE TypeFamilies #-}
 > {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE TemplateHaskell #-}
->
+> 
 > import HLearn.Algebra
 > import HLearn.Models.Distributions
 > import HLearn.Models.Classifiers.Bayes
 > import HLearn.Models.Classifiers.Common
 > import HLearn.Evaluation.CrossValidation
->
+> 
 > import Control.Applicative
 > import Control.Monad
 > import Data.Csv
@@ -43,7 +43,7 @@ That's why _income is not strict, but everything else is.
 >    }
 >    deriving (Read,Show,Eq,Ord)
 > makeTypeLenses ''Person
-
+> 
 > data TestData = TestData { _a :: String, _b :: Int, _c :: Double }
 > makeTypeLenses ''TestData
 > instance Labeled TestData where
@@ -95,7 +95,7 @@ It is easy to do non-naive Bayesian learning by specifying a more complicated de
 See this tutorial http://izbicki.me/blog/markov-networks-monoids-and-futurama for more details on how.
 
 > type NB = Bayes TH_income NBDist
->
+> 
 > type NBDist = (Multivariate Person 
 >               '[ MultiCategorical '[String]
 >                , Independent Categorical (Replicate 8 String)
