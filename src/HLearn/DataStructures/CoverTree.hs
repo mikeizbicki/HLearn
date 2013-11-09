@@ -11,6 +11,11 @@ module HLearn.DataStructures.CoverTree
     , pruneSingletons
     , addGhostData
 
+    -- * drawing
+    , draw
+    , draw'
+    , IntShow (..)
+
     -- * QuickCheck properties
     , property_separating
     , property_covering
@@ -34,6 +39,7 @@ import qualified Data.Strict.Tuple as Strict
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Unboxed as VU
 
 import Test.QuickCheck
@@ -47,6 +53,9 @@ import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor hiding (weight)
 import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
+
+import HLearn.Models.Classifiers.Common
+import HLearn.Metrics.Lebesgue
 
 -------------------------------------------------------------------------------
 -- data types
@@ -704,5 +713,19 @@ connect n1 n2
         atop ((location b1 ~~ location b2) # lc green # lw 0.03)
 --          ((location b1 ~~ location b2) # lc green # lw 0.03)
 
-intShow :: (Double,Double) -> String
-intShow (x,y) = show (floor x::Int,floor y::Int)
+
+class IntShow a where
+    intShow :: a -> String
+
+instance IntShow (Double,Double) where
+    intShow (x,y) = show (floor x::Int,floor y::Int)
+
+instance (VG.Vector (L2 v) r, RealFrac r) => IntShow (L2 v r) where
+    intShow v = show (map floor $ VG.toList v)
+
+instance (IntShow attr,Show label) => IntShow (MaybeLabeled label attr) where
+    intShow dp = "("++label++","++intShow (getAttributes dp)++")"
+        where
+            label = case getLabel dp of
+                Just x -> show x
+                Nothing -> "_"

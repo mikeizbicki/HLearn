@@ -83,8 +83,8 @@ main = do
 
     case k params of 
         1 -> runit params (undefined :: Tree) (undefined :: KNN2 1 DP)
---         2 -> runit params (undefined :: Tree) (undefined :: KNN2 2 DP)
---         3 -> runit params (undefined :: Tree) (undefined :: KNN2 3 DP)
+        2 -> runit params (undefined :: Tree) (undefined :: KNN2 2 DP)
+        3 -> runit params (undefined :: Tree) (undefined :: KNN2 3 DP)
 --         4 -> runit params (undefined :: Tree) (undefined :: KNN2 4 DP)
 --         5 -> runit params (undefined :: Tree) (undefined :: KNN2 5 DP)
 --         6 -> runit params (undefined :: Tree) (undefined :: KNN2 6 DP)
@@ -95,8 +95,8 @@ main = do
         otherwise -> error "specified k value not supported"
 
 {-# SPECIALIZE runit :: Params -> Tree -> KNN2 1 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 2 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 3 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 2 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> KNN2 3 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 4 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 5 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 6 DP -> IO ()#-}

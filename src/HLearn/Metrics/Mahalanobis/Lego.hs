@@ -25,7 +25,8 @@ data Lego' dp = Lego'
     , c :: !(Matrix (Ring dp))
     , x :: Matrix (Ring dp)
     }
-    deriving (Read,Show)
+    
+deriving instance (Element (Ring dp), Show (Ring dp)) => Show (Lego' dp)
 
 instance NFData dp => NFData (Lego' dp) where
     rnf lego = deepseq b

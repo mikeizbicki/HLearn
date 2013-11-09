@@ -8,7 +8,7 @@ import HLearn.Algebra
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 import HLearn.Models.Classifiers.Centroid
-import HLearn.Models.Classifiers.NearestNeighbor
+import HLearn.Models.Classifiers.NaiveNN
 
 -------------------------------------------------------------------------------
 -- data structures
