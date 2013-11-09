@@ -1,115 +1,71 @@
-module HLearn.Metrics.Mahalanobis'
+module HLearn.Metrics.Mahalanobis
     where
 
-import qualified Data.Foldable as F
-import qualified Data.Semigroup as SG
+import Control.DeepSeq
+import qualified Data.Vector.Generic as VG
 
 import Foreign.Storable
-import Numeric.LinearAlgebra hiding ((<>))
+import Numeric.LinearAlgebra hiding ((<>),dim)
 import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
-import HLearn.Models.Distributions.Common
 
 -------------------------------------------------------------------------------
--- data types 
+-- data types
 
-type Mahalanobis dp = AddUnit1 Mahalanobis' dp
-
-data Mahalanobis' dp = Mahalanobis' 
-    { raw      :: !(RawMoments dp)
-    , meanV    :: Vector (Ring dp)
-    , covar    :: Matrix (Ring dp)
-    , invcovar :: Matrix (Ring dp)
-    , pdfdenom :: Ring dp
+data Mahalanobis dp = Mahalanobis
+    { rawdp :: !dp
+    , moddp :: !dp
     }
-    deriving (Read,Show)
+    deriving (Read,Show,Eq,Ord)
 
-data RawMoments dp = RawMoments
-    { m0 :: !(Ring dp)
-    , m1 :: !(Vector (Ring dp))
-    , m2 :: !(Matrix (Ring dp))
-    }
-    deriving (Read,Show)
+instance NFData dp => NFData (Mahalanobis dp) where
+    rnf m = deepseq (rawdp m) 
+          $ rnf (moddp m)
 
-mkMahalanobis' :: 
+---------------------------------------
+
+dim :: VG.Vector dp r => Mahalanobis (dp r) -> Int
+dim m = VG.length $ rawdp m 
+
+---------------------------------------
+
+class 
     ( Storable (Ring dp)
     , Element (Ring dp)
+    , Container Vector (Ring dp)
+    , LA.Product (Ring dp)
     , Field (Ring dp)
-    , Floating (Ring dp)
-    ) => RawMoments dp -> Mahalanobis' dp
-mkMahalanobis' raw = Mahalanobis'
-    { raw = raw
-    , meanV = meanV' 
-    , covar = covar'
-    , invcovar = inv covar'
-    , pdfdenom = 1/(sqrt $ det covar' * (2*pi)^d)
-    }
-    where
-        n = m0 raw
-        d = dim $ m1 raw
-        meanV' = mapVector (/n) (m1 raw)
-        covar' = mapMatrixWithIndex (\(i,j) mij -> (mij/n-(meanV' @> j)*(meanV' @> i))) (m2 raw)
+    ) => MatrixField dp
+
+instance 
+    ( Storable (Ring dp)
+    , Element (Ring dp)
+    , Container Vector (Ring dp)
+    , LA.Product (Ring dp)
+    , Field (Ring dp)
+    ) => MatrixField dp
+
+class MkMahalanobis params where
+    mkMahalanobis :: params -> Datapoint params -> Mahalanobis (Datapoint params)
 
 -------------------------------------------------------------------------------
 -- algebra
 
-instance 
-    ( Container Matrix (Ring dp)
-    , Container Vector (Ring dp)
-    , Field (Ring dp)
-    , Floating (Ring dp)
-    ) => SG.Semigroup (Mahalanobis' dp) 
-        where
-    d1 <> d2 = mkMahalanobis' $ RawMoments 
-        { m0 = m0 (raw d1) + m0 (raw d2)
-        , m1 = m1 (raw d1) `LA.add` m1 (raw d2)
-        , m2 = m2 (raw d1) `LA.add` m2 (raw d2)
-        }
-
--------------------------------------------------------------------------------
--- training 
-
-instance Num a => HasRing [a] where 
-    type Ring [a] = a
+instance HasRing dp => HasRing (Mahalanobis dp) where
+    type Ring (Mahalanobis dp) = Ring dp
 
 instance 
-    ( Element r 
-    , Container Vector r
-    , Field r
+    ( RealFrac r
     , Floating r
     , Ring (dp r) ~ r
-    , F.Foldable dp
-    ) => HomTrainer (Mahalanobis (dp r)) 
-        where
-    type Datapoint (Mahalanobis (dp r)) = dp r
+    , HasRing (dp r)
+    , VG.Vector dp r
+    ) => MetricSpace (Mahalanobis (dp r)) where
+    {-# INLINABLE distance #-}
 
-    train1dp dp = UnitLift . mkMahalanobis' $ RawMoments
-        { m0 = 1
-        , m1 = fromList $ F.toList dp 
-        , m2 = n><n $ [i*j | i <- F.toList dp, j <- F.toList dp]
-        }
+    distance !m1 !m2 = {-# SCC distance #-} sqrt $ go 0 (dim m1-1)
         where
-            n = length $ F.toList dp
-
--------------------------------------------------------------------------------
--- distribution 
-
-instance Probabilistic (Mahalanobis dp) where
-    type Probability (Mahalanobis dp) = Ring dp
-
-instance 
-    ( Element r
-    , Container Vector r
-    , Floating r
-    , LA.Product r
-    , Ring (dp r) ~ r
-    , F.Foldable dp 
-    ) => PDF (Mahalanobis (dp r)) 
-        where
-    pdf (UnitLift dist) dp = pdfdenom dist * (exp $ (-1/2) * top) 
-        where
-            x = fromList $ F.toList dp
-            top=minElement $ ((asRow  x) `sub` (asRow $ meanV dist)) 
-                       LA.<> (invcovar dist) 
-                       LA.<> ((asColumn x) `sub` (asColumn $ meanV dist))
+            go tot (-1) = tot
+            go tot i = go (tot+(((rawdp m1) `VG.unsafeIndex` i)-((rawdp m2) `VG.unsafeIndex` i))
+                              *(((moddp m1) `VG.unsafeIndex` i)-((moddp m2) `VG.unsafeIndex` i))) (i-1)

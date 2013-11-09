@@ -15,12 +15,40 @@ class Labeled dp where
     getLabel :: dp -> Label dp
     getAttributes :: dp -> Attributes dp
 
+---------------------------------------
+
 instance Labeled (label,attr) where
     type Label (label,attr) = label
     type Attributes (label,attr) = attr
     
     getLabel = fst
     getAttributes = snd
+
+---------------------------------------
+
+data MaybeLabeled label attr = MaybeLabeled
+    { label :: Maybe label
+    , attr :: attr
+    }
+    deriving (Read,Show,Eq,Ord)
+
+noLabel :: attr -> MaybeLabeled label attr
+noLabel attr = MaybeLabeled
+    { label = Nothing
+    , attr = attr
+    }
+
+instance Labeled (MaybeLabeled label attr) where
+    type Label (MaybeLabeled label attr) = Maybe label
+    type Attributes (MaybeLabeled label attr) = attr
+    getLabel = label
+    getAttributes = attr
+
+instance HasRing attr => HasRing (MaybeLabeled label attr) where
+    type Ring (MaybeLabeled label attr) = Ring attr
+
+instance MetricSpace attr => MetricSpace (MaybeLabeled label attr) where
+    distance (MaybeLabeled _ a1) (MaybeLabeled _ a2) = distance a1 a2
 
 -------------------------------------------------------------------------------
 -- Classification
