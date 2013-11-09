@@ -344,6 +344,9 @@ instance NFData (sg tag dp) => NFData (AddUnit sg tag dp) where
     rnf Unit = ()
     rnf (UnitLift sg) = rnf sg
 
+instance HasRing (sg tag dp) => HasRing (AddUnit sg tag dp) where
+    type Ring (AddUnit sg tag dp) = Ring (sg tag dp)
+
 instance Semigroup (sg tag dp) => Monoid (AddUnit sg tag dp) where
     {-# INLINE mempty #-}
     {-# INLINE mappend #-}

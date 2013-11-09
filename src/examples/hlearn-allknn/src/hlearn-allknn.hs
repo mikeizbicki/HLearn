@@ -39,9 +39,11 @@ import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.Metrics.Lebesgue
+import HLearn.Metrics.Mahalanobis
+import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
--- type DP = L2 VU.Vector Double
+-- type DP = L2 V.Vector Double
 type DP = L2 VU.Vector Float 
 -- type Tree = AddUnit (CoverTree' (2/1)) () DP
 -- type Tree = AddUnit (CoverTree' (3/2)) () DP
@@ -104,7 +106,7 @@ main = do
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 10 DP -> IO ()#-}
 runit :: forall k tree base dp ring. 
     ( MetricSpace dp
-    , MkCentroid dp
+--     , MkCentroid dp
     , Ord dp
     , SingI k
     , Show dp
@@ -117,17 +119,24 @@ runit :: forall k tree base dp ring.
     , dp ~ DP
     ) => Params -> AddUnit (CoverTree' base) () dp -> KNN2 k dp -> IO ()
 runit params tree knn = do
+
     -- build reference tree
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
---     Right (rs :: V.Vector dp) <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile $ ref 
---     let reftree = parallel train rs :: CoverTree dp -- Tree 
-    let reftree = {-parallel-} train rs :: CoverTree dp -- Tree 
+    
+--     rs <- do
+--         let mparams = train rs :: MahalanobisParams DP
+--         timeIO "learning metric" $ return $ rnf mparams
+--         let rs' = fmap (mkMahalanobis mparams) rs
+--         timeIO "mapping metric" $ return $ rnf rs'
+--         return $ rs'
+
+    let reftree = {-parallel-} train rs :: CoverTree DP 
     timeIO "building reference tree" $ return $ rnf reftree
     let reftree_prune = pruneExtraLeaves $ pruneSingletons $ unUnit reftree
     timeIO "pruning reference tree" $ return $ rnf reftree_prune
-    let reftree_ghost = {-addGhostData $-} unUnit reftree
-    timeIO "ghosting reference tree" $ return $ rnf reftree_ghost
+
+    -- distance metric
 
     -- verbose prints tree stats
     if verbose params 
@@ -135,7 +144,6 @@ runit params tree knn = do
             putStrLn ""
             printTreeStats "reftree      " reftree 
             printTreeStats "reftree_prune" $ UnitLift reftree_prune
-            printTreeStats "reftree_ghost" $ UnitLift reftree_ghost
         else return ()
 
     -- build query tree
@@ -143,13 +151,9 @@ runit params tree knn = do
         Nothing -> return $ UnitLift reftree_prune
         Just file -> do
             Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
---             let xs = map train $ CK.partition 4 qs :: [CoverTree dp]
---             timeIO "building query tree" $ do
---                 deepseq xs $ return ()
---                 return $ reduce xs
-            let tmptree=reduce $ parMap rdeepseq train $ CK.partition 4 qs :: CoverTree dp -- Tree
-            let tmptree=parallel train qs :: CoverTree dp -- Tree
-            timeIO "building query tree" $ return $ deepseq tmptree tmptree
+            undefined
+--             let tmptree=parallel train qs :: CoverTree (Mahalanobis dp) -- Tree
+--             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
     -- do knn search
 --     let action = dknn (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
@@ -159,7 +163,7 @@ runit params tree knn = do
 --     let action = knn2_single_parallel (DualTree reftree querytree) :: KNN2 k dp
 --     let action = knn2_single_parallelM (DualTree (unUnit reftree) (unUnit querytree)) :: KNN2 k dp
 --     let action = knn2_single_parallel (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
-    let action = knn2_single_parallel (DualTree (unUnit reftree) (unUnit reftree)) :: KNN2 k dp
+    let action = knn2_single_parallel (DualTree (unUnit reftree) (unUnit reftree)) :: KNN2 k DP
     res <- timeIO "computing knn2_single_parallel" $ return $ deepseq action action 
 
 --     let action = knn2_single_parallelM (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp

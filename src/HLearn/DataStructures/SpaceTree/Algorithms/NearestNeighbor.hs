@@ -11,6 +11,7 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     -- * functions
     , knn
     , knn_cata
+    , getknnL
 
     , knn2_single
     , knn2_single_parallel
@@ -90,6 +91,10 @@ last' Nil' = undefined
 last' (x:.Nil') = x
 last' (x:.xs) = last' xs
 
+take' 0 xs = Nil'
+take' i Nil' = Nil'
+take' i (x:.xs) = x:.(take' (i-1) xs)
+
 strictlist2list :: List' a -> [a]
 strictlist2list Nil' = []
 strictlist2list (x:.xs) = x:(strictlist2list xs)
@@ -98,6 +103,9 @@ strictlist2list (x:.xs) = x:(strictlist2list xs)
 
 -- newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
 newtype KNN (k::Nat) dp = KNN { getknn :: List' (Neighbor dp) }
+
+getknnL :: KNN k dp -> [Neighbor dp]
+getknnL = strictlist2list . getknn
 
 deriving instance (Read dp, Read (Ring dp)) => Read (KNN k dp)
 deriving instance (Show dp, Show (Ring dp)) => Show (KNN k dp)
@@ -135,9 +143,20 @@ instance (SingI k, MetricSpace dp, Eq dp) => Monoid (KNN k dp) where
     mappend (KNN Nil'     ) (KNN (y:.Nil')) = {-# SCC mappend_KNN #-} KNN $ y:.Nil'
     mappend (KNN (x:.xs)  ) (KNN (y:.ys)  ) = {-# SCC mappend_KNN #-} case k of
         1 -> if x < y then KNN (x:.Nil') else KNN (y:.Nil')
+        otherwise -> KNN $ take' k $ interleave (x:.xs) (y:.ys)
         where
             k=fromIntegral $ fromSing (sing :: Sing k)
--- 
+
+            interleave :: (Eq a, Ord (Ring a)) => List' (Neighbor a) -> List' (Neighbor a) -> List' (Neighbor a)
+            interleave !xs Nil' = xs
+            interleave Nil' !ys = ys
+            interleave (x:.xs) (y:.ys) = case compare x y of
+                LT -> x:.(interleave xs (y:.ys))
+                GT -> y:.(interleave (x:.xs) ys)
+                EQ -> if neighbor x == neighbor y
+                    then x:.interleave xs ys
+                    else x:.(y:.(interleave xs ys))
+
 
 --     mempty = KNN mempty 
 --     mappend (KNN [ ]) (KNN [ ]) = {-# SCC mappend_KNN #-} KNN [ ]
@@ -173,9 +192,31 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
 -------------------------------------------------------------------------------
 -- single tree
 
+-- {-# INLINABLE knn #-}
+-- knn :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
+-- knn query t = prunefoldA (knn_cata query) mempty t
+-- 
+-- {-# INLINABLE knn_cata #-}
+-- knn_cata :: forall k t dp. 
+--     ( SingI k
+--     , SpaceTree t dp
+--     , Eq dp
+--     ) => dp -> t dp -> KNN k dp -> Strict.Maybe (KNN k dp)
+-- 
+-- knn_cata !query !t !res@(KNN Nil') = if stNode t == query
+--     then Strict.Just res
+--     else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) (distance (stNode t) query)):.Nil'
+-- 
+-- knn_cata !query !t !res@(KNN (x:.Nil')) =  
+--     case stIsMinDistanceDpFartherThanWithDistance t query (knn_maxdist res) of
+--         Strict.Nothing -> Strict.Nothing
+--         Strict.Just dist -> if stWeight t==0 || stNode t==query || neighborDistance x<=dist
+--             then Strict.Just res
+--             else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) dist):.Nil'
+
 {-# INLINABLE knn #-}
 knn :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knn query t = {-# SCC knnA #-} prunefoldA (knn_cata query) mempty t
+knn query t = prunefoldA (knn_cata query) mempty t
 
 {-# INLINABLE knn_cata #-}
 knn_cata :: forall k t dp. 
@@ -184,16 +225,18 @@ knn_cata :: forall k t dp.
     , Eq dp
     ) => dp -> t dp -> KNN k dp -> Strict.Maybe (KNN k dp)
 
-knn_cata !query !t !res@(KNN Nil') = {-# SCC knn_cata_1 #-} if stNode t == query
+knn_cata !query !t !res@(KNN Nil') = if stNode t == query
     then Strict.Just res
     else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) (distance (stNode t) query)):.Nil'
 
-knn_cata !query !t !res@(KNN (x:.Nil')) = {-# SCC knn_cata_2 #-} 
+-- knn_cata !query !t !res@(KNN (x:.Nil')) =  
+knn_cata !query !t !res@(KNN (x:.xs)) =  
     case stIsMinDistanceDpFartherThanWithDistance t query (knn_maxdist res) of
         Strict.Nothing -> Strict.Nothing
         Strict.Just dist -> if stWeight t==0 || stNode t==query || neighborDistance x<=dist
             then Strict.Just res
-            else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) dist):.Nil'
+--             else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) dist):.Nil'
+            else Strict.Just $ res <> (KNN $ (Neighbor (stNode t) (stWeight t) dist):.Nil')
 
 -- knn_cata !query !t !res@(KNN (x:.Nil')) = {-# SCC knn_cata_2 #-} if knn_maxdist res < mindist && length' (getknn res) >= k
 --     then Strict.Nothing

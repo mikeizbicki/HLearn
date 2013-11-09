@@ -7,6 +7,7 @@ import Control.Monad.Primitive
 import Control.DeepSeq
 import Data.Csv
 import Data.Primitive.MutVar
+import qualified Data.Foldable as F
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -23,6 +24,9 @@ import HLearn.Algebra
 
 newtype L1 v a = L1 { unL1 :: v a }
     deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
+
+deriving instance F.Foldable v => F.Foldable (L1 v)
+deriving instance Functor v => Functor (L1 v)
 
 instance VG.Vector v a => VG.Vector (L1 v) a where
     {-# INLINE basicUnsafeFreeze #-}
@@ -90,6 +94,9 @@ instance (VU.Unbox r, RealFrac r,Floating r) => MetricSpace (L1 VU.Vector r) whe
 
 newtype L2 v a = L2 { unL2 :: v a }
     deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
+
+deriving instance F.Foldable v => F.Foldable (L2 v)
+deriving instance Functor v => Functor (L2 v)
 
 instance VG.Vector v a => VG.Vector (L2 v) a where
     {-# INLINE basicUnsafeFreeze #-}
@@ -161,6 +168,9 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
 newtype SquaredL2 v a = SquaredL2 { unSquaredL2 :: v a }
     deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
 
+deriving instance F.Foldable v => F.Foldable (SquaredL2 v)
+deriving instance Functor v => Functor (SquaredL2 v)
+
 instance VG.Vector v a => VG.Vector (SquaredL2 v) a where
     {-# INLINE basicUnsafeFreeze #-}
     {-# INLINE basicUnsafeThaw #-}
@@ -230,6 +240,9 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (SquaredL2 v r) 
 
 newtype Linf v a = Linf { unLinf :: v a }
     deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
+
+deriving instance F.Foldable v => F.Foldable (Linf v)
+deriving instance Functor v => Functor (Linf v)
 
 instance VG.Vector v a => VG.Vector (Linf v) a where
     {-# INLINE basicUnsafeFreeze #-}

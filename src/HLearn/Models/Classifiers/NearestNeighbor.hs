@@ -4,64 +4,93 @@ module HLearn.Models.Classifiers.NearestNeighbor
 import Control.Applicative
 import qualified Data.Foldable as F
 import Data.List
+import Data.Maybe
 
 import HLearn.Algebra
+import HLearn.DataStructures.SpaceTree
+import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
+
+import HLearn.DataStructures.CoverTree
+import HLearn.Metrics.Lebesgue
+import qualified Data.Vector.Unboxed as VU
 
 -------------------------------------------------------------------------------
 -- data structures
 
-newtype NaiveNN container label dp = NaiveNN
-    { getcontainer :: container (label,dp) }
---     deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
-    
-deriving instance (Show (container (label,dp))) => Show (NaiveNN container label dp)
-    
+newtype KNearestNeighbor tree (k::Nat) (dp:: *) = KNearestNeighbor
+    { gettree :: tree dp
+    }
+    deriving (Read,Show,Eq,Ord,Monoid,Group,Abelian)
+
 -------------------------------------------------------------------------------
 -- algebra
     
-instance (Monoid (container (label,dp))) => Monoid (NaiveNN container label dp) where
-    mempty = NaiveNN mempty
-    mappend nn1 nn2 = NaiveNN $ getcontainer nn1 `mappend` getcontainer nn2
+instance HasRing (tree dp) => HasRing (KNearestNeighbor tree k dp) where
+    type Ring (KNearestNeighbor tree k dp) = Ring (tree dp)
 
 -------------------------------------------------------------------------------
 -- model
 
 instance 
-    ( Applicative container
-    , Monoid (container (label,dp))
-    ) => HomTrainer (NaiveNN container label dp) 
+    ( HomTrainer (tree dp)
+    , Datapoint (tree dp) ~ dp
+    ) => HomTrainer (KNearestNeighbor tree k dp) 
         where
-    type Datapoint (NaiveNN container label dp) = (label,dp) 
-    train1dp ldp = NaiveNN $ pure ldp
+    type Datapoint (KNearestNeighbor tree k dp) = dp 
+
+    train1dp dp = KNearestNeighbor $ train1dp dp
+    train dps = KNearestNeighbor $ train dps
+    add1dp m dp = KNearestNeighbor $ add1dp (gettree m) dp
+    addBatch m dps = KNearestNeighbor $ addBatch (gettree m) dps
     
 -------------------------------------------------------------------------------
 -- classification
 
-instance (Probabilistic (NaiveNN container label dp)) where
-    type Probability (NaiveNN container label dp) = Double
+instance Probabilistic (KNearestNeighbor tree k dp) where
+    type Probability (KNearestNeighbor tree k dp) = Ring (KNearestNeighbor tree k dp)
 
-neighborList :: 
-    ( F.Foldable container
-    , MetricSpace dp
-    , Ord (Ring dp)
-    ) => dp -> NaiveNN container label dp -> [(label,dp)]
-neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
-    where
-        f (_,dp1) (_,dp2) = compare (distance dp dp1) (distance dp dp2)
-
+instance
+    ( dp ~ MaybeLabeled label attr
+    , SpaceTree tree dp
+    , SingI k
+    , Eq dp
+    , Ord (Label dp)
+    , HasRing (tree dp)
+    ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
+        where
+    type ResultDistribution (KNearestNeighbor tree k dp) = 
+            Categorical (Probability (KNearestNeighbor tree k dp)) (Label dp)
+    
+    probabilityClassify m dp = train . map (getLabel . neighbor) $ getknnL res 
+        where
+            res = knn (noLabel dp) (gettree m) :: KNN k dp
 
 instance 
-    ( Ord label
-    , label ~ Label (label,dp)
-    , F.Foldable container
-    , MetricSpace dp
-    , Ord (Ring dp)
-    ) => ProbabilityClassifier (NaiveNN container label dp)
+    ( ProbabilityClassifier (KNearestNeighbor tree k dp)
+    , Ord (Ring (tree dp))
+    , Ord (Label dp)
+    , HasRing (tree dp)
+    ) => Classifier (KNearestNeighbor tree k dp)
         where
-    type ResultDistribution (NaiveNN container label dp) = Categorical (Ring dp) label
-              
-    probabilityClassify nn dp = train (map fst $ take k $ neighborList dp nn)
-        where
-            k = 1
+    classify model dp = mean $ probabilityClassify model dp
+    
+-------------------------------------------------------------------------------
+-- test
+
+type DP = MaybeLabeled Char (L2 VU.Vector Double)
+
+zs = 
+    [ MaybeLabeled (Just 'x') $ L2 $ VU.fromList [2,3]
+    , MaybeLabeled (Just 'x') $ L2 $ VU.fromList [2,5]
+    , MaybeLabeled (Just 'x') $ L2 $ VU.fromList [3,5]
+    , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [3,-4]
+    , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [2,-2]
+    , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [2,-1]
+    ] 
+    :: [DP] 
+
+ct = train zs :: CoverTree DP 
+
+m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1)) ()) 2 DP
