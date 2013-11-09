@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Models.Classifiers.NearestNeighbor
     where
 
@@ -85,12 +87,19 @@ zs =
     [ MaybeLabeled (Just 'x') $ L2 $ VU.fromList [2,3]
     , MaybeLabeled (Just 'x') $ L2 $ VU.fromList [2,5]
     , MaybeLabeled (Just 'x') $ L2 $ VU.fromList [3,5]
-    , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [3,-4]
+    , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [3,4]
     , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [2,-2]
     , MaybeLabeled (Just 'y') $ L2 $ VU.fromList [2,-1]
     ] 
     :: [DP] 
 
-ct = train zs :: CoverTree DP 
+q1 = L2 $ VU.fromList [2,1.1] :: L2 VU.Vector Double
+q2 = L2 $ VU.fromList [5,5] :: L2 VU.Vector Double
+q3 = L2 $ VU.fromList [2,3] :: L2 VU.Vector Double
 
-m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1)) ()) 2 DP
+-- ct i = train $ take i zs :: CoverTree DP 
+-- ct' i = train $ take i $ map getAttributes zs :: CoverTree (Attributes DP) 
+ct = train zs :: CoverTree DP 
+ct' = train $ map getAttributes zs :: CoverTree (Attributes DP) 
+
+m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1)) ()) 1 DP

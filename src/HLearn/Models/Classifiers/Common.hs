@@ -30,7 +30,13 @@ data MaybeLabeled label attr = MaybeLabeled
     { label :: Maybe label
     , attr :: attr
     }
-    deriving (Read,Show,Eq,Ord)
+    deriving (Read,Show)
+
+instance Eq attr => Eq (MaybeLabeled label attr) where
+    a==b = attr a==attr b
+
+instance Ord attr => Ord (MaybeLabeled label attr) where
+    a `compare` b = attr a `compare` attr b
 
 noLabel :: attr -> MaybeLabeled label attr
 noLabel attr = MaybeLabeled
@@ -49,6 +55,8 @@ instance HasRing attr => HasRing (MaybeLabeled label attr) where
 
 instance MetricSpace attr => MetricSpace (MaybeLabeled label attr) where
     distance (MaybeLabeled _ a1) (MaybeLabeled _ a2) = distance a1 a2
+    isFartherThan dp1 dp2 = isFartherThan (getAttributes dp1) (getAttributes dp2)
+    isFartherThanWithDistance dp1 dp2 = isFartherThanWithDistance (getAttributes dp1) (getAttributes dp2)
 
 -------------------------------------------------------------------------------
 -- Classification
