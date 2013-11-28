@@ -3,14 +3,32 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+
+import Control.DeepSeq
+import Control.Monad
+import Control.Monad.Random
+import Foreign.Ptr
+import Foreign.ForeignPtr
+import Foreign.ForeignPtr.Safe
+import Foreign.Marshal.Utils
+import Foreign.Storable
+import System.Random
+import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Unboxed as VU
 
 import Criterion.Config
 import Criterion.Main
-
-import qualified Data.Vector.Unboxed as VU
+import qualified Data.Strict as Strict
 
 import HLearn.Algebra
 import HLearn.Metrics.Lebesgue
+import HLearn.DataStructures.SpaceTree.Simple
+import HLearn.DataStructures.CoverTree
+import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     
 myConfig = defaultConfig 
     { cfgPerformGC = ljust True
@@ -40,5 +58,72 @@ floattests x y =
     , bench "sqrt" $ nf sqrt x
     ]
 
-main = defaultMainWith myConfig (return ()) distancetests
+
+numdim = 20
+
+-- type DP = L2 VS.Vector Double
+type DP = (Double,Double)
+
+datapoint = do
+--     dp <- replicateM numdim $ getRandomR (-5,5)
+--     return $ L2 $ VG.fromList dp
+    x1 <- getRandomR (-5,5)
+    x2 <- getRandomR (-5,5)
+    return (x1,x2)    
+
+-- instance VG.Vector v Double => Storable (L2 v Double) where
+instance Storable (L2 VS.Vector Double) where
+    sizeOf _ = numdim*8
+    alignment _ = 8
+
+
+    peek ptr = do
+        fptr <- newForeignPtr_ $ castPtr ptr
+        return $ L2 $ VS.unsafeFromForeignPtr0 fptr numdim
+--     peek ptr = do
+--         xs <- forM [0..numdim-1] $ \i -> peekElemOff (castPtr ptr) i
+--         return $ VG.fromList xs
+
+    poke ptr (L2 v) = do
+        return ()
+--         let (vfptr,off,len) = VS.unsafeToForeignPtr v
+--         let vptr = unsafeForeignPtrToPtr vfptr
+--         copyBytes ptr (castPtr vptr) (len*8)
+--     poke ptr v = do
+--         forM_ [0..numdim-1] $ \i -> pokeElemOff (castPtr ptr) i (v VG.! i)
+
+instance Storable (Double,Double) where
+    sizeOf _ = 8*2
+    alignment _ = 8
+    peek ptr = do
+        x1 <- peekElemOff (castPtr ptr) 0
+        x2 <- peekElemOff (castPtr ptr) 1
+        return $ (x1,x2)
+    poke ptr (x1,x2) = do
+        pokeElemOff (castPtr ptr) 0 x1
+        pokeElemOff (castPtr ptr) 1 x2
+
+main = do
+    let seed = 0
+    let xs = evalRand (replicateM 100 datapoint) (mkStdGen seed)
+    let query = evalRand datapoint (mkStdGen $ seed+1)
+
+    let simple = train xs :: Simple V.Vector DP
+    let simpleS = train xs :: Simple VS.Vector DP
+    let simpleU = train xs :: Simple VU.Vector DP
+    let covertree = train xs :: CoverTree DP
+
+    deepseq simple $ return ()
+    deepseq simpleS $ return ()
+    deepseq simpleU $ return ()
+    deepseq covertree $ return ()
+
+    defaultMainWith myConfig (return ()) $ 
+        [ bench "Simple" $ nf (simple_knn query (mempty :: KNN 1 DP)) simple
+        , bench "SimpleS" $ nf (simple_knn query (mempty :: KNN 1 DP)) simpleS
+        , bench "SimpleU" $ nf (simple_knn query (mempty :: KNN 1 DP)) simpleU
+        , bench "CoverTree" $ nf (knn query :: CoverTree DP -> KNN 1 DP) covertree
+        ]
+
+--     defaultMainWith myConfig (return ()) distancetests
 -- main = defaultMainWith myConfig (return ()) $ (floattests (1.1::Float) (48.78::Float)) ++ floattests (1.1::Double) (48.78::Double)

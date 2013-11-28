@@ -5,7 +5,10 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 
     -- * data types
     Neighbor (..)
+    
     , KNN (..)
+    , mkKNN
+
     , KNN2 (..)
 
     -- * functions
@@ -109,6 +112,9 @@ strictlist2list (x:.xs) = x:(strictlist2list xs)
 
 -- newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
 newtype KNN (k::Nat) dp = KNN { getknn :: List' (Neighbor dp) }
+
+mkKNN :: Num (Ring dp) => dp -> Ring dp -> KNN k dp
+mkKNN dp dist = KNN $ Neighbor dp 1 dist :. Nil'
 
 getknnL :: KNN k dp -> [Neighbor dp]
 getknnL = strictlist2list . getknn

@@ -11,6 +11,7 @@ module HLearn.DataStructures.SpaceTree
 
     -- * Generic algorithms
     , stToList
+    , stToListW
     , stDescendents
     , stNumDp
     , stNumNodes
@@ -129,6 +130,16 @@ stToList t = if stIsLeaf t && stWeight t > 0
             then (stNode t) : xs
             else xs
     
+{-# INLINABLE stToListW #-}
+stToListW :: (Eq dp, SpaceTree t dp) => t dp -> [Weighted dp]
+stToListW t = if stIsLeaf t && stWeight t > 0
+    then [(stWeight t,stNode t)]
+    else go (concat $ map stToListW $ stChildren t)
+    where
+        go xs = if stWeight t > 0 
+            then (stWeight t,stNode t) : xs
+            else xs
+
 {-# INLINABLE toTagList #-}
 toTagList :: (Eq dp, SpaceTree (t tag) dp, Taggable t dp) => t tag dp -> [(dp,tag)]
 toTagList t = if stIsLeaf t
