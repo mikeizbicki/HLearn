@@ -7,6 +7,7 @@ data Coord ring = Coord
     { coordx::ring
     , coordy::ring
     }
+    deriving (Read,Show,Eq,Ord)
 
 instance Labeled (Coord ring) where
     type Label (Coord ring) = ring

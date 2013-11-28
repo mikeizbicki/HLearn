@@ -19,6 +19,7 @@ Library
         template-haskell,
         containers          >= 0.5,
         vector              >= 0.10,
+        array               >= 0.4,
         
         erf                 >= 2.0,
         gamma               >= 0.9,
@@ -99,6 +100,7 @@ Library
         HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
         HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
         HLearn.DataStructures.SpaceTree.DualTreeMonoids
+        HLearn.DataStructures.SpaceTree.Simple
         HLearn.DataStructures.KDTree
         --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 

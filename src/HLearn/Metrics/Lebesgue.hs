@@ -69,25 +69,26 @@ type instance VG.Mutable (L1 v) = L1M (VG.Mutable v)
 instance Num r => HasRing (L1 v r) where
     type Ring (L1 v r) = r
 
-instance (VU.Unbox r, RealFrac r,Floating r) => MetricSpace (L1 VU.Vector r) where
+instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L1 v r) where
+-- instance (VG.Unbox r, RealFrac r,Floating r) => MetricSpace (L1 VG.Vector r) where
     {-# INLINABLE distance #-}
     {-# INLINABLE isFartherThan #-}
 
-    distance !(L1 v1) !(L1 v2) = go 0 (VU.length v1-1)
+    distance !(L1 v1) !(L1 v2) = go 0 (VG.length v1-1)
         where
             go tot (-1) = tot
-            go tot i = go (tot+(abs $ v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)) (i-1)
---             go tot i = go (tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
---                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)) (i-1)
+            go tot i = go (tot+(abs $ v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
+--             go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+--                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
-    isFartherThan !(L1 v1) !(L1 v2) !dist = go 0 (VU.length v1-1) 
+    isFartherThan !(L1 v1) !(L1 v2) !dist = go 0 (VG.length v1-1) 
         where
             go tot (-1) = False 
             go tot i = if tot'>dist
                 then True
                 else go tot' (i-1)
                 where
-                    tot' = tot+(abs $ v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
+                    tot' = tot+(abs $ v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 
 -------------------------------------------------------------------------------
 -- L2
@@ -285,25 +286,26 @@ type instance VG.Mutable (Linf v) = LinfM (VG.Mutable v)
 instance Num r => HasRing (Linf v r) where
     type Ring (Linf v r) = r
 
-instance (VU.Unbox r, RealFrac r,Floating r) => MetricSpace (Linf VU.Vector r) where
+instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (Linf v r) where
+-- instance (VG.Unbox r, RealFrac r,Floating r) => MetricSpace (Linf VG.Vector r) where
     {-# INLINABLE distance #-}
     {-# INLINABLE isFartherThan #-}
 
-    distance !(Linf v1) !(Linf v2) = go 0 (VU.length v1-1)
+    distance !(Linf v1) !(Linf v2) = go 0 (VG.length v1-1)
         where
             go tot (-1) = tot
-            go tot i = go (tot+(max (v1 `VU.unsafeIndex` i) (v2 `VU.unsafeIndex` i))) (i-1)
---             go tot i = go (tot+(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)
---                               *(v1 `VU.unsafeIndex` i-v2 `VU.unsafeIndex` i)) (i-1)
+            go tot i = go (tot+(max (v1 `VG.unsafeIndex` i) (v2 `VG.unsafeIndex` i))) (i-1)
+--             go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+--                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
-    isFartherThan !(Linf v1) !(Linf v2) !dist = go 0 (VU.length v1-1) 
+    isFartherThan !(Linf v1) !(Linf v2) !dist = go 0 (VG.length v1-1) 
         where
             go tot (-1) = False 
             go tot i = if tot'>dist
                 then True
                 else go tot' (i-1)
                 where
-                    tot' = tot+(max (v1 `VU.unsafeIndex` i) (v2 `VU.unsafeIndex` i))
+                    tot' = tot+(max (v1 `VG.unsafeIndex` i) (v2 `VG.unsafeIndex` i))
 
 ---------------------------------------
 

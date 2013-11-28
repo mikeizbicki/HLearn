@@ -49,11 +49,13 @@ instance
     ( VG.Vector dp r
     , Ring (dp r) ~ r
     , LA.Product r
+    , Field r
     ) =>  MkMahalanobis (MahalanobisParams (dp r)) 
         where
+    type MetricDatapoint (MahalanobisParams (dp r)) = dp r
     mkMahalanobis (MahalanobisParams m) dp = Mahalanobis
         { rawdp = dp
-        , moddp = VG.fromList $ toList $ flatten $ covar m LA.<> asColumn v
+        , moddp = VG.fromList $ toList $ flatten $ inv (covar m) LA.<> asColumn v
         }
         where
             v = fromList $ VG.toList dp

@@ -85,7 +85,7 @@ instance (Floating ring) => HomTrainer (PowerLaw ring) where
 -------------------------------------------------------------------------------
 -- classification
 
-instance (Floating ring) => Classifier (PowerLaw ring) where
+instance (Floating ring, Eq ring) => Classifier (PowerLaw ring) where
     classify m x = (exp a)*(x**b)
         where
             b = ((n m)*(lnxlny m)-(lnx m)*(lny m))/((n m)*(lnx2 m)-(lnx m)^2)

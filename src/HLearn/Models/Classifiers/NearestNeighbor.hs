@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 
 module HLearn.Models.Classifiers.NearestNeighbor
+    ( KNearestNeighbor (..)
+    )
     where
 
 import Control.Applicative
@@ -60,12 +62,14 @@ instance
     , Eq dp
     , Ord (Label dp)
     , HasRing (tree dp)
+    , Ring (tree dp) ~ Ring dp
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where
     type ResultDistribution (KNearestNeighbor tree k dp) = 
             Categorical (Probability (KNearestNeighbor tree k dp)) (Label dp)
     
     probabilityClassify m dp = train . map (getLabel . neighbor) $ getknnL res 
+--     probabilityClassify m dp = reduce . map (\dp -> (1+1/neighborDistance dp) .* train1dp (getLabel $ neighbor dp)) $ getknnL res 
         where
             res = knn (noLabel dp) (gettree m) :: KNN k dp
 
