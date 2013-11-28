@@ -131,9 +131,9 @@ runit params tree knn = do
 --         timeIO "mapping metric" $ return $ rnf rs'
 --         return $ rs'
 
-    let reftree = {-parallel-} train rs :: CoverTree DP 
+    let reftree = parallel train rs :: CoverTree DP 
     timeIO "building reference tree" $ return $ rnf reftree
-    let reftree_prune = pruneExtraLeaves $ pruneSingletons $ unUnit reftree
+    let reftree_prune = {-pruneExtraLeaves $ pruneSingletons $ -} unUnit reftree
     timeIO "pruning reference tree" $ return $ rnf reftree_prune
 
     -- distance metric
@@ -250,6 +250,9 @@ printTreeStats str t = do
     putStr (str++"  stNumNodes...........") >> hFlush stdout >> putStrLn (show $ stNumNodes t) 
     putStr (str++"  stNumLeaves..........") >> hFlush stdout >> putStrLn (show $ stNumLeaves t) 
     putStr (str++"  stNumGhosts..........") >> hFlush stdout >> putStrLn (show $ stNumGhosts t) 
+    putStr (str++"  stNumGhostSingletons.") >> hFlush stdout >> putStrLn (show $ stNumGhostSingletons t) 
+    putStr (str++"  stNumGhostLeaves.....") >> hFlush stdout >> putStrLn (show $ stNumGhostLeaves t) 
+    putStr (str++"  stNumGhostSelfparent.") >> hFlush stdout >> putStrLn (show $ stNumGhostSelfparent t) 
     putStr (str++"  stAveGhostChildren...") >> hFlush stdout >> putStrLn (show $ mean $ stAveGhostChildren t) 
     putStr (str++"  stMaxChildren........") >> hFlush stdout >> putStrLn (show $ stMaxChildren t) 
     putStr (str++"  stAveChildren........") >> hFlush stdout >> putStrLn (show $ mean $ stAveChildren t) 
