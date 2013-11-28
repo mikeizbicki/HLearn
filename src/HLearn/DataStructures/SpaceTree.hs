@@ -18,6 +18,9 @@ module HLearn.DataStructures.SpaceTree
     , stNumLeaves
     , stNumGhosts
     , stAveGhostChildren
+    , stNumGhostSingletons
+    , stNumGhostLeaves
+    , stNumGhostSelfparent
     , stMaxChildren
     , stAveChildren
     , stMaxDepth
@@ -212,6 +215,30 @@ stNumSingletons t = if stIsLeaf t
     else sum (map stNumSingletons $ stChildren t) + if length (stChildren t) == 1
         then 1
         else 0 
+
+{-# INLINABLE stNumGhostSingletons #-}
+stNumGhostSingletons :: SpaceTree t dp => t dp -> Int
+stNumGhostSingletons t = if stIsLeaf t
+    then 0
+    else sum (map stNumGhostSingletons $ stChildren t) + if length (stChildren t) == 1 && stWeight t==0
+        then 1
+        else 0 
+
+{-# INLINABLE stNumGhostLeaves #-}
+stNumGhostLeaves :: SpaceTree t dp => t dp -> Int
+stNumGhostLeaves t = if stIsLeaf t
+    then if stWeight t==0
+        then 1
+        else 0
+    else sum (map stNumGhostLeaves $ stChildren t)
+
+{-# INLINABLE stNumGhostSelfparent #-}
+stNumGhostSelfparent :: (Eq dp, SpaceTree t dp) => t dp -> Int
+stNumGhostSelfparent t = if stIsLeaf t 
+    then 0
+    else sum (map stNumGhostSelfparent $ stChildren t) + if stWeight t==0 && stNode t `Data.List.elem` map stNode (stChildren t)
+        then 1
+        else 0
 
 {-# INLINABLE stExtraLeaves #-}
 stExtraLeaves :: (Eq dp, SpaceTree t dp) => t dp -> Int
