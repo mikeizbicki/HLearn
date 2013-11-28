@@ -95,7 +95,6 @@ Library
         Data.Prunable
         HLearn.DataStructures.SortedVector
         HLearn.DataStructures.CoverTree
-        HLearn.DataStructures.CoverTreeNoopt
         HLearn.DataStructures.SpaceTree
         HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
         HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
