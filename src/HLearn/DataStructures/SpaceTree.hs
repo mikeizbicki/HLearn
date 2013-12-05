@@ -236,7 +236,8 @@ stNumGhostLeaves t = if stIsLeaf t
 stNumGhostSelfparent :: (Eq dp, SpaceTree t dp) => t dp -> Int
 stNumGhostSelfparent t = if stIsLeaf t 
     then 0
-    else sum (map stNumGhostSelfparent $ stChildren t) + if stWeight t==0 && stNode t `Data.List.elem` map stNode (stChildren t)
+    else sum (map stNumGhostSelfparent $ stChildren t) 
+       + if stWeight t==0 && stNode t `Data.List.elem` map stNode (stChildren t)
         then 1
         else 0
 

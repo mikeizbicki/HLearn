@@ -106,7 +106,6 @@ main = do
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 10 DP -> IO ()#-}
 runit :: forall k tree base dp ring. 
     ( MetricSpace dp
---     , MkCentroid dp
     , Ord dp
     , SingI k
     , Show dp
@@ -123,20 +122,11 @@ runit params tree knn = do
     -- build reference tree
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
-    
---     rs <- do
---         let mparams = train rs :: MahalanobisParams DP
---         timeIO "learning metric" $ return $ rnf mparams
---         let rs' = fmap (mkMahalanobis mparams) rs
---         timeIO "mapping metric" $ return $ rnf rs'
---         return $ rs'
 
     let reftree = parallel train rs :: CoverTree DP 
     timeIO "building reference tree" $ return $ rnf reftree
     let reftree_prune = {-pruneExtraLeaves $ pruneSingletons $ -} unUnit reftree
     timeIO "pruning reference tree" $ return $ rnf reftree_prune
-
-    -- distance metric
 
     -- verbose prints tree stats
     if verbose params 
@@ -152,29 +142,11 @@ runit params tree knn = do
         Just file -> do
             Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
             undefined
---             let tmptree=parallel train qs :: CoverTree (Mahalanobis dp) -- Tree
---             timeIO "building query tree" $ return $ deepseq tmptree tmptree
 
+    {-
     -- do knn search
---     let action = dknn (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
---     let action = dknn (DualTree (unUnit reftree) (unUnit querytree)) :: KNN2 k dp
---     let action = knn2_slow (DualTree (unUnit reftree) (unUnit querytree)) :: KNN2 k dp
-
---     let action = knn2_single_parallel (DualTree reftree querytree) :: KNN2 k dp
---     let action = knn2_single_parallelM (DualTree (unUnit reftree) (unUnit querytree)) :: KNN2 k dp
---     let action = knn2_single_parallel (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
     let action = knn2_single_parallel (DualTree (unUnit reftree) (unUnit reftree)) :: KNN2 k DP
     res <- timeIO "computing knn2_single_parallel" $ return $ deepseq action action 
-
---     let action = knn2_single_parallelM (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
---     res <- timeIO "computing knn2_single_parallelM" $ return $ deepseq action action 
---     let action_ghost = knn2_single_parallelM (DualTree reftree_ghost reftree_ghost) :: KNN2 k dp
---     res <- timeIO "computing knn2_single_parallelM (ghost)" $ return $ deepseq action_ghost action_ghost
---     
---     let action = dknn (DualTree reftree_prune (unUnit querytree)) :: KNN2 k dp
---     res <- timeIO "computing dknn" $ return $ deepseq action action 
---     let action_ghost = dknn (DualTree reftree_ghost reftree_ghost) :: KNN2 k dp
---     res <- timeIO "computing dknn (ghost)" $ return $ deepseq action_ghost action_ghost
 
     -- output to files
     let rs_index = Map.fromList $ zip (V.toList rs) [0..]
@@ -199,7 +171,7 @@ runit params tree knn = do
             . Map.map (map neighbor . strictlist2list . getknn) 
             $ getknn2 res 
         hClose hNeighbors
-
+    -}
     -- end
     putStrLn "end"
 
