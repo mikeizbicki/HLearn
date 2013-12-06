@@ -57,6 +57,7 @@ import qualified Data.Foldable as F
 
 import HLearn.Algebra hiding ((<>))
 import HLearn.Models.Distributions
+import qualified HLearn.DataStructures.StrictList as Strict
 
 -------------------------------------------------------------------------------
 -- SpaceTree 
@@ -107,11 +108,12 @@ class (MetricSpace dp) => SpaceTree t dp where
     stMinDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
     stMaxDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
 
-    stHasNode  :: t dp -> Bool
-    stIsLeaf   :: t dp -> Bool
-    stChildren :: t dp -> [t dp]
-    stNode     :: t dp -> dp
-    stWeight   :: t dp -> Ring dp
+    stHasNode   :: t dp -> Bool
+    stIsLeaf    :: t dp -> Bool
+    stChildren  :: t dp -> [t dp]
+    stChildren' :: t dp -> Strict.List (t dp)
+    stNode      :: t dp -> dp
+    stWeight    :: t dp -> Ring dp
     
     {-# INLINE stNodeW #-}
     stNodeW :: t dp -> Weighted dp
@@ -290,8 +292,8 @@ prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
     Strict.Just b' -> if stIsLeaf t
         then b'
         else if stWeight t == 0
-            then foldl' (prunefoldA f) b  (stChildren t)
-            else foldl' (prunefoldA f) b' (stChildren t)
+            then F.foldl' (prunefoldA f) b  (stChildren' t)
+            else F.foldl' (prunefoldA f) b' (stChildren' t)
 --         else foldl' (prunefoldA f) b' (stChildren t)
 
 
@@ -425,6 +427,7 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
     {-# INLINE stMinDistanceDpWithDistance #-}
     {-# INLINE stMaxDistanceDpWithDistance #-}
     {-# INLINE stChildren #-}
+    {-# INLINE stChildren' #-}
     {-# INLINE stNode #-}
     {-# INLINE stHasNode #-}
     {-# INLINE stIsLeaf #-}
@@ -460,6 +463,10 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
 
     stChildren Unit = []
     stChildren (UnitLift x) = map UnitLift $ stChildren x
+
+    stChildren' Unit = Strict.Nil
+    stChildren' (UnitLift x) = fmap UnitLift $ stChildren' x
+
 
     stNode Unit = error "stNode Unit"
     stNode (UnitLift x) = stNode x

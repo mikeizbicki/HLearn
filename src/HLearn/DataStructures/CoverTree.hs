@@ -67,11 +67,9 @@ data CoverTree' (base::Frac) tag dp = Node
     { nodedp                :: !dp
     , sepdist               :: !(Ring dp)
     , weight                :: !(Ring dp)
-    , numdp                 :: !(Ring dp)
-    , maxDescendentDistance :: !(Ring dp)
+    , numdp                 :: (Ring dp)
+    , maxDescendentDistance :: (Ring dp)
     , children              :: !(Strict.List (CoverTree' base tag dp))
---     , childrenMap           :: !(Map.Map dp (CoverTree' base tag dp)) 
---     , childrenList          :: [CoverTree' base tag dp] -- intentionally lazy
     , tag                   :: !tag
     }
 
@@ -105,7 +103,10 @@ instance
     {-# INLINABLE stMaxDistanceDpWithDistance #-}
     {-# INLINABLE stMinDistanceDpFromDistance #-}
     {-# INLINABLE stMaxDistanceDpFromDistance #-}
+    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistance #-}
+    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
     {-# INLINABLE stChildren #-}
+    {-# INLINABLE stChildren' #-}
     {-# INLINABLE stNode #-}
     {-# INLINABLE stHasNode #-}
     {-# INLINABLE stIsLeaf #-}
@@ -134,6 +135,7 @@ instance
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
     stChildren  = Strict.strictlist2list . children--childrenList
+    stChildren' = children--childrenList
     stNode      = nodedp
     stWeight    = weight
     stHasNode _ = True
@@ -176,8 +178,8 @@ safeInsert :: forall base tag dp.
     ) => CoverTree' base tag dp -> Weighted dp -> CoverTree' base tag dp
 safeInsert node (0,_) = node
 safeInsert !node !(w,dp) = case insert node (w,dp) of
-    Just x -> x
-    Nothing -> Node
+    Strict.Just x -> x
+    Strict.Nothing -> Node
         { nodedp    = nodedp node
         , sepdist   = roundup (sing::Sing base) dist
         , weight    = 0 -- weight node
@@ -212,23 +214,22 @@ insert :: forall base tag dp.
     , Fractional (Ring dp)
     , Monoid tag
     , SingI base
-    ) => CoverTree' base tag dp -> Weighted dp -> Maybe (CoverTree' base tag dp)
+    ) => CoverTree' base tag dp -> Weighted dp -> Strict.Maybe (CoverTree' base tag dp)
 insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
-    then Nothing
-    else seq justnode $ Just justnode
-    where 
-        justnode = Node
-            { nodedp    = nodedp node
-            , sepdist   = sepdist node
-            , weight    = weight node
-            , numdp     = weight node + Strict.sum (fmap numdp children')
-            , tag       = tag node
-            , children  = children'
-            , maxDescendentDistance = max
-                (maxDescendentDistance node)
-                (distance (nodedp node) dp)
-            }
+    then Strict.Nothing
+    else Strict.Just $ Node
+        { nodedp    = nodedp node
+        , sepdist   = sepdist node
+        , weight    = weight node
+        , numdp     = weight node + Strict.sum (fmap numdp children')
+        , tag       = tag node
+        , children  = children'
+        , maxDescendentDistance = max
+            (maxDescendentDistance node)
+            (distance (nodedp node) dp)
+        }
 
+    where 
         children' :: List (CoverTree' base tag dp)
         children' = go $ children node
 
@@ -245,8 +246,8 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         go (x:.xs) = if isFartherThan (nodedp x) dp (sepdist x)
             then x:.go xs
             else case insert x (w,dp) of
-                Just x' -> x':.xs
-                Nothing -> error "Nothing" 
+                Strict.Just x' -> x':.xs
+--                 Strict.Nothing -> error "Nothing" 
 
         {-childrenMap' = if {-# SCC cond #-} hasInsert
             then {-# SCC cond_then #-} Map.insert key val $ childrenMap node
