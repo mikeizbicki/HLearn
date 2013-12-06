@@ -10,8 +10,6 @@ module HLearn.DataStructures.CoverTree
 --     , recover
 --     , trainct_insert
 
-    , setLeafSize
-
     -- * drawing
     , draw
     , draw'
@@ -71,7 +69,8 @@ data CoverTree' (base::Frac) tag dp = Node
     , weight                :: !(Ring dp)
     , numdp                 :: (Ring dp)
     , maxDescendentDistance :: (Ring dp)
-    , children              :: !(Strict.List (CoverTree' base tag dp))
+--     , children              :: !(Strict.List (CoverTree' base tag dp))
+    , children              :: !(V.Vector (CoverTree' base tag dp))
     , tag                   :: !tag
     }
 
@@ -109,6 +108,7 @@ instance
     {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
     {-# INLINABLE stChildren #-}
     {-# INLINABLE stChildren' #-}
+    {-# INLINABLE stChildren_ #-}
     {-# INLINABLE stNode #-}
     {-# INLINABLE stHasNode #-}
     {-# INLINABLE stIsLeaf #-}
@@ -136,15 +136,17 @@ instance
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
-    stChildren  = Strict.strictlist2list . children--childrenList
-    stChildren' = children--childrenList
+    stChildren  = V.toList . children
+    stChildren' = Strict.list2strictlist . V.toList . children
+    stChildren_ = children
     stNode      = nodedp
     stWeight    = weight
     stHasNode _ = True
 --     stIsLeaf ct = Map.size (childrenMap ct) == 0
-    stIsLeaf ct = case children ct of   
-        Strict.Nil -> True
-        otherwise -> False
+    stIsLeaf ct = V.null $ children ct
+--     stIsLeaf ct = case children ct of   
+--         Strict.Nil -> True
+--         otherwise -> False
 
     ro _ = 0
     lambda !ct = maxDescendentDistance ct 
@@ -187,7 +189,7 @@ safeInsert !node !(w,dp) = case insert node (w,dp) of
         , weight    = 0 -- weight node
         , numdp     = 0 + Strict.sum (fmap numdp children')
         , tag       = mempty
-        , children  = children'
+        , children  = V.fromList $ Strict.strictlist2list children'
         , maxDescendentDistance = max
             (maxDescendentDistance node)
             (distance (nodedp node) dp)
@@ -225,7 +227,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         , weight    = weight node
         , numdp     = weight node + Strict.sum (fmap numdp children')
         , tag       = tag node
-        , children  = children'
+        , children  = V.fromList $ Strict.strictlist2list children'
         , maxDescendentDistance = max
             (maxDescendentDistance node)
             (distance (nodedp node) dp)
@@ -233,7 +235,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
 
     where 
         children' :: List (CoverTree' base tag dp)
-        children' = go $ children node
+        children' = go $ Strict.list2strictlist $ V.toList $ children node
 
         go Nil = (Node 
                     { nodedp = dp
@@ -352,7 +354,7 @@ ctmerge' ct1 ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
         ( 
           flip safeInsert (stNodeW ct2) $ 
           ct1
-            { children = children'
+            { children = V.fromList $ Strict.strictlist2list children'
             , maxDescendentDistance 
 --                 = sepdist_parent ct1
                 = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
@@ -407,7 +409,7 @@ growct ct d = if sepdist ct==0 || stIsLeaf ct
             , weight    = 0 -- weight ct
             , numdp     = numdp ct
             , tag       = mempty
-            , children  = ct:.Strict.Nil
+            , children  = V.fromList $ Strict.strictlist2list $ ct:.Strict.Nil
             , maxDescendentDistance = maxDescendentDistance ct
             }
             ) d
@@ -538,21 +540,21 @@ extractLeaf ct = if stIsLeaf ct
                 Just c' -> Map.fromList $ (nodedp c', c'):(tail $ Map.toList $ childrenMap ct)
 -}
 
-setLeafSize :: (MetricSpace dp, SingI base, Ord dp) => Int -> CoverTree' base tag dp -> CoverTree' base tag dp
-setLeafSize n ct = if stNumNodes ct < n
-    then ct { children = fmap singleton $ Strict.list2strictlist $ stToListW ct } 
-    else ct { children = fmap (setLeafSize n) $ children ct }
-    where
---         singleton :: Weighted dp -> CoverTree' base tag dp
-        singleton (w,dp) = Node
-            { nodedp = dp
-            , weight = w
-            , numdp = w
-            , sepdist = sepdist_child ct
-            , maxDescendentDistance = 0
-            , children = mempty
-            , tag = tag ct
-            }
+-- setLeafSize :: (MetricSpace dp, SingI base, Ord dp) => Int -> CoverTree' base tag dp -> CoverTree' base tag dp
+-- setLeafSize n ct = if stNumNodes ct < n
+--     then ct { children = fmap singleton $ Strict.list2strictlist $ stToListW ct } 
+--     else ct { children = fmap (setLeafSize n) $ children ct }
+--     where
+-- --         singleton :: Weighted dp -> CoverTree' base tag dp
+--         singleton (w,dp) = Node
+--             { nodedp = dp
+--             , weight = w
+--             , numdp = w
+--             , sepdist = sepdist_child ct
+--             , maxDescendentDistance = 0
+--             , children = mempty
+--             , tag = tag ct
+--             }
              
 
 -------------------------------------------------------------------------------
@@ -616,23 +618,23 @@ property_covering (UnitLift node) = if not $ stIsLeaf node
 
 property_leveled  :: MetricSpace dp => CoverTree dp -> Bool
 property_leveled (Unit) = True
-property_leveled (UnitLift node) = case fmap sepdist (children node) of
-    Nil -> True
-    xs -> Strict.all (== Strict.head xs) xs
-       && Strict.and (fmap (property_leveled . UnitLift) $ children node)
+-- property_leveled (UnitLift node) = case fmap sepdist (children node) of
+--     Nil -> True
+--     xs -> Strict.all (== Strict.head xs) xs
+--        && Strict.and (fmap (property_leveled . UnitLift) $ children node)
 
 property_separating  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_separating Unit = True
-property_separating (UnitLift node) = if Strict.length (children node) > 1 
-    then F.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
-      && F.and (fmap (property_separating . UnitLift) $ children node)
-    else True
-    where
-        mapFactorial :: (a -> a -> b) -> List a -> List b
-        mapFactorial f xs = go xs Nil
-            where
-                go Nil ys = ys
-                go (x:.xs) ys = go xs (fmap (f x) xs `mappend` ys)
+-- property_separating (UnitLift node) = if Strict.length (children node) > 1 
+--     then F.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
+--       && F.and (fmap (property_separating . UnitLift) $ children node)
+--     else True
+--     where
+--         mapFactorial :: (a -> a -> b) -> List a -> List b
+--         mapFactorial f xs = go xs Nil
+--             where
+--                 go Nil ys = ys
+--                 go (x:.xs) ys = go xs (fmap (f x) xs `mappend` ys)
 
 property_maxDescendentDistance  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_maxDescendentDistance Unit = True
@@ -740,8 +742,9 @@ draw' depth tree = mkConnections $
             then red
             else lightblue
 
-        mkConnections = connect (label++show depth) (label++show (depth+1)) 
-         . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ children tree))
+        mkConnections = undefined
+--          connect (label++show depth) (label++show (depth+1)) 
+--          . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ children tree))
             
 justdouble :: Maybe Double -> String
 justdouble Nothing = "0"
