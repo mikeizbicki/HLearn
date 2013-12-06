@@ -291,10 +291,10 @@ prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
     Strict.Just b' -> if stIsLeaf t
         then b'
-        else if stWeight t == 0
-            then F.foldl' (prunefoldA f) b  (stChildren' t)
-            else F.foldl' (prunefoldA f) b' (stChildren' t)
---         else foldl' (prunefoldA f) b' (stChildren t)
+--         else if stWeight t == 0
+--             then F.foldl' (prunefoldA f) b  (stChildren' t)
+--             else F.foldl' (prunefoldA f) b' (stChildren' t)
+        else F.foldl' (prunefoldA f) b' (stChildren' t)
 
 
 {-# INLINE noprune #-}
