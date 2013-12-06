@@ -298,12 +298,6 @@ prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
             else V.foldl' (prunefoldA f) b' (stChildren_ t)
 --         else V.foldl' (prunefoldA f) b' (stChildren_ t)
 
--- vfold' :: (a -> b -> a) -> a -> V.Vector b -> a
--- vfold' f a v = go (V.length v-1) a
---     where
---         go 0 tmp = f tmp (v `V.unsafeIndex` 0)
---         go i tmp = go (i-1) $ f tmp (v `V.unsafeIndex` i)
-
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool
 noprune _ _ = False
