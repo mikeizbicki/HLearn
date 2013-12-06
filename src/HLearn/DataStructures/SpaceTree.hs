@@ -50,10 +50,11 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.ST
 import Data.Semigroup
-import qualified Data.Strict.Maybe as Strict
-import qualified Data.Strict.Tuple as Strict
 import Data.List
 import qualified Data.Foldable as F
+import qualified Data.Strict.Maybe as Strict
+import qualified Data.Strict.Tuple as Strict
+import qualified Data.Vector as V
 
 import HLearn.Algebra hiding ((<>))
 import HLearn.Models.Distributions
@@ -112,6 +113,7 @@ class (MetricSpace dp) => SpaceTree t dp where
     stIsLeaf    :: t dp -> Bool
     stChildren  :: t dp -> [t dp]
     stChildren' :: t dp -> Strict.List (t dp)
+    stChildren_ :: t dp -> V.Vector (t dp)
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Ring dp
     
@@ -291,11 +293,16 @@ prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
     Strict.Just b' -> if stIsLeaf t
         then b'
---         else if stWeight t == 0
---             then F.foldl' (prunefoldA f) b  (stChildren' t)
---             else F.foldl' (prunefoldA f) b' (stChildren' t)
-        else F.foldl' (prunefoldA f) b' (stChildren' t)
+        else if stWeight t == 0
+            then V.foldl' (prunefoldA f) b  (stChildren_ t)
+            else V.foldl' (prunefoldA f) b' (stChildren_ t)
+--         else V.foldl' (prunefoldA f) b' (stChildren_ t)
 
+-- vfold' :: (a -> b -> a) -> a -> V.Vector b -> a
+-- vfold' f a v = go (V.length v-1) a
+--     where
+--         go 0 tmp = f tmp (v `V.unsafeIndex` 0)
+--         go i tmp = go (i-1) $ f tmp (v `V.unsafeIndex` i)
 
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool
@@ -428,6 +435,7 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
     {-# INLINE stMaxDistanceDpWithDistance #-}
     {-# INLINE stChildren #-}
     {-# INLINE stChildren' #-}
+    {-# INLINE stChildren_ #-}
     {-# INLINE stNode #-}
     {-# INLINE stHasNode #-}
     {-# INLINE stIsLeaf #-}
@@ -467,6 +475,8 @@ instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
     stChildren' Unit = Strict.Nil
     stChildren' (UnitLift x) = fmap UnitLift $ stChildren' x
 
+    stChildren_ Unit = mempty
+    stChildren_ (UnitLift x) = fmap UnitLift $ stChildren_ x
 
     stNode Unit = error "stNode Unit"
     stNode (UnitLift x) = stNode x
