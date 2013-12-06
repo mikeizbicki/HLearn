@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
     where
 
