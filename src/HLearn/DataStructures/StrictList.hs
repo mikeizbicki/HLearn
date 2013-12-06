@@ -21,7 +21,8 @@ import Prelude hiding
 -------------------------------------------------------------------------------
 -- data types
 
-data List a = (:.) !a !(List a) | Nil
+data List a = (:.) a !(List a) | Nil
+-- data List a = (:.) !a !(List a) | Nil
     deriving (Read,Show,Eq,Ord)
 
 infixr 5 :.
@@ -57,6 +58,10 @@ instance Monad List where
 strictlist2list :: List a -> [a]
 strictlist2list Nil = []
 strictlist2list (x:.xs) = x:(strictlist2list xs)
+
+list2strictlist :: [a] -> List a
+list2strictlist [] = Nil
+list2strictlist (x:xs) = x:.list2strictlist xs
 
 -------------------------------------------------------------------------------
 -- Prelude functions

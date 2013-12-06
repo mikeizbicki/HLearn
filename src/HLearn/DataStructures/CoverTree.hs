@@ -10,6 +10,8 @@ module HLearn.DataStructures.CoverTree
 --     , recover
 --     , trainct_insert
 
+    , setLeafSize
+
     -- * drawing
     , draw
     , draw'
@@ -344,21 +346,24 @@ ctmerge' :: forall base tag dp.
     , MetricSpace dp
     , Show dp
     ) => CoverTree' base tag dp -> CoverTree' base tag dp -> Maybe (CoverTree' base tag dp, [CoverTree' base tag dp])
-ctmerge' ct1 ct2 = undefined{-if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
+ctmerge' ct1 ct2 = if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
     then Nothing
     else Just 
         ( 
           flip safeInsert (stNodeW ct2) $ 
           ct1
-            { childrenMap = childrenMap'
-            , childrenList = Map.elems childrenMap'
+            { children = children'
             , maxDescendentDistance 
-                = sepdist_parent ct1
---                 = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
+--                 = sepdist_parent ct1
+                = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
             }
         , invalidchildren++invalid_newleftovers
         )
     where
+        children' = Strict.list2strictlist $ Map.elems childrenMap' 
+
+        childrenMap ct = Map.fromList $ map (\v -> (nodedp v,v)) $ stChildren ct
+
         childrenMap' = newchildren `Map.union` Map.fromList 
             (map (\x -> (nodedp x,growct x $ sepdist_child ct1)) valid_newleftovers)
 
@@ -384,7 +389,7 @@ ctmerge' ct1 ct2 = undefined{-if isFartherThan (nodedp ct1) (nodedp ct2) (sepdis
                          $ Map.delete old childmap
                        , leftovers'++leftovers
                        ) xs
--}
+
 growct :: forall base tag dp.
     ( Fractional (Ring dp)
     , Ord (Ring dp)
@@ -532,6 +537,24 @@ extractLeaf ct = if stIsLeaf ct
                 Nothing -> Map.fromList $ tail $ Map.toList $ childrenMap ct
                 Just c' -> Map.fromList $ (nodedp c', c'):(tail $ Map.toList $ childrenMap ct)
 -}
+
+setLeafSize :: (MetricSpace dp, SingI base, Ord dp) => Int -> CoverTree' base tag dp -> CoverTree' base tag dp
+setLeafSize n ct = if stNumNodes ct < n
+    then ct { children = fmap singleton $ Strict.list2strictlist $ stToListW ct } 
+    else ct { children = fmap (setLeafSize n) $ children ct }
+    where
+--         singleton :: Weighted dp -> CoverTree' base tag dp
+        singleton (w,dp) = Node
+            { nodedp = dp
+            , weight = w
+            , numdp = w
+            , sepdist = sepdist_child ct
+            , maxDescendentDistance = 0
+            , children = mempty
+            , tag = tag ct
+            }
+             
+
 -------------------------------------------------------------------------------
 -- training
 

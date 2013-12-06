@@ -125,9 +125,9 @@ runit params tree knn = do
     rs <- loaddata ref 
 
     let reftree = parallel train rs :: CoverTree DP 
-    timeIO "building reference tree" $ return $ rnf reftree
-    let reftree_prune = {-pruneExtraLeaves $ pruneSingletons $ -} unUnit reftree
-    timeIO "pruning reference tree" $ return $ rnf reftree_prune
+    timeIO "building reference tree" $ return reftree
+    let reftree_prune = {-setLeafSize 1 $-} unUnit reftree
+    timeIO "pruning reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
     if verbose params 
@@ -146,7 +146,7 @@ runit params tree knn = do
             undefined
 
     -- do knn search
-    let action = knn2_single_parallel (DualTree (unUnit reftree) (unUnit reftree)) :: KNN2 k DP
+    let action = knn2_single_parallel (DualTree (reftree_prune) (reftree_prune)) :: KNN2 k DP
     res <- timeIO "computing knn2_single_parallel" $ return action 
 
     -- output to files
@@ -191,9 +191,9 @@ loaddata filename = do
     putStrLn ""
 
     let shufflemap = mkShuffleMap rs
-    putStrLn "  shufflemap:"
-    forM [0..VU.length shufflemap-1] $ \i -> do
-        putStrLn $ "    " ++ show (fst $ shufflemap VU.! i) ++ ": " ++ show (snd $ shufflemap VU.! i) 
+--     putStrLn "  shufflemap:"
+--     forM [0..VU.length shufflemap-1] $ \i -> do
+--         putStrLn $ "    " ++ show (fst $ shufflemap VU.! i) ++ ": " ++ show (snd $ shufflemap VU.! i) 
     return $ V.map (shuffleVec $ VU.map fst shufflemap) rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
