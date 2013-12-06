@@ -26,7 +26,7 @@ This interpretation of machine learning is somewhat limitting in that not all mo
 
 * **NP-hard approximations**: k-centers, bin packing, multiprocessor scheduling
 
-* **Other**: markov chains
+* **Other**: markov chains, many nearest neighbor based algorithms with cover trees
 
 Note: These models not included in the latest hackage releases: decision stumps/trees, and k-nearest neighbor (kd-tree based)
 
