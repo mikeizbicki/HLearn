@@ -35,6 +35,7 @@ module HLearn.DataStructures.SpaceTree
     , prunefoldinit
     , prunefold
     , prunefoldA
+    , prunefoldB
 --     , prunefoldM
     , noprune
 
@@ -116,6 +117,10 @@ class (MetricSpace dp) => SpaceTree t dp where
     stChildren_ :: t dp -> V.Vector (t dp)
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Ring dp
+
+    {-# INLINE stNodeV #-}
+    stNodeV :: t dp -> V.Vector dp
+    stNodeV t = V.empty
     
     {-# INLINE stNodeW #-}
     stNodeW :: t dp -> Weighted dp
@@ -289,14 +294,30 @@ prunefoldW prune f b t = if prune b t
 
 {-# INLINABLE prunefoldA #-}
 prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
-prunefoldA f b t = {-# SCC prunefoldA #-} case f t b of
+prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
-    Strict.Just b' -> if stIsLeaf t
-        then b'
-        else if stWeight t == 0
-            then V.foldl' (prunefoldA f) b  (stChildren_ t)
-            else V.foldl' (prunefoldA f) b' (stChildren_ t)
+    Strict.Just b' -> V.foldl' (prunefoldA f) b' (stChildren_ t)
+
+{-# INLINABLE prunefoldB #-}
+prunefoldB :: SpaceTree t a => (b -> a -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
+prunefoldB !f1 !f2 !b !t = case f2 t b of
+    Strict.Nothing -> b
+    Strict.Just b' -> V.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
+        where
+            b'' = V.foldl' f1 b' (stNodeV t)
+--             b'' = if stIsLeaf t
+--                 then V.foldl' f1 b' (stNodeV t)
+--                 else b'
+
+--     Strict.Just b' -> if stIsLeaf t
+--         then b'
+-- --         else if stWeight t == 0
+-- --             then V.foldl' (prunefoldA f) b  (stChildren_ t)
+-- --             else V.foldl' (prunefoldA f) b' (stChildren_ t)
 --         else V.foldl' (prunefoldA f) b' (stChildren_ t)
+--         where
+--             b'' = V.foldl' f' b' (stNodeV t)
+--             f' = undefined
 
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool

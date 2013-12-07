@@ -9,6 +9,7 @@ module HLearn.DataStructures.CoverTree
 --     , unsafeMap
 --     , recover
 --     , trainct_insert
+    , setNodeV
 
     -- * drawing
     , draw
@@ -71,6 +72,7 @@ data CoverTree' (base::Frac) tag dp = Node
     , maxDescendentDistance :: (Ring dp)
 --     , children              :: !(Strict.List (CoverTree' base tag dp))
     , children              :: !(V.Vector (CoverTree' base tag dp))
+    , nodeV                 :: !(V.Vector dp)
     , tag                   :: !tag
     }
 
@@ -110,6 +112,7 @@ instance
     {-# INLINABLE stChildren' #-}
     {-# INLINABLE stChildren_ #-}
     {-# INLINABLE stNode #-}
+    {-# INLINABLE stNodeV #-}
     {-# INLINABLE stHasNode #-}
     {-# INLINABLE stIsLeaf #-}
 
@@ -139,6 +142,7 @@ instance
     stChildren  = V.toList . children
     stChildren' = Strict.list2strictlist . V.toList . children
     stChildren_ = children
+    stNodeV     = nodeV
     stNode      = nodedp
     stWeight    = weight
     stHasNode _ = True
@@ -150,6 +154,37 @@ instance
 
     ro _ = 0
     lambda !ct = maxDescendentDistance ct 
+
+setNodeV :: (MetricSpace dp, SingI base, Ord dp) => Int -> CoverTree' base tag dp -> CoverTree' base tag dp
+setNodeV n ct = if stNumNodes ct > n
+    then ct
+        { children = fmap (setNodeV n) $ V.filter (not . stIsLeaf) $ children ct
+        , nodeV = fmap nodedp $ V.filter stIsLeaf $ children ct
+        }
+    else ct
+        { children = mempty
+        , nodeV = V.fromList $ stToList ct
+        }
+
+-- setNodeV n = setNodeV_allchildren -- . setNodeV_modleaf n
+-- setNodeV n ct = (setNodeV_modleaf n ct)
+
+setNodeV_modleaf :: (MetricSpace dp, SingI base, Ord dp) => Int -> CoverTree' base tag dp -> CoverTree' base tag dp
+setNodeV_modleaf n ct = if stNumNodes ct > n
+    then ct { children = fmap (setNodeV_modleaf n) $ children ct }
+    else ct
+        { children = mempty
+        , nodeV = V.fromList $ stToList ct
+        }
+
+setNodeV_allchildren :: (MetricSpace dp, SingI base, Ord dp) => CoverTree' base tag dp -> CoverTree' base tag dp
+setNodeV_allchildren ct = ct
+    { children = fmap setNodeV_allchildren $ V.filter (not.check) $ children ct
+    , nodeV = fmap nodedp $ V.filter (check) $ children ct
+    }
+    where
+        check n = V.null (children n) 
+               && V.null (nodeV n)
 
 ---------------------------------------
 
@@ -190,6 +225,7 @@ safeInsert !node !(w,dp) = case insert node (w,dp) of
         , numdp     = 0 + Strict.sum (fmap numdp children')
         , tag       = mempty
         , children  = V.fromList $ Strict.strictlist2list children'
+        , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
             (distance (nodedp node) dp)
@@ -204,6 +240,7 @@ safeInsert !node !(w,dp) = case insert node (w,dp) of
                             , sepdist   = rounddown (sing::Sing base) dist
                             , tag       = mempty
                             , children  = mempty
+                            , nodeV     = mempty
                             , maxDescendentDistance = 0
                             })
                       :.Strict.Nil
@@ -228,6 +265,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         , numdp     = weight node + Strict.sum (fmap numdp children')
         , tag       = tag node
         , children  = V.fromList $ Strict.strictlist2list children'
+        , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
             (distance (nodedp node) dp)
@@ -244,6 +282,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
                     , numdp = w
                     , maxDescendentDistance = 0
                     , children = mempty
+                    , nodeV = mempty
                     , tag = mempty
                     })
                :.Nil
@@ -296,6 +335,7 @@ insertBatch ((!dp):dps) = go dps $ Node
     , numdp     = 1
     , tag       = mempty
     , children  = mempty
+    , nodeV     = mempty
     , maxDescendentDistance = 0
     }
     where
@@ -410,6 +450,7 @@ growct ct d = if sepdist ct==0 || stIsLeaf ct
             , numdp     = numdp ct
             , tag       = mempty
             , children  = V.fromList $ Strict.strictlist2list $ ct:.Strict.Nil
+            , nodeV     = mempty
             , maxDescendentDistance = maxDescendentDistance ct
             }
             ) d
@@ -577,6 +618,7 @@ instance
         , numdp     = 1
         , tag       = mempty
         , children  = mempty
+        , nodeV     = mempty
         , maxDescendentDistance = 0
         }
 

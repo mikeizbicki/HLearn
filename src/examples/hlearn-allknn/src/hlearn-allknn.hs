@@ -126,7 +126,7 @@ runit params tree knn = do
 
     let reftree = parallel train rs :: CoverTree DP 
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = {-setLeafSize 1 $-} unUnit reftree
+    let reftree_prune = setNodeV 20 $ unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -137,7 +137,6 @@ runit params tree knn = do
             printTreeStats "reftree_prune" $ UnitLift reftree_prune
         else return ()
 
-    
     -- build query tree
     querytree <- case query_file params of
         Nothing -> return $ UnitLift reftree_prune
@@ -146,8 +145,9 @@ runit params tree knn = do
             undefined
 
     -- do knn search
-    let action = knn2_single_parallel (DualTree (reftree_prune) (reftree_prune)) :: KNN2 k DP
-    res <- timeIO "computing knn2_single_parallel" $ return action 
+    let action = knn2_single_parallel (DualTree (reftree_prune) (unUnit reftree)) :: KNN2 k DP
+--     let action = knn2_single_parallel (DualTree (reftree_prune) (reftree_prune)) :: KNN2 k DP
+    res <- timeIO "computing knn2_single_parallel" $ return action
 
     -- output to files
     let rs_index = Map.fromList $ zip (V.toList rs) [0..]

@@ -13,6 +13,7 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 
     -- * functions
     , knn
+    , knn_
     , knn_cata
 
     , knn_noprune
@@ -22,6 +23,7 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 
     , knn2_single
     , knn2_single_parallel
+    , knn2_single_parallel_
 
     -- * tmp
     , knn_maxdist
@@ -174,7 +176,29 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
 
 {-# INLINABLE knn #-}
 knn :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knn query t = prunefoldA (knn_cata query) mempty t
+knn query t = knn_ query mempty t
+
+{-# INLINABLE knn_ #-}
+knn_ :: (SingI k, SpaceTree t dp, Eq dp) => dp -> KNN k dp -> t dp -> KNN k dp
+knn_ query knn t = prunefoldB (knn_catadp query) (knn_cata query) knn t
+-- knn query t = prunefoldA (knn_cata query) mempty t
+
+{-# INLINABLE knn_catadp #-}
+knn_catadp :: forall k dp.
+    ( SingI k
+    , MetricSpace dp
+    , Eq dp
+    ) => dp -> KNN k dp -> dp -> KNN k dp
+knn_catadp !query !res@(KNN Strict.Nil) !dp = if dp==query
+    then res
+    else KNN $ (Neighbor dp 1 (distance dp query)):.Strict.Nil
+
+knn_catadp !query !res@(KNN (x:.xs)) !dp =
+    case isFartherThanWithDistance dp query (knn_maxdist res) of
+        Strict.Nothing -> res
+        Strict.Just dist -> if dp==query 
+            then res
+            else res <> (KNN $ (Neighbor dp 1 dist):.Strict.Nil)
 
 {-# INLINABLE knn_cata #-}
 knn_cata :: forall k t dp. 
@@ -187,7 +211,6 @@ knn_cata !query !t !res@(KNN Strict.Nil) = if stNode t == query
     then Strict.Just res
     else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) (distance (stNode t) query)):.Strict.Nil
 
--- knn_cata !query !t !res@(KNN (x:.Strict.Nil)) =  
 knn_cata !query !t !res@(KNN (x:.xs)) =  
     case stIsMinDistanceDpFartherThanWithDistance t query (knn_maxdist res) of
         Strict.Nothing -> Strict.Nothing
@@ -223,5 +246,16 @@ knn2_single_parallel ::
     , NFData (Ring dp)
     , NFData dp
     ) => DualTree (t dp) -> KNN2 k dp
-knn2_single_parallel dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ map (\dp -> KNN2 $ Map.singleton dp $ knn dp $ reference dual) (stToList $ query dual)
+knn2_single_parallel dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ 
+    map (\dp -> KNN2 $ Map.singleton dp $ knn dp $ reference dual) (stToList $ query dual)
 
+{-# INLINABLE knn2_single_parallel_ #-}
+knn2_single_parallel_ :: 
+    ( SingI k
+    , SpaceTree t dp
+    , Ord dp
+    , NFData (Ring dp)
+    , NFData dp
+    ) => KNN2 k dp -> DualTree (t dp) -> KNN2 k dp
+knn2_single_parallel_ (KNN2 knn2) dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $
+    map (\dp -> KNN2 $ Map.singleton dp $ knn_ dp (Map.findWithDefault mempty dp knn2) $ reference dual) (stToList $ query dual)
