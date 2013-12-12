@@ -21,10 +21,15 @@ executable hlearn-knn
   ghc-options:        
         -rtsopts
         -threaded
-        -fllvm
         -O2
         -funbox-strict-fields
         -fexcess-precision
+        -Odph 
+        -fno-liberate-case 
+        -- -funfolding-use-threshold1000 
+        -- -funfolding-keeness-factor1000 
+        -fllvm 
+        -optlo-O3
         -- -prof
 
   -- other-modules:       
@@ -49,7 +54,8 @@ executable hlearn-knn
         diagrams-svg >=0.7, 
         parallel >=3.2, 
         MonadRandom >=0.1,
-        vector-algorithms >= 0.5
+        vector-algorithms >= 0.5,
+        strict >=0.3
 
   hs-source-dirs:      src
 executable hlearn-allknn
@@ -58,10 +64,15 @@ executable hlearn-allknn
   ghc-options:        
         -rtsopts
         -threaded
-        -fllvm
         -O2
         -funbox-strict-fields
         -fexcess-precision
+        -Odph 
+        -fno-liberate-case 
+        -- -funfolding-use-threshold1000 
+        -- -funfolding-keeness-factor1000 
+        -fllvm 
+        -optlo-O3
         -- -prof
 
   -- other-modules:       
@@ -86,6 +97,10 @@ executable hlearn-allknn
         diagrams-svg >=0.7, 
         parallel >=3.2, 
         MonadRandom >=0.1,
-        vector-algorithms >= 0.5
+        vector-algorithms >= 0.5,
+        strict >=0.3,
+        csv-conduit >=0.5,
+        conduit >= 1,
+        vector-th-unbox >= 0.2
 
   hs-source-dirs:      src

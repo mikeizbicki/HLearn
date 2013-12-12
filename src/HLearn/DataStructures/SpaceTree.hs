@@ -56,6 +56,7 @@ import qualified Data.Foldable as F
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Strict.Tuple as Strict
 import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
 
 import HLearn.Algebra hiding ((<>))
 import HLearn.Models.Distributions
@@ -78,7 +79,9 @@ class Taggable t dp where
     clearTags :: t tag dp -> t () dp
 
 
-class (MetricSpace dp) => SpaceTree t dp where
+class (MetricSpace dp, VG.Vector (LeafVector t) dp) => SpaceTree t dp where
+    type LeafVector t :: * -> *
+    type LeafVector t = V.Vector 
 
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
@@ -119,8 +122,8 @@ class (MetricSpace dp) => SpaceTree t dp where
     stWeight    :: t dp -> Ring dp
 
     {-# INLINE stNodeV #-}
-    stNodeV :: t dp -> V.Vector dp
-    stNodeV t = V.empty
+    stNodeV :: t dp -> (LeafVector t) dp
+    stNodeV t = VG.empty
     
     {-# INLINE stNodeW #-}
     stNodeW :: t dp -> Weighted dp
@@ -296,15 +299,15 @@ prunefoldW prune f b t = if prune b t
 prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
-    Strict.Just b' -> V.foldl' (prunefoldA f) b' (stChildren_ t)
+    Strict.Just b' -> VG.foldl' (prunefoldA f) b' (stChildren_ t)
 
 {-# INLINABLE prunefoldB #-}
-prunefoldB :: SpaceTree t a => (b -> a -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
-prunefoldB !f1 !f2 !b !t = case f2 t b of
-    Strict.Nothing -> b
-    Strict.Just b' -> V.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
+prunefoldB :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
+prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
+    Strict.Nothing -> {-# SCC prunefoldB_Nothing #-} b
+    Strict.Just b' -> {-# SCC prunefoldB_Just #-} VG.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
         where
-            b'' = V.foldl' f1 b' (stNodeV t)
+            b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
 --             b'' = if stIsLeaf t
 --                 then V.foldl' f1 b' (stNodeV t)
 --                 else b'
@@ -440,6 +443,7 @@ instance Taggable sg dp => Taggable (AddUnit sg) dp where
     clearTags (UnitLift sg) = UnitLift $ clearTags sg
 
 instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
+    type LeafVector (AddUnit sg tag) = LeafVector (sg tag)
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
     {-# INLINE stMinDistanceWithDistance #-}

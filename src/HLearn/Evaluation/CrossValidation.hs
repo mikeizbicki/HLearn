@@ -96,6 +96,24 @@ crossValidate genfolds loss xs _model = do
         let model = train trainingset `asTypeOf` _model
         return $ loss model testset
 
+crossValidate_group :: 
+    ( HomTrainer model
+    , Classifier model
+    , Abelian model
+    , Group model
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    ) => SamplingMethod -> LossFunction -> container (Datapoint model) -> model -> Rand g (Normal Double Double)
+crossValidate_group genfolds loss xs _model = do
+    let m = train xs `asTypeOf` _model
+    xs' <- genfolds $ F.toList xs
+    return $ train $ do
+        testset <- xs'
+        let model = m `subBatch` testset
+        return $ loss model testset
+
 cv_group :: (HomTrainer model, Group model) => 
     model -> [Datapoint model] -> (model -> [Datapoint model] -> Double) -> Normal Double Double
 cv_group m dps f = train $ do

@@ -190,7 +190,8 @@ main = do
         let docv zs = evalRandIO $ crossValidate 
                 (kfold 2)
                 errorRate
-                zs (undefined :: KNearestNeighbor (AddUnit (CoverTree' (2/1)) ()) 4 
+                zs 
+                (undefined :: KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector) ()) 4 
                                                (MaybeLabeled String (Mahalanobis (V.Vector Double)))) 
 
         x_legoI1 <- docv $ zs ys legoI1

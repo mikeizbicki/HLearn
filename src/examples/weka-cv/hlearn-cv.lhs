@@ -1,23 +1,24 @@
 This program performs fast cross-validation on the Census Income data set in CSV format.
 It's main purpose is for run time comparison with Weka.
-> 
+ 
 > {-# LANGUAGE DataKinds #-}
 > {-# LANGUAGE TypeFamilies #-}
 > {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE TemplateHaskell #-}
+> 
+> import Control.Applicative
+> import Control.Monad
+> import Control.Monad.Random
+> import Data.Csv
+> import qualified Data.Vector as V
+> import qualified Data.ByteString.Lazy.Char8  as BS
+> import System.Environment
 > 
 > import HLearn.Algebra
 > import HLearn.Models.Distributions
 > import HLearn.Models.Classifiers.Bayes
 > import HLearn.Models.Classifiers.Common
 > import HLearn.Evaluation.CrossValidation
-> 
-> import Control.Applicative
-> import Control.Monad
-> import Data.Csv
-> import qualified Data.Vector as V
-> import qualified Data.ByteString.Lazy.Char8  as BS
-> import System.Environment
 
 We represent a data point with the data type Person.
 The label is _income, and everything else is the attributes.
@@ -113,8 +114,9 @@ We have to print the mean and variance to force the result because of Haskell's 
 >    Right rawdata <- fmap (fmap V.toList . decode True) $ BS.readFile file
 >         :: IO (Either String [Person])
 >    putStrLn "done."
->    let model = train rawdata :: NB
->    let res= crossValidate_group (folds numfolds rawdata) (errorRate :: LossFunction NB)
+>    --let model = train rawdata :: NB
+>    --let res= crossValidate_group (folds numfolds rawdata) (errorRate :: LossFunction NB)
+>    let res= evalRandIO $ crossValidate_group (kfold numfolds) errorRate rawdata (undefined::NB)
 >    putStrLn $ "mean = "++show (mean res)
 >    putStrLn $ "variance = "++show (variance res)
 
