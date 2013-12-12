@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators,MultiParamTypeClasses #-}
 
 
 import Control.Applicative
@@ -10,11 +10,16 @@ import Data.List
 import Data.Maybe
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
+import qualified Data.Strict.Maybe as Strict
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import Data.Vector.Unboxed.Deriving
+import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Storable.Mutable as VSM
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Vector.Algorithms.Intro as Intro
 import Data.Proxy
@@ -31,6 +36,10 @@ import Debug.Trace
 import Diagrams.TwoD.Size
 import Diagrams.Backend.SVG
 
+import Data.Conduit
+import qualified Data.Conduit.List as CL
+import Data.CSV.Conduit
+
 import Control.Parallel.Strategies
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
@@ -44,13 +53,54 @@ import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
--- type DP = L2 V.Vector Double
-type DP = L2 VU.Vector Float 
--- type Tree = AddUnit (CoverTree' (2/1)) () DP
--- type Tree = AddUnit (CoverTree' (3/2)) () DP
-type Tree = AddUnit (CoverTree' (5/4)) () DP
--- type Tree = AddUnit (CoverTree' (9/8)) () DP
--- type Tree = AddUnit (CoverTree' (17/16)) () DP
+data DP2 = DP2 !Float !Float !Float !Float
+    deriving (Read,Show,Eq,Ord)
+
+-- instance VGM.MVector VUM.MVector DP2 where
+-- instance VG.Vector VU.Vector DP2 where
+
+derivingUnbox "DP2"
+    [t| DP2 -> (Float,Float,Float,Float) |]
+    [| \ (DP2 a1 a2 a3 a4) -> (a1,a2,a3,a4) |]
+    [| \ (a1,a2,a3,a4) -> (DP2 a1 a2 a3 a4) |]
+
+instance NFData DP2 where
+    rnf d = seq d ()
+
+instance HasRing DP2 where
+    type Ring DP2 = Float
+
+instance MetricSpace DP2 where
+    {-# INLINE distance #-}
+    distance (DP2 a1 a2 a3 a4) (DP2 b1 b2 b3 b4) = sqrt $ (a1-b1)*(a1-b1) 
+                                                        + (a2-b2)*(a2-b2)
+                                                        + (a3-b3)*(a3-b3)
+                                                        + (a4-b4)*(a4-b4)
+
+--     {-# INLINE isFartherThanWithDistance #-}
+--     isFartherThanWithDistance !(DP2 a1 a2 a3 a4) !(DP2 b1 b2 b3 b4) dist =
+--         case c1 < dist2 of
+--             False -> Strict.Nothing
+--             True -> case c2 < dist2 of
+--                 False -> Strict.Nothing
+--                 True -> case c3 < dist2 of
+--                     False -> Strict.Nothing
+--                     True -> Strict.Just $ sqrt c4
+--         where
+--             c1 = (a1-b1)*(a1-b1)
+--             c2 = (a2-b2)*(a2-b2)+c1
+--             c3 = (a3-b3)*(a3-b3)+c2
+--             c4 = (a4-b4)*(a4-b4)+c3
+--             dist2 = dist*dist
+
+instance FromRecord DP2 where
+    parseRecord v = DP2 <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
+
+type DP = L2 VU.Vector Float
+-- type DP = DP2 
+type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
+
+-- instance VG.Vector VU.Vector DP where
 
 data Params = Params
     { k :: Int
@@ -105,7 +155,7 @@ main = do
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 8 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 9 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 10 DP -> IO ()#-}
-runit :: forall k tree base dp ring. 
+runit :: forall k tree base nodeVvec dp ring. 
     ( MetricSpace dp
     , Ord dp
     , SingI k
@@ -116,17 +166,18 @@ runit :: forall k tree base dp ring.
     , RealFloat (Ring dp)
     , FromRecord dp 
     , VU.Unbox (Ring dp)
+    , VG.Vector nodeVvec dp
     , dp ~ DP
-    ) => Params -> AddUnit (CoverTree' base) () dp -> KNN2 k dp -> IO ()
+    ) => Params -> AddUnit (CoverTree' base nodeVvec) () dp -> KNN2 k dp -> IO ()
 runit params tree knn = do
 
     -- build reference tree
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
 
-    let reftree = parallel train rs :: CoverTree DP 
+    let reftree = parallel train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = setNodeV 20 $ unUnit reftree
+    let reftree_prune = setNodeV 10 $ unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -138,16 +189,16 @@ runit params tree knn = do
         else return ()
 
     -- build query tree
-    querytree <- case query_file params of
-        Nothing -> return $ UnitLift reftree_prune
-        Just file -> do
-            Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
-            undefined
+    let qs = Strict.list2strictlist $ V.toList rs
+--     querytree <- case query_file params of
+--         Nothing -> return $ UnitLift reftree_prune
+--         Just file -> do
+--             Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
+--             undefined
 
     -- do knn search
-    let action = knn2_single_parallel (DualTree (reftree_prune) (unUnit reftree)) :: KNN2 k DP
---     let action = knn2_single_parallel (DualTree (reftree_prune) (reftree_prune)) :: KNN2 k DP
-    res <- timeIO "computing knn2_single_parallel" $ return action
+    let result = knn2_single_parallel (DualTree (reftree_prune) (unUnit reftree)) :: KNN2 k DP
+    res <- timeIO "computing knn2_single_parallel" $ return result
 
     -- output to files
     let rs_index = Map.fromList $ zip (V.toList rs) [0..]
@@ -185,6 +236,8 @@ loaddata filename = do
         Right rs -> return rs
         Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
 
+    return $ rnf rs
+
     putStrLn "  dataset info:"
     putStrLn $ "    num dp:  " ++ show (V.length rs)
     putStrLn $ "    num dim: " ++ show (VG.length $ rs V.! 0)
@@ -195,6 +248,7 @@ loaddata filename = do
 --     forM [0..VU.length shufflemap-1] $ \i -> do
 --         putStrLn $ "    " ++ show (fst $ shufflemap VU.! i) ++ ": " ++ show (snd $ shufflemap VU.! i) 
     return $ V.map (shuffleVec $ VU.map fst shufflemap) rs
+--     return rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
 mkShuffleMap :: (VG.Vector v a, Floating a, Ord a, VU.Unbox a) => V.Vector (v a) -> VU.Vector (Int,a)
@@ -238,8 +292,12 @@ printTreeStats str t = do
     putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled t) 
     putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating t)
     putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance t) 
+    putStr (str++"  sepdistL...............") >> hFlush stdout >> putStrLn (show $ sepdistL $ unUnit t) 
 
     putStrLn ""
+
+time :: NFData a => a -> IO a
+time a = timeIO "timing function" $ return a
 
 timeIO :: NFData a => String -> IO a -> IO a
 timeIO str f = do 

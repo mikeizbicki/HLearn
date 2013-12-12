@@ -18,6 +18,7 @@ import HLearn.Models.Classifiers.Common
 
 import HLearn.DataStructures.CoverTree
 import HLearn.Metrics.Lebesgue
+import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 
 -------------------------------------------------------------------------------
@@ -103,7 +104,7 @@ q3 = L2 $ VU.fromList [2,3] :: L2 VU.Vector Double
 
 -- ct i = train $ take i zs :: CoverTree DP 
 -- ct' i = train $ take i $ map getAttributes zs :: CoverTree (Attributes DP) 
-ct = train zs :: CoverTree DP 
-ct' = train $ map getAttributes zs :: CoverTree (Attributes DP) 
+-- ct = train zs :: CoverTree DP 
+-- ct' = train $ map getAttributes zs :: CoverTree (Attributes DP) 
 
-m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1)) ()) 1 DP
+m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector) ()) 1 DP

@@ -142,21 +142,21 @@ instance Num r => HasRing (L2 v r) where
 
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
     {-# INLINABLE distance #-}
-    {-# INLINABLE isFartherThan #-}
+    {-# INLINABLE isFartherThanWithDistance #-}
 
     distance !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ go 0 (VG.length v1-1)
         where
-            go tot (-1) = tot
-            go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
+            go !tot (-1) = tot
+            go !tot !i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
-    isFartherThanWithDistance (L2 v1) (L2 v2) !dist = {-# SCC isFartherThanWithDistance #-} 
+    isFartherThanWithDistance !(L2 v1) !(L2 v2) !dist = {-# SCC isFartherThanWithDistance #-} 
         go 0 (VG.length v1-1)
         where
             dist2=dist*dist
 
-            go tot (-1) = Strict.Just $ sqrt tot
-            go tot i = if tot'>dist2
+            go !tot (-1) = Strict.Just $ sqrt tot
+            go !tot !i = if tot'>dist2
                 then Strict.Nothing
                 else go tot' (i-1)
                 where

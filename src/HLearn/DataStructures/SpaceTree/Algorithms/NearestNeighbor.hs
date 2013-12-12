@@ -21,6 +21,7 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 
     , getknnL
 
+    , knn_vector
     , knn2_single
     , knn2_single_parallel
     , knn2_single_parallel_
@@ -63,7 +64,7 @@ import HLearn.DataStructures.StrictList (List (..),strictlist2list)
 
 data Neighbor dp = Neighbor
     { neighbor         :: !dp
-    , weight           :: !(Ring dp)
+--     , weight           :: !(Ring dp)
     , neighborDistance :: !(Ring dp)
     }
 
@@ -81,11 +82,11 @@ instance (NFData dp, NFData (Ring dp)) => NFData (Neighbor dp) where
 
 ---------------------------------------
 
--- newtype KNN (k::Nat) dp = KNN { getknn :: [Neighbor dp] }
 newtype KNN (k::Nat) dp = KNN { getknn :: Strict.List (Neighbor dp) }
 
 mkKNN :: Num (Ring dp) => dp -> Ring dp -> KNN k dp
-mkKNN dp dist = KNN $ Neighbor dp 1 dist :. Strict.Nil
+-- mkKNN dp dist = KNN $ Neighbor dp 1 dist :. Strict.Nil
+mkKNN dp dist = KNN $ Neighbor dp dist :. Strict.Nil
 
 getknnL :: KNN k dp -> [Neighbor dp]
 getknnL = strictlist2list . getknn
@@ -176,7 +177,7 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (KNN2 k dp) where
 
 {-# INLINABLE knn #-}
 knn :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> KNN k dp
-knn query t = knn_ query mempty t
+knn query t = {-# SCC knn #-} knn_ query mempty t
 
 {-# INLINABLE knn_ #-}
 knn_ :: (SingI k, SpaceTree t dp, Eq dp) => dp -> KNN k dp -> t dp -> KNN k dp
@@ -188,17 +189,14 @@ knn_catadp :: forall k dp.
     ( SingI k
     , MetricSpace dp
     , Eq dp
-    ) => dp -> KNN k dp -> dp -> KNN k dp
-knn_catadp !query !res@(KNN Strict.Nil) !dp = if dp==query
-    then res
-    else KNN $ (Neighbor dp 1 (distance dp query)):.Strict.Nil
-
-knn_catadp !query !res@(KNN (x:.xs)) !dp =
-    case isFartherThanWithDistance dp query (knn_maxdist res) of
-        Strict.Nothing -> res
+    ) => dp -> dp -> KNN k dp -> KNN k dp
+knn_catadp !query !dp !knn = {-# SCC knn_catadp2 #-}
+    case isFartherThanWithDistance dp query (knn_maxdist knn) of
+        Strict.Nothing -> knn
         Strict.Just dist -> if dp==query 
-            then res
-            else res <> (KNN $ (Neighbor dp 1 dist):.Strict.Nil)
+            then knn
+            else knn <> (KNN $ (Neighbor dp dist):.Strict.Nil)
+--             else knn <> (KNN $ (Neighbor dp 1 dist):.Strict.Nil)
 
 {-# INLINABLE knn_cata #-}
 knn_cata :: forall k t dp. 
@@ -206,18 +204,13 @@ knn_cata :: forall k t dp.
     , SpaceTree t dp
     , Eq dp
     ) => dp -> t dp -> KNN k dp -> Strict.Maybe (KNN k dp)
-
-knn_cata !query !t !res@(KNN Strict.Nil) = if stNode t == query
-    then Strict.Just res
-    else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) (distance (stNode t) query)):.Strict.Nil
-
-knn_cata !query !t !res@(KNN (x:.xs)) =  
-    case stIsMinDistanceDpFartherThanWithDistance t query (knn_maxdist res) of
+knn_cata !query !t !knn = {-# SCC knn_cata2 #-} 
+    case stIsMinDistanceDpFartherThanWithDistance t query (knn_maxdist knn) of
         Strict.Nothing -> Strict.Nothing
-        Strict.Just dist -> if stWeight t==0 || stNode t==query -- || neighborDistance x<=dist
-            then Strict.Just res
---             else Strict.Just $ KNN $ (Neighbor (stNode t) (stWeight t) dist):.Strict.Nil
-            else Strict.Just $ res <> (KNN $ (Neighbor (stNode t) (stWeight t) dist):.Strict.Nil)
+        Strict.Just dist -> if stNode t==query 
+            then Strict.Just knn
+            else Strict.Just $ knn <> (KNN $ (Neighbor (stNode t) dist):.Strict.Nil)
+--             else Strict.Just $ knn <> (KNN $ (Neighbor (stNode t) (stWeight t) dist):.Strict.Nil)
 
 ---------------------------------------
 
@@ -230,13 +223,17 @@ knn_cata_noprune :: forall k t dp.
     , Eq dp
     ) => dp -> t dp -> KNN k dp -> Strict.Maybe (KNN k dp)
 knn_cata_noprune !query !t !res@(KNN (x:.xs)) =  
-    Strict.Just $ res <> (KNN $ (Neighbor (stNode t) (stWeight t) (distance (stNode t) query)):.Strict.Nil)
+    Strict.Just $ res <> (KNN $ (Neighbor (stNode t) (distance (stNode t) query)):.Strict.Nil)
+--     Strict.Just $ res <> (KNN $ (Neighbor (stNode t) (stWeight t) (distance (stNode t) query)):.Strict.Nil)
 
 ---------------------------------------
 
 {-# INLINABLE knn2_single #-}
 knn2_single :: (SingI k, SpaceTree t dp, Eq dp, F.Foldable t, Ord dp) => DualTree (t dp) -> KNN2 k dp
 knn2_single dual = F.foldMap (\dp -> KNN2 $ Map.singleton dp $ knn dp $ reference dual) (query dual)
+
+knn_vector :: (SpaceTree t dp, SingI k, Eq dp, Functor container) => t dp -> container dp -> container (KNN k dp)
+knn_vector !t !dps = fmap (\dp -> knn dp t) dps
 
 {-# INLINABLE knn2_single_parallel #-}
 knn2_single_parallel :: 
