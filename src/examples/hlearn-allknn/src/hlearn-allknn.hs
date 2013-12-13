@@ -99,6 +99,7 @@ instance FromRecord DP2 where
 type DP = L2 VU.Vector Float
 -- type DP = DP2 
 type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
+-- type Tree = AddUnit (CoverTree' (2/1) V.Vector) () DP
 
 -- instance VG.Vector VU.Vector DP where
 
@@ -133,28 +134,28 @@ main = do
     checkfail (reference_file params == Nothing) "must specify a reference file"
 
     case k params of 
-        1 -> runit params (undefined :: Tree) (undefined :: KNN2 1 DP)
-        2 -> runit params (undefined :: Tree) (undefined :: KNN2 2 DP)
-        3 -> runit params (undefined :: Tree) (undefined :: KNN2 3 DP)
---         4 -> runit params (undefined :: Tree) (undefined :: KNN2 4 DP)
---         5 -> runit params (undefined :: Tree) (undefined :: KNN2 5 DP)
---         6 -> runit params (undefined :: Tree) (undefined :: KNN2 6 DP)
---         7 -> runit params (undefined :: Tree) (undefined :: KNN2 7 DP)
---         8 -> runit params (undefined :: Tree) (undefined :: KNN2 8 DP)
---         9 -> runit params (undefined :: Tree) (undefined :: KNN2 9 DP)
---         10 -> runit params (undefined :: Tree) (undefined :: KNN2 10 DP)
+        1 -> runit params (undefined :: Tree) (undefined :: NeighborMap 1 DP)
+        2 -> runit params (undefined :: Tree) (undefined :: NeighborMap 2 DP)
+        3 -> runit params (undefined :: Tree) (undefined :: NeighborMap 3 DP)
+--         4 -> runit params (undefined :: Tree) (undefined :: NeighborMap 4 DP)
+--         5 -> runit params (undefined :: Tree) (undefined :: NeighborMap 5 DP)
+--         6 -> runit params (undefined :: Tree) (undefined :: NeighborMap 6 DP)
+--         7 -> runit params (undefined :: Tree) (undefined :: NeighborMap 7 DP)
+--         8 -> runit params (undefined :: Tree) (undefined :: NeighborMap 8 DP)
+--         9 -> runit params (undefined :: Tree) (undefined :: NeighborMap 9 DP)
+--         10 -> runit params (undefined :: Tree) (undefined :: NeighborMap 10 DP)
         otherwise -> error "specified k value not supported"
 
-{-# SPECIALIZE runit :: Params -> Tree -> KNN2 1 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> Tree -> KNN2 2 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> Tree -> KNN2 3 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 4 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 5 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 6 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 7 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 8 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 9 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> KNN2 10 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 1 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 2 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 3 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 4 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 5 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 6 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 7 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 8 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 9 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 10 DP -> IO ()#-}
 runit :: forall k tree base nodeVvec dp ring. 
     ( MetricSpace dp
     , Ord dp
@@ -168,16 +169,16 @@ runit :: forall k tree base nodeVvec dp ring.
     , VU.Unbox (Ring dp)
     , VG.Vector nodeVvec dp
     , dp ~ DP
-    ) => Params -> AddUnit (CoverTree' base nodeVvec) () dp -> KNN2 k dp -> IO ()
+    ) => Params -> AddUnit (CoverTree' base nodeVvec) () dp -> NeighborMap k dp -> IO ()
 runit params tree knn = do
 
     -- build reference tree
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
 
-    let reftree = parallel train rs :: Tree
+    let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = setNodeV 10 $ unUnit reftree
+    let reftree_prune = setNodeV 0 $ unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -189,16 +190,12 @@ runit params tree knn = do
         else return ()
 
     -- build query tree
-    let qs = Strict.list2strictlist $ V.toList rs
---     querytree <- case query_file params of
---         Nothing -> return $ UnitLift reftree_prune
---         Just file -> do
---             Right (qs::V.Vector dp) <- timeIO "loading query dataset" $ fmap (decode False) $ BS.readFile file
---             undefined
+    querytree <- case query_file params of
+        Nothing -> return $ reftree
 
     -- do knn search
-    let result = knn2_single_parallel (DualTree (reftree_prune) (unUnit reftree)) :: KNN2 k DP
-    res <- timeIO "computing knn2_single_parallel" $ return result
+    let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
     let rs_index = Map.fromList $ zip (V.toList rs) [0..]
@@ -210,7 +207,7 @@ runit params tree knn = do
             . Map.elems 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
             . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
-            $ getknn2 res 
+            $ nm2map res 
         hClose hDistances
 
     timeIO "outputing neighbors" $ do
@@ -221,7 +218,7 @@ runit params tree knn = do
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
             . Map.map (map neighbor . Strict.strictlist2list . getknn) 
-            $ getknn2 res 
+            $ nm2map res 
         hClose hNeighbors
     
     -- end
@@ -248,7 +245,6 @@ loaddata filename = do
 --     forM [0..VU.length shufflemap-1] $ \i -> do
 --         putStrLn $ "    " ++ show (fst $ shufflemap VU.! i) ++ ": " ++ show (snd $ shufflemap VU.! i) 
     return $ V.map (shuffleVec $ VU.map fst shufflemap) rs
---     return rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
 mkShuffleMap :: (VG.Vector v a, Floating a, Ord a, VU.Unbox a) => V.Vector (v a) -> VU.Vector (Int,a)
@@ -263,6 +259,7 @@ mkShuffleMap v = runST $ do
     Intro.sortBy (\(_,v2) (_,v1) -> compare v2 v1) varV
     VG.freeze varV
 
+-- | apply the shufflemap to the data set to get a better ordering of the data
 shuffleVec :: VG.Vector v a => VU.Vector Int -> v a -> v a
 shuffleVec vmap v = runST $ do
     ret <- VGM.new (VG.length v)
@@ -292,7 +289,7 @@ printTreeStats str t = do
     putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled t) 
     putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating t)
     putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance t) 
-    putStr (str++"  sepdistL...............") >> hFlush stdout >> putStrLn (show $ sepdistL $ unUnit t) 
+--     putStr (str++"  sepdistL...............") >> hFlush stdout >> putStrLn (show $ sepdistL $ unUnit t) 
 
     putStrLn ""
 

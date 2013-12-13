@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction,DataKinds #-}
+{-# LANGUAGE NoMonomorphismRestriction,DataKinds,PolyKinds #-}
 
 module HLearn.DataStructures.CoverTree
     ({- CoverTree
@@ -10,7 +10,7 @@ module HLearn.DataStructures.CoverTree
 --     , recover
 --     , trainct_insert
     , setNodeV
-    , sepdistL
+--     , sepdistL
 
     -- * drawing
     , draw
@@ -63,11 +63,12 @@ import HLearn.Metrics.Lebesgue
 -------------------------------------------------------------------------------
 -- data types
 
--- type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector) () dp
+type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector) () dp
 
 data CoverTree' (base::Frac) nodeVvec tag dp = Node 
     { nodedp                :: !dp
-    , sepdist               :: !(Ring dp)
+--     , sepdist                 :: !(Ring dp)
+    , level                 :: !Int
     , weight                :: !(Ring dp)
     , numdp                 :: (Ring dp)
     , maxDescendentDistance :: (Ring dp)
@@ -79,18 +80,17 @@ data CoverTree' (base::Frac) nodeVvec tag dp = Node
 deriving instance (Read (Ring dp), Read (nodeVvec dp), Read tag, Read dp) => Read (CoverTree' base nodeVvec tag dp)
 deriving instance (Show (Ring dp), Show (nodeVvec dp), Show tag, Show dp) => Show (CoverTree' base nodeVvec tag dp)
 
-instance (Eq dp, Eq (Ring dp)) => Eq (CoverTree' base nodeVvec tag dp) where
-    ct1 == ct2 = sepdist ct1 == sepdist ct2 && nodedp ct1 == nodedp ct2
-
-instance (Ord dp, Ord (Ring dp)) => Ord (CoverTree' base nodeVvec tag dp) where
-    compare ct1 ct2 = compare (sepdist ct1) (sepdist ct2)
-                   <> compare (nodedp ct1) (nodedp ct2)
+-- instance (Eq dp, Eq (Ring dp), Floating (Ring dp), SingI base) => Eq (CoverTree' base nodeVvec tag dp) where
+--     ct1 == ct2 = sepdist ct1 == sepdist ct2 && nodedp ct1 == nodedp ct2
+-- 
+-- instance (Ord dp, Ord (Ring dp), SingI base) => Ord (CoverTree' base nodeVvec tag dp) where
+--     compare ct1 ct2 = compare (sepdist ct1) (sepdist ct2)
+--                    <> compare (nodedp ct1) (nodedp ct2)
 
 instance (NFData dp,NFData (Ring dp),NFData tag) => NFData (CoverTree' base nodeVvec tag dp) where
-    rnf ct = deepseq (nodedp ct) 
-           $ deepseq (sepdist ct)
-           $ deepseq (children ct)
-           $ deepseq (tag ct)
+    rnf ct = deepseq (numdp ct) 
+           $ deepseq (maxDescendentDistance ct)
+           $ seq ct
            $ ()
 
 instance 
@@ -176,22 +176,6 @@ setNodeV n ct = if stNumNodes ct > n
 
 ---------------------------------------
 
-coverDist :: forall base nodeVvec tag dp.
-    ( Fractional (Ring dp)
-    , SingI base
-    ) => CoverTree' base nodeVvec tag dp -> Ring dp
-coverDist node = sepdist node*coverfactor 
-    where
-        coverfactor = fromSing (sing :: Sing base)
-
-sepdist_child :: forall base nodeVvec tag dp. (SingI base, MetricSpace dp) => 
-    CoverTree' base nodeVvec tag dp -> Ring dp
-sepdist_child ct = sepdist ct/(fromSing (sing :: Sing base))
-
-sepdist_parent :: forall base nodeVvec tag dp. (SingI base, MetricSpace dp) => 
-    CoverTree' base nodeVvec tag dp -> Ring dp
-sepdist_parent ct = sepdist ct*(fromSing (sing :: Sing base))
-
 ---------------------------------------
 -- insertion as described in the paper
 
@@ -207,9 +191,10 @@ safeInsert :: forall base nodeVvec tag dp.
 safeInsert node (0,_) = node
 safeInsert !node !(w,dp) = case insert node (w,dp) of
     Strict.Just x -> x
-    Strict.Nothing -> trace "insert.Nothing" $ Node
+    Strict.Nothing -> {-trace "insert.Nothing"  $-} Node
         { nodedp    = nodedp node
-        , sepdist   = roundup (sing::Sing base) dist
+--         , sepdist   = roundup (sing::Sing base) dist
+        , level     = dist2level_up (sing::Sing base) dist
         , weight    = 0 -- weight node
         , numdp     = 0 + Strict.sum (fmap numdp children')
         , tag       = mempty
@@ -221,12 +206,13 @@ safeInsert !node !(w,dp) = case insert node (w,dp) of
         }
         where
             children' :: Strict.List (CoverTree' base nodeVvec tag dp)
-            children' = (growct node (rounddown (sing::Sing base) dist))
+--             children' = (growct node (rounddown (sing::Sing base) dist))
+            children' = (growct node (dist2level_down (sing::Sing base) dist))
                       :.(Node 
                             { nodedp    = dp 
                             , weight    = w
                             , numdp     = w
-                            , sepdist   = rounddown (sing::Sing base) dist
+                            , level     = dist2level_down (sing::Sing base) dist
                             , tag       = mempty
                             , children  = mempty
                             , nodeV     = mempty
@@ -242,7 +228,7 @@ insert :: forall base nodeVvec tag dp.
     , Ord (Ring dp)
     , Monoid (nodeVvec dp)
     , VG.Vector nodeVvec dp
-    , Fractional (Ring dp)
+    , Floating (Ring dp)
     , Monoid tag
     , SingI base
     ) => CoverTree' base nodeVvec tag dp -> Weighted dp -> Strict.Maybe (CoverTree' base nodeVvec tag dp)
@@ -250,7 +236,8 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
     then Strict.Nothing
     else Strict.Just $ Node
         { nodedp    = nodedp node
-        , sepdist   = sepdist node
+--         , sepdist     = sepdist node
+        , level     = level node
         , weight    = weight node
         , numdp     = weight node + Strict.sum (fmap numdp children')
         , tag       = tag node
@@ -267,7 +254,8 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
 
         go Nil = (Node 
                     { nodedp = dp
-                    , sepdist = sepdist_child node
+--                     , sepdist = sepdist_child node
+                    , level = level node-1
                     , weight = w
                     , numdp = w
                     , maxDescendentDistance = 0
@@ -321,7 +309,7 @@ insertBatch :: forall base nodeVvec tag dp.
     ) => [dp] -> CoverTree' base nodeVvec tag dp
 insertBatch ((!dp):dps) = go dps $ Node 
     { nodedp    = dp
-    , sepdist   = 0
+    , level     = minBound
     , weight    = 1
     , numdp     = 1
     , tag       = mempty
@@ -367,11 +355,15 @@ instance
     ct1 <> ct2 = case ctmerge' ct1' ct2' of
         Just (ct, []) -> ct
         Just (ct, xs) -> foldl' (<>) ct xs
-        Nothing -> (growct ct1' (roundup (sing::Sing base) $ distance (nodedp ct1') (nodedp ct2'))) <> ct2'
+--         Nothing -> (growct ct1' (roundup (sing::Sing base) $ distance (nodedp ct1') (nodedp ct2'))) <> ct2'
+        Nothing -> (growct ct1' (dist2level_down (sing::Sing base) $ distance (nodedp ct1') (nodedp ct2'))) <> ct2'
         where
-            ct1' = growct ct1 maxsepdist
-            ct2' = growct ct2 maxsepdist
-            maxsepdist = maximum [sepdist ct1, sepdist ct2, 1]
+--             ct1' = growct ct1 maxsepdist
+--             ct2' = growct ct2 maxsepdist
+--             maxsepdist = maximum [sepdist ct1, sepdist ct2, 1]
+            ct1' = growct ct1 maxlevel
+            ct2' = growct ct2 maxlevel
+            maxlevel = maximum [level ct1, level ct2, dist2level_down (sing::Sing base) $ distance (nodedp ct1) (nodedp ct2)]
 
 ctmerge' :: forall base nodeVvec tag dp.
     ( Ord (Ring dp)
@@ -387,7 +379,7 @@ ctmerge' :: forall base nodeVvec tag dp.
     ) => CoverTree' base nodeVvec tag dp 
       -> CoverTree' base nodeVvec tag dp 
       -> Maybe (CoverTree' base nodeVvec tag dp, [CoverTree' base nodeVvec tag dp])
-ctmerge' ct1 ct2 = assert (sepdist ct2 >= sepdist ct1) ("sepdist ct2 >= sepdist ct1:" ++ show (sepdist ct1) ++","++show(sepdist ct2)) $
+ctmerge' ct1 ct2 = assert (level ct2 == level ct1) ("level ct2 == level ct1:" ++ show (sepdist ct1) ++","++show(sepdist ct2)) $
   if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
     then Nothing
     else Just 
@@ -396,8 +388,8 @@ ctmerge' ct1 ct2 = assert (sepdist ct2 >= sepdist ct1) ("sepdist ct2 >= sepdist 
           ct1
             { children = V.fromList $ Strict.strictlist2list children'
             , maxDescendentDistance 
-                = sepdist_parent ct1
---                 = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
+--                 = sepdist_parent ct1
+                = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
             }
         , invalidchildren++invalid_newleftovers
         )
@@ -407,7 +399,8 @@ ctmerge' ct1 ct2 = assert (sepdist ct2 >= sepdist ct1) ("sepdist ct2 >= sepdist 
         childrenMap ct = Map.fromList $ map (\v -> (nodedp v,v)) $ stChildren ct
 
         childrenMap' = newchildren `Map.union` Map.fromList 
-            (map (\x -> (nodedp x,growct x $ sepdist_child ct1)) valid_newleftovers)
+--             (map (\x -> (nodedp x,growct x $ sepdist_child ct1)) valid_newleftovers)
+            (map (\x -> (nodedp x,growct x $ level ct1-1)) valid_newleftovers)
 
 
         validchild x = not $ isFartherThan (nodedp ct1) (nodedp x) (sepdist ct1)
@@ -420,17 +413,32 @@ ctmerge' ct1 ct2 = assert (sepdist ct2 >= sepdist ct1) ("sepdist ct2 >= sepdist 
         go (childmap,leftovers) [] = 
             (childmap,leftovers)
         go (childmap,leftovers) (x:xs) = 
-            case filter (isJust . snd) $ map (\(k,v) -> (k,ctmerge' v x)) $ Map.assocs childmap of
-                [] -> go 
-                    ( Map.insert (nodedp x) (x { sepdist = sepdist_child ct1 }) childmap
-                    , leftovers
-                    ) xs
+--             case filter (isJust . snd) $ map (\(k,v) -> (k,ctmerge' v x)) $ Map.assocs childmap of
+            case   
+                filter (isJust . snd) $ map (\(k,v) -> (k,ctmerge'' v x)) $ Map.assocs childmap of
+                    [] -> go 
+--                         ( Map.insert (nodedp x) (x { sepdist = sepdist_child ct1 }) childmap
+                        ( Map.insert (nodedp x) (x { level = level ct1-1 }) childmap
+                        , leftovers
+                        ) xs
 
-                (old, Just (new,leftovers')):ys ->
-                    go ( Map.insert (nodedp new) (new { sepdist = sepdist_child ct1 })
-                         $ Map.delete old childmap
-                       , leftovers'++leftovers
-                       ) xs
+                    (old, Just (new,leftovers')):ys ->
+--                         go ( Map.insert (nodedp new) (new { sepdist = sepdist_child ct1 })
+                        go ( Map.insert (nodedp new) (new { level = level ct1-1 })
+                             $ Map.delete old childmap
+                           , leftovers'++leftovers
+                           ) xs
+            where
+                ctmerge'' ct1 ct2 = ctmerge' ct1' ct2'
+                    where
+                        ct1' = growct ct1 maxlevel
+                        ct2' = growct ct2 maxlevel
+                        maxlevel = maximum [level ct1, level ct2, dist2level_down (sing::Sing base) $ distance (nodedp ct1) (nodedp ct2)]
+
+--                     where
+--                         a' = growct a maxsepdist
+--                         b' = growct b maxsepdist
+--                         maxsepdist = max (sepdist a) (sepdist b)
 
 assert :: Bool -> String -> a -> a
 assert b str a = (if b then id else trace ("assert: "++str)) a
@@ -443,17 +451,19 @@ growct :: forall base nodeVvec tag dp.
     , Ord (Ring dp)
     , Monoid (nodeVvec dp)
     , VG.Vector nodeVvec dp
-    
+    , Floating (Ring dp)    
     , Monoid tag
     , SingI base
     , MetricSpace dp
-    ) => CoverTree' base nodeVvec tag dp -> Ring dp -> CoverTree' base nodeVvec tag dp
+    ) => CoverTree' base nodeVvec tag dp -> Int -> CoverTree' base nodeVvec tag dp
 growct ct d = if sepdist ct==0 || stIsLeaf ct 
-    then ct { sepdist=d }
-    else if d > sepdist ct
+    then ct { level=d }
+--     else if d > sepdist ct
+    else if d > level ct
         then growct (Node
             { nodedp    = nodedp ct
-            , sepdist   = sepdist ct*coverfactor
+--             , sepdist   = sepdist ct*coverfactor
+            , level     = level ct+1
             , weight    = 0 -- weight ct
             , numdp     = numdp ct
             , tag       = mempty
@@ -466,6 +476,42 @@ growct ct d = if sepdist ct==0 || stIsLeaf ct
     where
         coverfactor = fromSing (sing :: Sing base)
 
+level2sepdist :: forall base num. (SingI (base::a), SingE (Kind::a) num, Num num, Floating num) => 
+    Sing base -> Int -> num
+-- level2sepdist _ l = (fromSing (sing :: Sing base))^^l
+level2sepdist _ l = (fromSing (sing :: Sing base))**(fromIntegral l)
+
+dist2level_down :: forall base num. (SingI (base::a), SingE (Kind::a) num, RealFrac num, Floating num) => 
+    Sing base -> num -> Int
+dist2level_down _ d = floor $ log d / log (fromSing (sing::Sing base))
+
+dist2level_up :: forall base num. (SingI (base::a), SingE (Kind::a) num, RealFrac num, Floating num) => 
+    Sing base -> num -> Int
+dist2level_up _ d = ceiling $ log d / log (fromSing (sing::Sing base))
+
+sepdist :: forall base nodeVvec tag dp. (SingI base, Floating (Ring dp)) => 
+    CoverTree' base nodeVvec tag dp -> Ring dp
+sepdist ct = level2sepdist (undefined::Sing base) (level ct)
+
+{-# INLINE coverDist #-}
+coverDist :: forall base nodeVvec tag dp.
+    ( Floating (Ring dp)
+    , SingI base
+    ) => CoverTree' base nodeVvec tag dp -> Ring dp
+coverDist node = sepdist node*coverfactor 
+    where
+        coverfactor = fromSing (sing :: Sing base)
+
+{-# INLINE sepdist_child #-}
+sepdist_child :: forall base nodeVvec tag dp. (SingI base, MetricSpace dp, Floating (Ring dp)) => 
+    CoverTree' base nodeVvec tag dp -> Ring dp
+sepdist_child ct = next -- rounddown (sing::Sing base) $ next --next/10
+    where next = sepdist ct/(fromSing (sing :: Sing base)) 
+
+-- {-# INLINE sepdist_parent #-}
+-- sepdist_parent :: forall base nodeVvec tag dp. (SingI base, MetricSpace dp) => 
+--     CoverTree' base nodeVvec tag dp -> Ring dp
+-- sepdist_parent ct = sepdist ct*(fromSing (sing :: Sing base))
 
 {-# INLINE roundup #-}
 roundup :: forall base d. 
@@ -483,31 +529,25 @@ rounddown :: forall base d.
     , RealFrac d
     , SingI base
     ) => Sing (base::Frac) -> d -> d
-rounddown _ d
-    | d == 1 = 1
-    | d >  1 = goup 1
-    | d <  1 = godown 1
-    where
-        godown i = if i > d 
-            then godown (i/coverfactor)
-            else i
-        goup i = if i<d
-            then goup (i*coverfactor)
-            else i
-        coverfactor = fromSing (sing :: Sing base)
--- rounddown _ d = coverfactor^^(floor $ log d / log coverfactor :: Int)
+-- rounddown _ d
+--     | d == 1 = 1
+--     | d >  1 = goup 1
+--     | d <  1 = godown 1
 --     where
+--         godown i = if i>d/coverfactor
+--             then godown (i/coverfactor)
+--             else i
+--         goup i = if i<d*coverfactor
+--             then goup (i*coverfactor)
+--             else i
 --         coverfactor = fromSing (sing :: Sing base)
+rounddown _ d = coverfactor^^(floor $ log d / log coverfactor :: Int)
+    where
+        coverfactor = fromSing (sing :: Sing base)
 
-sepdistL :: Ord (Ring dp) => CoverTree' base nodeVvec tag dp -> [Ring dp]
-sepdistL ct = Set.toList $ Set.fromList
-    $ sepdist ct : (mconcat $ map sepdistL $ VG.toList $ children ct)
--- sepdistL ct = Set.toList $ go ct
---     where
---         go ct = (Set.singleton $ sepdist ct) 
---              <> (Set.fromList $ VG.toList $ fmap go $ children ct)
---         go :: CoverTree' base nodeVvec tag dp -> [Ring dp]
---         go ct=(Set.fromList $ foldr (<>) mempty $ VG.toList $ fmap go $ children ct)
+-- sepdistL :: Ord (Ring dp) => CoverTree' base nodeVvec tag dp -> [Ring dp]
+-- sepdistL ct = Set.toList $ Set.fromList
+--     $ sepdist ct : (mconcat $ map sepdistL $ VG.toList $ children ct)
 
 ---------------------------------------
 
@@ -650,7 +690,8 @@ instance
     {-# INLINE train1dp #-}
     train1dp dp = UnitLift $ Node 
         { nodedp    = dp
-        , sepdist   = 0
+--         , sepdist   = 0
+        , level     = minBound
         , weight    = 1
         , numdp     = 1
         , tag       = mempty
@@ -684,18 +725,19 @@ instance
 --     , Monoid (nodeVvec (Double,Double))
 --     , SingI base
 --     , Monoid tag
-    ) => Arbitrary (CoverTree' base nodeVvec tag (Double,Double)) 
+    ) => Arbitrary (AddUnit (CoverTree' base nodeVvec) tag (Double,Double)) 
         where
     arbitrary = do
         num :: Int <- choose (1,100)
 --         xs <- replicateM num arbitrary
         xs <- replicateM num $ do
-            x <- arbitrary
-            y <- arbitrary
---             x <- choose (-2^^5,2^^5)
---             y <- choose (-2^^5,2^^5)
+--             x <- arbitrary
+--             y <- arbitrary
+            x <- choose (-2^^50,2^^50)
+            y <- choose (-2^^50,2^^50)
             return (x,y)
-        return $ unUnit $ train xs 
+--         return $ unUnit $ train xs 
+        return $ train xs 
 
 
 -- property_all :: CoverTree (Double,Double) -> Bool
@@ -717,6 +759,7 @@ property_covering (UnitLift node) = if not $ stIsLeaf node
 property_leveled (Unit) = True
 property_leveled (UnitLift node)
     = VG.all (\val -> val - VG.head xs < 0.0000001) xs
+--     = VG.all (== VG.head xs) xs
    && VG.and (fmap (property_leveled . UnitLift) $ children node)
     where
         xs = fmap sepdist $ children node
@@ -758,17 +801,18 @@ property_maxDescendentDistance (UnitLift node) = if stIsLeaf node
 --     (CoverTree (Double,Double) -> Bool) -> CoverTree (Double,Double) -> CoverTree (Double,Double) -> Bool
 property_validmerge prop (UnitLift ct1) (UnitLift ct2) = prop . UnitLift $ ct1 <> ct2
 
--- property_lossless :: [(Double,Double)] ->  Bool
--- property_lossless [] = True
--- property_lossless xs = Set.fromList xs == dpSet ct
---     where
---         UnitLift ct = train xs :: AddUnit (CoverTree' (2/1)) () (Double,Double)
--- 
---         dpSet :: (Ord dp) => CoverTree' base nodeVvec tag dp -> Set.Set dp
---         dpSet = Set.fromList . dpList
---             where
---                 dpList :: CoverTree' base nodeVvec tag dp -> [dp]
+property_lossless :: [(Double,Double)] ->  Bool
+property_lossless [] = True
+property_lossless xs = Set.fromList xs == dpSet ct
+    where
+        UnitLift ct = train xs :: AddUnit (CoverTree' (2/1) V.Vector) () (Double,Double)
+
+        dpSet :: (Ord dp) => CoverTree' base nodeVvec tag dp -> Set.Set dp
+        dpSet = Set.fromList . dpList
+            where
+                dpList :: CoverTree' base nodeVvec tag dp -> [dp]
 --                 dpList node = nodedp node:(Strict.concat . fmap dpList . children node)
+                dpList node = nodedp node:(concat . fmap dpList . VG.toList $ children node)
 
 -- property_numdp :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_numdp Unit = True

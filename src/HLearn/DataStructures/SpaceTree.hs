@@ -308,19 +308,6 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
     Strict.Just b' -> {-# SCC prunefoldB_Just #-} VG.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
         where
             b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
---             b'' = if stIsLeaf t
---                 then V.foldl' f1 b' (stNodeV t)
---                 else b'
-
---     Strict.Just b' -> if stIsLeaf t
---         then b'
--- --         else if stWeight t == 0
--- --             then V.foldl' (prunefoldA f) b  (stChildren_ t)
--- --             else V.foldl' (prunefoldA f) b' (stChildren_ t)
---         else V.foldl' (prunefoldA f) b' (stChildren_ t)
---         where
---             b'' = V.foldl' f' b' (stNodeV t)
---             f' = undefined
 
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool

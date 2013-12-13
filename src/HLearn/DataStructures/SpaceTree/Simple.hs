@@ -36,10 +36,15 @@ instance VG.Vector v dp => HomTrainer (Simple v dp) where
 -------------------------------------------------------------------------------
 -- nn
 
-simple_knn :: (MetricSpace dp, VG.Vector v dp, SingI k, Eq dp) => dp -> KNN k dp -> Simple v dp -> KNN k dp
+simple_knn :: 
+    ( MetricSpace dp
+    , VG.Vector v dp
+    , SingI k
+    , Eq dp
+    ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
 simple_knn query knn (Simple v) = VG.foldl' cata knn v
     where
-        cata knn dp = case isFartherThanWithDistance query dp (knn_maxdist knn) of
+        cata knn dp = case isFartherThanWithDistance query dp (nl_maxdist knn) of
             Strict.Nothing -> knn
-            Strict.Just dist -> mkKNN dp dist <> knn
+            Strict.Just dist -> mkNeighborList dp dist <> knn
 
