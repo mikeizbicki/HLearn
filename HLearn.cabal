@@ -82,6 +82,7 @@ Library
         HLearn.Algebra.Models.HomTrainer
         HLearn.Algebra.Models.CoHomTrainer
         HLearn.Algebra.Models.Lame
+        HLearn.Algebra.Structures.Comonoid
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules

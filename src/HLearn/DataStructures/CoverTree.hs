@@ -50,7 +50,7 @@ import Debug.Trace
 import Diagrams.Prelude hiding (distance,trace,query,connect)
 import Diagrams.Backend.SVG.CmdLine
 
-import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
+import HLearn.Algebra hiding ((#),(<>),(|>),numdp,partition)
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor hiding (weight)
@@ -352,6 +352,9 @@ insertBatch ((!dp):dps) = go dps $ Node
 --             i' = if nodedp ct `Map.member` childrenMap ct
 --                 then i
 --                 else f (nodedp ct) i
+
+instance Comonoid (CoverTree' base nodeVvec tag dp) where
+    partition n ct = 
 
 instance (HasRing dp) => HasRing (CoverTree' base nodeVvec tag dp) where
     type Ring (CoverTree' base nodeVvec tag dp) = Ring dp

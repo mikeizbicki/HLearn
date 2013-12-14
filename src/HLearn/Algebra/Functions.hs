@@ -31,6 +31,7 @@ import GHC.Exts (Constraint)
 import Prelude hiding (filter)
 import System.IO.Unsafe
 
+import HLearn.Algebra.Structures.Comonoid
 import HLearn.Algebra.Structures.Groups
 
 -------------------------------------------------------------------------------
@@ -45,27 +46,28 @@ class Function f domain range | f domain -> range where
 
 -- | Parallelizes any batch trainer to run over multiple processors on a single machine.  
 parallelN :: 
-    ( Monoid model
-    , NFData model
-    , CK.Partitionable container
-    , CK.PartitionableConstraint container datapoint
+    ( Comonoid domain 
+    , Monoid range
+    , NFData range
     ) => Int -- ^ number of parallel threads
-      -> (container datapoint -> model) -- ^ sequential batch trainer
-      -> (container datapoint -> model) -- ^ parallel batch trainer
+      -> (domain -> range) -- ^ sequential batch trainer
+      -> (domain -> range) -- ^ parallel batch trainer
 parallelN n train = \datapoint ->
-    reduce $ parMap strat train (CK.partition n datapoint)
+    reduce $ parMap strat train (partition n datapoint)
     where
         strat = rdeepseq
 
 -- | Parallelizes any batch trainer to run over multiple processors on a single machine.  The function automatically detects the number of available processors and parallelizes the function accordingly.  This requires the use of unsafePerformIO, however, the result should still be safe.
 parallel :: 
-    ( Monoid model
-    , NFData model
-    , CK.Partitionable container
-    , CK.PartitionableConstraint container datapoint
-    ) => (container datapoint -> model) -- ^ sequential batch trainer
-      -> (container datapoint -> model) -- ^ parallel batch trainer
+    ( Comonoid domain 
+    , Monoid range
+    , NFData range
+    ) => (domain -> range) -- ^ sequential batch trainer
+      -> (domain -> range) -- ^ parallel batch trainer
 parallel = parallelN (unsafePerformIO getNumCapabilities) 
+
+-- safeParallel1 :: (NonCocommutative domain, Monoid range, NFData range) => (domain -> range) -> (domain -> range)
+-- safeParallel2 :: (Cocommutative domain, Abelian range, NFData range) => (domain -> range) -> (domain -> range)
 
 -- | Converts a batch trainer into an online trainer.  The input function should be a semigroup homomorphism.
 online :: 
