@@ -7,100 +7,105 @@ import Debug.Trace
 import Control.DeepSeq
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import qualified Data.Strict.Maybe as Strict
+import qualified Data.Strict.Tuple as Strict
 import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
 
 -------------------------------------------------------------------------------
--- data structures
+-- Range
 
-newtype RangeSearch (mindist::Frac) (maxdist::Frac) dp = RangeSearch 
-    { getrange :: Set.Set dp
+data Range dp = Range
+    { rangedp :: !dp
+    , rangedistance :: !(Ring dp)
     }
-    deriving (Read,Show,Monoid)
 
-deriving instance NFData dp => NFData (RangeSearch mindist maxdist dp)
+deriving instance (Read dp, Read (Ring dp)) => Read (Range dp)
+deriving instance (Show dp, Show (Ring dp)) => Show (Range dp)
+
+instance Eq (Ring dp) => Eq (Range dp) where
+    r1 == r2 = rangedistance r1 == rangedistance r2
+
+instance Ord (Ring dp) => Ord (Range dp) where
+    compare r1 r2 = compare (rangedistance r1) (rangedistance r2)
+
+instance NFData (Range dp) where
+    rnf dp = seq dp ()
+
+-------------------------------------------------------------------------------
+-- RangeList
+
+data RangeList dp = RangeList
+    { mindist  :: !(Ring dp)
+    , maxdist  :: !(Ring dp)
+    , rangeset :: !(Set.Set (Range dp))
+    }
+
+instance NFData (Ring dp) => NFData (RangeList dp) where
+    rnf rl = seq rl $ rnf (rangeset rl)
+
+mkRangeList :: Ord (Ring dp) => Ring dp -> Ring dp -> RangeList dp
+mkRangeList !a !b = RangeList a b mempty
+
+rlInsert :: Ord (Ring dp) => Range dp -> RangeList dp -> RangeList dp
+rlInsert !dp !rl = if rangedistance dp <= maxdist rl && rangedistance dp > mindist rl
+    then rl { rangeset = Set.insert dp $ rangeset rl }
+    else rl
+
+instance ( Fractional (Ring dp), Ord (Ring dp)) =>  Monoid (RangeList dp) where
+    mempty = RangeList
+        { mindist = 0
+        , maxdist = infinity
+        , rangeset = mempty
+        }
+
+    mappend !rl1 !rl2 = RangeList
+        { mindist = mindist' 
+        , maxdist = maxdist'
+        , rangeset = Set.filter (\r -> rangedistance r>mindist' && rangedistance r<maxdist') 
+            $ rangeset rl1 <> rangeset rl2
+        }
+        where
+            mindist' = max (mindist rl1) (mindist rl2)
+            maxdist' = min (maxdist rl1) (maxdist rl2)
 
 ---------------------------------------
 
-newtype RangeSearch2 (mindist::Frac) (maxdist::Frac) dp = RangeSearch2 
-    { rsmap :: Map.Map dp (RangeSearch mindist maxdist dp) 
-    }
-    deriving (Read,Show)
+{-# INLINABLE findRangeList #-}
+findRangeList :: (SpaceTree t dp, Eq dp) => t dp -> Ring dp -> Ring dp -> dp -> RangeList dp
+findRangeList tree mindist maxdist query = 
+    prunefoldB (rl_catadp query) (rl_cata query) (mkRangeList mindist maxdist) tree
 
-deriving instance NFData dp => NFData (RangeSearch2 mindist maxdist dp)
+{-# INLINABLE rl_catadp #-}
+rl_catadp :: (MetricSpace dp, Ord (Ring dp)) => dp -> dp -> RangeList dp -> RangeList dp
+rl_catadp !query !dp !rl = {-# SCC rl_catadp #-} 
+    case isFartherThanWithDistance dp query (maxdist rl) of
+        Strict.Nothing -> rl
+        Strict.Just dist -> rlInsert (Range dp dist) rl
 
-instance 
-    ( SingI mindist
-    , SingI maxdist
-    , SpaceTree tree dp
-    , Ord dp
-    ) => Function (RangeSearch2 mindist maxdist dp) (DualTree (tree dp)) (RangeSearch2 mindist maxdist dp) 
-        where
-    function _ = rangesearch
-
--------------------------------------------------------------------------------
--- algebra
-
-instance Ord dp => Monoid (RangeSearch2 mindist maxdist dp) where
-    mempty = RangeSearch2 mempty
-    mappend (RangeSearch2 m1) (RangeSearch2 m2) = RangeSearch2 $ Map.unionWith (<>) m1 m2 
+{-# INLINABLE rl_cata #-}
+rl_cata :: forall k t dp. ( SpaceTree t dp, Eq dp ) => 
+    dp -> t dp -> RangeList dp -> Strict.Maybe (RangeList dp)
+rl_cata !query !tree !rl = {-# SCC rl_cata #-} 
+    case stIsMinDistanceDpFartherThanWithDistance tree query (maxdist rl) of
+        Strict.Nothing -> Strict.Nothing
+        Strict.Just dist -> Strict.Just $ rlInsert (Range (stNode tree) dist) rl
 
 -------------------------------------------------------------------------------
--- traversals
- 
-rangesearch :: forall mindist maxdist t dp. 
-    ( SingI mindist
-    , SingI maxdist
-    , SpaceTree t dp
-    , Ord dp
-    ) => DualTree (t dp) -> RangeSearch2 mindist maxdist dp
-rangesearch dual = prunefold2init initRangeSearch2 range_prune range_cata dual
+-- RangeMap
 
-rangesearch_slow :: forall mindist maxdist t dp. 
-    ( SingI mindist
-    , SingI maxdist
-    , SpaceTree t dp
-    , Ord dp
-    ) => DualTree (t dp) -> RangeSearch2 mindist maxdist dp
-rangesearch_slow dual = prunefold2init initRangeSearch2 noprune range_cata dual
+newtype RangeMap dp = RangeMap { rm2map :: Map.Map dp (RangeList dp) } 
 
-initRangeSearch2 :: forall mindist maxdist t dp. 
-    ( SingI mindist
-    , SingI maxdist
-    , SpaceTree t dp
-    , Ord dp
-    ) => DualTree (t dp) -> RangeSearch2 mindist maxdist dp
-initRangeSearch2 dual = if dist > mindist && dist < maxdist 
-    then RangeSearch2 $ Map.singleton (stNode $ query dual) $ RangeSearch (Set.singleton $ stNode $ reference dual)
-    else mempty
-    where
-        dist = distance (stNode $ reference dual) (stNode $ query dual)
-        mindist = fromSing (sing :: Sing mindist)
-        maxdist = fromSing (sing :: Sing maxdist)
+deriving instance (NFData dp, NFData (Ring dp)) => NFData (RangeMap dp)
 
-range_prune :: forall mindist maxdist t dp.
-    ( SpaceTree t dp 
-    , SingI mindist
-    , SingI maxdist
-    ) => RangeSearch2 mindist maxdist dp -> DualTree (t dp) -> Bool
-range_prune rs dual = stMinDistance (reference dual) (query dual) > maxdist
-                   || stMaxDistance (reference dual) (query dual) < mindist
-    where
-        mindist = fromSing (sing :: Sing mindist)
-        maxdist = fromSing (sing :: Sing maxdist)
+instance (Ord dp, Ord (Ring dp), Fractional (Ring dp)) => Monoid (RangeMap dp) where
+    mempty = RangeMap mempty
+    mappend !(RangeMap rm1) !(RangeMap rm2) = RangeMap $ Map.unionWith (undefined) rm1 rm2
 
-range_cata :: forall mindist maxdist dp.
-    ( SingI mindist
-    , SingI maxdist
-    , Ord dp
-    , MetricSpace dp
-    ) => DualTree dp -> RangeSearch2 mindist maxdist dp -> RangeSearch2 mindist maxdist dp
-range_cata dual rs = if dist > mindist && dist < maxdist
-    then RangeSearch2 $ Map.insertWith (<>) (query dual) (RangeSearch $ Set.singleton $ reference dual) $ rsmap rs
-    else rs
-    where
-        dist = distance (reference dual) (query dual)
-        mindist = fromSing (sing :: Sing mindist)
-        maxdist = fromSing (sing :: Sing maxdist)
+---------------------------------------
+
+findRangeMap :: (NFData (Ring dp), NFData dp, SpaceTree t dp, Ord dp) => Ring dp -> Ring dp -> DualTree (t dp) -> RangeMap dp
+findRangeMap mindist maxdist dual = reduce $ 
+    map (\dp -> RangeMap $ Map.singleton dp $ findRangeList (reference dual) mindist maxdist dp) (stToList $ query dual)
 

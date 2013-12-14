@@ -10,6 +10,7 @@ import Data.List
 import Data.Maybe
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -46,6 +47,7 @@ import HLearn.Algebra
 import HLearn.DataStructures.CoverTree
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import qualified HLearn.DataStructures.StrictList as Strict
 import HLearn.Metrics.Lebesgue
@@ -53,16 +55,17 @@ import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
-data DP2 = DP2 !Float !Float !Float !Float
+data DP2 = DP2 !Float !Float !Float !Float !Float !Float !Float !Float !Float !Float
+
     deriving (Read,Show,Eq,Ord)
 
 -- instance VGM.MVector VUM.MVector DP2 where
 -- instance VG.Vector VU.Vector DP2 where
 
 derivingUnbox "DP2"
-    [t| DP2 -> (Float,Float,Float,Float) |]
-    [| \ (DP2 a1 a2 a3 a4) -> (a1,a2,a3,a4) |]
-    [| \ (a1,a2,a3,a4) -> (DP2 a1 a2 a3 a4) |]
+    [t| DP2 -> ((Float,Float,Float,Float,Float),(Float,Float,Float,Float,Float)) |]
+    [| \ (DP2 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10) -> ((a1,a2,a3,a4,a5),(a6,a7,a8,a9,a10)) |]
+    [| \ ((a1,a2,a3,a4,a5),(a6,a7,a8,a9,a10)) -> (DP2 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10) |]
 
 instance NFData DP2 where
     rnf d = seq d ()
@@ -72,10 +75,19 @@ instance HasRing DP2 where
 
 instance MetricSpace DP2 where
     {-# INLINE distance #-}
-    distance (DP2 a1 a2 a3 a4) (DP2 b1 b2 b3 b4) = sqrt $ (a1-b1)*(a1-b1) 
-                                                        + (a2-b2)*(a2-b2)
-                                                        + (a3-b3)*(a3-b3)
-                                                        + (a4-b4)*(a4-b4)
+    distance 
+        (DP2 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10) 
+        (DP2 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10) 
+        = sqrt $ (a1-b1)*(a1-b1) 
+            + (a2-b2)*(a2-b2)
+            + (a3-b3)*(a3-b3)
+            + (a4-b4)*(a4-b4)
+            + (a5-b5)*(a5-b5)
+            + (a6-b6)*(a6-b6)
+            + (a7-b7)*(a7-b7)
+            + (a8-b8)*(a8-b8)
+            + (a9-b9)*(a9-b9)
+            + (a10-b10)*(a10-b10)
 
 --     {-# INLINE isFartherThanWithDistance #-}
 --     isFartherThanWithDistance !(DP2 a1 a2 a3 a4) !(DP2 b1 b2 b3 b4) dist =
@@ -94,12 +106,21 @@ instance MetricSpace DP2 where
 --             dist2 = dist*dist
 
 instance FromRecord DP2 where
-    parseRecord v = DP2 <$> v .! 0 <*> v .! 1 <*> v .! 2 <*> v .! 3
+    parseRecord v = DP2 
+        <$> v .! 0 
+        <*> v .! 1 
+        <*> v .! 2 
+        <*> v .! 3
+        <*> v .! 4
+        <*> v .! 5
+        <*> v .! 6
+        <*> v .! 7
+        <*> v .! 8
+        <*> v .! 9
 
 type DP = L2 VU.Vector Float
 -- type DP = DP2 
 type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
--- type Tree = AddUnit (CoverTree' (2/1) V.Vector) () DP
 
 -- instance VG.Vector VU.Vector DP where
 
@@ -178,7 +199,7 @@ runit params tree knn = do
 
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = setNodeV 0 $ unUnit reftree
+    let reftree_prune = setNodeV 0 $ rmGhostSingletons $  unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -194,7 +215,9 @@ runit params tree knn = do
         Nothing -> return $ reftree
 
     -- do knn search
-    let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+--     let result = parFindEpsilonNeighborMap 1 (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
+    let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
@@ -206,8 +229,10 @@ runit params tree knn = do
             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
             . Map.elems 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
-            . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
-            $ nm2map res 
+--             . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
+--             $ nm2map res 
+            . Map.map (map rangedistance . Set.toList . rangeset) 
+            $ rm2map res 
         hClose hDistances
 
     timeIO "outputing neighbors" $ do
@@ -217,8 +242,10 @@ runit params tree knn = do
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
-            . Map.map (map neighbor . Strict.strictlist2list . getknn) 
-            $ nm2map res 
+--             . Map.map (map neighbor . Strict.strictlist2list . getknn) 
+--             $ nm2map res 
+            . Map.map (map rangedp . Set.toList . rangeset)
+            $ rm2map res 
         hClose hNeighbors
     
     -- end
@@ -241,10 +268,8 @@ loaddata filename = do
     putStrLn ""
 
     let shufflemap = mkShuffleMap rs
---     putStrLn "  shufflemap:"
---     forM [0..VU.length shufflemap-1] $ \i -> do
---         putStrLn $ "    " ++ show (fst $ shufflemap VU.! i) ++ ": " ++ show (snd $ shufflemap VU.! i) 
     return $ V.map (shuffleVec $ VU.map fst shufflemap) rs
+--     return rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
 mkShuffleMap :: (VG.Vector v a, Floating a, Ord a, VU.Unbox a) => V.Vector (v a) -> VU.Vector (Int,a)
