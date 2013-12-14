@@ -8,6 +8,8 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     
     , NeighborList (..)
     , mkNeighborList
+    , getknnL
+    , nl_maxdist
 
     , NeighborMap (..)
     , nm2list
@@ -17,10 +19,15 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     -- * functions
     , findNeighborMap
     , parFindNeighborMap
+    , parFindNeighborMapWith
+    , parFindEpsilonNeighborMap
+    , parFindEpsilonNeighborMapWith
     , findNeighborList
     , findNeighborListWith 
+    , findEpsilonNeighborList
+    , findEpsilonNeighborListWith 
+    , findNeighborList_batch
 
-    , getknnL
 
 --     , knn_vector
 --     , knn2_single
@@ -28,7 +35,6 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 --     , knn_batch 
 -- 
 --     -- * tmp
-    , nl_maxdist
     )
     where
 
@@ -155,25 +161,43 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
 -- single tree
 
 {-# INLINABLE findNeighborList  #-}
-findNeighborList :: (SingI k, SpaceTree t dp, Eq dp) => dp -> t dp -> NeighborList k dp
-findNeighborList query t = findNeighborListWith query mempty t
+findNeighborList !t !query = findNeighborListWith mempty t query
+-- findNeighborList :: (SingI k, SpaceTree t dp, Eq dp) => t dp -> dp -> NeighborList k dp
 
 {-# INLINABLE findNeighborListWith #-}
-findNeighborListWith :: 
+findNeighborListWith !nl !t !q = findEpsilonNeighborListWith nl 1 t q 
+-- findNeighborListWith :: 
+--     ( SingI k
+--     , SpaceTree t dp
+--     , Eq dp
+--     ) => NeighborList k dp -> t dp -> dp -> NeighborList k dp
+-- findNeighborListWith !knn !t !query = prunefoldB (knn_catadp 1 query) (knn_cata 1 query) knn t
+
+{-# INLINABLE findEpsilonNeighborList #-}
+findEpsilonNeighborList !e !t !q = findEpsilonNeighborListWith mempty e t q
+
+{-# INLINABLE findEpsilonNeighborListWith #-}
+findEpsilonNeighborListWith :: 
     ( SingI k
     , SpaceTree t dp
     , Eq dp
-    ) => dp -> NeighborList k dp -> t dp -> NeighborList k dp
-findNeighborListWith query knn t = prunefoldB (knn_catadp query) (knn_cata query) knn t
+    ) => NeighborList k dp -> Ring dp -> t dp -> dp -> NeighborList k dp
+findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB (knn_catadp smudge query) (knn_cata smudge query) knn t
+    where
+        smudge = 1/(1+epsilon)
+
+{-# INLINABLE findNeighborList_batch #-}
+findNeighborList_batch :: (SingI k, SpaceTree t dp, Eq dp) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
+findNeighborList_batch v st = fmap (findNeighborList st) v
 
 {-# INLINABLE knn_catadp #-}
 knn_catadp :: forall k dp.
     ( SingI k
     , MetricSpace dp
     , Eq dp
-    ) => dp -> dp -> NeighborList k dp -> NeighborList k dp
-knn_catadp !query !dp !knn = {-# SCC knn_catadp2 #-}
-    case isFartherThanWithDistance dp query (nl_maxdist knn) of
+    ) => Ring dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
+knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
+    case isFartherThanWithDistance dp query (nl_maxdist knn * smudge) of
         Strict.Nothing -> knn
         Strict.Just dist -> if dp==query 
             then knn
@@ -184,9 +208,9 @@ knn_cata :: forall k t dp.
     ( SingI k
     , SpaceTree t dp
     , Eq dp
-    ) => dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
-knn_cata !query !t !knn = {-# SCC knn_cata2 #-} 
-    case stIsMinDistanceDpFartherThanWithDistance t query (nl_maxdist knn) of
+    ) => Ring dp -> dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
+knn_cata !smudge !query !t !knn = {-# SCC knn_cata2 #-} 
+    case stIsMinDistanceDpFartherThanWithDistance t query (nl_maxdist knn * smudge) of
         Strict.Nothing -> Strict.Nothing
         Strict.Just dist -> if stNode t==query 
             then Strict.Just knn
@@ -202,7 +226,7 @@ findNeighborMap ::
     ) => DualTree (t dp) -> NeighborMap k dp
 -- findNeighborMap dual = F.foldMap (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList dp $ reference dual) (query dual)
 findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $ 
-    map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList dp $ reference dual) (stToList $ query dual)
+    map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
 
 {-# INLINABLE parFindNeighborMap #-}
 parFindNeighborMap :: 
@@ -213,5 +237,33 @@ parFindNeighborMap ::
     , NFData dp
     ) => DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ 
-    map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList dp $ reference dual) (stToList $ query dual)
+    map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
 
+{-# INLINABLE parFindNeighborMapWith #-}
+parFindNeighborMapWith ::
+    ( SingI k
+    , SpaceTree t dp
+    , Ord dp
+    , NFData (Ring dp)
+    , NFData dp
+    ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
+parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
+    map 
+        (\dp -> NeighborMap $ Map.singleton dp $ findNeighborListWith (Map.findWithDefault mempty dp nm) (reference dual) dp) 
+        (stToList $ query dual)
+
+{-# INLINABLE parFindEpsilonNeighborMap #-}
+parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith mempty e d
+
+{-# INLINABLE parFindEpsilonNeighborMapWith #-}
+parFindEpsilonNeighborMapWith ::
+    ( SingI k
+    , SpaceTree t dp
+    , Ord dp
+    , NFData (Ring dp)
+    , NFData dp
+    ) => NeighborMap k dp -> Ring dp -> DualTree (t dp) -> NeighborMap k dp
+parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = (parallel reduce) $
+    map 
+        (\dp -> NeighborMap $ Map.singleton dp $ findEpsilonNeighborListWith (Map.findWithDefault mempty dp nm) epsilon (reference dual) dp) 
+        (stToList $ query dual)

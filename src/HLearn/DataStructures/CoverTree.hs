@@ -10,6 +10,7 @@ module HLearn.DataStructures.CoverTree
 --     , recover
 --     , trainct_insert
     , setNodeV
+    , rmGhostSingletons
 --     , sepdistL
 
     -- * drawing
@@ -67,7 +68,6 @@ type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector) () dp
 
 data CoverTree' (base::Frac) nodeVvec tag dp = Node 
     { nodedp                :: !dp
---     , sepdist                 :: !(Ring dp)
     , level                 :: !Int
     , weight                :: !(Ring dp)
     , numdp                 :: (Ring dp)
@@ -158,6 +158,24 @@ instance
     ro _ = 0
     lambda !ct = maxDescendentDistance ct 
 
+rmGhostSingletons :: (Eq (Ring dp), Eq dp, Num (Ring dp)) => CoverTree' base nodeVvec tag dp -> CoverTree' base nodeVvec tag dp
+rmGhostSingletons ct = if V.length (children ct) == 1 && weight ct == 0
+    then child
+        { level = level ct
+        , children = fmap rmGhostSingletons $ children child
+        }
+    else ct
+        { children = fmap rmGhostSingletons $ children ct
+        }
+    where
+        child = V.head $ children ct
+
+-- rmGhostSingletons ct = if V.length (children ct) == 1 {-&& nodedp ct == nodedp child -} && weight child==0
+--     then rmGhostSingletons $ ct { children = children $ V.head $ children ct }
+--     else ct { children = fmap rmGhostSingletons $ children ct }
+--     where
+--         child = V.head $ children ct
+
 setNodeV :: 
     ( MetricSpace dp
     , SingI base
@@ -241,7 +259,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         , weight    = weight node
         , numdp     = weight node + Strict.sum (fmap numdp children')
         , tag       = tag node
-        , children  = V.fromList $ Strict.strictlist2list children'
+        , children  = V.fromList $ sortBy sortgo $ Strict.strictlist2list children'
         , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
@@ -249,6 +267,8 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         }
 
     where 
+        sortgo ct1 ct2 = compare (distance (nodedp node) (nodedp ct2)) (distance (nodedp node) (nodedp ct1))
+
         children' :: List (CoverTree' base nodeVvec tag dp)
         children' = go $ Strict.list2strictlist $ V.toList $ children node
 
@@ -355,12 +375,8 @@ instance
     ct1 <> ct2 = case ctmerge' ct1' ct2' of
         Just (ct, []) -> ct
         Just (ct, xs) -> foldl' (<>) ct xs
---         Nothing -> (growct ct1' (roundup (sing::Sing base) $ distance (nodedp ct1') (nodedp ct2'))) <> ct2'
         Nothing -> (growct ct1' (dist2level_down (sing::Sing base) $ distance (nodedp ct1') (nodedp ct2'))) <> ct2'
         where
---             ct1' = growct ct1 maxsepdist
---             ct2' = growct ct2 maxsepdist
---             maxsepdist = maximum [sepdist ct1, sepdist ct2, 1]
             ct1' = growct ct1 maxlevel
             ct2' = growct ct2 maxlevel
             maxlevel = maximum [level ct1, level ct2, dist2level_down (sing::Sing base) $ distance (nodedp ct1) (nodedp ct2)]
@@ -386,15 +402,18 @@ ctmerge' ct1 ct2 = assert (level ct2 == level ct1) ("level ct2 == level ct1:" ++
         ( 
           flip safeInsert (stNodeW ct2) $ 
           ct1
-            { children = V.fromList $ Strict.strictlist2list children'
+            { children = children'
+            , numdp = VG.sum $ fmap numdp children'
             , maxDescendentDistance 
 --                 = sepdist_parent ct1
-                = maximum $ map (distance (nodedp ct1)) $ (stDescendents ct2++stDescendents ct1)
+--                 = maximum $ map (distance (nodedp ct1)) $ (nodedp ct2:stDescendents ct2++stDescendents ct1)
+                = maximum $ map (distance (nodedp ct1)) $ (stToList ct2++stToList ct1)
+--                 = maximum $ map (distance (nodedp ct1) . nodedp) $ Map.elems childrenMap'
             }
         , invalidchildren++invalid_newleftovers
         )
     where
-        children' = Strict.list2strictlist $ Map.elems childrenMap' 
+        children' = V.fromList $ Strict.strictlist2list $ Strict.list2strictlist $ Map.elems childrenMap' 
 
         childrenMap ct = Map.fromList $ map (\v -> (nodedp v,v)) $ stChildren ct
 
@@ -429,7 +448,7 @@ ctmerge' ct1 ct2 = assert (level ct2 == level ct1) ("level ct2 == level ct1:" ++
                            , leftovers'++leftovers
                            ) xs
             where
-                ctmerge'' ct1 ct2 = ctmerge' ct1' ct2'
+                ctmerge'' ct1 ct2 = ctmerge' ct1 ct2
                     where
                         ct1' = growct ct1 maxlevel
                         ct2' = growct ct2 maxlevel
@@ -458,11 +477,19 @@ growct :: forall base nodeVvec tag dp.
     ) => CoverTree' base nodeVvec tag dp -> Int -> CoverTree' base nodeVvec tag dp
 growct ct d = if sepdist ct==0 || stIsLeaf ct 
     then ct { level=d }
---     else if d > sepdist ct
     else if d > level ct
+--         then Node
+--             { nodedp    = nodedp ct
+--             , level     = d
+--             , weight    = 0 -- weight ct
+--             , numdp     = numdp ct
+--             , tag       = mempty
+--             , children  = V.fromList $ Strict.strictlist2list $ ct:.Strict.Nil
+--             , nodeV     = mempty
+--             , maxDescendentDistance = maxDescendentDistance ct
+--             }
         then growct (Node
             { nodedp    = nodedp ct
---             , sepdist   = sepdist ct*coverfactor
             , level     = level ct+1
             , weight    = 0 -- weight ct
             , numdp     = numdp ct
@@ -478,7 +505,6 @@ growct ct d = if sepdist ct==0 || stIsLeaf ct
 
 level2sepdist :: forall base num. (SingI (base::a), SingE (Kind::a) num, Num num, Floating num) => 
     Sing base -> Int -> num
--- level2sepdist _ l = (fromSing (sing :: Sing base))^^l
 level2sepdist _ l = (fromSing (sing :: Sing base))**(fromIntegral l)
 
 dist2level_down :: forall base num. (SingI (base::a), SingE (Kind::a) num, RealFrac num, Floating num) => 
@@ -791,11 +817,14 @@ property_separating (UnitLift node) = if VG.length (children node) > 1
 
 -- property_maxDescendentDistance  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_maxDescendentDistance Unit = True
-property_maxDescendentDistance (UnitLift node) = if stIsLeaf node
-    then True
-    else and (map (property_maxDescendentDistance . UnitLift) $ stChildren node)
-      && and (map (\dp -> weight node == 1 
-                       || distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
+property_maxDescendentDistance (UnitLift node) 
+    = and (map (property_maxDescendentDistance . UnitLift) $ stChildren node)
+   && and (map (\dp -> distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
+-- property_maxDescendentDistance (UnitLift node) = if stIsLeaf node
+--     then True
+--     else and (map (property_maxDescendentDistance . UnitLift) $ stChildren node)
+--       && and (map (\dp -> weight node == 1 
+--                        || distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
 
 -- property_validmerge :: 
 --     (CoverTree (Double,Double) -> Bool) -> CoverTree (Double,Double) -> CoverTree (Double,Double) -> Bool

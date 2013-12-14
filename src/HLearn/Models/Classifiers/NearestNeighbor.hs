@@ -72,7 +72,7 @@ instance
     probabilityClassify m dp = train . map (getLabel . neighbor) $ getknnL res 
 --     probabilityClassify m dp = reduce . map (\dp -> (1+1/neighborDistance dp) .* train1dp (getLabel $ neighbor dp)) $ getknnL res 
         where
-            res = findNeighborList (noLabel dp) (gettree m) :: NeighborList k dp
+            res = findNeighborList (gettree m) (noLabel dp) :: NeighborList k dp
 
 instance 
     ( ProbabilityClassifier (KNearestNeighbor tree k dp)
