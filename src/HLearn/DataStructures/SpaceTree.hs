@@ -51,7 +51,7 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.ST
 import Data.Semigroup
-import Data.List
+import Data.List hiding (partition)
 import qualified Data.Foldable as F
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Strict.Tuple as Strict
@@ -321,6 +321,24 @@ data DualTree a = DualTree
     , query     :: !a
     }
     deriving (Read,Show,Eq,Ord)
+
+instance (Monoid a,Eq a) => Monoid (DualTree a) where
+    mempty = DualTree 
+        { reference = undefined
+        , query = mempty
+        }
+
+    mappend a b = if reference a==reference b
+        then DualTree
+            { reference = reference a
+            , query = query a `mappend` query b
+            }
+        else error "DualTree Monoid requires both references to be equal"
+
+instance (Eq a, Cocommutative a) => Cocommutative (DualTree a)
+instance (Eq a, NonCocommutative a) => NonCocommutative (DualTree a)
+instance (Eq a, Comonoid a) => Comonoid (DualTree a) where
+    partition n dual = [DualTree (reference dual) q | q <- partition n $ query dual]
 
 {-# INLINABLE dualNodes #-}
 dualNodes :: SpaceTree t dp => DualTree (t dp) -> DualTree dp

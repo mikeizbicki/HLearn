@@ -165,7 +165,7 @@ findNeighborList !t !query = findNeighborListWith mempty t query
 -- findNeighborList :: (SingI k, SpaceTree t dp, Eq dp) => t dp -> dp -> NeighborList k dp
 
 {-# INLINABLE findNeighborListWith #-}
-findNeighborListWith !nl !t !q = findEpsilonNeighborListWith nl 1 t q 
+findNeighborListWith !nl !t !q = findEpsilonNeighborListWith nl 0 t q 
 -- findNeighborListWith :: 
 --     ( SingI k
 --     , SpaceTree t dp

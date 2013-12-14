@@ -215,10 +215,10 @@ runit params tree knn = do
         Nothing -> return $ reftree
 
     -- do knn search
---     let result = parFindEpsilonNeighborMap 1 (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
+    let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
     let rs_index = Map.fromList $ zip (V.toList rs) [0..]
@@ -229,10 +229,10 @@ runit params tree knn = do
             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
             . Map.elems 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
---             . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
---             $ nm2map res 
-            . Map.map (map rangedistance . Set.toList . rangeset) 
-            $ rm2map res 
+            . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
+            $ nm2map res 
+--             . Map.map (map rangedistance . Set.toList . rangeset) 
+--             $ rm2map res 
         hClose hDistances
 
     timeIO "outputing neighbors" $ do
@@ -242,10 +242,10 @@ runit params tree knn = do
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
---             . Map.map (map neighbor . Strict.strictlist2list . getknn) 
---             $ nm2map res 
-            . Map.map (map rangedp . Set.toList . rangeset)
-            $ rm2map res 
+            . Map.map (map neighbor . Strict.strictlist2list . getknn) 
+            $ nm2map res 
+--             . Map.map (map rangedp . Set.toList . rangeset)
+--             $ rm2map res 
         hClose hNeighbors
     
     -- end
