@@ -140,9 +140,11 @@ type instance VG.Mutable (L2 v) = L2M (VG.Mutable v)
 instance Num r => HasRing (L2 v r) where
     type Ring (L2 v r) = r
 
-instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
+-- instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
+instance MetricSpace (L2 VU.Vector Float) where
     {-# INLINABLE distance #-}
     {-# INLINABLE isFartherThanWithDistance #-}
+    {-# INLINABLE isFartherThanWithDistanceCanError #-}
 
     distance !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ go 0 (VG.length v1-1)
         where
@@ -158,6 +160,19 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
             go !tot (-1) = Strict.Just $ sqrt tot
             go !tot !i = if tot'>dist2
                 then Strict.Nothing
+                else go tot' (i-1)
+                where
+                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+
+    isFartherThanWithDistanceCanError !(L2 v1) !(L2 v2) !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
+        go 0 (VG.length v1-1)
+        where
+            dist2=dist*dist
+
+            go !tot (-1) = sqrt tot
+            go !tot !i = if tot'>dist2
+                then errorVal
                 else go tot' (i-1)
                 where
                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
@@ -317,9 +332,9 @@ instance MkCentroid (L1 VU.Vector Double) where
     {-# INLINABLE mkCentroid #-}
     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
 
-instance MkCentroid (L2 VU.Vector Double) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
+-- instance MkCentroid (L2 VU.Vector Double) where
+--     {-# INLINABLE mkCentroid #-}
+--     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
 
 instance MkCentroid (SquaredL2 VU.Vector Double) where
     {-# INLINABLE mkCentroid #-}

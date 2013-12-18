@@ -13,6 +13,7 @@ module HLearn.Algebra
     , module HLearn.Algebra.Models.Lame
 --     , module HLearn.Algebra.Models.Free.MonoidChain
 --     , module HLearn.Algebra.Morphism
+    , module HLearn.Algebra.Structures.CanError
     , module HLearn.Algebra.Structures.Groups
     , module HLearn.Algebra.Structures.MetricSpace
     , module HLearn.Algebra.Structures.Modules
@@ -38,6 +39,7 @@ import HLearn.Algebra.Models.HomTrainer
 import HLearn.Algebra.Models.Lame
 -- import HLearn.Algebra.Models.Free.MonoidChain
 -- import HLearn.Algebra.Morphism
+import HLearn.Algebra.Structures.CanError
 import HLearn.Algebra.Structures.Groups
 import HLearn.Algebra.Structures.MetricSpace
 import HLearn.Algebra.Structures.Modules

@@ -64,6 +64,7 @@ instance
     , Ord (Label dp)
     , HasRing (tree dp)
     , Ring (tree dp) ~ Ring dp
+    , CanError (Ring dp)
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where
     type ResultDistribution (KNearestNeighbor tree k dp) = 
@@ -107,4 +108,4 @@ q3 = L2 $ VU.fromList [2,3] :: L2 VU.Vector Double
 -- ct = train zs :: CoverTree DP 
 -- ct' = train $ map getAttributes zs :: CoverTree (Attributes DP) 
 
-m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector) ()) 1 DP
+-- m = train zs :: KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector) ()) 1 DP

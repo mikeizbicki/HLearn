@@ -51,6 +51,7 @@ import Diagrams.Prelude hiding (distance,trace,query,connect)
 import Diagrams.Backend.SVG.CmdLine
 
 import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
+import qualified HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor hiding (weight)
@@ -111,6 +112,8 @@ instance
     {-# INLINABLE stMaxDistanceDpFromDistance #-}
     {-# INLINABLE stIsMinDistanceDpFartherThanWithDistance #-}
     {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
+    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     {-# INLINABLE stChildren #-}
     {-# INLINABLE stChildren' #-}
     {-# INLINABLE stChildren_ #-}
@@ -138,6 +141,11 @@ instance
 
     stIsMaxDistanceDpFartherThanWithDistance !ct !dp !b = 
         isFartherThanWithDistance (nodedp ct) dp (b-maxDescendentDistance ct)
+
+    stIsMinDistanceDpFartherThanWithDistanceCanError !ct !dp !b = 
+        isFartherThanWithDistanceCanError (nodedp ct) dp (b+maxDescendentDistance ct)
+    stIsMaxDistanceDpFartherThanWithDistanceCanError !ct !dp !b = 
+        isFartherThanWithDistanceCanError (nodedp ct) dp (b-maxDescendentDistance ct)
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
@@ -748,6 +756,9 @@ extractLeaf ct = if stIsLeaf ct
 
 -------------------------------------------------------------------------------
 -- training
+
+instance HasRing dp => NumDP (CoverTree' base nodeVvec tag dp) where
+    numdp = numdp
 
 instance 
     ( MetricSpace dp
