@@ -8,7 +8,7 @@ import qualified Data.Vector.Unboxed as VU
 -------------------------------------------------------------------------------
 -- classes
 
-class Monoid t => Comonoid t where
+class Comonoid t where
     partition :: Int -> t -> [t]
 
 class Comonoid t => Cocommutative t

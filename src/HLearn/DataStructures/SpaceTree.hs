@@ -36,6 +36,7 @@ module HLearn.DataStructures.SpaceTree
     , prunefold
     , prunefoldA
     , prunefoldB
+    , prunefoldC
 --     , prunefoldM
     , noprune
 
@@ -53,6 +54,7 @@ import Control.Monad.ST
 import Data.Semigroup
 import Data.List hiding (partition)
 import qualified Data.Foldable as F
+import qualified Data.Strict.Either as Strict
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Strict.Tuple as Strict
 import qualified Data.Vector as V
@@ -79,7 +81,13 @@ class Taggable t dp where
     clearTags :: t tag dp -> t () dp
 
 
-class (MetricSpace dp, VG.Vector (LeafVector t) dp) => SpaceTree t dp where
+class 
+    ( MetricSpace dp
+    , Ring dp ~ Ring (t dp)
+    , NumDP (t dp)
+    , VG.Vector (LeafVector t) dp
+    ) => SpaceTree t dp 
+        where
     type LeafVector t :: * -> *
     type LeafVector t = V.Vector 
 
@@ -90,8 +98,6 @@ class (MetricSpace dp, VG.Vector (LeafVector t) dp) => SpaceTree t dp where
     stMaxDistance :: t dp -> t dp -> Ring dp
     stMaxDistance t1 t2 = Strict.fst $ stMaxDistanceWithDistance t1 t2
     
---     stMinDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
---     stMaxDistanceWithDistance :: t dp -> t dp -> (Ring dp,Ring dp)
     stMinDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Ring dp) (Ring dp)
     stMaxDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Ring dp) (Ring dp)
 
@@ -105,8 +111,6 @@ class (MetricSpace dp, VG.Vector (LeafVector t) dp) => SpaceTree t dp where
     stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
     stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
 
---     stMinDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
---     stMaxDistanceDpWithDistance :: t dp -> dp -> (Ring dp, Ring dp)
     stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
     stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
 
@@ -309,6 +313,14 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
         where
             b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
 
+{-# INLINABLE prunefoldC #-}
+prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
+prunefoldC !f1 !f2 !b !t = case f2 t b of
+    Strict.Left b' -> b'
+    Strict.Right b' -> VG.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
+        where
+            b'' = VG.foldr' f1 b' (stNodeV t)
+
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool
 noprune _ _ = False
@@ -335,9 +347,9 @@ instance (Monoid a,Eq a) => Monoid (DualTree a) where
             }
         else error "DualTree Monoid requires both references to be equal"
 
-instance (Eq a, Cocommutative a) => Cocommutative (DualTree a)
-instance (Eq a, NonCocommutative a) => NonCocommutative (DualTree a)
-instance (Eq a, Comonoid a) => Comonoid (DualTree a) where
+instance Cocommutative a => Cocommutative (DualTree a)
+instance NonCocommutative a => NonCocommutative (DualTree a)
+instance Comonoid a => Comonoid (DualTree a) where
     partition n dual = [DualTree (reference dual) q | q <- partition n $ query dual]
 
 {-# INLINABLE dualNodes #-}
@@ -447,7 +459,11 @@ instance Taggable sg dp => Taggable (AddUnit sg) dp where
     clearTags Unit = Unit
     clearTags (UnitLift sg) = UnitLift $ clearTags sg
 
-instance SpaceTree (sg tag) dp => SpaceTree (AddUnit sg tag) dp where
+instance NumDP (sg tag dp) => NumDP (AddUnit sg tag dp) where
+    numdp Unit = 0
+    numdp (UnitLift x) = numdp x
+
+instance (SpaceTree (sg tag) dp, NumDP (sg tag dp)) => SpaceTree (AddUnit sg tag) dp where
     type LeafVector (AddUnit sg tag) = LeafVector (sg tag)
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}

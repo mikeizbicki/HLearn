@@ -20,7 +20,6 @@ import HLearn.DataStructures.SortedVector
 
 -- | The KDE type is implemented as an isomorphism with the FreeModule
 newtype KDE kernel (h::Frac) (prob:: *) (dp:: *) = KDE
---     { freemod :: FreeModule prob dp 
     { freemod :: SortedVector dp 
     }
     deriving (Read,Show,Eq,Ord,NFData,Monoid,Group,Abelian{-,Module-})
@@ -51,7 +50,7 @@ instance Probabilistic (KDE kernel h prob dp) where
     type Probability (KDE kernel h prob dp) = prob
     
 instance 
-    ( Kernel kernel prob
+    ( Function kernel prob prob
     , SingI h
     , Fractional prob
     , prob ~ Ring (SortedVector prob)
@@ -60,7 +59,7 @@ instance
         where
     pdf kde dp = (1/(n*h))*(foldr (+) 0 $ map (\x -> f $ (dp-x)/h) dpList)
         where 
-            f = evalKernel (undefined::kernel)
+            f = function (undefined::kernel)
             n = numdp kde
             h = fromSing (sing :: Sing h)
 --             dpList = Map.keys (getMap $ freemod kde)
@@ -81,7 +80,7 @@ instance
 --             max = (mean dist)+5*(sqrt $ variance dist)
 instance 
     ( PDF (KDE kernel h prob prob)
-    , Kernel kernel prob
+    , Function kernel prob prob
     , SingI h
     , Fractional prob
     , Show prob

@@ -122,6 +122,10 @@ type DP = L2 VU.Vector Float
 -- type DP = DP2 
 type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
 
+-- instance VGM.MVector VUM.MVector (L2 VU.Vector Float)
+-- instance VG.Vector VU.Vector (L2 VU.Vector Float)
+-- instance VUM.Unbox (L2 VU.Vector Float)
+
 -- instance VG.Vector VU.Vector DP where
 
 data Params = Params
@@ -197,7 +201,7 @@ runit params tree knn = do
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
 
-    let reftree = {-parallel-} train rs :: Tree
+    let reftree = parallel train rs :: Tree
     timeIO "building reference tree" $ return reftree
     let reftree_prune = setNodeV 0 $ rmGhostSingletons $  unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
@@ -215,8 +219,10 @@ runit params tree knn = do
         Nothing -> return $ reftree
 
     -- do knn search
-    let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
+    let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 
