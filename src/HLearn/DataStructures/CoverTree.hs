@@ -50,7 +50,7 @@ import Debug.Trace
 import Diagrams.Prelude hiding (distance,trace,query,connect)
 import Diagrams.Backend.SVG.CmdLine
 
-import HLearn.Algebra hiding ((#),(<>),(|>),numdp,partition)
+import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor hiding (weight)
@@ -353,10 +353,59 @@ insertBatch ((!dp):dps) = go dps $ Node
 --                 then i
 --                 else f (nodedp ct) i
 
-instance Comonoid (CoverTree' base nodeVvec tag dp) where
-    partition n ct = 
+instance Real (Ring dp) => Comonoid (CoverTree' base nodeVvec tag dp) where
+    partition n ct = [ takeFromTo (fromIntegral i*splitlen) splitlen ct | i <- [0..n-1] ] 
+        where
+            splitlen = fromIntegral $ ceiling $ toRational (numdp ct) / toRational n
 
-instance (HasRing dp) => HasRing (CoverTree' base nodeVvec tag dp) where
+-- split :: CoverTree' base nodeVvec tag dp -> (CoverTree' base nodeVvec tag dp,CoverTree' base nodeVvec tag dp)
+-- split ct = (ct {children=childrenL}, ct { weight=0, children=childrenR })
+--     where
+--         scan
+--         
+--         midpt = ceiling $ toRational (numdp ct) / toRational n
+        
+
+-- partitionSize :: [Int] -> [CoverTree' base nodeVvec tag dp]
+-- partitionSize xs = undefined
+ 
+takeFromTo :: 
+    ( Num (Ring dp)
+    , Ord (Ring dp)
+--     , Show (Ring dp)
+--     , Show dp
+    ) => Ring dp -> Ring dp -> CoverTree' base nodeVvec tag dp -> CoverTree' base nodeVvec tag dp
+takeFromTo from len ct = 
+--   trace ("from="++show from++"; len="++show len++"; weight="++show (weight ct)++"; nodedp="++show (nodedp ct))$
+  if len <= weight ct - from
+    then ct 
+        { weight = len-from
+        , numdp = len-from
+        , children = mempty 
+        }
+    else ct 
+        { weight = weight' 
+        , numdp = weight'+min (numdp ct-weight ct) (len-from) 
+        , children = go (VG.length (children ct)-1) (from-weight ct) (len-weight') mempty 
+        }
+    where
+        weight' = max 0 $ weight ct-from
+
+        go i from' len' ret = --trace ("  go: i="++show i++"; from'="++show from'++"; len'="++show len') $ 
+          if i<0 || len'<=0
+            then ret
+            else go (i-1) (max 0 $ from'-numdp child) (len'') (child' `mappend` ret)
+                
+            where 
+                child = children ct VG.! i
+
+                (child',len'') = if from' > numdp child
+                    then (mempty,len')
+                    else (VG.singleton $ takeFromTo from' len' child, len'-(numdp child-from'))
+
+                
+
+instance HasRing dp => HasRing (CoverTree' base nodeVvec tag dp) where
     type Ring (CoverTree' base nodeVvec tag dp) = Ring dp
 
 instance
@@ -426,11 +475,11 @@ ctmerge' ct1 ct2 = assert (level ct2 == level ct1) ("level ct2 == level ct1:" ++
 
 
         validchild x = not $ isFartherThan (nodedp ct1) (nodedp x) (sepdist ct1)
-        (validchildren,invalidchildren) = partition validchild $ Map.elems $ childrenMap ct2
+        (validchildren,invalidchildren) = Data.List.partition validchild $ Map.elems $ childrenMap ct2
 
         (newchildren,newleftovers) = 
             go (childrenMap ct1,[]) validchildren
-        (valid_newleftovers,invalid_newleftovers) = partition validchild newleftovers
+        (valid_newleftovers,invalid_newleftovers) = Data.List.partition validchild newleftovers
 
         go (childmap,leftovers) [] = 
             (childmap,leftovers)
@@ -871,8 +920,8 @@ ys :: [(Double,Double)]
 -- ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
 -- ys = [(0,0),(0,10),(10,10),(10,0),(10,-10),(0,-10),(-10,-10),(-10,0),(-10,10)]
 ys = [(0,0),(0,10),(8,8),(10,0),(8,-8),(0,-10),(-8,-8),(-10,0),(-8,8)]
--- my = train ys :: CoverTree (Double,Double)
--- my2 = train $ take 3 ys :: CoverTree (Double,Double)
+my = train ys :: CoverTree (Double,Double)
+my2 = train $ take 3 ys :: CoverTree (Double,Double)
 -- my = prunect $ insertBatch ys
 
 ys' :: [(Double,Double)]
@@ -883,8 +932,7 @@ ys' = [(1,2),(2,1)]
 zs :: [(Double,Double)]
 -- zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(19,20),(20,10),(22,21)]
 zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
--- mz = train zs :: CoverTree (Double,Double)
--- mz = prunect $ insertBatch zs
+mz = train zs :: CoverTree (Double,Double)
 
 -- mq = mz `mappend` my
 
@@ -928,9 +976,9 @@ draw' depth tree = mkConnections $
             then red
             else lightblue
 
-        mkConnections = undefined
---          connect (label++show depth) (label++show (depth+1)) 
---          . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ children tree))
+        mkConnections = 
+             connect (label++show depth) (label++show (depth+1)) 
+             . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ Strict.list2strictlist $ VG.toList $ children tree))
             
 justdouble :: Maybe Double -> String
 justdouble Nothing = "0"

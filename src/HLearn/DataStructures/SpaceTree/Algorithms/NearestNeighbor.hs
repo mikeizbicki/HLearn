@@ -128,12 +128,8 @@ instance (SingI k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
     {-# INLINE mappend #-}
 
     mempty = NeighborList Strict.Nil 
-    mappend (NeighborList Strict.Nil     ) (NeighborList Strict.Nil     ) = 
-        {-# SCC mappend_NeighborList #-} NeighborList Strict.Nil
-    mappend (NeighborList (x:.Strict.Nil)) (NeighborList Strict.Nil     ) = 
-        {-# SCC mappend_NeighborList #-} NeighborList $ x:.Strict.Nil
-    mappend (NeighborList Strict.Nil     ) (NeighborList (y:.Strict.Nil)) = 
-        {-# SCC mappend_NeighborList #-} NeighborList $ y:.Strict.Nil
+    mappend nl1 (NeighborList Strict.Nil) = nl1
+    mappend (NeighborList Strict.Nil) nl2 = nl2
     mappend (NeighborList (x:.xs)  ) (NeighborList (y:.ys)  ) = {-# SCC mappend_NeighborList #-} case k of
         1 -> if x < y then NeighborList (x:.Strict.Nil) else NeighborList (y:.Strict.Nil)
         otherwise -> NeighborList $ Strict.take k $ interleave (x:.xs) (y:.ys)
