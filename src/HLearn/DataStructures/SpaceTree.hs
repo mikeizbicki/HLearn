@@ -36,6 +36,7 @@ module HLearn.DataStructures.SpaceTree
     , prunefold
     , prunefoldA
     , prunefoldB
+    , prunefoldB_CanError
     , prunefoldC
 --     , prunefoldM
     , noprune
@@ -110,6 +111,9 @@ class
 
     stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
     stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
+
+    stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
+    stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
 
     stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
     stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
@@ -313,6 +317,24 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
         where
             b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
 
+{-# INLINABLE prunefoldB_CanError #-}
+prunefoldB_CanError :: (SpaceTree t a, CanError b) => 
+    (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
+prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB #-} if isError res
+    then {-# SCC prunefoldB_CanError_Nothing #-} b
+    else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
+        where
+            res = f2 t b
+            b'' = {-# SCC b'' #-} VG.foldr' f1 res (stNodeV t)
+
+{-# INLINE fastfoldl' #-}
+fastfoldl' :: VG.Vector v b => (a -> b -> a) -> a -> v b -> a
+fastfoldl' !f !a !v = go (VG.length v-1) a
+    where
+        go (-1) ret = ret
+        go i ret = go (i-1) $ f ret (VG.unsafeIndex v i)
+        
+
 {-# INLINABLE prunefoldC #-}
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
 prunefoldC !f1 !f2 !b !t = case f2 t b of
@@ -473,6 +495,10 @@ instance (SpaceTree (sg tag) dp, NumDP (sg tag dp)) => SpaceTree (AddUnit sg tag
     {-# INLINE stMaxDistanceDp #-}
     {-# INLINE stMinDistanceDpWithDistance #-}
     {-# INLINE stMaxDistanceDpWithDistance #-}
+    {-# INLINE stIsMinDistanceDpFartherThanWithDistance #-}
+    {-# INLINE stIsMaxDistanceDpFartherThanWithDistance #-}
+    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     {-# INLINE stChildren #-}
     {-# INLINE stChildren' #-}
     {-# INLINE stChildren_ #-}
@@ -503,6 +529,14 @@ instance (SpaceTree (sg tag) dp, NumDP (sg tag dp)) => SpaceTree (AddUnit sg tag
 
     stIsMinDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMinDistanceDpFartherThanWithDistance x dp b
     stIsMaxDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMaxDistanceDpFartherThanWithDistance x dp b
+
+    stIsMinDistanceDpFartherThanWithDistanceCanError Unit dp b = errorVal 
+    stIsMinDistanceDpFartherThanWithDistanceCanError (UnitLift x) dp b = 
+        stIsMinDistanceDpFartherThanWithDistanceCanError x dp b
+
+    stIsMaxDistanceDpFartherThanWithDistanceCanError Unit dp b = errorVal 
+    stIsMaxDistanceDpFartherThanWithDistanceCanError (UnitLift x) dp b = 
+        stIsMaxDistanceDpFartherThanWithDistanceCanError x dp b
 
     stMinDistanceDpFromDistance Unit _ _ = 0
     stMinDistanceDpFromDistance (UnitLift x) dp dist = stMinDistanceDpFromDistance x dp dist

@@ -5,6 +5,7 @@ module HLearn.Algebra.Structures.MetricSpace
 import Data.List
 import qualified Data.Strict.Maybe as Strict
 import Data.Monoid
+import HLearn.Algebra.Structures.CanError
 import HLearn.Algebra.Structures.Modules
                     
 -------------------------------------------------------------------------------
@@ -21,6 +22,7 @@ class
         where
     {-# INLINABLE isFartherThan #-}
     {-# INLINABLE isFartherThanWithDistance #-}
+    {-# INLINABLE isFartherThanWithDistanceCanError #-}
 
     distance :: s -> s -> Ring s
     
@@ -33,6 +35,13 @@ class
     isFartherThanWithDistance s1 s2 b = if dist > b
         then Strict.Nothing
         else Strict.Just $ dist
+        where
+            dist = distance s1 s2
+
+    isFartherThanWithDistanceCanError :: CanError (Ring s) => s -> s -> Ring s -> Ring s
+    isFartherThanWithDistanceCanError s1 s2 b = if dist > b
+        then errorVal
+        else dist
         where
             dist = distance s1 s2
 

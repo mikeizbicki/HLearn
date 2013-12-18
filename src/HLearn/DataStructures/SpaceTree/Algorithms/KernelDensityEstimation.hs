@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module HLearn.DataStructures.SpaceTree.Algorithms.KernelDensityEstimation
     where
 

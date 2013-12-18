@@ -107,6 +107,14 @@ nl_maxdist (NeighborList Strict.Nil) = infinity
 nl_maxdist (NeighborList (x:.Strict.Nil)) = neighborDistance x
 nl_maxdist (NeighborList xs ) = neighborDistance $ Strict.last xs
 
+instance CanError (NeighborList k dp) where
+    {-# INLINE errorVal #-}
+    errorVal = NeighborList Strict.Nil
+
+    {-# INLINE isError #-}
+    isError (NeighborList Strict.Nil) = True
+    isError _ = False
+
 ---------------------------------------
 
 newtype NeighborMap (k::Nat) dp = NeighborMap 
@@ -177,13 +185,14 @@ findEpsilonNeighborListWith ::
     ( SingI k
     , SpaceTree t dp
     , Eq dp
+    , CanError (Ring dp)
     ) => NeighborList k dp -> Ring dp -> t dp -> dp -> NeighborList k dp
-findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB (knn_catadp smudge query) (knn_cata smudge query) knn t
+findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
     where
         smudge = 1/(1+epsilon)
 
 {-# INLINABLE findNeighborList_batch #-}
-findNeighborList_batch :: (SingI k, SpaceTree t dp, Eq dp) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
+findNeighborList_batch :: (SingI k, SpaceTree t dp, Eq dp, CanError (Ring dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
 findNeighborList_batch v st = fmap (findNeighborList st) v
 
 {-# INLINABLE knn_catadp #-}
@@ -191,26 +200,60 @@ knn_catadp :: forall k dp.
     ( SingI k
     , MetricSpace dp
     , Eq dp
+    , CanError (Ring dp)
     ) => Ring dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
 knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
-    case isFartherThanWithDistance dp query (nl_maxdist knn * smudge) of
-        Strict.Nothing -> knn
-        Strict.Just dist -> if dp==query 
+    if isError dist 
+        then knn
+        else if dp==query 
             then knn
             else knn <> (NeighborList $ (Neighbor dp dist):.Strict.Nil)
+    where
+        dist = isFartherThanWithDistanceCanError dp query (nl_maxdist knn * smudge)
 
 {-# INLINABLE knn_cata #-}
 knn_cata :: forall k t dp. 
     ( SingI k
     , SpaceTree t dp
     , Eq dp
-    ) => Ring dp -> dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
-knn_cata !smudge !query !t !knn = {-# SCC knn_cata2 #-} 
-    case stIsMinDistanceDpFartherThanWithDistance t query (nl_maxdist knn * smudge) of
-        Strict.Nothing -> Strict.Nothing
-        Strict.Just dist -> if stNode t==query 
-            then Strict.Just knn
-            else Strict.Just $ knn <> (NeighborList $ (Neighbor (stNode t) dist):.Strict.Nil)
+    , CanError (Ring dp)
+    ) => Ring dp -> dp -> t dp -> NeighborList k dp -> NeighborList k dp
+knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-} 
+    if isError dist 
+        then errorVal
+        else if stNode t==query 
+            then if isError knn
+                then NeighborList $ (Neighbor (stNode t) infinity):.Strict.Nil
+                else knn
+            else knn <> (NeighborList $ (Neighbor (stNode t) dist):.Strict.Nil)
+    where
+        dist = stIsMinDistanceDpFartherThanWithDistanceCanError t query (nl_maxdist knn * smudge)
+
+-- {-# INLINABLE knn_catadp #-}
+-- knn_catadp :: forall k dp.
+--     ( SingI k
+--     , MetricSpace dp
+--     , Eq dp
+--     ) => Ring dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
+-- knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
+--     case isFartherThanWithDistance dp query (nl_maxdist knn * smudge) of
+--         Strict.Nothing -> knn
+--         Strict.Just dist -> if dp==query 
+--             then knn
+--             else knn <> (NeighborList $ (Neighbor dp dist):.Strict.Nil)
+
+-- {-# INLINABLE knn_cata #-}
+-- knn_cata :: forall k t dp. 
+--     ( SingI k
+--     , SpaceTree t dp
+--     , Eq dp
+--     ) => Ring dp -> dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
+-- knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-} 
+--     case stIsMinDistanceDpFartherThanWithDistance t query (nl_maxdist knn * smudge) of
+--         Strict.Nothing -> Strict.Nothing
+--         Strict.Just dist -> if stNode t==query 
+--             then Strict.Just knn
+--             else Strict.Just $ knn <> (NeighborList $ (Neighbor (stNode t) dist):.Strict.Nil)
 
 ---------------------------------------
 
@@ -219,6 +262,7 @@ findNeighborMap ::
     ( SingI k
     , SpaceTree t dp
     , Ord dp
+    , CanError (Ring dp)
     ) => DualTree (t dp) -> NeighborMap k dp
 -- findNeighborMap dual = F.foldMap (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList dp $ reference dual) (query dual)
 findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $ 
@@ -231,6 +275,7 @@ parFindNeighborMap ::
     , Ord dp
     , NFData (Ring dp)
     , NFData dp
+    , CanError (Ring dp)
     ) => DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ 
     map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
@@ -242,6 +287,7 @@ parFindNeighborMapWith ::
     , Ord dp
     , NFData (Ring dp)
     , NFData dp
+    , CanError (Ring dp)
     ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
     map 
@@ -258,6 +304,7 @@ parFindEpsilonNeighborMapWith ::
     , Ord dp
     , NFData (Ring dp)
     , NFData dp
+    , CanError (Ring dp)
     ) => NeighborMap k dp -> Ring dp -> DualTree (t dp) -> NeighborMap k dp
 parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = (parallel reduce) $
     map 

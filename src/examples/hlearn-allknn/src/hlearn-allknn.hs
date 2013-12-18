@@ -8,6 +8,7 @@ import Control.Monad.ST
 import Data.Csv
 import Data.List
 import Data.Maybe
+import Data.Traversable (traverse)
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -56,11 +57,7 @@ import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
 data DP2 = DP2 !Float !Float !Float !Float !Float !Float !Float !Float !Float !Float
-
     deriving (Read,Show,Eq,Ord)
-
--- instance VGM.MVector VUM.MVector DP2 where
--- instance VG.Vector VU.Vector DP2 where
 
 derivingUnbox "DP2"
     [t| DP2 -> ((Float,Float,Float,Float,Float),(Float,Float,Float,Float,Float)) |]
@@ -120,7 +117,8 @@ instance FromRecord DP2 where
 
 type DP = L2 VU.Vector Float
 -- type DP = DP2 
-type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
+-- type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
+type Tree = AddUnit (CoverTree' (13/10) V.Vector) () DP
 
 -- instance VGM.MVector VUM.MVector (L2 VU.Vector Float)
 -- instance VG.Vector VU.Vector (L2 VU.Vector Float)
@@ -219,10 +217,10 @@ runit params tree knn = do
         Nothing -> return $ reftree
 
     -- do knn search
---     let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parallel findNeighborMap" $ return result
+    let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 
