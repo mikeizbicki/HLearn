@@ -35,7 +35,7 @@ import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     
 
 list2ByteArray xs = runST $ do
-    arr <- newByteArray (20*8)
+    arr <- newAlignedPinnedByteArray (2^16) (20*8)
     forM (zip [0..] xs) $ \(i,x) -> do
         writeByteArray arr i x
     unsafeFreezeByteArray arr
@@ -119,8 +119,8 @@ main = do
 --             [ bench "V.Vector"  $ nf (distance_Vector_Float v1) v2
             [ bench "VU.Vector" $ nf (distance_UVector_Float vu1) vu2
             , bench "VU.Vector2" $ nf (distance_UVector_Float2 vu1) vu2
---             , bench "Array"     $ nf (distance_Array_Float a1) a2
---             , bench "ByteArray" $ nf (distance_ByteArray_Float ba1) ba2
+            , bench "Array"     $ nf (distance_Array_Float a1) a2
+            , bench "ByteArray" $ nf (distance_ByteArray_Float ba1) ba2
             ]
         ]
 

@@ -45,6 +45,7 @@ import Data.CSV.Conduit
 import Control.Parallel.Strategies
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
+import HLearn.DataStructures.StrictVector
 import HLearn.DataStructures.CoverTree
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
@@ -55,6 +56,8 @@ import HLearn.Metrics.Lebesgue
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
+
+import UnsafeVector
 
 data DP2 = DP2 !Float !Float !Float !Float !Float !Float !Float !Float !Float !Float
     deriving (Read,Show,Eq,Ord)
@@ -118,7 +121,9 @@ instance FromRecord DP2 where
 type DP = L2 VU.Vector Float
 -- type DP = DP2 
 -- type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
-type Tree = AddUnit (CoverTree' (13/10) V.Vector) () DP
+-- type Tree = AddUnit (CoverTree' (13/10) Strict.List V.Vector) () DP
+-- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
+type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
 
 -- instance VGM.MVector VUM.MVector (L2 VU.Vector Float)
 -- instance VG.Vector VU.Vector (L2 VU.Vector Float)
@@ -179,7 +184,8 @@ main = do
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 8 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 9 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 10 DP -> IO ()#-}
-runit :: forall k tree base nodeVvec dp ring. 
+
+runit :: forall k tree base childContainer nodeVvec dp ring. 
     ( MetricSpace dp
     , Ord dp
     , SingI k
@@ -190,16 +196,17 @@ runit :: forall k tree base nodeVvec dp ring.
     , RealFloat (Ring dp)
     , FromRecord dp 
     , VU.Unbox (Ring dp)
-    , VG.Vector nodeVvec dp
+--     , VG.Vector nodeVvec dp
     , dp ~ DP
-    ) => Params -> AddUnit (CoverTree' base nodeVvec) () dp -> NeighborMap k dp -> IO ()
+    ) => Params -> AddUnit (CoverTree' base childContainer nodeVvec) () dp -> NeighborMap k dp -> IO ()
 runit params tree knn = do
-
+    
     -- build reference tree
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
 
-    let reftree = parallel train rs :: Tree
+
+    let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
     let reftree_prune = setNodeV 0 $ rmGhostSingletons $  unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
@@ -219,13 +226,17 @@ runit params tree knn = do
     -- do knn search
     let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
+    let result2 = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+    res2 <- timeIO "computing parFindNeighborMap" $ return result2
+    let result3 = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+    res3 <- timeIO "computing parFindNeighborMap" $ return result3
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
 --     res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
-    let rs_index = Map.fromList $ zip (V.toList rs) [0..]
+    let rs_index = Map.fromList $ zip (VG.toList rs) [0..]
 
     timeIO "outputing distance" $ do
         hDistances <- openFile (distances_file params) WriteMode
@@ -258,21 +269,23 @@ runit params tree knn = do
 
 loaddata :: String -> IO (V.Vector DP)
 loaddata filename = do
-    rse :: Either String (V.Vector DP)  
-        <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile filename
+    rse :: Either String (V.Vector DP) <- timeIO "loading reference dataset" $ fmap (decode NoHeader) $ BS.readFile filename
     rs <- case rse of 
         Right rs -> return rs
         Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
 
-    return $ rnf rs
+    setptsize $ VG.length $ VG.head rs
+
+    let rs' = VG.convert rs
+    return $ rnf rs'
 
     putStrLn "  dataset info:"
-    putStrLn $ "    num dp:  " ++ show (V.length rs)
-    putStrLn $ "    num dim: " ++ show (VG.length $ rs V.! 0)
+    putStrLn $ "    num dp:  " ++ show (VG.length rs')
+    putStrLn $ "    num dim: " ++ show (VG.length $ rs' V.! 0)
     putStrLn ""
 
     let shufflemap = mkShuffleMap rs
-    return $ V.map (shuffleVec $ VU.map fst shufflemap) rs
+    return $ VG.map (shuffleVec $ VU.map fst shufflemap) rs'
 --     return rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
@@ -296,7 +309,7 @@ shuffleVec vmap v = runST $ do
         VGM.write ret i $ v VG.! (vmap VG.! i)
     VG.freeze ret
 
--- printTreeStats :: String -> Tree -> IO ()
+printTreeStats :: String -> Tree -> IO ()
 printTreeStats str t = do
     putStrLn (str++" stats:")
     putStr (str++"  stNumDp..............") >> hFlush stdout >> putStrLn (show $ stNumDp t) 
