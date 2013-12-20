@@ -9,6 +9,9 @@ module HLearn.DataStructures.SpaceTree
     , AddUnit (..)
     , DualTree (..)
 
+    , Container
+    , FromList (..)
+
     -- * Generic algorithms
     , stToList
     , stToListW
@@ -54,6 +57,7 @@ import Control.Monad
 import Control.Monad.ST
 import Data.Semigroup
 import Data.List hiding (partition)
+import Data.Traversable
 import qualified Data.Foldable as F
 import qualified Data.Strict.Either as Strict
 import qualified Data.Strict.Maybe as Strict
@@ -64,6 +68,7 @@ import qualified Data.Vector.Generic as VG
 import HLearn.Algebra hiding ((<>))
 import HLearn.Models.Distributions
 import qualified HLearn.DataStructures.StrictList as Strict
+import HLearn.DataStructures.StrictVector as Strict
 
 -------------------------------------------------------------------------------
 -- SpaceTree 
@@ -82,15 +87,39 @@ class Taggable t dp where
     clearTags :: t tag dp -> t () dp
 
 
+class FromList a where
+    fromList :: [x] -> a x
+
+instance FromList V.Vector where
+    fromList = VG.fromList
+
+instance FromList StrictVector where
+    fromList = VG.fromList
+
+instance FromList [] where
+    fromList = id
+
+instance FromList Strict.List where
+    fromList [] = Strict.Nil
+    fromList (x:xs) = x Strict.:. fromList xs
+
+class (Functor a, F.Foldable a, FromList a) => Container a
+instance (Functor a, F.Foldable a, FromList a) => Container a
+
 class 
     ( MetricSpace dp
     , Ring dp ~ Ring (t dp)
     , NumDP (t dp)
+    , Container (ChildContainer t)
     , VG.Vector (LeafVector t) dp
+    , Monoid (LeafVector t dp)
     ) => SpaceTree t dp 
         where
     type LeafVector t :: * -> *
     type LeafVector t = V.Vector 
+
+    type ChildContainer t :: * -> *
+    type ChildContainer t = V.Vector
 
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
@@ -125,13 +154,13 @@ class
     stIsLeaf    :: t dp -> Bool
     stChildren  :: t dp -> [t dp]
     stChildren' :: t dp -> Strict.List (t dp)
-    stChildren_ :: t dp -> V.Vector (t dp)
+    stChildren_ :: t dp -> (ChildContainer t) (t dp)
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Ring dp
 
     {-# INLINE stNodeV #-}
     stNodeV :: t dp -> (LeafVector t) dp
-    stNodeV t = VG.empty
+    stNodeV t = mempty
     
     {-# INLINE stNodeW #-}
     stNodeW :: t dp -> Weighted dp
@@ -307,25 +336,25 @@ prunefoldW prune f b t = if prune b t
 prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
-    Strict.Just b' -> VG.foldl' (prunefoldA f) b' (stChildren_ t)
+    Strict.Just b' -> F.foldl' (prunefoldA f) b' (stChildren_ t)
 
 {-# INLINABLE prunefoldB #-}
 prunefoldB :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
     Strict.Nothing -> {-# SCC prunefoldB_Nothing #-} b
-    Strict.Just b' -> {-# SCC prunefoldB_Just #-} VG.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
+    Strict.Just b' -> {-# SCC prunefoldB_Just #-} F.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
         where
             b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
 
 {-# INLINABLE prunefoldB_CanError #-}
 prunefoldB_CanError :: (SpaceTree t a, CanError b) => 
     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
-prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB #-} if isError res
+prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError #-} if isError res
     then {-# SCC prunefoldB_CanError_Nothing #-} b
-    else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
+    else {-# SCC prunefoldB_CanError_Just #-} F.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
         where
             res = f2 t b
-            b'' = {-# SCC b'' #-} VG.foldr' f1 res (stNodeV t)
+            b'' = {-# SCC b'' #-} VG.foldl' (flip f1) res (stNodeV t)
 
 {-# INLINE fastfoldl' #-}
 fastfoldl' :: VG.Vector v b => (a -> b -> a) -> a -> v b -> a
@@ -339,7 +368,7 @@ fastfoldl' !f !a !v = go (VG.length v-1) a
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
 prunefoldC !f1 !f2 !b !t = case f2 t b of
     Strict.Left b' -> b'
-    Strict.Right b' -> VG.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
+    Strict.Right b' -> F.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
         where
             b'' = VG.foldr' f1 b' (stNodeV t)
 
@@ -485,8 +514,17 @@ instance NumDP (sg tag dp) => NumDP (AddUnit sg tag dp) where
     numdp Unit = 0
     numdp (UnitLift x) = numdp x
 
-instance (SpaceTree (sg tag) dp, NumDP (sg tag dp)) => SpaceTree (AddUnit sg tag) dp where
+instance 
+    ( SpaceTree (sg tag) dp
+    , Container (ChildContainer (sg tag))
+    , Monoid ((ChildContainer (sg tag)) (AddUnit sg tag dp))
+    , Functor (ChildContainer (sg tag))
+    , NumDP (sg tag dp)
+    ) => SpaceTree (AddUnit sg tag) dp 
+        where
     type LeafVector (AddUnit sg tag) = LeafVector (sg tag)
+    type ChildContainer (AddUnit sg tag) = ChildContainer (sg tag)
+
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
     {-# INLINE stMinDistanceWithDistance #-}

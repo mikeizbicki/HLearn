@@ -103,6 +103,7 @@ Library
         HLearn.DataStructures.SpaceTree.DualTreeMonoids
         HLearn.DataStructures.SpaceTree.Simple
         HLearn.DataStructures.StrictList
+        HLearn.DataStructures.StrictVector
         HLearn.DataStructures.KDTree
         --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 

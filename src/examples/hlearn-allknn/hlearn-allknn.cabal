@@ -26,8 +26,8 @@ executable hlearn-allknn
         -fexcess-precision
         -Odph 
         -fno-liberate-case 
-        -- -funfolding-use-threshold1000 
-        -- -funfolding-keeness-factor1000 
+        -funfolding-use-threshold1000 
+        -funfolding-keeness-factor1000 
         -fllvm 
         -optlo-O3
         -- -prof
@@ -58,6 +58,7 @@ executable hlearn-allknn
         strict >=0.3,
         csv-conduit >=0.5,
         conduit >= 1,
-        vector-th-unbox >= 0.2
+        vector-th-unbox >= 0.2,
+        primitive >= 0.5
 
   hs-source-dirs:      src
