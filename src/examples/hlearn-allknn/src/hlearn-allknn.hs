@@ -123,7 +123,7 @@ type DP = L2 VU.Vector Float
 -- type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) Strict.List V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
-type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
+type Tree = AddUnit (CoverTree' (13/10) VU.Vector VU.Vector) () DP
 
 -- instance VGM.MVector VUM.MVector (L2 VU.Vector Float)
 -- instance VG.Vector VU.Vector (L2 VU.Vector Float)
@@ -206,30 +206,32 @@ runit params tree knn = do
     rs <- loaddata ref 
 
 
+--     let reftree = {-parallel-} UnitLift $ insertBatchVU rs :: Tree
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = setNodeV 0 $ rmGhostSingletons $  unUnit reftree
+    let reftree_prune = packCT 0 $ rmGhostSingletons $  unUnit reftree
     timeIO "pruning reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
     if verbose params 
         then do
             putStrLn ""
-            printTreeStats "reftree      " reftree 
-            printTreeStats "reftree_prune" $ UnitLift reftree_prune
+            printTreeStats "reftree      " $ unUnit reftree 
+            printTreeStats "reftree_prune" $ reftree_prune
         else return ()
 
     -- build query tree
     querytree <- case query_file params of
-        Nothing -> return $ reftree
+        Nothing -> return $ reftree_prune
+--         Nothing -> return $ reftree
 
     -- do knn search
-    let result = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
+    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
-    let result2 = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
-    res2 <- timeIO "computing parFindNeighborMap" $ return result2
-    let result3 = parFindNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
-    res3 <- timeIO "computing parFindNeighborMap" $ return result3
+    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
+    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
 --     res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
@@ -262,7 +264,7 @@ runit params tree knn = do
 --             . Map.map (map rangedp . Set.toList . rangeset)
 --             $ rm2map res 
         hClose hNeighbors
-    
+  
     -- end
     putStrLn "end"
 
@@ -276,16 +278,16 @@ loaddata filename = do
 
     setptsize $ VG.length $ VG.head rs
 
-    let rs' = VG.convert rs
-    return $ rnf rs'
+--     let rs' = VG.convert rs
+--     return $ rnf rs'
 
     putStrLn "  dataset info:"
-    putStrLn $ "    num dp:  " ++ show (VG.length rs')
-    putStrLn $ "    num dim: " ++ show (VG.length $ rs' V.! 0)
+    putStrLn $ "    num dp:  " ++ show (VG.length rs)
+    putStrLn $ "    num dim: " ++ show (VG.length $ rs V.! 0)
     putStrLn ""
 
     let shufflemap = mkShuffleMap rs
-    return $ VG.map (shuffleVec $ VU.map fst shufflemap) rs'
+    return $ VG.convert $ VG.map (shuffleVec $ VU.map fst shufflemap) rs
 --     return rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
@@ -309,7 +311,7 @@ shuffleVec vmap v = runST $ do
         VGM.write ret i $ v VG.! (vmap VG.! i)
     VG.freeze ret
 
-printTreeStats :: String -> Tree -> IO ()
+-- printTreeStats :: String -> Tree -> IO ()
 printTreeStats str t = do
     putStrLn (str++" stats:")
     putStr (str++"  stNumDp..............") >> hFlush stdout >> putStrLn (show $ stNumDp t) 
@@ -326,11 +328,11 @@ printTreeStats str t = do
     putStr (str++"  stNumSingletons......") >> hFlush stdout >> putStrLn (show $ stNumSingletons t) 
     putStr (str++"  stExtraLeaves........") >> hFlush stdout >> putStrLn (show $ stExtraLeaves t) 
 
-    putStrLn (str++" properties:")
-    putStr (str++"  covering...............") >> hFlush stdout >> putStrLn (show $ property_covering t) 
-    putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled t) 
-    putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating t)
-    putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance t) 
+--     putStrLn (str++" properties:")
+--     putStr (str++"  covering...............") >> hFlush stdout >> putStrLn (show $ property_covering t) 
+--     putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled t) 
+--     putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating t)
+--     putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance t) 
 --     putStr (str++"  sepdistL...............") >> hFlush stdout >> putStrLn (show $ sepdistL $ unUnit t) 
 
     putStrLn ""

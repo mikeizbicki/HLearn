@@ -110,7 +110,9 @@ class
     ( MetricSpace dp
     , Ring dp ~ Ring (t dp)
     , NumDP (t dp)
-    , Container (ChildContainer t)
+--     , Container (ChildContainer t)
+    , VG.Vector (ChildContainer t) dp
+    , VG.Vector (ChildContainer t) (t dp)
     , VG.Vector (LeafVector t) dp
     , Monoid (LeafVector t dp)
     ) => SpaceTree t dp 
@@ -144,6 +146,9 @@ class
     stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
     stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
 
+    stIsMinDistanceDpFartherThanWithDistanceMonoCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
+    stIsMaxDistanceDpFartherThanWithDistanceMonoCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
+
     stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
     stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
 
@@ -175,12 +180,12 @@ class
 {-# INLINABLE stToList #-}
 stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
 stToList t = if stIsLeaf t && stWeight t > 0
-    then [stNode t]
+    then (stNode t):(VG.toList $ stNodeV t)
     else go (concat $ map stToList $ stChildren t)
     where
         go xs = if stWeight t > 0 
-            then (stNode t) : xs
-            else xs
+            then (stNode t) : (VG.toList (stNodeV t) ++ xs)
+            else VG.toList (stNodeV t) ++ xs
     
 {-# INLINABLE stToListW #-}
 stToListW :: (Eq dp, SpaceTree t dp) => t dp -> [Weighted dp]
@@ -336,39 +341,34 @@ prunefoldW prune f b t = if prune b t
 prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
-    Strict.Just b' -> F.foldl' (prunefoldA f) b' (stChildren_ t)
+    Strict.Just b' -> VG.foldl' (prunefoldA f) b' (stChildren_ t)
 
 {-# INLINABLE prunefoldB #-}
 prunefoldB :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
     Strict.Nothing -> {-# SCC prunefoldB_Nothing #-} b
-    Strict.Just b' -> {-# SCC prunefoldB_Just #-} F.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
+    Strict.Just b' -> {-# SCC prunefoldB_Just #-} VG.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
         where
             b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
 
 {-# INLINABLE prunefoldB_CanError #-}
 prunefoldB_CanError :: (SpaceTree t a, CanError b) => 
     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
-prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError #-} if isError res
-    then {-# SCC prunefoldB_CanError_Nothing #-} b
-    else {-# SCC prunefoldB_CanError_Just #-} F.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
-        where
-            res = f2 t b
-            b'' = {-# SCC b'' #-} VG.foldl' (flip f1) res (stNodeV t)
-
-{-# INLINE fastfoldl' #-}
-fastfoldl' :: VG.Vector v b => (a -> b -> a) -> a -> v b -> a
-fastfoldl' !f !a !v = go (VG.length v-1) a
+prunefoldB_CanError !f1 !f2 !b !t = go b t
     where
-        go (-1) ret = ret
-        go i ret = go (i-1) $ f ret (VG.unsafeIndex v i)
-        
+        go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
+            then {-# SCC prunefoldB_CanError_Nothing #-} b
+            else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' go b'' (stChildren_ t)
+--             else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
+                where
+                    res = f2 t b
+                    b'' = {-# SCC b'' #-} VG.foldl' (flip f1) res (stNodeV t)
 
 {-# INLINABLE prunefoldC #-}
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
 prunefoldC !f1 !f2 !b !t = case f2 t b of
     Strict.Left b' -> b'
-    Strict.Right b' -> F.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
+    Strict.Right b' -> VG.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
         where
             b'' = VG.foldr' f1 b' (stNodeV t)
 
@@ -516,7 +516,9 @@ instance NumDP (sg tag dp) => NumDP (AddUnit sg tag dp) where
 
 instance 
     ( SpaceTree (sg tag) dp
-    , Container (ChildContainer (sg tag))
+--     , Container (ChildContainer (sg tag))
+    , VG.Vector (ChildContainer (sg tag)) (AddUnit sg tag dp)
+    , VG.Vector (ChildContainer (sg tag)) dp
     , Monoid ((ChildContainer (sg tag)) (AddUnit sg tag dp))
     , Functor (ChildContainer (sg tag))
     , NumDP (sg tag dp)
@@ -535,8 +537,6 @@ instance
     {-# INLINE stMaxDistanceDpWithDistance #-}
     {-# INLINE stIsMinDistanceDpFartherThanWithDistance #-}
     {-# INLINE stIsMaxDistanceDpFartherThanWithDistance #-}
-    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
-    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     {-# INLINE stChildren #-}
     {-# INLINE stChildren' #-}
     {-# INLINE stChildren_ #-}
@@ -568,13 +568,25 @@ instance
     stIsMinDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMinDistanceDpFartherThanWithDistance x dp b
     stIsMaxDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMaxDistanceDpFartherThanWithDistance x dp b
 
+    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
     stIsMinDistanceDpFartherThanWithDistanceCanError Unit dp b = errorVal 
     stIsMinDistanceDpFartherThanWithDistanceCanError (UnitLift x) dp b = 
         stIsMinDistanceDpFartherThanWithDistanceCanError x dp b
 
+    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceMonoCanError #-}
+    stIsMinDistanceDpFartherThanWithDistanceMonoCanError Unit dp b = errorVal 
+    stIsMinDistanceDpFartherThanWithDistanceMonoCanError (UnitLift x) dp b = 
+        stIsMinDistanceDpFartherThanWithDistanceMonoCanError x dp b
+
+    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     stIsMaxDistanceDpFartherThanWithDistanceCanError Unit dp b = errorVal 
     stIsMaxDistanceDpFartherThanWithDistanceCanError (UnitLift x) dp b = 
-        stIsMaxDistanceDpFartherThanWithDistanceCanError x dp b
+        stIsMaxDistanceDpFartherThanWithDistanceMonoCanError x dp b
+
+    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceMonoCanError #-}
+    stIsMaxDistanceDpFartherThanWithDistanceMonoCanError Unit dp b = errorVal 
+    stIsMaxDistanceDpFartherThanWithDistanceMonoCanError (UnitLift x) dp b = 
+        stIsMaxDistanceDpFartherThanWithDistanceMonoCanError x dp b
 
     stMinDistanceDpFromDistance Unit _ _ = 0
     stMinDistanceDpFromDistance (UnitLift x) dp dist = stMinDistanceDpFromDistance x dp dist
