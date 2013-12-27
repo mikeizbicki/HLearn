@@ -59,6 +59,7 @@ executable hlearn-allknn
         csv-conduit >=0.5,
         conduit >= 1,
         vector-th-unbox >= 0.2,
-        primitive >= 0.5
+        primitive >= 0.5,
+        deepseq >= 1.3
 
   hs-source-dirs:      src

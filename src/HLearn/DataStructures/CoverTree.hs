@@ -4,6 +4,9 @@ module HLearn.DataStructures.CoverTree
     ({- CoverTree
     , -}CoverTree'
 
+    , insertBatch
+    , insertBatchVU
+
     -- * unsafe
 --     , ctmap
 --     , unsafeMap
@@ -11,6 +14,10 @@ module HLearn.DataStructures.CoverTree
 --     , trainct_insert
     , setNodeV
     , rmGhostSingletons
+    , packCT
+    , packCT2
+    , packCT3
+
 --     , sepdistL
 
     -- * drawing
@@ -34,7 +41,6 @@ import Control.DeepSeq
 import Data.List hiding (insert)
 import Data.Maybe
 import Data.Monoid hiding ((<>))
-import Data.Traversable
 import qualified Data.Foldable as F
 import qualified Data.Set as Set
 import qualified Data.Strict.Maybe as Strict
@@ -42,8 +48,11 @@ import qualified Data.Strict.Tuple as Strict
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as VUM
 
 import Test.QuickCheck
 import Debug.Trace
@@ -66,7 +75,7 @@ import HLearn.Metrics.Lebesgue
 -------------------------------------------------------------------------------
 -- data types
 
--- type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector V.Vector) () dp
+type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector V.Vector) () dp
 
 data CoverTree' (base::Frac) childContainer nodeVvec tag dp = Node 
     { nodedp                :: !dp
@@ -78,6 +87,112 @@ data CoverTree' (base::Frac) childContainer nodeVvec tag dp = Node
     , nodeV                 :: !(nodeVvec dp)
     , tag                   :: !tag
     }
+
+data instance VU.Vector (CoverTree' base childContainer nodeVvec tag dp) = TreeVector
+    { uvec         :: !(VU.Vector (dp,Int,Ring dp, Ring dp, Ring dp))
+    , vec_children :: !(V.Vector (childContainer (CoverTree' base childContainer nodeVvec tag dp)))
+    , vec_nodeV    :: !(V.Vector (nodeVvec dp))
+    , vec_tag      :: !(V.Vector tag)
+    }
+
+-- instance (VUM.Unbox (Ring dp), VUM.Unbox dp) => VUM.Unbox (CoverTree' base childContainer nodeVvec tag dp)
+instance (VUM.Unbox (Ring dp), VUM.Unbox dp) => VUM.Unbox (CoverTree' base VU.Vector VU.Vector () dp)
+-- asd = insertBatch [(1,2),(3,4)] :: CoverTree' (2/1) VU.Vector VU.Vector () (Double,Double)
+
+instance 
+    ( VUM.Unbox (Ring dp)
+    , VUM.Unbox dp
+--     ) => VG.Vector VU.Vector (CoverTree' base childContainer nodeVvec tag dp) 
+    ) => VG.Vector VU.Vector (CoverTree' base VU.Vector VU.Vector () dp) 
+        where
+    
+    {-# INLINE basicUnsafeFreeze #-}
+    basicUnsafeFreeze v = do
+        uvec' <- VG.unsafeFreeze $ uvecM v
+        vec_children' <- VG.unsafeFreeze $ vecM_children v
+        vec_nodeV' <- VG.unsafeFreeze $ vecM_nodeV v
+        vec_tag' <- VG.unsafeFreeze $ vecM_tag v
+        return $ TreeVector uvec' vec_children' vec_nodeV' vec_tag'
+
+    {-# INLINE basicUnsafeThaw #-}
+    basicUnsafeThaw v = do
+        uvecM' <- VG.unsafeThaw $ uvec v
+        vecM_children' <- VG.unsafeThaw $ vec_children v
+        vecM_nodeV' <- VG.unsafeThaw $ vec_nodeV v
+        vecM_tag' <- VG.unsafeThaw $ vec_tag v
+        return $ TreeMVector uvecM' vecM_children' vecM_nodeV' vecM_tag'
+    
+    {-# INLINE basicLength #-}
+    basicLength v = VG.basicLength (uvec v)
+
+    {-# INLINE basicUnsafeSlice #-}
+    basicUnsafeSlice i len v = TreeVector
+        { uvec = VG.unsafeSlice i len $ uvec v
+        , vec_children = VG.unsafeSlice i len $ vec_children v
+        , vec_nodeV = VG.unsafeSlice i len $ vec_nodeV v
+        , vec_tag = VG.unsafeSlice i len $ vec_tag v
+        }
+
+    {-# INLINE basicUnsafeIndexM #-}
+    basicUnsafeIndexM v i = do
+        (nodedp',level',weight',numdp',maxDescendentDistance') <- VG.basicUnsafeIndexM (uvec v) i
+        children' <- VG.unsafeIndexM (vec_children v) i
+        nodeV' <- VG.unsafeIndexM (vec_nodeV v) i
+        tag' <- VG.unsafeIndexM (vec_tag v) i
+        return $ Node nodedp' level' weight' numdp' maxDescendentDistance' children' nodeV' tag'
+
+data instance VUM.MVector s (CoverTree' base childContainer nodeVvec tag dp) = TreeMVector
+    { uvecM         :: !(VUM.MVector s (dp,Int,Ring dp, Ring dp, Ring dp))
+    , vecM_children :: !(VM.MVector s (childContainer (CoverTree' base childContainer nodeVvec tag dp)))
+    , vecM_nodeV    :: !(VM.MVector s (nodeVvec dp))
+    , vecM_tag      :: !(VM.MVector s tag)
+    }
+
+instance
+    ( VUM.Unbox (Ring dp)
+    , VUM.Unbox dp
+    ) => VGM.MVector VUM.MVector (CoverTree' base VU.Vector VU.Vector () dp) 
+        where
+    {-# INLINE basicLength #-} 
+    basicLength v = VGM.basicLength (uvecM v)
+
+    {-# INLINE basicUnsafeSlice #-}
+    basicUnsafeSlice i len v = TreeMVector
+        { uvecM = VGM.unsafeSlice i len $ uvecM v
+        , vecM_children = VGM.unsafeSlice i len $ vecM_children v
+        , vecM_nodeV = VGM.unsafeSlice i len $ vecM_nodeV v
+        , vecM_tag = VGM.unsafeSlice i len $ vecM_tag v
+        }
+
+    {-# INLINE basicOverlaps #-}
+    basicOverlaps v1 v2 
+        =  VGM.basicOverlaps (uvecM v1) (uvecM v2)
+        || VGM.basicOverlaps (vecM_children v1) (vecM_children v2)
+        || VGM.basicOverlaps (vecM_nodeV v1) (vecM_nodeV v2)
+        || VGM.basicOverlaps (vecM_tag v1) (vecM_tag v2)
+    
+    {-# INLINE basicUnsafeNew #-}
+    basicUnsafeNew i = do
+        uvecM' <- VGM.unsafeNew i
+        vecM_children' <- VGM.unsafeNew i
+        vecM_nodeV' <- VGM.unsafeNew i
+        vecM_tag' <- VGM.unsafeNew i
+        return $ TreeMVector uvecM' vecM_children' vecM_nodeV' vecM_tag'
+
+    {-# INLINE basicUnsafeRead #-}
+    basicUnsafeRead v i = do
+        (nodedp',level',weight',numdp',maxDescendentDistance') <- VGM.basicUnsafeRead (uvecM v) i
+        children' <- VGM.unsafeRead (vecM_children v) i
+        nodeV' <- VGM.unsafeRead (vecM_nodeV v) i
+        tag' <- VGM.unsafeRead (vecM_tag v) i
+        return $ Node nodedp' level' weight' numdp' maxDescendentDistance' children' nodeV' tag'
+
+    {-# INLINE basicUnsafeWrite #-}
+    basicUnsafeWrite v i ct = do
+        VGM.unsafeWrite (uvecM v) i (nodedp ct, level ct, weight ct, numdp ct, maxDescendentDistance ct)
+        VGM.unsafeWrite (vecM_children v) i (children ct)
+        VGM.unsafeWrite (vecM_nodeV v) i (nodeV ct)
+        VGM.unsafeWrite (vecM_tag v) i (tag ct)
 
 deriving instance (Read (Ring dp), Read (childContainer (CoverTree' base childContainer nodeVvec tag dp)), Read (nodeVvec dp), Read tag, Read dp) => Read (CoverTree' base childContainer nodeVvec tag dp)
 deriving instance (Show (Ring dp), Show (childContainer (CoverTree' base childContainer nodeVvec tag dp)),Show (nodeVvec dp), Show tag, Show dp) => Show (CoverTree' base childContainer nodeVvec tag dp)
@@ -100,7 +215,8 @@ instance
     , MetricSpace dp
     , VG.Vector nodeVvec dp
     , Monoid (nodeVvec dp)
-    , Container childContainer 
+    , VG.Vector childContainer dp
+    , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp)
     , SingI base
     ) => SpaceTree (CoverTree' base childContainer nodeVvec tag) dp
         where
@@ -116,8 +232,6 @@ instance
     {-# INLINABLE stMaxDistanceDpFromDistance #-}
     {-# INLINABLE stIsMinDistanceDpFartherThanWithDistance #-}
     {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
-    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
-    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     {-# INLINABLE stChildren #-}
     {-# INLINABLE stChildren' #-}
     {-# INLINABLE stChildren_ #-}
@@ -146,23 +260,26 @@ instance
     stIsMaxDistanceDpFartherThanWithDistance !ct !dp !b = 
         isFartherThanWithDistance (nodedp ct) dp (b-maxDescendentDistance ct)
 
+    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
     stIsMinDistanceDpFartherThanWithDistanceCanError !ct !dp !b = 
         isFartherThanWithDistanceCanError (nodedp ct) dp (b+maxDescendentDistance ct)
+
+    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     stIsMaxDistanceDpFartherThanWithDistanceCanError !ct !dp !b = 
         isFartherThanWithDistanceCanError (nodedp ct) dp (b-maxDescendentDistance ct)
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
-    stChildren  = F.toList . children
-    stChildren' = Strict.list2strictlist . F.toList . children
+    stChildren  = VG.toList . children
+    stChildren' = Strict.list2strictlist . VG.toList . children
     stChildren_ = children
     stNodeV     = nodeV
     stNode      = nodedp
     stWeight    = weight
     stHasNode _ = True
 --     stIsLeaf ct = Map.size (childrenMap ct) == 0
-    stIsLeaf ct = null $ F.toList $ children ct
+    stIsLeaf ct = null $ VG.toList $ children ct
 --     stIsLeaf ct = case children ct of   
 --         Strict.Nil -> True
 --         otherwise -> False
@@ -174,19 +291,20 @@ rmGhostSingletons ::
     ( Eq (Ring dp)
     , Eq dp
     , Num (Ring dp)
-    , Container childContainer
+--     , Container childContainer
+    , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp)
     ) => 
     CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
-rmGhostSingletons ct = if length (F.toList $ children ct) == 1 && weight ct == 0
+rmGhostSingletons ct = if length (VG.toList $ children ct) == 1 && weight ct == 0
     then child
         { level = level ct
-        , children = fmap rmGhostSingletons $ children child
+        , children = VG.map rmGhostSingletons $ children child
         }
     else ct
-        { children = fmap rmGhostSingletons $ children ct
+        { children = VG.map rmGhostSingletons $ children ct
         }
     where
-        child = head $ F.toList $ children ct
+        child = head $ VG.toList $ children ct
 
 -- rmGhostSingletons ct = if V.length (children ct) == 1 {-&& nodedp ct == nodedp child -} && weight child==0
 --     then rmGhostSingletons $ ct { children = children $ V.head $ children ct }
@@ -194,19 +312,89 @@ rmGhostSingletons ct = if length (F.toList $ children ct) == 1 && weight ct == 0
 --     where
 --         child = V.head $ children ct
 
+packCT3 :: 
+    ( ValidCT base childContainer nodeVvec tag dp
+    , nodeVvec ~ VU.Vector
+    , VU.Unbox dp
+    ) => CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
+packCT3 ct = snd $ go 0 ct
+    where
+        go i t = (i',t
+            { nodedp = v VU.! i
+            , children = VG.fromList children'
+            })
+            where
+                (i',children') = mapAccumL go (i+1) (dosort ct $ VG.toList $ children t)
+
+        v = VU.fromList $ mkNodeList ct
+
+        mkNodeList ct = [nodedp ct] 
+                     ++ (concatMap mkNodeList $ dosort ct $ VG.toList $ children ct)
+
+        dosort node xs = sortBy (\ct1 ct2 -> sortchildren ct1 ct2 <> sortdistance node ct1 ct2) xs
+        sortchildren ct1 ct2 = if VG.length (children ct1) == 0 || VG.length (children ct2) == 0
+            then if VG.length (children ct1) == VG.length (children ct2)
+                then EQ
+                else if VG.length (children ct1) == 0
+                    then GT
+                    else LT
+            else EQ
+        sortdistance node ct1 ct2 = compare (distance (nodedp node) (nodedp ct2)) (distance (nodedp node) (nodedp ct1))
+
+packCT :: 
+    ( ValidCT base childContainer nodeVvec tag dp
+    , nodeVvec ~ VU.Vector
+    , VU.Unbox dp
+    ) => Int -> CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
+packCT n ct = snd $ go 0 ct'
+    where
+        go i t = (i',t
+            { nodedp = v VU.! i
+            , nodeV = VU.slice (i+1) (VG.length $ nodeV t) v
+            , children = VG.fromList children'
+            })
+            where
+                (i',children') = mapAccumL go (i+1+VG.length (nodeV t)) (VG.toList $ children t)
+
+        ct' = setNodeV n ct
+        v = VU.fromList $ mkNodeList ct'
+
+        mkNodeList ct = [nodedp ct] 
+                     ++ (VG.toList $ nodeV ct) 
+                     ++ (concatMap mkNodeList $ VG.toList $ children ct)
+
+packCT2 :: 
+    ( ValidCT base childContainer nodeVvec tag dp
+    , nodeVvec ~ VU.Vector
+    , VU.Unbox dp
+    ) => Int -> CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
+packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
+    where
+        go i t = (i',t
+            { nodeV = VU.slice i (VG.length $ nodeV t) v
+            , children = VG.fromList children'
+            })
+            where
+                (i',children') = mapAccumL go 
+                    (i+VG.length (nodeV t)+VG.length (children t)) 
+                    (fmap (\(j,x) -> if nodedp x /= v VG.! j then error ("/="++show j) else x { nodedp = v VG.! j } ) 
+                        $ zip [i+VG.length (nodeV t) .. ] $ VG.toList $ children t)
+
+        ct' = setNodeV n ct
+        v = VU.fromList $ mkNodeList ct'
+
+        mkNodeList ct = [nodedp ct]++go_mkNodeList ct
+        go_mkNodeList ct = (VG.toList $ nodeV ct) 
+                        ++ (map nodedp $ VG.toList $ children ct)
+                        ++ (concatMap go_mkNodeList $ VG.toList $ children ct)
+
 setNodeV :: 
-    ( MetricSpace dp
-    , SingI base
-    , Eq dp
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
-    , VG.Vector nodeVvec dp
-    , Monoid (nodeVvec dp)
+    ( ValidCT base childContainer nodeVvec tag dp
     ) => Int -> CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
 setNodeV n ct = if stNumNodes ct > n
     then ct
-        { children = fromList $ fmap (setNodeV n) $ filter (not . stIsLeaf) $ F.toList $ children ct
-        , nodeV = VG.fromList $ fmap nodedp $ filter stIsLeaf $ F.toList $ children ct
+        { children = VG.fromList $ fmap (setNodeV n) $ filter (not . stIsLeaf) $ VG.toList $ children ct
+        , nodeV = VG.fromList $ fmap nodedp $ filter stIsLeaf $ VG.toList $ children ct
         }
     else ct
         { children = mempty
@@ -218,17 +406,54 @@ setNodeV n ct = if stNumNodes ct > n
 ---------------------------------------
 -- insertion as described in the paper
 
-safeInsert :: forall base childContainer nodeVvec tag dp.
+class 
     ( MetricSpace dp
     , Ord (Ring dp)
-    , Monoid (nodeVvec dp)
     , Floating (Ring dp)
     , Monoid tag
-    , SingI base
+    , Monoid (nodeVvec dp)
+    , Monoid (childContainer dp)
     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
---     , Container nodeVvec
     , VG.Vector nodeVvec dp
+    , VG.Vector childContainer dp
+    , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp)
+    , VG.Vector childContainer (Ring dp)
+    , SingI base
+    , Show (Ring dp)
+    , Show dp
+    , Ord dp
+    ) => ValidCT base childContainer nodeVvec tag dp
+
+instance 
+    ( MetricSpace dp
+    , Ord (Ring dp)
+    , Floating (Ring dp)
+    , Monoid tag
+    , Monoid (nodeVvec dp)
+    , Monoid (childContainer dp)
+    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+    , VG.Vector nodeVvec dp
+    , VG.Vector childContainer dp
+    , VG.Vector childContainer (Ring dp)
+    , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp)
+    , SingI base
+    , Show (Ring dp)
+    , Show dp
+    , Ord dp
+    ) => ValidCT base childContainer nodeVvec tag dp
+
+safeInsert :: forall base childContainer nodeVvec tag dp.
+    ( ValidCT base childContainer nodeVvec tag dp
+--     ( MetricSpace dp
+--     , Ord (Ring dp)
+--     , Monoid (nodeVvec dp)
+--     , Floating (Ring dp)
+--     , Monoid tag
+--     , SingI base
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+-- --     , Container childContainer
+-- --     , Container nodeVvec
+--     , VG.Vector nodeVvec dp
     ) => CoverTree' base childContainer nodeVvec tag dp -> Weighted dp -> CoverTree' base childContainer nodeVvec tag dp
 safeInsert node (0,_) = node
 safeInsert !node !(w,dp) = case insert node (w,dp) of
@@ -240,7 +465,7 @@ safeInsert !node !(w,dp) = case insert node (w,dp) of
         , weight    = 0 -- weight node
         , numdp     = 0 + Strict.sum (fmap numdp children')
         , tag       = mempty
-        , children  = fromList $ Strict.strictlist2list children'
+        , children  = VG.fromList $ Strict.strictlist2list children'
         , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
@@ -266,14 +491,17 @@ safeInsert !node !(w,dp) = case insert node (w,dp) of
 
 
 insert :: forall base childContainer nodeVvec tag dp.
-    ( MetricSpace dp
-    , Ord (Ring dp)
-    , Monoid (nodeVvec dp)
-    , Floating (Ring dp)
-    , Monoid tag
-    , SingI base
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
+    ( ValidCT base childContainer nodeVvec tag dp
+--     ( MetricSpace dp
+--     , Ord (Ring dp)
+--     , Monoid (nodeVvec dp)
+--     , Floating (Ring dp)
+--     , Monoid tag
+--     , SingI base
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+-- --     , Container childContainer
+--     , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp) 
+--     , VG.Vector childContainer dp
     ) => CoverTree' base childContainer nodeVvec tag dp -> Weighted dp -> Strict.Maybe (CoverTree' base childContainer nodeVvec tag dp)
 insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
     then Strict.Nothing
@@ -283,7 +511,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         , weight    = weight node
         , numdp     = weight node + Strict.sum (fmap numdp children')
         , tag       = tag node
-        , children  = fromList $ sortBy sortgo $ Strict.strictlist2list children'
+        , children  = VG.fromList $ sortBy sortgo $ Strict.strictlist2list children'
         , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
@@ -294,7 +522,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         sortgo ct1 ct2 = compare (distance (nodedp node) (nodedp ct2)) (distance (nodedp node) (nodedp ct1))
 
         children' :: List (CoverTree' base childContainer nodeVvec tag dp)
-        children' = go $ Strict.list2strictlist $ F.toList $ children node
+        children' = go $ Strict.list2strictlist $ VG.toList $ children node
 
         go Nil = (Node 
                     { nodedp = dp
@@ -313,16 +541,7 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
                 Strict.Just x' -> x':.xs
 
 insertBatch :: forall base childContainer nodeVvec tag dp.
-    ( MetricSpace dp
-    , Monoid (nodeVvec dp)
-    , Ord (Ring dp)
-    , Floating (Ring dp)
-    , Monoid tag
-    , SingI base
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
---     , Container nodeVvec
-    , VG.Vector nodeVvec dp
+    ( ValidCT base childContainer nodeVvec tag dp
     ) => [dp] -> CoverTree' base childContainer nodeVvec tag dp
 insertBatch ((!dp):dps) = go dps $ Node 
     { nodedp    = dp
@@ -338,13 +557,32 @@ insertBatch ((!dp):dps) = go dps $ Node
         go [] tree = tree
         go (x:xs) tree = go xs $ safeInsert tree (1,x)
 
+insertBatchVU :: forall base childContainer nodeVvec tag dp.
+    ( ValidCT base childContainer nodeVvec tag dp
+    , VG.Vector VU.Vector dp
+    ) => VU.Vector dp -> CoverTree' base childContainer nodeVvec tag dp
+insertBatchVU v = go 0 $ Node 
+    { nodedp    = v VG.! 0 
+    , level     = minBound
+    , weight    = 1
+    , numdp     = 1
+    , tag       = mempty
+    , children  = mempty
+    , nodeV     = mempty
+    , maxDescendentDistance = 0
+    }
+    where
+        go i tree = if i >= VG.length v
+            then tree
+            else go (i+1) $ safeInsert tree (1,v VG.! i)
+
 -------------------------------------------------------------------------------
 -- algebra
 
--- instance F.Foldable (CoverTree' tag) where
+-- instance VG.Foldable (CoverTree' tag) where
 --     foldr f i ct = if Map.size (childrenMap ct) == 0
 --         then f (nodedp ct) i
---         else foldr (\ct' i' -> F.foldr f i' ct') i' (Map.elems $ childrenMap ct)
+--         else foldr (\ct' i' -> VG.foldr f i' ct') i' (Map.elems $ childrenMap ct)
 --         where
 --             i' = if nodedp ct `Map.member` childrenMap ct
 --                 then i
@@ -417,21 +655,22 @@ instance HasRing dp => HasRing (CoverTree' base childContainer nodeVvec tag dp) 
     type Ring (CoverTree' base childContainer nodeVvec tag dp) = Ring dp
 
 instance
-    ( MetricSpace dp
-    , Monoid (nodeVvec dp)
-    , Ord dp
-    , Ord (Ring dp)
-    , Floating (Ring dp)
-    , Fractional (Ring dp)
-    , Monoid tag
-    , SingI base
-    , Show dp
-    , Show tag
-    , Show (Ring dp)
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
---     , Container nodeVvec
-    , VG.Vector nodeVvec dp
+    ( ValidCT base childContainer nodeVvec tag dp
+--     ( MetricSpace dp
+--     , Monoid (nodeVvec dp)
+--     , Ord dp
+--     , Ord (Ring dp)
+--     , Floating (Ring dp)
+--     , Fractional (Ring dp)
+--     , Monoid tag
+--     , SingI base
+--     , Show dp
+--     , Show tag
+--     , Show (Ring dp)
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+--     , Container childContainer
+-- --     , Container nodeVvec
+--     , VG.Vector nodeVvec dp
     ) => Semigroup (CoverTree' base childContainer nodeVvec tag dp) 
         where
     {-# INLINE (<>) #-}
@@ -445,19 +684,20 @@ instance
             maxlevel = maximum [level ct1, level ct2, dist2level_down (sing::Sing base) $ distance (nodedp ct1) (nodedp ct2)]
 
 ctmerge' :: forall base childContainer nodeVvec tag dp.
-    ( Ord (Ring dp)
-    , Ord dp 
-    , Monoid (nodeVvec dp)
-    , Floating (Ring dp)
-    , Monoid tag
-    , SingI base
-    , MetricSpace dp
-    , Show dp
-    , Show (Ring dp)
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
---     , Container nodeVvec
-    , VG.Vector nodeVvec dp
+    ( ValidCT base childContainer nodeVvec tag dp
+--     ( Ord (Ring dp)
+--     , Ord dp 
+--     , Monoid (nodeVvec dp)
+--     , Floating (Ring dp)
+--     , Monoid tag
+--     , SingI base
+--     , MetricSpace dp
+--     , Show dp
+--     , Show (Ring dp)
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+--     , Container childContainer
+-- --     , Container nodeVvec
+--     , VG.Vector nodeVvec dp
     ) => CoverTree' base childContainer nodeVvec tag dp 
       -> CoverTree' base childContainer nodeVvec tag dp 
       -> Maybe (CoverTree' base childContainer nodeVvec tag dp, [CoverTree' base childContainer nodeVvec tag dp])
@@ -469,7 +709,7 @@ ctmerge' ct1 ct2 = assert (level ct2 == level ct1) ("level ct2 == level ct1:" ++
           flip safeInsert (stNodeW ct2) $ 
           ct1
             { children = children'
-            , numdp = F.sum $ fmap numdp children'
+            , numdp = VG.sum $ VG.map numdp children'
             , maxDescendentDistance 
 --                 = sepdist_parent ct1
 --                 = maximum $ map (distance (nodedp ct1)) $ (nodedp ct2:stDescendents ct2++stDescendents ct1)
@@ -479,7 +719,7 @@ ctmerge' ct1 ct2 = assert (level ct2 == level ct1) ("level ct2 == level ct1:" ++
         , invalidchildren++invalid_newleftovers
         )
     where
-        children' = fromList $ Strict.strictlist2list $ Strict.list2strictlist $ Map.elems childrenMap' 
+        children' = VG.fromList $ Strict.strictlist2list $ Strict.list2strictlist $ Map.elems childrenMap' 
 
         childrenMap ct = Map.fromList $ map (\v -> (nodedp v,v)) $ stChildren ct
 
@@ -532,17 +772,18 @@ assert b str a = (if b then id else trace ("assert: "++str)) a
 --     else a
 
 growct :: forall base childContainer nodeVvec tag dp.
-    ( Fractional (Ring dp)
-    , Ord (Ring dp)
-    , Monoid (nodeVvec dp)
-    , Floating (Ring dp)    
-    , Monoid tag
-    , SingI base
-    , MetricSpace dp
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
---     , Container nodeVvec
-    , VG.Vector nodeVvec dp
+--     ( Fractional (Ring dp)
+--     , Ord (Ring dp)
+--     , Monoid (nodeVvec dp)
+--     , Floating (Ring dp)    
+--     , Monoid tag
+--     , SingI base
+--     , MetricSpace dp
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+--     , Container childContainer
+-- --     , Container nodeVvec
+--     , VG.Vector nodeVvec dp
+    ( ValidCT base childContainer nodeVvec tag dp
     ) => CoverTree' base childContainer nodeVvec tag dp -> Int -> CoverTree' base childContainer nodeVvec tag dp
 growct ct d = if sepdist ct==0 || stIsLeaf ct 
     then ct { level=d }
@@ -553,7 +794,7 @@ growct ct d = if sepdist ct==0 || stIsLeaf ct
             , weight    = 0 -- weight ct
             , numdp     = numdp ct
             , tag       = mempty
-            , children  = fromList $ Strict.strictlist2list $ ct:.Strict.Nil
+            , children  = VG.fromList $ Strict.strictlist2list $ ct:.Strict.Nil
             , nodeV     = mempty
             , maxDescendentDistance = maxDescendentDistance ct
             }
@@ -760,20 +1001,21 @@ instance HasRing dp => NumDP (CoverTree' base childContainer nodeVvec tag dp) wh
     numdp = numdp
 
 instance 
-    ( MetricSpace dp
-    , Ord (Ring dp)
-    , Floating (Ring dp)
-    , Ord dp
-    , Show dp
-    , Show tag
-    , Show (Ring dp)
-    , Monoid (nodeVvec dp)
-    , Monoid tag
-    , SingI base
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
---     , Container nodeVvec
-    , VG.Vector nodeVvec dp
+    ( ValidCT base childContainer nodeVvec tag dp
+--     ( MetricSpace dp
+--     , Ord (Ring dp)
+--     , Floating (Ring dp)
+--     , Ord dp
+--     , Show dp
+--     , Show tag
+--     , Show (Ring dp)
+--     , Monoid (nodeVvec dp)
+--     , Monoid tag
+--     , SingI base
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+--     , Container childContainer
+-- --     , Container nodeVvec
+--     , VG.Vector nodeVvec dp
     ) => HomTrainer (AddUnit (CoverTree' base childContainer nodeVvec) tag dp) 
         where
     type Datapoint (AddUnit (CoverTree' base childContainer nodeVvec) tag dp) = dp
@@ -794,34 +1036,35 @@ instance
     {-# INLINABLE train #-}
     train = UnitLift . insertBatch . F.toList
 
-trainct_insert = UnitLift . insertBatch . F.toList
+trainct_insert = UnitLift . insertBatch . VG.toList
 
 -------------------------------------------------------------------------------
 -- tests
 
 instance 
-    ( MetricSpace dp
-    , Ord (Ring dp)
-    , Floating (Ring dp)
-    , Ord dp
-    , Show dp
-    , Show tag
-    , Show (Ring dp)
-    , VG.Vector nodeVvec dp
-    , Monoid (nodeVvec dp)
-    , Monoid tag
-    , SingI base
-    , dp ~ (Double,Double)
-    , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp)
-    , VG.Vector childContainer (Ring dp)
-    , VG.Vector childContainer dp
-    , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
-    , Container childContainer
-    , Container nodeVvec
---     ( VG.Vector childContainer nodeVvec (Double,Double)
---     , Monoid (childContainer nodeVvec (Double,Double))
---     , SingI base
+    ( ValidCT base childContainer nodeVvec tag (Double,Double)
+--     ( MetricSpace dp
+--     , Ord (Ring dp)
+--     , Floating (Ring dp)
+--     , Ord dp
+--     , Show dp
+--     , Show tag
+--     , Show (Ring dp)
+--     , VG.Vector nodeVvec dp
+--     , Monoid (nodeVvec dp)
 --     , Monoid tag
+--     , SingI base
+--     , dp ~ (Double,Double)
+--     , VG.Vector childContainer (CoverTree' base childContainer nodeVvec tag dp)
+--     , VG.Vector childContainer (Ring dp)
+--     , VG.Vector childContainer dp
+--     , Monoid (childContainer (CoverTree' base childContainer nodeVvec tag dp))
+--     , Container childContainer
+--     , Container nodeVvec
+-- --     ( VG.Vector childContainer nodeVvec (Double,Double)
+-- --     , Monoid (childContainer nodeVvec (Double,Double))
+-- --     , SingI base
+-- --     , Monoid tag
     ) => Arbitrary (AddUnit (CoverTree' base childContainer nodeVvec) tag (Double,Double)) 
         where
     arbitrary = do
@@ -848,36 +1091,37 @@ property_all ct = and $ map (\x -> x ct)
 -- property_covering :: (MetricSpace dp) => CoverTree dp -> Bool
 property_covering Unit = True
 property_covering (UnitLift node) = if not $ stIsLeaf node
-    then F.maximum (fmap (distance (nodedp node) . nodedp) $ children node) < coverDist node 
-      && F.and (fmap (property_covering . UnitLift) $ children node)
+    then VG.maximum (fmap (distance (nodedp node) . nodedp) $ children node) < coverDist node 
+      && VG.and (fmap (property_covering . UnitLift) $ children node)
     else True
 
 -- property_leveled  :: MetricSpace dp => CoverTree dp -> Bool
 property_leveled (Unit) = True
 property_leveled (UnitLift node)
-    = F.all (\val -> val - head (F.toList xs) < 0.0000001) xs
+    = VG.all (\val -> val - head (VG.toList xs) < 0.0000001) xs
 --     = VG.all (== VG.head xs) xs
-   && F.and (fmap (property_leveled . UnitLift) $ children node)
+   && VG.and (fmap (property_leveled . UnitLift) $ children node)
     where
         xs = fmap sepdist $ children node
 
 -- property_separating  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_separating Unit = True
-property_separating (UnitLift node) = if length (F.toList $ children node) > 1 
-    then F.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
-      && F.and (fmap (property_separating . UnitLift) $ children node)
+property_separating (UnitLift node) = if length (VG.toList $ children node) > 1 
+    then VG.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
+      && VG.and (fmap (property_separating . UnitLift) $ children node)
     else True
     where
-        mapFactorial :: Container v =>(a -> a -> b) -> v a -> v b
-        mapFactorial f = fromList . Strict.strictlist2list . mapFactorial' f . Strict.list2strictlist . F.toList
+--         mapFactorial :: Container v =>(a -> a -> b) -> v a -> v b
+        mapFactorial :: (VG.Vector v a, VG.Vector v b) =>(a -> a -> b) -> v a -> v b
+        mapFactorial f = VG.fromList . Strict.strictlist2list . mapFactorial' f . Strict.list2strictlist . VG.toList
         mapFactorial' :: (a -> a -> b) -> List a -> List b
         mapFactorial' f xs = go xs Nil
             where
                 go Nil ys = ys
                 go (x:.xs) ys = go xs (fmap (f x) xs `mappend` ys)
 -- property_separating (UnitLift node) = if Strict.length (children node) > 1 
---     then F.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
---       && F.and (fmap (property_separating . UnitLift) $ children node)
+--     then VG.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
+--       && VG.and (fmap (property_separating . UnitLift) $ children node)
 --     else True
 --     where
 --         mapFactorial :: (a -> a -> b) -> List a -> List b
@@ -951,7 +1195,9 @@ ys' = [(1,2),(2,1)]
 zs :: [(Double,Double)]
 -- zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(19,20),(20,10),(22,21)]
 zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
--- mz = train zs :: CoverTree (Double,Double)
+mz = train zs :: CoverTreeVU (Double,Double)
+
+type CoverTreeVU dp = AddUnit (CoverTree' (2/1) V.Vector VU.Vector) () dp
 
 -- mq = mz `mappend` my
 
@@ -987,7 +1233,7 @@ draw' depth tree = mkConnections $
                         ) 
                           <> circle 1 # fc nodecolor) 
                === (pad 1.05 $ centerName (label++show (depth+1)) $ 
-                   F.foldr (|||) mempty $ fmap (draw' (depth+1)) $ children tree)
+                   VG.foldr (|||) mempty $ fmap (draw' (depth+1)) $ children tree)
                 
     where
         label = intShow $ nodedp tree
@@ -997,7 +1243,7 @@ draw' depth tree = mkConnections $
 
         mkConnections = 
              connect (label++show depth) (label++show (depth+1)) 
-             . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ Strict.list2strictlist $ F.toList $ children tree))
+             . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ Strict.list2strictlist $ VG.toList $ children tree))
             
 justdouble :: Maybe Double -> String
 justdouble Nothing = "0"

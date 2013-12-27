@@ -64,6 +64,7 @@ instance
     , Ord (Label dp)
     , HasRing (tree dp)
     , Ring (tree dp) ~ Ring dp
+    , Floating (Ring dp)
     , CanError (Ring dp)
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where

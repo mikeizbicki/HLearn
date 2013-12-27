@@ -34,31 +34,33 @@ import HLearn.DataStructures.CoverTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     
 
+arrlen = 20
+
 list2ByteArray xs = runST $ do
-    arr <- newAlignedPinnedByteArray (2^16) (20*8)
+    arr <- newAlignedPinnedByteArray (2^16) (arrlen*4)
     forM (zip [0..] xs) $ \(i,x) -> do
         writeByteArray arr i x
     unsafeFreezeByteArray arr
 
 list2Array xs = runST $ do
-    arr <- newArray 20 0
+    arr <- newArray arrlen 0
     forM (zip [0..] xs) $ \(i,x) -> do
         writeArray arr i x
     unsafeFreezeArray arr
 
 instance NFData n => NFData (Array n) where
-    rnf a = runST $ forM_ [0..19] $ \i -> do
+    rnf a = runST $ forM_ [0..arrlen-1] $ \i -> do
         return $ rnf $ a `indexArray` i
 
 distance_Array_Float :: Array Float -> Array Float -> Float
-distance_Array_Float !a1 !a2 = sqrt $ go 0 19
+distance_Array_Float !a1 !a2 = sqrt $ go 0 (arrlen-1)
     where
         go tot (-1) = tot
         go tot i = go (tot+((a1 `indexArray` i)-(a2 `indexArray` i))
                           *((a1 `indexArray` i)-(a2 `indexArray` i))) (i-1)
 
 distance_ByteArray_Float :: ByteArray -> ByteArray -> Float
-distance_ByteArray_Float !a1 !a2 = sqrt $ go 0 19
+distance_ByteArray_Float !a1 !a2 = sqrt $ go 0 (arrlen-1)
     where
         go tot (-1) = tot
         go tot i = go (tot+((a1 `indexByteArray` i)-(a2 `indexByteArray` i))
@@ -73,6 +75,20 @@ distance_Vector_Float !v1 !v2 = sqrt $ go 0 (VG.length v1-1)
 
 distance_UVector_Float :: VU.Vector Float -> VU.Vector Float -> Float
 distance_UVector_Float !v1 !v2 = sqrt $ go 0 (VG.length v1-1)
+    where
+        go tot (-1) = tot
+        go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                          *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
+
+distance_UVector_Float_arrlen :: VU.Vector Float -> VU.Vector Float -> Float
+distance_UVector_Float_arrlen !v1 !v2 = sqrt $ go 0 (arrlen-1)
+    where
+        go tot (-1) = tot
+        go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                          *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
+
+distance2_UVector_Float :: VU.Vector Float -> VU.Vector Float -> Float
+distance2_UVector_Float !v1 !v2 = go 0 (VG.length v1-1)
     where
         go tot (-1) = tot
         go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
@@ -94,8 +110,8 @@ critConfig = defaultConfig
 
 main = do
     
-    let dimL1 :: [Float] = evalRand (replicateM 4 $ getRandomR (-10000,10000)) (mkStdGen $ 3)
-        dimL2 :: [Float] = evalRand (replicateM 4 $ getRandomR (-10000,10000)) (mkStdGen $ 4)
+    let dimL1 :: [Float] = evalRand (replicateM arrlen $ getRandomR (-10000,10000)) (mkStdGen $ 3)
+        dimL2 :: [Float] = evalRand (replicateM arrlen $ getRandomR (-10000,10000)) (mkStdGen $ 4)
 
     let v1 = V.fromList dimL1
         v2 = V.fromList dimL2
@@ -118,8 +134,10 @@ main = do
         [ bgroup "distance"
 --             [ bench "V.Vector"  $ nf (distance_Vector_Float v1) v2
             [ bench "VU.Vector" $ nf (distance_UVector_Float vu1) vu2
-            , bench "VU.Vector2" $ nf (distance_UVector_Float2 vu1) vu2
-            , bench "Array"     $ nf (distance_Array_Float a1) a2
+--             , bench "squared VU.Vector" $ nf (distance2_UVector_Float vu1) vu2
+--             , bench "VU.Vector2" $ nf (distance_UVector_Float2 vu1) vu2
+--             , bench "Array"     $ nf (distance_Array_Float a1) a2
+            , bench "VU.VectorBA" $ nf (distance_UVector_Float_arrlen vu1) vu2
             , bench "ByteArray" $ nf (distance_ByteArray_Float ba1) ba2
             ]
         ]

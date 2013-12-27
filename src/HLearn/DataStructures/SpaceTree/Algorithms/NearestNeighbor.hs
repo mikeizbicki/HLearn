@@ -185,6 +185,7 @@ findEpsilonNeighborListWith ::
     ( SingI k
     , SpaceTree t dp
     , Eq dp
+    , Floating (Ring dp)
     , CanError (Ring dp)
     ) => NeighborList k dp -> Ring dp -> t dp -> dp -> NeighborList k dp
 findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
@@ -192,7 +193,7 @@ findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB_CanError (knn_c
         smudge = 1/(1+epsilon)
 
 {-# INLINABLE findNeighborList_batch #-}
-findNeighborList_batch :: (SingI k, SpaceTree t dp, Eq dp, CanError (Ring dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
+-- findNeighborList_batch :: (SingI k, SpaceTree t dp, Eq dp, CanError (Ring dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
 findNeighborList_batch v st = fmap (findNeighborList st) v
 
 {-# INLINABLE knn_catadp #-}
@@ -215,6 +216,7 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
 knn_cata :: forall k t dp. 
     ( SingI k
     , SpaceTree t dp
+    , Floating (Ring dp)
     , Eq dp
     , CanError (Ring dp)
     ) => Ring dp -> dp -> t dp -> NeighborList k dp -> NeighborList k dp
@@ -262,9 +264,9 @@ findNeighborMap ::
     ( SingI k
     , SpaceTree t dp
     , Ord dp
+    , Floating (Ring dp)
     , CanError (Ring dp)
     ) => DualTree (t dp) -> NeighborMap k dp
--- findNeighborMap dual = F.foldMap (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList dp $ reference dual) (query dual)
 findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $ 
     map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
 
@@ -275,6 +277,7 @@ parFindNeighborMap ::
     , Ord dp
     , NFData (Ring dp)
     , NFData dp
+    , Floating (Ring dp)
     , CanError (Ring dp)
     ) => DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ 
@@ -287,6 +290,7 @@ parFindNeighborMapWith ::
     , Ord dp
     , NFData (Ring dp)
     , NFData dp
+    , Floating (Ring dp)
     , CanError (Ring dp)
     ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
@@ -304,6 +308,7 @@ parFindEpsilonNeighborMapWith ::
     , Ord dp
     , NFData (Ring dp)
     , NFData dp
+    , Floating (Ring dp)
     , CanError (Ring dp)
     ) => NeighborMap k dp -> Ring dp -> DualTree (t dp) -> NeighborMap k dp
 parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = (parallel reduce) $
