@@ -209,7 +209,10 @@ instance
     sing = STermL $ (fromSing (sing :: Sing t)) : (unSTermL ( sing :: Sing ts))
 
 instance SingE (Kind :: [TermT]) [Term] where
+-- instance SingE (Kind :: [a]) [Term] where
     fromSing (STermL xs) = xs
+
+-- instance SingE (Kind :: [Nat]) [Int] where
 
 ---------------------------------------
 
