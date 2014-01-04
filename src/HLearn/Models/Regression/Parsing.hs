@@ -37,7 +37,7 @@ termType (CCon x) =
         (TH.AppT 
             (TH.AppT 
                 (TH.PromotedT $ TH.mkName "Frac") 
-                (TH.LitT $ TH.NumTyLit 2)) 
+                (TH.LitT $ TH.NumTyLit $ floor x)) 
             (TH.LitT $ TH.NumTyLit 1))
 
 termType (CMon op t) = 

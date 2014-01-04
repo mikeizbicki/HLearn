@@ -14,7 +14,8 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     , NeighborMap (..)
     , nm2list
 
---     , KNN (..)
+--     , NeighborList (..)
+    , dknn
 
     -- * functions
     , findNeighborMap
@@ -315,3 +316,206 @@ parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = (parallel reduce) 
     map 
         (\dp -> NeighborMap $ Map.singleton dp $ findEpsilonNeighborListWith (Map.findWithDefault mempty dp nm) epsilon (reference dual) dp) 
         (stToList $ query dual)
+
+-------------------------------------------------------------------------------
+-- dual tree
+
+data DualNeighborListM s (k::Nat) dp = DualNeighborListM
+    { nodevec :: !(VUM.MVector s (Ring dp))
+    , visitedvec :: !(VUM.MVector s Bool)
+    , dpvec :: !(VM.MVector s (NeighborList k dp))
+    }
+
+-- deriving instance (Show dp, Show (Ring dp), Show (vec (NeighborList k dp)), Show (vec (Ring dp))) => Show (DualNeighborList k dp vec)
+-- instance (NFData dp, NFData (Ring dp), NFData (vec (NeighborList k dp)), NFData (vec (Ring dp))) => NFData (DualNeighborList k dp vec) where
+-- rnf dk = deepseq (nodevec dk)
+-- $ rnf (dpvec dk)
+
+-- instance Monoid Int where
+-- mempty = error "Monoid Int"
+
+{-# INLINABLE dknn #-}
+dknn :: forall t tag dp s k.
+    ( SpaceTree (t ()) dp
+    , SpaceTree (t (Int,Int)) dp
+    , Taggable t dp
+    , Ord dp
+    , SingI k
+    , Show dp, Show (Ring dp)
+    , VUM.Unbox (Ring dp)
+    , NFData (Ring dp), NFData dp
+-- ) => DualTree ((t ()) dp) -> ST s (DualNeighborListM s k dp)
+-- ) => DualTree ((t ()) dp) -> ST s (NeighborMap k dp)
+    ) => DualTree ((t ()) dp) -> NeighborMap k dp
+dknn dual = {-# SCC dknn #-} runST $ do
+    let (r,_,_) = initTags $ reference dual
+    let (q,numnodes,numdp) = initTags $ query dual
+    let dual' = DualTree
+            { reference = r
+            , query = q
+            }
+    nodevec' <- VGM.replicate numnodes infinity
+    visitedvec' <- VGM.replicate (numdp*numdp) False
+    forM_ [0..numdp] $ \i -> do
+        VGM.unsafeWrite visitedvec' (i*numdp+i) True
+    dpvec' <- VGM.replicate numdp mempty
+    let knnm = DualNeighborListM
+            { nodevec = nodevec'
+            , visitedvec = visitedvec'
+            , dpvec = dpvec'
+            }
+    
+-- dualfoldM dualknn_tag dualknn_prune dualknn_cata knnm dual'
+    dualfoldM_inline knnm dual'
+    xs <- go knnm q
+    return $ NeighborMap $ Map.fromList xs
+
+    where
+        go knnm q = if stIsLeaf q
+            then do
+                knn <- VGM.read (dpvec knnm) (dpIndex q)
+                return [(stNode q, knn)]
+            else fmap concat . mapM (go knnm) $ stChildren q
+
+dualfoldM_inline ::
+    ( SpaceTree (t (Int,Int)) dp
+    , Taggable t dp
+    , SingI k
+    , NFData (Ring dp), NFData dp
+    , Eq dp
+    , VGM.MVector VUM.MVector (Ring dp)
+    )
+    => DualNeighborListM s k dp
+    -> DualTree (t (Int,Int) dp)
+    -> ST s (DualNeighborListM s k dp)
+dualfoldM_inline !knnm !dual = {-# SCC dualFoldM_inline #-} do
+    let visitedIndex = VGM.length (dpvec knnm) * (dpIndex $ reference dual) + (dpIndex $ query dual)
+    visited <- VGM.unsafeRead (visitedvec knnm) visitedIndex
+    VGM.unsafeWrite (visitedvec knnm) (visitedIndex) True
+     
+    knn <- VGM.unsafeRead (dpvec knnm) (dpIndex $ query dual)
+-- childbounds <- forM (stChildren $ query dual) $ \dp -> VGM.unsafeRead (nodevec knnm) (nodeIndex dp)
+-- let bound = minimum
+-- [ if stIsLeaf (query dual)
+-- then nl_maxdist knn
+-- else max (nl_maxdist knn) $ maximum childbounds
+-- , nl_maxdist knn + ro (query dual) + lambda (query dual)
+-- , minimum childbounds + 2 * (lambda (query dual) - lambda (head $ stChildren $ query dual))
+-- ]
+    let bound = nl_maxdist knn + ro (query dual) + lambda (query dual)
+    let mindist Strict.:!: dist = stMinDistanceWithDistance (reference dual) (query dual)
+
+    if mindist > bound
+        then return knnm
+        else do
+            if not visited
+                then do
+                    let knn' = knn <> NeighborList (Neighbor (stNode $ reference dual) dist :. Strict.Nil)
+                    deepseq knn' $ VGM.unsafeWrite (dpvec knnm) (dpIndex $ query dual) knn'
+                    return ()
+                else return ()
+            if stIsLeaf (reference dual) && stIsLeaf (query dual)
+                then return knnm
+                else {-# SCC foldM #-} foldM
+                    (dualfoldM_inline)
+                    knnm
+                    ( {-# SCC foldm_compression #-}[DualTree r c | r <- (stChildren $ reference dual), c <- (stChildren $ query dual)])
+
+-- {-# INLINE dualknn_tag #-}
+dualknn_tag ::
+    ( Taggable t dp
+    , SpaceTree (t (Int,Int)) dp
+    , Ord (Ring dp)
+    , Fractional (Ring dp)
+    , Num (Ring dp)
+    , SingI k
+    , VUM.Unbox (Ring dp)
+    ) => DualTree (t (Int,Int) dp) -> DualNeighborListM s k dp -> ST s (DualNeighborListM s k dp)
+dualknn_tag !dual !dualknnm = {-# SCC dualknn_tag #-} do
+    let nodeindex = nodeIndex $ query dual
+    let dpindex = dpIndex $ query dual
+
+    knn <- VGM.unsafeRead (dpvec dualknnm) dpindex
+
+-- childbounds <- forM (stChildren $ query dual) $ \dp -> VGM.unsafeRead (nodevec dualknnm) (nodeIndex dp)
+-- let bound = minimum
+-- [ if stIsLeaf (query dual)
+-- then nl_maxdist knn
+-- else max (nl_maxdist knn) $ maximum childbounds
+-- , nl_maxdist knn + ro (query dual) + lambda (query dual)
+-- , minimum childbounds + 2 * (lambda (query dual) - lambda (head $ stChildren $ query dual))
+-- ]
+
+    let bound = nl_maxdist knn + ro (query dual) + lambda (query dual)
+    VGM.unsafeWrite (nodevec dualknnm) nodeindex bound
+
+    return dualknnm
+
+-- {-# INLINE dualknn_prune #-}
+dualknn_prune ::
+    ( Taggable t dp
+    , SpaceTree (t (Int,Int)) dp
+    , Ord (Ring dp)
+    , VUM.Unbox (Ring dp)
+    , Show (Ring dp)
+    ) => DualNeighborListM s k dp -> DualTree (t (Int,Int) dp) -> Ring dp -> ST s Bool
+-- dualknn_prune knnm dual = return False
+dualknn_prune !knnm !dual !mindist = {-# SCC dualknn_prune #-} do
+-- return $ trace "prune?" $ ()
+    bound <- VGM.unsafeRead (nodevec knnm) (nodeIndex $ query dual)
+    let prune = mindist > bound
+-- if prune
+-- then trace "prune!" $ return ()
+-- else trace ("noprune; bound="++show bound) $ return ()
+    return prune
+
+-- {-# INLINE dualknn_cata #-}
+dualknn_cata ::
+    ( SingI k
+    , Ord dp
+    , SpaceTree (t (Int,Int)) dp
+    , Taggable t dp
+    , Show dp, Show (Ring dp)
+    , NFData (Ring dp), NFData dp
+    ) => DualTree (t (Int,Int) dp) -> DualNeighborListM s k dp -> Ring dp -> ST s (DualNeighborListM s k dp)
+dualknn_cata !dual !knnm !dist = {-# SCC dualknn_cata #-} do
+    knn <- VGM.unsafeRead (dpvec knnm) (dpIndex $ query dual)
+    let knn' = if stNode (reference dual) == stNode (query dual)
+            then knn
+            else knn <> NeighborList (Neighbor rdp dist :. Strict.Nil)
+    deepseq knn' $ VGM.unsafeWrite (dpvec knnm) (dpIndex $ query dual) knn'
+    return knnm
+    where
+        rdp = stNode $ reference dual
+        qdp = stNode $ query dual
+    
+
+{-# INLINABLE dualfoldM #-}
+dualfoldM ::
+    ( SpaceTree t dp
+    , Monad m
+-- , res ~ DualNeighborListM s k dp
+-- , t ~ t0 (Int,Int)
+-- , s ~ PrimState m
+-- , VGM.MVector
+    )
+    => (DualTree (t dp) -> res -> m res)
+    -> (res -> DualTree (t dp) -> Ring dp -> m Bool)
+    -> (DualTree (t dp) -> res -> Ring dp -> m res)
+    -> res
+    -> DualTree (t dp)
+    -> m res
+dualfoldM !tag !prune !f !b !pair = {-# SCC dualFoldM #-} do
+    b_tagged <- tag pair b
+    let mindist Strict.:!: dist = stMinDistanceWithDistance (reference pair) (query pair)
+    shouldprune <- prune b_tagged pair mindist
+    if shouldprune
+        then return b_tagged
+        else do
+            b' <- f pair b_tagged dist
+            if stIsLeaf (reference pair) && stIsLeaf (query pair)
+                then return b'
+                else {-# SCC foldM #-} foldM
+                    (dualfoldM tag prune f)
+                    b'
+                    [DualTree r c | r <- (stChildren $ reference pair), c <- (stChildren $ query pair)]

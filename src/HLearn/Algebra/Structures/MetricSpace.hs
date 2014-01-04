@@ -79,7 +79,7 @@ class MetricSpaceParams params space where
     
 data MetricWrapper params dp = MetricWrapper
     { getdp :: dp
-    , params :: params
+    , metricspaceparams :: params
     }
 
 -------------------------------------------------------------------------------

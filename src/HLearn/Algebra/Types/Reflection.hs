@@ -41,6 +41,13 @@ class SetParam p m where
 asProxyOf :: f s -> Proxy s -> f s
 asProxyOf v _ = v
 
+using' :: forall p a b. ReifiableConstraint p => Def p a -> (p a => a) -> (a -> b) -> b
+using' d m f = reify d $ \(_ :: Proxy s) ->
+    let replaceProof :: Reifies s (Def p a) :- p a
+        replaceProof = trans proof reifiedIns
+            where proof = unsafeCoerceConstraint :: p (ConstraintLift p a s) :- p a
+    in (f m) \\ replaceProof
+
 using :: forall p a. ReifiableConstraint p => Def p a -> (p a => a) -> a
 using d m = reify d $ \(_ :: Proxy s) ->
     let replaceProof :: Reifies s (Def p a) :- p a
@@ -64,6 +71,7 @@ mkParams dataName = do
     tmp <- TH.reify dataName
     let varL = case tmp of
             TyConI (NewtypeD _ _ xs _ _) -> xs
+            TyConI (DataD _ _ xs _ _) -> xs
 
     let varL' = map mapgo $ filter filtergo varL
         filtergo (KindedTV _ (AppT (ConT maybe) _)) = nameBase maybe=="Maybe"
@@ -97,11 +105,17 @@ param2class p = mkName $ "Param_" ++ nameBase p
 param2func :: Name -> Name
 param2func p = mkName $ "param_" ++ nameBase p
 
+-- mkValidParams :: [String] -> Name -> Q [Dec]
+-- mkValidParams paramStrL dataName = do
+--     return 
+--         [ ClassD
+--             []
+--             (mkName $ "AllParamsDefined_"++nameBase dataName)
+
 mkParamInstance :: String -> Type -> Name -> Q [Dec]
 mkParamInstance paramStr paramType dataName  = do
     c <- TH.reify dataName
     let tyVarL = case c of
---             DataConI _ (ForallT xs _ _) _ _ -> xs
             TyConI (NewtypeD _ _ xs _ _) -> xs
             TyConI (DataD _ _ xs _ _ ) -> xs
             otherwise -> error $ "c = "++show c
@@ -111,16 +125,6 @@ mkParamInstance paramStr paramType dataName  = do
         filtergo (PlainTV n) = nameBase n == paramStr
 
     let [KindedTV paramName _] = tyVarL'
-
-    ----
-
---     qwert <- TH.reify $ param2class paramName
---     let paramType = case qwert of
---             ClassI (ClassD _ _ _ _ (f:[])) _ -> case f of
---                 (SigD _ (ForallT _ _ (AppT (AppT ArrowT _) t))) -> t -- trace ("t = "++show t) $ ConT $ mkName "Int" 
---                 otherwise -> error "Could not parse f" 
-    
---     let paramType = AppT ListT $ ConT $ mkName "Term"
 
     return
         [ InstanceD
@@ -207,21 +211,24 @@ mkParamInstance paramStr paramType dataName  = do
 mkParamClass :: String -> Q Type -> Q [Dec]
 mkParamClass str qparamT = do
     paramT <- qparamT
-    return 
-        [ ClassD
-            []
-            (mkName $ "Param_"++str) 
-            [PlainTV $ mkName "m"]
-            []
-            [ SigD
-                (mkName $ "param_"++str) 
-                (AppT
+    isDef <- lookupTypeName $ "Param_"++str
+    return $ case isDef of
+        Just _ -> []
+        Nothing -> 
+            [ ClassD
+                []
+                (mkName $ "Param_"++str) 
+                [PlainTV $ mkName "m"]
+                []
+                [ SigD
+                    (mkName $ "param_"++str) 
                     (AppT
-                        ArrowT
-                        (VarT $ mkName "m"))
-                    paramT)
+                        (AppT
+                            ArrowT
+                            (VarT $ mkName "m"))
+                        paramT)
+                ]
             ]
-        ]
 
 mkReifiableConstraint :: Name -> Q [Dec]
 mkReifiableConstraint c = do
@@ -310,6 +317,20 @@ mkReifiableConstraint' c funcL = do
 -------------------------------------------------------------------------------
 -- test
 
+data ReflectionTest1 (a::Maybe Nat) = ReflectionTest1 Int 
+    deriving (Read,Show,Eq,Ord)
+
+instance (ParamA (ReflectionTest1 a)) => Monoid (ReflectionTest1 a) where
+    mempty = ReflectionTest1 a 
+        where
+            a = paramA (undefined::ReflectionTest1 a)
+    mappend a b = a
+
+instance (ParamA (ReflectionTest1 a)) => HomTrainer (ReflectionTest1 a) where
+    type Datapoint (ReflectionTest1 a) = ()
+    train1dp dp = mempty
+
+
 data ReflectionTest (a::Maybe Nat) (b::Maybe Nat) = ReflectionTest Int Int Int
     deriving (Read,Show,Eq,Ord)
 
@@ -347,13 +368,31 @@ instance Reifies s (Def ParamB a) => ParamB (ConstraintLift ParamB a s) where
 mkTest :: (ParamA (ReflectionTest a b), ParamB (ReflectionTest a b)) => ReflectionTest a b
 mkTest = train1dp ()
 
+instance SingI a => ParamA (ReflectionTest1 (Just a)) where
+    paramA _ = fromIntegral $ fromSing (sing :: Sing a)
+
 instance SingI a => ParamA (ReflectionTest (Just a) b) where
     paramA _ = fromIntegral $ fromSing (sing :: Sing a)
 
 instance SingI b => ParamB (ReflectionTest a (Just b)) where
     paramB _ = fromIntegral $ fromSing (sing :: Sing b)
 
-a = DefParam_ParamA . ParamA
+class SetParamA m where
+    a :: Int -> DefParam ParamA m
+
+instance SetParamA (ReflectionTest1 Nothing) where
+    a = DefParam_ParamA1 . ParamA
+
+instance SetParamA (ReflectionTest Nothing b) where
+    a = DefParam_ParamA . ParamA
+
+a1 = DefParam_ParamA1 . ParamA
+instance SetParam ParamA (ReflectionTest1 Nothing) where
+    data DefParam ParamA (ReflectionTest1 Nothing) = 
+            DefParam_ParamA1 { unDefParam1 :: Def ParamA (ReflectionTest1 Nothing) }
+    setParam p a = using (unDefParam1 p) a
+
+a2 = DefParam_ParamA . ParamA
 instance SetParam ParamA (ReflectionTest Nothing b) where
     data DefParam ParamA (ReflectionTest Nothing b) = 
             DefParam_ParamA { unDefParam :: Def ParamA (ReflectionTest Nothing b) }

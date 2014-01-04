@@ -59,77 +59,14 @@ import HLearn.Models.Distributions
 
 import UnsafeVector
 
-data DP2 = DP2 !Float !Float !Float !Float !Float !Float !Float !Float !Float !Float
-    deriving (Read,Show,Eq,Ord)
-
-derivingUnbox "DP2"
-    [t| DP2 -> ((Float,Float,Float,Float,Float),(Float,Float,Float,Float,Float)) |]
-    [| \ (DP2 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10) -> ((a1,a2,a3,a4,a5),(a6,a7,a8,a9,a10)) |]
-    [| \ ((a1,a2,a3,a4,a5),(a6,a7,a8,a9,a10)) -> (DP2 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10) |]
-
-instance NFData DP2 where
-    rnf d = seq d ()
-
-instance HasRing DP2 where
-    type Ring DP2 = Float
-
-instance MetricSpace DP2 where
-    {-# INLINE distance #-}
-    distance 
-        (DP2 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10) 
-        (DP2 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10) 
-        = sqrt $ (a1-b1)*(a1-b1) 
-            + (a2-b2)*(a2-b2)
-            + (a3-b3)*(a3-b3)
-            + (a4-b4)*(a4-b4)
-            + (a5-b5)*(a5-b5)
-            + (a6-b6)*(a6-b6)
-            + (a7-b7)*(a7-b7)
-            + (a8-b8)*(a8-b8)
-            + (a9-b9)*(a9-b9)
-            + (a10-b10)*(a10-b10)
-
---     {-# INLINE isFartherThanWithDistance #-}
---     isFartherThanWithDistance !(DP2 a1 a2 a3 a4) !(DP2 b1 b2 b3 b4) dist =
---         case c1 < dist2 of
---             False -> Strict.Nothing
---             True -> case c2 < dist2 of
---                 False -> Strict.Nothing
---                 True -> case c3 < dist2 of
---                     False -> Strict.Nothing
---                     True -> Strict.Just $ sqrt c4
---         where
---             c1 = (a1-b1)*(a1-b1)
---             c2 = (a2-b2)*(a2-b2)+c1
---             c3 = (a3-b3)*(a3-b3)+c2
---             c4 = (a4-b4)*(a4-b4)+c3
---             dist2 = dist*dist
-
-instance FromRecord DP2 where
-    parseRecord v = DP2 
-        <$> v .! 0 
-        <*> v .! 1 
-        <*> v .! 2 
-        <*> v .! 3
-        <*> v .! 4
-        <*> v .! 5
-        <*> v .! 6
-        <*> v .! 7
-        <*> v .! 8
-        <*> v .! 9
-
 type DP = L2 VU.Vector Float
 -- type DP = DP2 
 -- type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) Strict.List V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
-type Tree = AddUnit (CoverTree' (13/10) VU.Vector VU.Vector) () DP
-
--- instance VGM.MVector VUM.MVector (L2 VU.Vector Float)
--- instance VG.Vector VU.Vector (L2 VU.Vector Float)
--- instance VUM.Unbox (L2 VU.Vector Float)
-
--- instance VG.Vector VU.Vector DP where
+-- type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
+-- type Tree = AddUnit (CoverTree' (13/10) Strict.List VU.Vector) () DP
+type Tree = AddUnit (CoverTree' (13/10) [] VU.Vector) () DP
 
 data Params = Params
     { k :: Int
@@ -209,8 +146,9 @@ runit params tree knn = do
 --     let reftree = {-parallel-} UnitLift $ insertBatchVU rs :: Tree
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = packCT 0 $ rmGhostSingletons $  unUnit reftree
-    timeIO "pruning reference tree" $ return reftree_prune
+    let reftree_prune = packCT 0 $ unUnit reftree
+--     let reftree_prune = rmGhostSingletons $  unUnit reftree
+    timeIO "packing reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
     if verbose params 
@@ -226,10 +164,10 @@ runit params tree knn = do
 --         Nothing -> return $ reftree
 
     -- do knn search
-    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
