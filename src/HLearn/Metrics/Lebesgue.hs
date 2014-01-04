@@ -174,12 +174,8 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
         where
             dist2=dist*dist
 
---             go !tot !i = if i>VG.length v1-8
---                 then goSmall tot i
---                 else if tot'>dist2
---                     then errorVal
---                     else go tot' (i+8)
             go !tot !i = if i>VG.length v1-8
+--             go !tot !i = if i>20-8
                 then goSmall tot i
                 else if tot'>dist2
                     then errorVal

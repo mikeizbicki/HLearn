@@ -9,7 +9,7 @@ module HLearn.DataStructures.SpaceTree
     , AddUnit (..)
     , DualTree (..)
 
-    , Container
+--     , Container
     , FromList (..)
 
     -- * Generic algorithms
@@ -63,8 +63,10 @@ import qualified Data.Strict.Either as Strict
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Strict.Tuple as Strict
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 
+import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra hiding ((<>))
 import HLearn.Models.Distributions
 import qualified HLearn.DataStructures.StrictList as Strict
@@ -87,33 +89,73 @@ class Taggable t dp where
     clearTags :: t tag dp -> t () dp
 
 
-class FromList a where
-    fromList :: [x] -> a x
+class 
+    ( CK.Functor xs
+    , CK.FunctorConstraint xs x
+    , CK.Foldable xs
+    , CK.FoldableConstraint xs x
+    ) => FromList xs x 
+        where
+    fromList :: [x] -> xs x
+    toList :: xs x -> [x]
 
-instance FromList V.Vector where
+instance FromList V.Vector a where
+    {-# INLINE fromList #-}
+    {-# INLINE toList #-}
     fromList = VG.fromList
+    toList = VG.toList
 
-instance FromList StrictVector where
+instance VU.Unbox a => FromList VU.Vector a where
+    {-# INLINE fromList #-}
+    {-# INLINE toList #-}
     fromList = VG.fromList
+    toList = VG.toList
 
-instance FromList [] where
+-- instance FromList StrictVector a where
+--     {-# INLINE fromList #-}
+--     {-# INLINE toList #-}
+--     fromList = VG.fromList
+--     toList = VG.toList
+
+instance FromList [] a where
+    {-# INLINE fromList #-}
+    {-# INLINE toList #-}
     fromList = id
+    toList = id
 
-instance FromList Strict.List where
+instance CK.Functor Strict.List where
+    fmap = fmap
+
+instance CK.Foldable Strict.List where
+    foldl = F.foldl
+    foldl' = F.foldl'
+    foldl1 = F.foldl1
+    foldr = F.foldr
+    foldr' = F.foldr'
+    foldr1 = F.foldr1
+
+instance FromList Strict.List a where
+    {-# INLINE fromList #-}
+    {-# INLINE toList #-}
     fromList [] = Strict.Nil
     fromList (x:xs) = x Strict.:. fromList xs
 
-class (Functor a, F.Foldable a, FromList a) => Container a
-instance (Functor a, F.Foldable a, FromList a) => Container a
+    toList = Strict.strictlist2list
+
+-- class (Functor a, F.Foldable a, FromList a) => Container a
+-- instance (Functor a, F.Foldable a, FromList a) => Container a
 
 class 
     ( MetricSpace dp
     , Ring dp ~ Ring (t dp)
     , NumDP (t dp)
 --     , Container (ChildContainer t)
-    , VG.Vector (ChildContainer t) dp
-    , VG.Vector (ChildContainer t) (t dp)
-    , VG.Vector (LeafVector t) dp
+--     , VG.Vector (ChildContainer t) dp
+--     , VG.Vector (ChildContainer t) (t dp)
+--     , VG.Vector (LeafVector t) dp
+    , FromList (LeafVector t) dp
+    , FromList (ChildContainer t) dp
+    , FromList (ChildContainer t) (t dp)
     , Monoid (LeafVector t dp)
     ) => SpaceTree t dp 
         where
@@ -180,12 +222,12 @@ class
 {-# INLINABLE stToList #-}
 stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
 stToList t = if stIsLeaf t && stWeight t > 0
-    then (stNode t):(VG.toList $ stNodeV t)
+    then (stNode t):(toList $ stNodeV t)
     else go (concat $ map stToList $ stChildren t)
     where
         go xs = if stWeight t > 0 
-            then (stNode t) : (VG.toList (stNodeV t) ++ xs)
-            else VG.toList (stNodeV t) ++ xs
+            then (stNode t) : (toList (stNodeV t) ++ xs)
+            else toList (stNodeV t) ++ xs
     
 {-# INLINABLE stToListW #-}
 stToListW :: (Eq dp, SpaceTree t dp) => t dp -> [Weighted dp]
@@ -341,15 +383,15 @@ prunefoldW prune f b t = if prune b t
 prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
-    Strict.Just b' -> VG.foldl' (prunefoldA f) b' (stChildren_ t)
+    Strict.Just b' -> CK.foldl' (prunefoldA f) b' (stChildren_ t)
 
 {-# INLINABLE prunefoldB #-}
 prunefoldB :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
     Strict.Nothing -> {-# SCC prunefoldB_Nothing #-} b
-    Strict.Just b' -> {-# SCC prunefoldB_Just #-} VG.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
+    Strict.Just b' -> {-# SCC prunefoldB_Just #-} CK.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
         where
-            b'' = {-# SCC b'' #-} VG.foldr' f1 b' (stNodeV t)
+            b'' = {-# SCC b'' #-} CK.foldr' f1 b' (stNodeV t)
 
 {-# INLINABLE prunefoldB_CanError #-}
 prunefoldB_CanError :: (SpaceTree t a, CanError b) => 
@@ -358,19 +400,19 @@ prunefoldB_CanError !f1 !f2 !b !t = go b t
     where
         go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
             then {-# SCC prunefoldB_CanError_Nothing #-} b
-            else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' go b'' (stChildren_ t)
+            else {-# SCC prunefoldB_CanError_Just #-} CK.foldl' go b'' (stChildren_ t)
 --             else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
                 where
                     res = f2 t b
-                    b'' = {-# SCC b'' #-} VG.foldl' (flip f1) res (stNodeV t)
+                    b'' = {-# SCC b'' #-} CK.foldl' (flip f1) res (stNodeV t)
 
 {-# INLINABLE prunefoldC #-}
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
 prunefoldC !f1 !f2 !b !t = case f2 t b of
     Strict.Left b' -> b'
-    Strict.Right b' -> VG.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
+    Strict.Right b' -> CK.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
         where
-            b'' = VG.foldr' f1 b' (stNodeV t)
+            b'' = CK.foldr' f1 b' (stNodeV t)
 
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool
@@ -517,6 +559,7 @@ instance NumDP (sg tag dp) => NumDP (AddUnit sg tag dp) where
 instance 
     ( SpaceTree (sg tag) dp
 --     , Container (ChildContainer (sg tag))
+    , FromList (ChildContainer (sg tag)) (AddUnit sg tag dp)
     , VG.Vector (ChildContainer (sg tag)) (AddUnit sg tag dp)
     , VG.Vector (ChildContainer (sg tag)) dp
     , Monoid ((ChildContainer (sg tag)) (AddUnit sg tag dp))

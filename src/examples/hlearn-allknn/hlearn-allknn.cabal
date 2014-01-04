@@ -41,7 +41,7 @@ executable hlearn-allknn
         HLearn >=2.0, 
 
         deepseq >=1.3, 
-        cassava >=0.2, 
+        cassava >=0.3, 
         containers >=0.5, 
         vector >=0.10, 
         bytestring >=0.10, 

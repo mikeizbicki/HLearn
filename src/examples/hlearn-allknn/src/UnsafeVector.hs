@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, MultiParamTypeClasses, BangPatterns, StandaloneDeriving, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, MultiParamTypeClasses, BangPatterns, StandaloneDeriving, GeneralizedNewtypeDeriving,FlexibleContexts #-}
 module UnsafeVector
 --     ( setptsize 
 --     )
@@ -50,16 +50,20 @@ setptsize len = do
 -------------------------------------------------------------------------------
 -- vector opts
 
-instance VUM.Unbox (L2 VU.Vector Float)
+instance VUM.Unbox elem => VUM.Unbox (L2 VU.Vector elem)
 
-data instance VUM.MVector s (L2 VU.Vector Float) = UnsafeMVector 
+data instance VUM.MVector s (L2 VU.Vector elem) = UnsafeMVector 
     { elemsizeM :: !Int
     , elemsizerealM :: !Int
     , lenM :: !Int
-    , vecM :: !(VUM.MVector s Float) 
+    , vecM :: !(VUM.MVector s elem) 
     }
 
-instance VGM.MVector VUM.MVector (L2 VU.Vector Float) where
+instance 
+    ( VG.Vector VU.Vector elem
+    , VGM.MVector VUM.MVector elem
+    ) => VGM.MVector VUM.MVector (L2 VU.Vector elem) 
+        where
     {-# INLINE basicLength #-}
     basicLength uv = lenM uv
 
@@ -102,14 +106,19 @@ instance VGM.MVector VUM.MVector (L2 VU.Vector Float) where
 -------------------------------------------------------------------------------
 -- immutable vector
 
-data instance VU.Vector (L2 VU.Vector Float) = UnsafeVector 
+data instance VU.Vector (L2 VU.Vector elem) = UnsafeVector 
     { elemsize :: !Int
     , elemsizereal :: !Int
     , len :: !Int
-    , vec :: !(L2 VU.Vector Float) 
+    , vec :: !(L2 VU.Vector elem) 
     }
 
-instance VG.Vector VU.Vector (L2 VU.Vector Float) where
+instance 
+    ( VG.Vector VU.Vector elem
+    , VGM.MVector VUM.MVector elem
+    ) => VG.Vector VU.Vector (L2 VU.Vector elem) 
+        where
+
     {-# INLINE basicUnsafeFreeze #-}
     basicUnsafeFreeze uv = do
         vec' <- VG.basicUnsafeFreeze (vecM uv)
@@ -144,7 +153,7 @@ instance VG.Vector VU.Vector (L2 VU.Vector Float) where
 
 -------------------------------------------------------------------------------
 -- L2'
-{-
+
 newtype L2' v a = L2' { unL2' :: v a }
     deriving (Read,Show,Eq,Ord,FromRecord,NFData)
 
@@ -226,16 +235,18 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
         where
             dist2=dist*dist
 
---             go !tot !i = if i>VG.length v1-8
---                 then goSmall tot i
---                 else if tot'>dist2
---                     then errorVal
---                     else go tot' (i+8)
-            go !tot !i = if i>ptsize-8
+            ptsize=20
+
+            go !tot !i = if i>VG.length v1-8
                 then goSmall tot i
                 else if tot'>dist2
                     then errorVal
                     else go tot' (i+8)
+--             go !tot !i = if i>ptsize-8
+--                 then goSmall tot i
+--                 else if tot'>dist2
+--                     then errorVal
+--                     else go tot' (i+8)
                 where
                     tot' = tot
                         +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
@@ -397,4 +408,4 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
                 where
                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              -}
+                              
