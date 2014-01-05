@@ -38,7 +38,7 @@ import HLearn.Algebra.Structures.Groups
 -- type classes
 
 -- | Every data type that implements this class has a corresponding function.  We can use this data type as type level parameters to other data types.  This gives us some of the benefit of dependently typed functions.
-class Function f domain range | f domain -> range where
+class Function f domain range | f -> domain  range where
     function :: f -> domain -> range
 
 -------------------------------------------------------------------------------

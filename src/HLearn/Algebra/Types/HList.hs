@@ -70,6 +70,7 @@ import Data.Monoid
 import GHC.TypeLits
 import Unsafe.Coerce
 
+import HLearn.Algebra.Functions
 import HLearn.Algebra.Types.Nat1
 
 -------------------------------------------------------------------------------
@@ -179,17 +180,29 @@ instance (HTake1 (Nat1Box n) (HList xs1) (HList xs2)) => HTake1 (Nat1Box (Succ n
     htake1 _ (x:::xs) = x:::(htake1 (Nat1Box :: Nat1Box n) xs)
 
 -- | Equivalent to prelude's "map"
-class HMap f xs1 xs2 | f xs1 -> xs2 where
-    hmap :: f -> xs1 -> xs2
+class HMap f xs ys | f xs -> ys where
+    hmap :: f -> xs -> ys
 
 instance HMap f (HList '[]) (HList '[]) where
-    hmap _ HNil = HNil
+    hmap _ _ = HNil
 
 instance 
-    ( HMap (x1 -> x2) (HList xs1) (HList xs2)
-    ) => HMap (x1 -> x2) (HList (x1 ': xs1)) (HList (x2 ': xs2))
-        where
-    hmap f (x:::xs) = f x ::: hmap f xs
+    ( Function f x y
+    , HMap f (HList xs) (HList ys)
+    ) => HMap f (HList (x ': xs)) (HList (y ': ys)) where
+    hmap f (x:::xs) = function f x:::hmap f xs
+
+-- class HMap f xs1 xs2 | f xs1 -> xs2 where
+--     hmap :: f -> xs1 -> xs2
+-- 
+-- instance HMap f (HList '[]) (HList '[]) where
+--     hmap _ HNil = HNil
+-- 
+-- instance 
+--     ( HMap (x1 -> x2) (HList xs1) (HList xs2)
+--     ) => HMap (x1 -> x2) (HList (x1 ': xs1)) (HList (x2 ': xs2))
+--         where
+--     hmap f (x:::xs) = f x ::: hmap f xs
     
 -- instance (HTake1 (Nat1Box (ToNat1 n)) (HList xs1) (HList xs2)) => HTake1 (Sing n) (HList xs1) (HList xs2) where
 --     htake1 _ xs = htake1 (Nat1Box :: Nat1Box (ToNat1 n)) xs
