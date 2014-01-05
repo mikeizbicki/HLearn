@@ -175,9 +175,9 @@ instance
     ) => Show (Regression method expr dp) where 
     show m = "y = " ++ (concat $ intersperse " + " $ map prettyPrint $ filter shouldPrint $ zip coefL termL)
         where
-            shouldPrint (c,t) = c /= c || abs c > 0.000001
+            shouldPrint (c,t) = True -- c /= c || abs c > 1e-12
             
-            prettyPrint (c,CCon t) = showGFloat (Just 4) (c * fromRational t) ""
+            prettyPrint (c,CCon t) = showFFloat (Just 4) (c * fromRational t) ""
             prettyPrint (c,t) = showGFloat (Just 4) c "" ++ ppShowTerm t
 
             termL = param_expr m 
