@@ -194,6 +194,13 @@ instance VGM.MVector v a => VGM.MVector (L2'M v) a where
     basicUnsafeRead (L2'M v) i = VGM.basicUnsafeRead v i
     basicUnsafeWrite (L2'M v) i a = VGM.basicUnsafeWrite v i a
 
+    {-# INLINE basicUnsafeCopy #-}
+    {-# INLINE basicUnsafeMove #-}
+    {-# INLINE basicUnsafeGrow #-}
+    basicUnsafeCopy (L2'M v1) (L2'M v2) = VGM.basicUnsafeCopy v1 v2
+    basicUnsafeMove (L2'M v1) (L2'M v2) = VGM.basicUnsafeMove v1 v2
+    basicUnsafeGrow (L2'M v1) i = L2'M `liftM` VGM.basicUnsafeGrow v1 i
+
 type instance VG.Mutable (L2' v) = L2'M (VG.Mutable v)
 
 ---------------------------------------
@@ -235,18 +242,29 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
         where
             dist2=dist*dist
 
-            ptsize=20
+--             ptsize=20
+            ptsize=VG.length v1
 
-            go !tot !i = if i>VG.length v1-8
-                then goSmall tot i
+            {-# INLINE goEach #-}
+            goEach !tot !i = if i>= ptsize 
+                then tot
                 else if tot'>dist2
                     then errorVal
-                    else go tot' (i+8)
---             go !tot !i = if i>ptsize-8
---                 then goSmall tot i
---                 else if tot'>dist2
+                    else goEach tot' (i+1)
+                where
+                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+
+--             go !tot !i = if tot'>dist2
 --                     then errorVal
---                     else go tot' (i+8)
+--                     else if i>=ptsize-8
+--                         then goEach tot i
+--                         else go tot' (i+8)
+            go !tot !i =if i>ptsize-8
+                    then goEach tot i
+                    else  if tot'>dist2
+                        then errorVal
+                        else go tot' (i+8)
                 where
                     tot' = tot
                         +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
@@ -398,14 +416,4 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
                 *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
                 +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
                 *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
-
-            {-# INLINE goEach #-}
-            goEach !tot !i = if i>= ptsize 
-                then tot
-                else if tot'>dist2
-                    then errorVal
-                    else goEach tot' (i+1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
                               
