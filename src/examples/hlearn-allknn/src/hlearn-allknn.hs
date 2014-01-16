@@ -52,6 +52,7 @@ import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import qualified HLearn.DataStructures.StrictList as Strict
+import qualified HLearn.DataStructures.StrictVector as Strict
 import HLearn.Metrics.Lebesgue
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
@@ -66,7 +67,7 @@ type DP = L2 VU.Vector Float
 -- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) Strict.List VU.Vector) () DP
-type Tree = AddUnit (CoverTree' (13/10) [] VU.Vector) () DP
+type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
 
 data Params = Params
     { k :: Int
