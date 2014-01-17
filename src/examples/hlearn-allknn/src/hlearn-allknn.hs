@@ -134,9 +134,11 @@ runit :: forall k tree base childContainer nodeVvec dp ring.
     , RealFloat (Ring dp)
     , FromRecord dp 
     , VU.Unbox (Ring dp)
---     , VG.Vector nodeVvec dp
     , dp ~ DP
-    ) => Params -> AddUnit (CoverTree' base childContainer nodeVvec) () dp -> NeighborMap k dp -> IO ()
+    ) => Params 
+      -> AddUnit (CoverTree' base childContainer nodeVvec) () dp 
+      -> NeighborMap k dp 
+      -> IO ()
 runit params tree knn = do
     
     -- build reference tree
@@ -147,7 +149,7 @@ runit params tree knn = do
 --     let reftree = {-parallel-} UnitLift $ insertBatchVU rs :: Tree
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = packCT 0 $ unUnit reftree
+    let reftree_prune = packCT $ unUnit reftree
 --     let reftree_prune = rmGhostSingletons $  unUnit reftree
     timeIO "packing reference tree" $ return reftree_prune
 
@@ -169,10 +171,10 @@ runit params tree knn = do
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 --     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindNeighborMap" $ return result
---     let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parallel findNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
+    let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 
