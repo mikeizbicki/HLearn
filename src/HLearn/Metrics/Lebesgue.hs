@@ -133,6 +133,13 @@ instance VGM.MVector v a => VGM.MVector (L2M v) a where
     basicUnsafeRead (L2M v) i = VGM.basicUnsafeRead v i
     basicUnsafeWrite (L2M v) i a = VGM.basicUnsafeWrite v i a
 
+    {-# INLINE basicUnsafeCopy #-}
+    {-# INLINE basicUnsafeMove #-}
+    {-# INLINE basicUnsafeGrow #-}
+    basicUnsafeCopy (L2M v1) (L2M v2) = VGM.basicUnsafeCopy v1 v2
+    basicUnsafeMove (L2M v1) (L2M v2) = VGM.basicUnsafeMove v1 v2
+    basicUnsafeGrow (L2M v) i = L2M `liftM` VGM.basicUnsafeGrow v i
+
 type instance VG.Mutable (L2 v) = L2M (VG.Mutable v)
 
 ---------------------------------------

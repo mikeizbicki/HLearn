@@ -102,6 +102,14 @@ instance
         where
             start = loc*elemsizerealM uv
 
+--     {-# INLINE basicUnsafeCopy #-}
+--     basicUnsafeCopy v1 v2 = VGM.basicUnsafeCopy (vecM v1) (vecM v2)
+-- 
+--     {-# INLINE basicUnsafeMove #-}
+--     basicUnsafeMove v1 v2 = VGM.basicUnsafeMove (vecM v1) (vecM v2)
+
+--     {-# INLINE basicSet #-}
+--     basicSet v x = VGM.basicSet (vecM v) x
 
 -------------------------------------------------------------------------------
 -- immutable vector
@@ -150,6 +158,9 @@ instance
 
     {-# INLINE basicUnsafeIndexM #-}
     basicUnsafeIndexM uv i = return $ VG.basicUnsafeSlice (i*elemsizereal uv) (elemsize uv) (vec uv)
+
+--     {-# INLINE basicUnsafeCopy #-}
+--     basicUnsafeCopy mv v = VG.basicUnsafeCopy (vecM mv) (vec v)
 
 -------------------------------------------------------------------------------
 -- L2'
@@ -234,7 +245,7 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
 
     {-# INLINE isFartherThanWithDistanceCanError #-}
     isFartherThanWithDistanceCanError !v1 !v2 !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
-        sqrt $ isFartherThanWithDistanceMonoCanError v1 v2 dist
+        isFartherThanWithDistanceMonoCanError v1 v2 dist
 
     {-# INLINE isFartherThanWithDistanceMonoCanError #-}
     isFartherThanWithDistanceMonoCanError !(L2' v1) !(L2' v2) !dist = {-# SCC isFartherThanWithDistanceMonoCanError #-} 
@@ -260,11 +271,12 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
 --                     else if i>=ptsize-8
 --                         then goEach tot i
 --                         else go tot' (i+8)
-            go !tot !i =if i>ptsize-8
-                    then goEach tot i
-                    else  if tot'>dist2
-                        then errorVal
-                        else go tot' (i+8)
+            go !tot !i = if tot'>dist2
+                then errorVal
+                else if i>=ptsize-8
+                    then sqrt $ goEach tot' (i+8) 
+--                     then sqrt $ tot'
+                    else go tot' (i+8)
                 where
                     tot' = tot
                         +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
@@ -283,6 +295,7 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
                         *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
                         +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
                         *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
+--
 --                         +(v1 `VG.unsafeIndex` (i+8)-v2 `VG.unsafeIndex` (i+8))
 --                         *(v1 `VG.unsafeIndex` (i+8)-v2 `VG.unsafeIndex` (i+8))
 --                         +(v1 `VG.unsafeIndex` (i+9)-v2 `VG.unsafeIndex` (i+9))

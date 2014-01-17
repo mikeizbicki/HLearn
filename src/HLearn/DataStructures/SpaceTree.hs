@@ -149,18 +149,14 @@ class
     ( MetricSpace dp
     , Ring dp ~ Ring (t dp)
     , NumDP (t dp)
---     , Container (ChildContainer t)
---     , VG.Vector (ChildContainer t) dp
---     , VG.Vector (ChildContainer t) (t dp)
---     , VG.Vector (LeafVector t) dp
-    , FromList (LeafVector t) dp
+    , FromList (NodeContainer t) dp
     , FromList (ChildContainer t) dp
     , FromList (ChildContainer t) (t dp)
-    , Monoid (LeafVector t dp)
+    , Monoid (NodeContainer t dp)
     ) => SpaceTree t dp 
         where
-    type LeafVector t :: * -> *
-    type LeafVector t = V.Vector 
+    type NodeContainer t :: * -> *
+    type NodeContainer t = V.Vector 
 
     type ChildContainer t :: * -> *
     type ChildContainer t = V.Vector
@@ -188,9 +184,6 @@ class
     stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
     stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
 
-    stIsMinDistanceDpFartherThanWithDistanceMonoCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
-    stIsMaxDistanceDpFartherThanWithDistanceMonoCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
-
     stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
     stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
 
@@ -199,14 +192,16 @@ class
 
     stHasNode   :: t dp -> Bool
     stIsLeaf    :: t dp -> Bool
-    stChildren  :: t dp -> [t dp]
-    stChildren' :: t dp -> Strict.List (t dp)
-    stChildren_ :: t dp -> (ChildContainer t) (t dp)
+    stChildren  :: t dp -> (ChildContainer t) (t dp)
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Ring dp
 
+    {-# INLINE stChildrenList #-}
+    stChildrenList  :: t dp -> [t dp]
+    stChildrenList t = toList $ stChildren t
+
     {-# INLINE stNodeV #-}
-    stNodeV :: t dp -> (LeafVector t) dp
+    stNodeV :: t dp -> (NodeContainer t) dp
     stNodeV t = mempty
     
     {-# INLINE stNodeW #-}
@@ -223,7 +218,7 @@ class
 stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
 stToList t = if stIsLeaf t && stWeight t > 0
     then (stNode t):(toList $ stNodeV t)
-    else go (concat $ map stToList $ stChildren t)
+    else go (concat $ map stToList $ stChildrenList t)
     where
         go xs = if stWeight t > 0 
             then (stNode t) : (toList (stNodeV t) ++ xs)
@@ -233,7 +228,7 @@ stToList t = if stIsLeaf t && stWeight t > 0
 stToListW :: (Eq dp, SpaceTree t dp) => t dp -> [Weighted dp]
 stToListW t = if stIsLeaf t && stWeight t > 0
     then [(stWeight t,stNode t)]
-    else go (concat $ map stToListW $ stChildren t)
+    else go (concat $ map stToListW $ stChildrenList t)
     where
         go xs = if stWeight t > 0 
             then (stWeight t,stNode t) : xs
@@ -243,9 +238,9 @@ stToListW t = if stIsLeaf t && stWeight t > 0
 toTagList :: (Eq dp, SpaceTree (t tag) dp, Taggable t dp) => t tag dp -> [(dp,tag)]
 toTagList t = if stIsLeaf t
     then [(stNode t,getTag t)]
-    else go (concat $ map toTagList $ stChildren t)
+    else go (concat $ map toTagList $ stChildrenList t)
     where 
-        go xs = if stNode t `Data.List.elem` (map stNode $ stChildren t)
+        go xs = if stNode t `Data.List.elem` (map stNode $ stChildrenList t)
             then xs
             else (stNode t,getTag t) : xs
 
@@ -253,62 +248,62 @@ toTagList t = if stIsLeaf t
 stDescendents :: SpaceTree t dp => t dp -> [dp]
 stDescendents t = if stIsLeaf t 
     then [stNode t]
-    else concatMap stDescendents $ stChildren t
+    else concatMap stDescendents $ stChildrenList t
 
 {-# INLINABLE stNumDp #-}
 stNumDp :: SpaceTree t dp => t dp -> Ring dp
 stNumDp t = if stIsLeaf t
     then stWeight t
-    else stWeight t + sum (map stNumDp $ stChildren t)
+    else stWeight t + sum (map stNumDp $ stChildrenList t)
 
 {-# INLINABLE stNumNodes #-}
 stNumNodes :: SpaceTree t dp => t dp -> Int
 stNumNodes t = if stIsLeaf t
     then 1
-    else 1 + sum (map stNumNodes $ stChildren t)
+    else 1 + sum (map stNumNodes $ stChildrenList t)
 
 {-# INLINABLE stNumLeaves #-}
 stNumLeaves :: SpaceTree t dp => t dp -> Int
 stNumLeaves t = if stIsLeaf t
     then 1
-    else sum (map stNumLeaves $ stChildren t)
+    else sum (map stNumLeaves $ stChildrenList t)
 
 {-# INLINABLE stNumGhosts #-}
 stNumGhosts :: SpaceTree t dp => t dp -> Int
 stNumGhosts t = (if stWeight t == 0 then 1 else 0) + if stIsLeaf t
     then 0
-    else sum (map stNumGhosts $ stChildren t)
+    else sum (map stNumGhosts $ stChildrenList t)
 
 {-# INLINABLE stAveGhostChildren #-}
 stAveGhostChildren :: SpaceTree t dp => t dp -> Normal Double Double
-stAveGhostChildren t = (if stWeight t == 0 then train1dp . fromIntegral . length $ stChildren t else mempty)
+stAveGhostChildren t = (if stWeight t == 0 then train1dp . fromIntegral . length $ stChildrenList t else mempty)
     `mappend` if stIsLeaf t
         then mempty
-        else (reduce . map stAveGhostChildren $ stChildren t)
+        else (reduce . map stAveGhostChildren $ stChildrenList t)
 
 {-# INLINABLE stMaxChildren #-}
 stMaxChildren :: SpaceTree t dp => t dp -> Int
 stMaxChildren t = if stIsLeaf t
     then 0
-    else maximum $ (length $ stChildren t):(map stMaxChildren $ stChildren t)
+    else maximum $ (length $ stChildrenList t):(map stMaxChildren $ stChildrenList t)
 
 {-# INLINABLE stAveChildren #-}
 stAveChildren :: SpaceTree t dp => t dp -> Normal Double Double
 stAveChildren t = if stIsLeaf t
     then mempty
-    else (train1dp . fromIntegral . length $ stChildren t) `mappend` (reduce . map stAveChildren $ stChildren t)
+    else (train1dp . fromIntegral . length $ stChildrenList t) `mappend` (reduce . map stAveChildren $ stChildrenList t)
 
 {-# INLINABLE stMaxDepth #-}
 stMaxDepth :: SpaceTree t dp => t dp -> Int
 stMaxDepth t = if stIsLeaf t
     then 1
-    else 1+maximum (map stMaxDepth $ stChildren t)
+    else 1+maximum (map stMaxDepth $ stChildrenList t)
 
 {-# INLINABLE stNumSingletons #-}
 stNumSingletons :: SpaceTree t dp => t dp -> Int
 stNumSingletons t = if stIsLeaf t
     then 0
-    else sum (map stNumSingletons $ stChildren t) + if length (stChildren t) == 1
+    else sum (map stNumSingletons $ stChildrenList t) + if length (stChildrenList t) == 1
         then 1
         else 0 
 
@@ -316,7 +311,7 @@ stNumSingletons t = if stIsLeaf t
 stNumGhostSingletons :: SpaceTree t dp => t dp -> Int
 stNumGhostSingletons t = if stIsLeaf t
     then 0
-    else sum (map stNumGhostSingletons $ stChildren t) + if length (stChildren t) == 1 && stWeight t==0
+    else sum (map stNumGhostSingletons $ stChildrenList t) + if length (stChildrenList t) == 1 && stWeight t==0
         then 1
         else 0 
 
@@ -326,14 +321,14 @@ stNumGhostLeaves t = if stIsLeaf t
     then if stWeight t==0
         then 1
         else 0
-    else sum (map stNumGhostLeaves $ stChildren t)
+    else sum (map stNumGhostLeaves $ stChildrenList t)
 
 {-# INLINABLE stNumGhostSelfparent #-}
 stNumGhostSelfparent :: (Eq dp, SpaceTree t dp) => t dp -> Int
 stNumGhostSelfparent t = if stIsLeaf t 
     then 0
-    else sum (map stNumGhostSelfparent $ stChildren t) 
-       + if stWeight t==0 && stNode t `Data.List.elem` map stNode (stChildren t)
+    else sum (map stNumGhostSelfparent $ stChildrenList t) 
+       + if stWeight t==0 && stNode t `Data.List.elem` map stNode (stChildrenList t)
         then 1
         else 0
 
@@ -341,8 +336,8 @@ stNumGhostSelfparent t = if stIsLeaf t
 stExtraLeaves :: (Eq dp, SpaceTree t dp) => t dp -> Int
 stExtraLeaves t = if stIsLeaf t
     then 0
-    else sum (map stExtraLeaves $ stChildren t) 
-        + if or $ map (\c -> stNode c==stNode t && stIsLeaf c) $ stChildren t
+    else sum (map stExtraLeaves $ stChildrenList t) 
+        + if or $ map (\c -> stNode c==stNode t && stIsLeaf c) $ stChildrenList t
             then 1
             else 0
 
@@ -357,7 +352,7 @@ prunefoldinit :: SpaceTree t dp => (t dp -> res) -> (res -> t dp -> Bool) -> (dp
 prunefoldinit init prune f t = foldl'
     (prunefold prune f)
     (init t)
-    (stChildren t)
+    (stChildrenList t)
 
 {-# INLINABLE prunefold #-}
 prunefold :: SpaceTree t a => (b -> t a -> Bool) -> (a -> b -> b) -> b -> t a -> b
@@ -365,7 +360,7 @@ prunefold prune f b t = if prune b t
     then b
     else if stIsLeaf t
         then b'
-        else foldl' (prunefold prune f) b' (stChildren t) 
+        else foldl' (prunefold prune f) b' (stChildrenList t) 
     where
         b' = f (stNode t) b
 
@@ -375,7 +370,7 @@ prunefoldW prune f b t = if prune b t
     then b
     else if stIsLeaf t
         then b'
-        else foldl' (prunefoldW prune f) b' (stChildren t) 
+        else foldl' (prunefoldW prune f) b' (stChildrenList t) 
     where
         b' = f (stNodeW t) b
 
@@ -383,13 +378,13 @@ prunefoldW prune f b t = if prune b t
 prunefoldA :: SpaceTree t a => (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
     Strict.Nothing -> b
-    Strict.Just b' -> CK.foldl' (prunefoldA f) b' (stChildren_ t)
+    Strict.Just b' -> CK.foldl' (prunefoldA f) b' (stChildren t)
 
 {-# INLINABLE prunefoldB #-}
 prunefoldB :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Maybe b) -> b -> t a -> b
 prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
     Strict.Nothing -> {-# SCC prunefoldB_Nothing #-} b
-    Strict.Just b' -> {-# SCC prunefoldB_Just #-} CK.foldl' (prunefoldB f1 f2) b'' (stChildren_ t)
+    Strict.Just b' -> {-# SCC prunefoldB_Just #-} CK.foldl' (prunefoldB f1 f2) b'' (stChildren t)
         where
             b'' = {-# SCC b'' #-} CK.foldr' f1 b' (stNodeV t)
 
@@ -400,8 +395,8 @@ prunefoldB_CanError !f1 !f2 !b !t = go b t
     where
         go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
             then {-# SCC prunefoldB_CanError_Nothing #-} b
-            else {-# SCC prunefoldB_CanError_Just #-} CK.foldl' go b'' (stChildren_ t)
---             else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren_ t)
+            else {-# SCC prunefoldB_CanError_Just #-} CK.foldl' go b'' (stChildren t)
+--             else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren t)
                 where
                     res = f2 t b
                     b'' = {-# SCC b'' #-} CK.foldl' (flip f1) res (stNodeV t)
@@ -410,7 +405,7 @@ prunefoldB_CanError !f1 !f2 !b !t = go b t
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
 prunefoldC !f1 !f2 !b !t = case f2 t b of
     Strict.Left b' -> b'
-    Strict.Right b' -> CK.foldl' (prunefoldC f1 f2) b'' (stChildren_ t)
+    Strict.Right b' -> CK.foldl' (prunefoldC f1 f2) b'' (stChildren t)
         where
             b'' = CK.foldr' f1 b' (stNodeV t)
 
@@ -460,7 +455,7 @@ prunefold2init ::
 prunefold2init init prune f pair = foldl' 
     (prunefold2 prune f) 
     (init pair) 
-    (dualTreeMatrix (stChildren $ reference pair) (stChildren $ query pair))
+    (dualTreeMatrix (stChildrenList $ reference pair) (stChildrenList $ query pair))
 
 {-# INLINABLE dualfold #-}
 dualfold :: 
@@ -479,7 +474,7 @@ dualfold tag prune f b pair = if prune b_tagged pair
         else foldl' 
             (dualfold tag prune f) 
             b' 
-            (dualTreeMatrix (stChildren $ reference pair) (stChildren $ query pair))
+            (dualTreeMatrix (stChildrenList $ reference pair) (stChildrenList $ query pair))
     where
         b_tagged = tag pair b 
         b' = f (dualNodes pair) b_tagged
@@ -499,7 +494,7 @@ prunefold2 prune f b pair = if prune b pair
         else foldl' 
             (prunefold2 prune f) 
             b' 
-            (dualTreeMatrix (stChildren $ reference pair) (stChildren $ query pair))
+            (dualTreeMatrix (stChildrenList $ reference pair) (stChildrenList $ query pair))
     where
         b' = f (dualNodes pair) b
 
@@ -558,7 +553,6 @@ instance NumDP (sg tag dp) => NumDP (AddUnit sg tag dp) where
 
 instance 
     ( SpaceTree (sg tag) dp
---     , Container (ChildContainer (sg tag))
     , FromList (ChildContainer (sg tag)) (AddUnit sg tag dp)
     , VG.Vector (ChildContainer (sg tag)) (AddUnit sg tag dp)
     , VG.Vector (ChildContainer (sg tag)) dp
@@ -567,7 +561,7 @@ instance
     , NumDP (sg tag dp)
     ) => SpaceTree (AddUnit sg tag) dp 
         where
-    type LeafVector (AddUnit sg tag) = LeafVector (sg tag)
+    type NodeContainer (AddUnit sg tag) = NodeContainer (sg tag)
     type ChildContainer (AddUnit sg tag) = ChildContainer (sg tag)
 
     {-# INLINE stMinDistance #-}
@@ -580,9 +574,8 @@ instance
     {-# INLINE stMaxDistanceDpWithDistance #-}
     {-# INLINE stIsMinDistanceDpFartherThanWithDistance #-}
     {-# INLINE stIsMaxDistanceDpFartherThanWithDistance #-}
+    {-# INLINE stChildrenList #-}
     {-# INLINE stChildren #-}
-    {-# INLINE stChildren' #-}
-    {-# INLINE stChildren_ #-}
     {-# INLINE stNode #-}
     {-# INLINE stHasNode #-}
     {-# INLINE stIsLeaf #-}
@@ -616,34 +609,21 @@ instance
     stIsMinDistanceDpFartherThanWithDistanceCanError (UnitLift x) dp b = 
         stIsMinDistanceDpFartherThanWithDistanceCanError x dp b
 
-    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceMonoCanError #-}
-    stIsMinDistanceDpFartherThanWithDistanceMonoCanError Unit dp b = errorVal 
-    stIsMinDistanceDpFartherThanWithDistanceMonoCanError (UnitLift x) dp b = 
-        stIsMinDistanceDpFartherThanWithDistanceMonoCanError x dp b
-
     {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     stIsMaxDistanceDpFartherThanWithDistanceCanError Unit dp b = errorVal 
     stIsMaxDistanceDpFartherThanWithDistanceCanError (UnitLift x) dp b = 
-        stIsMaxDistanceDpFartherThanWithDistanceMonoCanError x dp b
-
-    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceMonoCanError #-}
-    stIsMaxDistanceDpFartherThanWithDistanceMonoCanError Unit dp b = errorVal 
-    stIsMaxDistanceDpFartherThanWithDistanceMonoCanError (UnitLift x) dp b = 
-        stIsMaxDistanceDpFartherThanWithDistanceMonoCanError x dp b
+        stIsMaxDistanceDpFartherThanWithDistanceCanError x dp b
 
     stMinDistanceDpFromDistance Unit _ _ = 0
     stMinDistanceDpFromDistance (UnitLift x) dp dist = stMinDistanceDpFromDistance x dp dist
     stMaxDistanceDpFromDistance Unit _ _ = infinity
     stMaxDistanceDpFromDistance (UnitLift x) dp dist = stMaxDistanceDpFromDistance x dp dist
 
-    stChildren Unit = []
-    stChildren (UnitLift x) = map UnitLift $ stChildren x
+    stChildrenList Unit = []
+    stChildrenList (UnitLift x) = map UnitLift $ stChildrenList x
 
-    stChildren' Unit = Strict.Nil
-    stChildren' (UnitLift x) = fmap UnitLift $ stChildren' x
-
-    stChildren_ Unit = mempty
-    stChildren_ (UnitLift x) = fmap UnitLift $ stChildren_ x
+    stChildren Unit = mempty
+    stChildren (UnitLift x) = fmap UnitLift $ stChildren x
 
     stNode Unit = error "stNode Unit"
     stNode (UnitLift x) = stNode x
