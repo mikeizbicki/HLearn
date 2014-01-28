@@ -34,7 +34,7 @@ loaddata ::
     ) => String -> IO (V.Vector (v r))
 loaddata filename = do
     rse :: Either String (V.Vector (v r))  
-        <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile filename
+        <- timeIO "loading reference dataset" $ fmap (decode HasHeader) $ BS.readFile filename
     rs <- case rse of 
         Right rs -> return rs
         Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str

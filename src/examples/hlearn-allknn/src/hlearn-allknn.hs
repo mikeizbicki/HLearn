@@ -28,9 +28,10 @@ import Data.Proxy
 import Data.Reflection
 import Data.Time.Clock
 import System.Console.CmdArgs.Implicit
+import System.CPUTime
 import System.Environment
 import System.IO
-import System.CPUTime
+import System.Mem
 import Numeric
 
 import Test.QuickCheck hiding (verbose,sample)
@@ -62,7 +63,6 @@ import UnsafeVector
 
 type DP = L2 VU.Vector Float
 -- type DP = DP2 
--- type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) Strict.List V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
@@ -83,7 +83,7 @@ data Params = Params
 sample = Params 
     { k              = 1 &= help "Number of nearest neighbors to find" 
     , reference_file = def &= help "Reference data set in CSV format" &= typFile
-    , query_file     = def &= help "Query data set in CSV format" &= typFile &= opt (Nothing :: Maybe String)
+    , query_file     = def &= help "Query data set in CSV format" &= typFile -- &= opt (Nothing :: Maybe String)
     , distances_file = "distances_hlearn.csv" &= help "File to output distances into" &= typFile
     , neighbors_file = "neighbors_hlearn.csv" &= help "File to output the neighbors into" &= typFile
     , verbose        = False &= help "print tree statistics (takes some extra time)" &= typFile 
@@ -145,12 +145,10 @@ runit params tree knn = do
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
 
-
---     let reftree = {-parallel-} UnitLift $ insertBatchVU rs :: Tree
-    let reftree = {-parallel-} train rs :: Tree
+--     let reftree = {-parallel-} train rs :: Tree
+    let reftree = parallel train rs :: Tree
     timeIO "building reference tree" $ return reftree
     let reftree_prune = packCT $ unUnit reftree
---     let reftree_prune = rmGhostSingletons $  unUnit reftree
     timeIO "packing reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -162,35 +160,58 @@ runit params tree knn = do
         else return ()
 
     -- build query tree
-    querytree <- case query_file params of
-        Nothing -> return $ reftree_prune
---         Nothing -> return $ reftree
+    (querytree,qs) <- case query_file params of
+        Nothing -> return $ (reftree_prune,rs)
+        Just qfile -> do
+            qs <- loaddata qfile
+            let qtree = train qs :: Tree
+            timeIO "building query tree" $ return qtree
+            let qtree_prune = packCT $ unUnit qtree
+            timeIO "packing query tree" $ return qtree_prune
+            return (qtree_prune,qs)
 
     -- do knn search
---     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindNeighborMap" $ return result
---     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindNeighborMap" $ return result
---     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parallel findNeighborMap" $ return result
+    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
+    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
+    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindNeighborMap" $ return result
+
+    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+
+    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parallel findNeighborMap" $ return result
+--     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parallel findNeighborMap" $ return result
+--     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
-    let rs_index = Map.fromList $ zip (VG.toList rs) [0..]
+    let qs_index = Map.fromList $ zip (VG.toList qs) [0..]
+        rs_index = Map.fromList $ zip (VG.toList rs) [0..]
 
     timeIO "outputing distance" $ do
         hDistances <- openFile (distances_file params) WriteMode
         sequence_ $ 
             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
             . Map.elems 
-            . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
+            . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
             . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
             $ nm2map res 
---             . Map.map (map rangedistance . Set.toList . rangeset) 
---             $ rm2map res 
         hClose hDistances
 
     timeIO "outputing neighbors" $ do
@@ -199,11 +220,9 @@ runit params tree knn = do
             map (hPutStrLn hNeighbors . init . tail . show)
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
-            . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
+            . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
             . Map.map (map neighbor . Strict.strictlist2list . getknn) 
             $ nm2map res 
---             . Map.map (map rangedp . Set.toList . rangeset)
---             $ rm2map res 
         hClose hNeighbors
   
     -- end
@@ -269,12 +288,11 @@ printTreeStats str t = do
     putStr (str++"  stNumSingletons......") >> hFlush stdout >> putStrLn (show $ stNumSingletons t) 
     putStr (str++"  stExtraLeaves........") >> hFlush stdout >> putStrLn (show $ stExtraLeaves t) 
 
---     putStrLn (str++" properties:")
---     putStr (str++"  covering...............") >> hFlush stdout >> putStrLn (show $ property_covering t) 
---     putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled t) 
---     putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating t)
---     putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance t) 
---     putStr (str++"  sepdistL...............") >> hFlush stdout >> putStrLn (show $ sepdistL $ unUnit t) 
+    putStrLn (str++" properties:")
+    putStr (str++"  covering...............") >> hFlush stdout >> putStrLn (show $ property_covering $ UnitLift t) 
+    putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled $ UnitLift t) 
+    putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating $ UnitLift t)
+    putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance $ UnitLift t) 
 
     putStrLn ""
 
@@ -283,12 +301,14 @@ time a = timeIO "timing function" $ return a
 
 timeIO :: NFData a => String -> IO a -> IO a
 timeIO str f = do 
+    performGC
     putStr $ str ++ replicate (45-length str) '.'
     hFlush stdout
     cputime1 <- getCPUTime
     realtime1 <- getCurrentTime >>= return . utctDayTime
     ret <- f
-    deepseq ret $ return ()
+--     deepseq ret $ return ()
+    seq ret $ return ()
     cputime2 <- getCPUTime
     realtime2 <- getCurrentTime >>= return . utctDayTime
     

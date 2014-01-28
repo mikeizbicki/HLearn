@@ -52,6 +52,7 @@ import Debug.Trace
 
 import Diagrams.Prelude hiding (distance,trace,query,connect)
 import Diagrams.Backend.SVG.CmdLine
+-- import Diagrams.Backend.Postscript.CmdLine
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
@@ -324,9 +325,9 @@ safeInsert :: forall base childContainer nodeContainer tag dp.
       -> Weighted dp 
       -> CoverTree' base childContainer nodeContainer tag dp
 safeInsert node (0,_) = node
-safeInsert !node !(w,dp) = case insert node (w,dp) of
-    Strict.Just x -> x
-    Strict.Nothing -> Node
+safeInsert node (w,dp) = case insert node (w,dp) of
+    Just x -> x
+    Nothing -> Node
         { nodedp    = dp
         , level     = dist2level_up (sing::Sing base) dist
         , weight    = w
@@ -345,16 +346,16 @@ insert :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
     ) => CoverTree' base childContainer nodeContainer tag dp 
       -> Weighted dp 
-      -> Strict.Maybe (CoverTree' base childContainer nodeContainer tag dp)
-insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
-    then Strict.Nothing
-    else Strict.Just $ Node
+      -> Maybe (CoverTree' base childContainer nodeContainer tag dp)
+insert node (w,dp) = if isFartherThan dp (nodedp node) (sepdist node)
+    then Nothing
+    else Just $ Node
         { nodedp    = nodedp node
         , level     = level node
         , weight    = weight node
-        , numdp     = weight node + Strict.sum (fmap numdp children')
+        , numdp     = weight node + sum (map numdp children')
         , tag       = tag node
-        , children  = fromList $ sortBy sortgo $ Strict.strictlist2list children'
+        , children  = fromList $ sortBy sortgo children'
         , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
@@ -362,32 +363,37 @@ insert !node !(!w,!dp) = if isFartherThan dp (nodedp node) (sepdist node)
         }
 
     where 
-        sortgo ct1 ct2 = compare (distance (nodedp node) (nodedp ct2)) (distance (nodedp node) (nodedp ct1))
+        sortgo ct1 ct2 = compare 
+            (distance dp (nodedp ct1)) 
+            (distance dp (nodedp ct2))
+--         sortgo ct1 ct2 = compare 
+--             (distance (nodedp node) (nodedp ct2)) 
+--             (distance (nodedp node) (nodedp ct1))
 
-        children' :: List (CoverTree' base childContainer nodeContainer tag dp)
-        children' = go $ Strict.list2strictlist $ toList $ children node
+--         children' = go $ sortBy sortgo $ toList $ children node
+        children' = go $ toList $ children node
 
-        go Nil = (Node 
-                    { nodedp = dp
-                    , level = level node-1
-                    , weight = w
-                    , numdp = w
-                    , maxDescendentDistance = 0
+        go [] = [ Node 
+                    { nodedp   = dp
+                    , level    = level node-1
+                    , weight   = w
+                    , numdp    = w
                     , children = mempty
-                    , nodeV = mempty
-                    , tag = mempty
-                    })
-               :.Nil
-        go (x:.xs) = if isFartherThan (nodedp x) dp (sepdist x)
-            then x:.go xs
+                    , nodeV    = mempty
+                    , tag      = mempty
+                    , maxDescendentDistance = 0
+                    }
+                ]
+        go (x:xs) = if isFartherThan (nodedp x) dp (sepdist x)
+            then x:go xs
             else case insert x (w,dp) of
-                Strict.Just x' -> x':.xs
+                Just x' -> x':xs
 
 insertBatch :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
     ) => [dp] 
       -> CoverTree' base childContainer nodeContainer tag dp
-insertBatch ((!dp):dps) = go dps $ Node 
+insertBatch (dp:dps) = go dps $ Node 
     { nodedp    = dp
     , level     = minBound
     , weight    = 1
@@ -418,8 +424,6 @@ instance HasRing dp => HasRing (CoverTree' base childContainer nodeContainer tag
 
 instance 
     ( ValidCT base childContainer nodeContainer tag dp
-    , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
-    , VG.Vector nodeContainer dp
     ) => Comonoid (CoverTree' base childContainer nodeContainer tag dp) 
         where
     partition n ct = [ takeFromTo (fromIntegral i*splitlen) splitlen ct | i <- [0..n-1] ]  
@@ -428,8 +432,6 @@ instance
 
 takeFromTo :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
-    , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
-    , VG.Vector nodeContainer dp
     ) => Ring dp 
       -> Ring dp 
       -> CoverTree' base childContainer nodeContainer tag dp 
@@ -447,9 +449,11 @@ takeFromTo from len ct =
             else 0
 
         nodeV' = fromList $ take (round len) $ drop (round $ from-nodeweight) $ toList $ nodeV ct
-           
-        taken = nodeweight+ (fromIntegral $ VG.length nodeV') :: Ring dp
-        nottaken = 1-nodeweight+(fromIntegral $ (VG.length $ nodeV ct)-(VG.length nodeV')) :: Ring dp
+
+--         taken = nodeweight+ (fromIntegral $ VG.length nodeV') :: Ring dp
+--         nottaken = 1-nodeweight+(fromIntegral $ (VG.length $ nodeV ct)-(VG.length nodeV')) :: Ring dp
+        taken = nodeweight+ (fromIntegral $ length $ toList nodeV') :: Ring dp
+        nottaken = 1-nodeweight+(fromIntegral $ (length $ toList $ nodeV ct)-(length $ toList nodeV')) :: Ring dp
 
         children' = fromList $ snd $ mapAccumL mapgo (from-nottaken,len-taken) $ toList $ children ct
         
@@ -512,7 +516,8 @@ ctmerge' ct1 ct2 =
         , invalidchildren++invalid_newleftovers
         )
     where
-        children' = fromList $ Strict.strictlist2list $ Strict.list2strictlist $ Map.elems childrenMap' 
+--         children' = fromList $ Strict.strictlist2list $ Strict.list2strictlist $ Map.elems childrenMap' 
+        children' = fromList $ Map.elems childrenMap' 
 
         childrenMap ct = Map.fromList $ map (\v -> (nodedp v,v)) $ stChildrenList ct
 
@@ -554,9 +559,13 @@ ctmerge' ct1 ct2 =
 -------------------------------------------------------------------------------
 -- misc helper functions
 
+growct = growct_unsafe
+
 growct_safe :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp -> Int -> CoverTree' base childContainer nodeContainer tag dp
+    ) => CoverTree' base childContainer nodeContainer tag dp 
+      -> Int 
+      -> CoverTree' base childContainer nodeContainer tag dp
 growct_safe ct d = if sepdist ct==0 || stIsLeaf ct 
     then ct { level=d }
     else if d > level ct
@@ -566,7 +575,8 @@ growct_safe ct d = if sepdist ct==0 || stIsLeaf ct
             , weight    = 0 -- weight ct
             , numdp     = numdp ct
             , tag       = mempty
-            , children  = fromList $ Strict.strictlist2list $ ct:.Strict.Nil
+--             , children  = fromList $ Strict.strictlist2list $ ct:.Strict.Nil
+            , children  = fromList [ct]
             , nodeV     = mempty
             , maxDescendentDistance = maxDescendentDistance ct
             }
@@ -576,11 +586,13 @@ growct_safe ct d = if sepdist ct==0 || stIsLeaf ct
         coverfactor = fromSing (sing :: Sing base)
 
 -- | this version of growct does not strictly obey the separating property; it never creates ghosts, however, so seems to work better in practice
-growct :: forall base childContainer nodeContainer tag dp.
+growct_unsafe :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp -> Int -> CoverTree' base childContainer nodeContainer tag dp
--- growct = growct_safe
-growct ct d = if sepdist ct==0 || stIsLeaf ct
+    ) => CoverTree' base childContainer nodeContainer tag dp 
+      -> Int 
+      -> CoverTree' base childContainer nodeContainer tag dp
+
+growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
     then ct { level=d }
     else if d <= level ct
         then ct
@@ -841,11 +853,10 @@ property_covering (UnitLift node) = if not $ stIsLeaf node
 -- property_leveled  :: MetricSpace dp => CoverTree dp -> Bool
 property_leveled (Unit) = True
 property_leveled (UnitLift node)
-    = VG.all (\val -> val - head (VG.toList xs) < 0.0000001) xs
---     = VG.all (== VG.head xs) xs
+    = VG.all (== VG.head xs) xs
    && VG.and (fmap (property_leveled . UnitLift) $ children node)
     where
-        xs = fmap sepdist $ children node
+        xs = fmap level $ children node
 
 -- property_separating  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_separating Unit = True
@@ -856,12 +867,19 @@ property_separating (UnitLift node) = if length (VG.toList $ children node) > 1
     where
 --         mapFactorial :: Container v =>(a -> a -> b) -> v a -> v b
         mapFactorial :: (VG.Vector v a, VG.Vector v b) =>(a -> a -> b) -> v a -> v b
-        mapFactorial f = VG.fromList . Strict.strictlist2list . mapFactorial' f . Strict.list2strictlist . VG.toList
-        mapFactorial' :: (a -> a -> b) -> List a -> List b
-        mapFactorial' f xs = go xs Nil
+        mapFactorial f = VG.fromList . mapFactorial' f . VG.toList
+        mapFactorial' :: (a -> a -> b) -> [a] -> [b]
+        mapFactorial' f xs = go xs []
             where
-                go Nil ys = ys
-                go (x:.xs) ys = go xs (fmap (f x) xs `mappend` ys)
+                go [] ys = ys
+                go (x:xs) ys = go xs (map (f x) xs `mappend` ys)
+--         mapFactorial f = VG.fromList . Strict.strictlist2list . mapFactorial' f . Strict.list2strictlist . VG.toList
+--         mapFactorial f = VG.fromList . mapFactorial' f . VG.toList
+--         mapFactorial' :: (a -> a -> b) -> List a -> List b
+--         mapFactorial' f xs = go xs Nil
+--             where
+--                 go Nil ys = ys
+--                 go (x:.xs) ys = go xs (fmap (f x) xs `mappend` ys)
 
 -- property_maxDescendentDistance  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_maxDescendentDistance Unit = True
@@ -911,7 +929,7 @@ ys :: [(Double,Double)]
 -- ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
 -- ys = [(0,0),(0,10),(10,10),(10,0),(10,-10),(0,-10),(-10,-10),(-10,0),(-10,10)]
 ys = [(0,0),(0,10),(8,8),(10,0),(8,-8),(0,-10),(-8,-8),(-10,0),(-8,8)]
--- my = train ys :: CoverTree (Double,Double)
+my = train ys :: CoverTree (Double,Double)
 -- my2 = train $ take 3 ys :: CoverTree (Double,Double)
 -- my = prunect $ insertBatch ys
 
@@ -923,7 +941,7 @@ ys' = [(1,2),(2,1)]
 zs :: [(Double,Double)]
 -- zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(19,20),(20,10),(22,21)]
 zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
-mz = train zs :: CoverTreeVU (Double,Double)
+mz = train zs :: CoverTree (Double,Double)
 
 type CoverTreeVU dp = AddUnit (CoverTree' (2/1) V.Vector VU.Vector) () dp
 
@@ -945,11 +963,13 @@ gs' i = take i gs
 -------------------------------------------------------------------------------
 -- diagrams
 
-drawT ct1 ct2 = draw ct1 
-            ||| (text "<>" <> strutX 1.5)
-            ||| draw ct2 
-            ||| (text "=" <> strutX 1) 
-            ||| (draw $ ct1 `mappend` ct2)
+drawT ct1 ct2 = (strutY 2.5 === draw (unUnit ct2))
+--             ||| (text "<>" <> strutX 2.5)
+            ||| (strutX 2.5)
+            ||| (strutY 2.5 === draw (unUnit ct1))
+--             ||| (text "=" <> strutX 2) 
+            ||| (strutX 2.5)
+            ||| (draw $ unUnit $ ct1 `mappend` ct2)
 
 draw node = draw' 0 node
 draw' depth tree = mkConnections $ 
@@ -970,16 +990,21 @@ draw' depth tree = mkConnections $
             else lightblue
 
         mkConnections = 
-             connect (label++show depth) (label++show (depth+1)) 
-             . apList (fmap (\key -> connect (label++show depth) (intShow key++show (depth+1))) (fmap nodedp $ Strict.list2strictlist $ VG.toList $ children tree))
+             connect (label++show depth) (label++show (depth+1)) . apList (fmap 
+                (\key -> connect (label++show depth) (intShow key++show (depth+1))) 
+                (map nodedp $ toList $ children tree))
             
 justdouble :: Maybe Double -> String
 justdouble Nothing = "0"
 justdouble (Just x) = show x
 
-apList :: List (a -> a) -> a -> a
-apList Strict.Nil a = a
-apList (x:.xs) a = apList xs (x a)
+apList :: [a -> a] -> a -> a
+apList [] a = a
+apList (x:xs) a = apList xs (x a)
+
+-- apList :: List (a -> a) -> a -> a
+-- apList Strict.Nil a = a
+-- apList (x:.xs) a = apList xs (x a)
 
 centerName name = withName name $ \b a -> moveOriginTo (location b) a
 

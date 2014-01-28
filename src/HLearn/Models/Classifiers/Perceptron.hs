@@ -48,27 +48,27 @@ instance
 instance (HasRing dp) => Probabilistic (Perceptron label dp) where
     type Probability (Perceptron label dp) = Ring dp
 
-instance 
-    ( Ord label
-    , Ord (Ring dp)
-    , MetricSpace (Centroid dp)
-    , Monoid dp
-    , HasRing dp
-    , label ~ Ring dp
-    ) => ProbabilityClassifier (Perceptron label dp)
-        where
-    type ResultDistribution (Perceptron label dp) = (Categorical (Ring dp) label)
-              
-    probabilityClassify model dp = probabilityClassify nn (train1dp (dp) :: Centroid dp)
-        where
-            nn = NaiveNN $ Map.toList $ centroids model
-
-instance 
-    ( ProbabilityClassifier (Perceptron label dp)
-    , Ord dp
-    , Ord (Ring dp)
-    , Ord label
-    , Num (Ring dp)
-    ) => Classifier (Perceptron label dp)
-        where
-    classify model dp = mean $ probabilityClassify model dp
+-- instance 
+--     ( Ord label
+--     , Ord (Ring dp)
+--     , MetricSpace (Centroid dp)
+--     , Monoid dp
+--     , HasRing dp
+--     , label ~ Ring dp
+--     ) => ProbabilityClassifier (Perceptron label dp)
+--         where
+--     type ResultDistribution (Perceptron label dp) = (Categorical (Ring dp) label)
+--               
+--     probabilityClassify model dp = probabilityClassify nn (train1dp (dp) :: Centroid dp)
+--         where
+--             nn = NaiveNN $ Map.toList $ centroids model
+-- 
+-- instance 
+--     ( ProbabilityClassifier (Perceptron label dp)
+--     , Ord dp
+--     , Ord (Ring dp)
+--     , Ord label
+--     , Num (Ring dp)
+--     ) => Classifier (Perceptron label dp)
+--         where
+--     classify model dp = mean $ probabilityClassify model dp

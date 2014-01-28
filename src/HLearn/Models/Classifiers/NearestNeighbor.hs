@@ -9,6 +9,7 @@ import Control.Applicative
 import qualified Data.Foldable as F
 import Data.List
 import Data.Maybe
+import Debug.Trace
 
 import HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
@@ -46,7 +47,7 @@ instance
     type Datapoint (KNearestNeighbor tree k dp) = dp 
 
     train1dp dp = KNearestNeighbor $ train1dp dp
-    train dps = KNearestNeighbor $ train dps
+    train dps = trace "KNN-train" $ KNearestNeighbor $ train dps
     add1dp m dp = KNearestNeighbor $ add1dp (gettree m) dp
     addBatch m dps = KNearestNeighbor $ addBatch (gettree m) dps
     
@@ -66,12 +67,16 @@ instance
     , Ring (tree dp) ~ Ring dp
     , Floating (Ring dp)
     , CanError (Ring dp)
+    , Show attr
+    , Show (Ring dp)
+    , Show label
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where
     type ResultDistribution (KNearestNeighbor tree k dp) = 
             Categorical (Probability (KNearestNeighbor tree k dp)) (Label dp)
     
-    probabilityClassify m dp = train . map (getLabel . neighbor) $ getknnL res 
+    probabilityClassify m dp = --trace ("length res="++show (length $ getknnL res)++"; dp="++show dp++";\nres="++show res++"\n\n") $ 
+        train . map (getLabel . neighbor) $ getknnL res 
 --     probabilityClassify m dp = reduce . map (\dp -> (1+1/neighborDistance dp) .* train1dp (getLabel $ neighbor dp)) $ getknnL res 
         where
             res = findNeighborList (gettree m) (noLabel dp) :: NeighborList k dp
@@ -83,7 +88,7 @@ instance
     , HasRing (tree dp)
     ) => Classifier (KNearestNeighbor tree k dp)
         where
-    classify model dp = mean $ probabilityClassify model dp
+    classify model dp = {-trace "KNN-classify" $-}  mean $ probabilityClassify model dp
     
 -------------------------------------------------------------------------------
 -- test
