@@ -35,6 +35,7 @@ import HLearn.Metrics.Lebesgue
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Metrics.Mahalanobis.Lego
+import HLearn.Metrics.Mahalanobis.Mega
 import HLearn.Models.Distributions
 
 import Utils
@@ -104,7 +105,7 @@ main = do
     -- load data
 
     xse :: Either String (V.Vector (V.Vector String))  
-        <- timeIO "loading reference dataset" $ fmap (decode False) $ BS.readFile filename
+        <- timeIO "loading reference dataset" $ fmap (decode HasHeader) $ BS.readFile filename
     xs <- case xse of 
         Right rs -> return rs
         Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
@@ -149,7 +150,7 @@ main = do
         pmult=2
     let loop p = forM [1..10] $ \i -> timeIO ("iteration "++show i) $ do
         metricdata <- replicateM (20*numlabels^2) $ do
---         metricdata <- replicateM (minres+p*pmult) $ do
+--         metricdata <- replicateM (10000) $ do
             i <- randomRIO (0,numdp-1)
             j <- randomRIO (0,numdp-1)
             let targetdist = if label (ys VG.! i) == label (ys VG.! j)
@@ -181,6 +182,16 @@ main = do
         let legoM9 = train metricdata :: Lego InvCovar (1/100000000) (V.Vector Double)
         let legoM0 = train metricdata :: Lego InvCovar (0/1) (V.Vector Double)
 
+        let mega1 = mkMega metricdata :: Mega (1/1) (V.Vector Double)
+        let mega2 = mkMega metricdata :: Mega (1/10) (V.Vector Double)
+        let mega3 = mkMega metricdata :: Mega (1/100) (V.Vector Double)
+        let mega4 = mkMega metricdata :: Mega (1/1000) (V.Vector Double)
+
+--         let x_mega4 = train (zs ys mega4)::KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector V.Vector) ()) 4
+--                                                             (MaybeLabeled String (Mahalanobis (V.Vector Double)))
+--         print x_mega4
+        
+
         let mahal = train (VG.map (unL2 . attr) ys) :: MahalanobisParams (V.Vector Double)
 
 
@@ -191,8 +202,9 @@ main = do
                 (kfold 2)
                 errorRate
                 zs 
-                (undefined :: KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector) ()) 4 
-                                               (MaybeLabeled String (Mahalanobis (V.Vector Double)))) 
+                (undefined :: NaiveNN V.Vector (MaybeLabeled String (Mahalanobis (V.Vector Double))))
+--                 (undefined :: KNearestNeighbor (AddUnit (CoverTree' (13/10) V.Vector V.Vector) ()) 4 
+--                                                (MaybeLabeled String (Mahalanobis (V.Vector Double)))) 
 
         x_legoI1 <- docv $ zs ys legoI1
         x_legoI2 <- docv $ zs ys legoI2
@@ -216,6 +228,11 @@ main = do
         x_legoM9 <- docv $ zs ys legoM9
         x_legoM0 <- docv $ zs ys legoM0
 
+        x_mega1 <- docv $ zs ys mega1 
+        x_mega2 <- docv $ zs ys mega2 
+        x_mega3 <- docv $ zs ys mega3 
+        x_mega4 <- docv $ zs ys mega4 
+
         x_mahal <- docv $ zs ys mahal
         x_id <- docv $ VG.map (\y -> MaybeLabeled
             { label = label y
@@ -224,27 +241,32 @@ main = do
             ys
 
         let cv = 
-                [ x_legoI1
-                , x_legoI2
-                , x_legoI3
-                , x_legoI4
-                , x_legoI5
-                , x_legoI6
-                , x_legoI7
-                , x_legoI8
-                , x_legoI9
-                , x_legoI0
+--                 [ x_legoI1
+--                 , x_legoI2
+--                 , x_legoI3
+--                 , x_legoI4
+--                 , x_legoI5
+--                 , x_legoI6
+--                 , x_legoI7
+--                 , x_legoI8
+--                 , x_legoI9
+--                 , x_legoI0
+-- 
+--                 , x_legoM1
+--                 , x_legoM2
+--                 , x_legoM3
+--                 , x_legoM4
+--                 , x_legoM5
+--                 , x_legoM6
+--                 , x_legoM7
+--                 , x_legoM8
+--                 , x_legoM9
+--                 , x_legoM0
 
-                , x_legoM1
-                , x_legoM2
-                , x_legoM3
-                , x_legoM4
-                , x_legoM5
-                , x_legoM6
-                , x_legoM7
-                , x_legoM8
-                , x_legoM9
-                , x_legoM0
+--                 [ x_mega1
+                [ x_mega2
+                , x_mega3
+--                 , x_mega4
 
                 , x_mahal
                 , x_id

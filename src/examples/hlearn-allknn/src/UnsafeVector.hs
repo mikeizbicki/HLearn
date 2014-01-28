@@ -229,32 +229,14 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
             go !tot !i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
                                 *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
-    {-# INLINE isFartherThanWithDistance #-}
-    isFartherThanWithDistance !(L2' v1) !(L2' v2) !dist = {-# SCC isFartherThanWithDistance #-} 
-        go 0 (ptsize-1)
-        where
-            dist2=dist*dist
-
-            go !tot (-1) = Strict.Just $ sqrt tot
-            go !tot !i = if tot'>dist2
-                then Strict.Nothing
-                else go tot' (i-1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-
     {-# INLINE isFartherThanWithDistanceCanError #-}
-    isFartherThanWithDistanceCanError !v1 !v2 !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
-        isFartherThanWithDistanceMonoCanError v1 v2 dist
-
-    {-# INLINE isFartherThanWithDistanceMonoCanError #-}
-    isFartherThanWithDistanceMonoCanError !(L2' v1) !(L2' v2) !dist = {-# SCC isFartherThanWithDistanceMonoCanError #-} 
+    isFartherThanWithDistanceCanError !(L2' v1) !(L2' v2) !dist = {-# SCC isFartherThanWithDistanceMonoCanError #-} 
         go 0 0
         where
             dist2=dist*dist
 
---             ptsize=20
-            ptsize=VG.length v1
+            ptsize=20
+--             ptsize=VG.length v1
 
             {-# INLINE goEach #-}
             goEach !tot !i = if i>= ptsize 
@@ -275,7 +257,6 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
                 then errorVal
                 else if i>=ptsize-8
                     then sqrt $ goEach tot' (i+8) 
---                     then sqrt $ tot'
                     else go tot' (i+8)
                 where
                     tot' = tot

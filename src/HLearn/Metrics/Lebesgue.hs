@@ -172,12 +172,8 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 
     {-# INLINE isFartherThanWithDistanceCanError #-}
-    isFartherThanWithDistanceCanError !v1 !v2 !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
-        sqrt $ isFartherThanWithDistanceMonoCanError v1 v2 dist
-
-    {-# INLINE isFartherThanWithDistanceMonoCanError #-}
-    isFartherThanWithDistanceMonoCanError !(L2 v1) !(L2 v2) !dist = {-# SCC isFartherThanWithDistanceMonoCanError #-} 
-        go 0 0
+    isFartherThanWithDistanceCanError (L2 v1) (L2 v2) !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
+        sqrt $ go 0 0
         where
             dist2=dist*dist
 

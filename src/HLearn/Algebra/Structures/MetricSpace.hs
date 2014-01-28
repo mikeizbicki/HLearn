@@ -23,18 +23,6 @@ class
 
     distance :: s -> s -> Ring s
 
-    {-# INLINE distanceMono #-}
-    distanceMono :: s -> s -> Ring s
-    distanceMono = distance
-    
-    {-# INLINE distanceMono2distance #-}
-    distanceMono2distance :: s -> Ring s -> Ring s
-    distanceMono2distance _ r = r
-    
-    {-# INLINE distance2distanceMono #-}
-    distance2distanceMono :: s -> Ring s -> Ring s
-    distance2distanceMono _ r = r
-
     {-# INLINE isFartherThan #-}
     isFartherThan :: s -> s -> Ring s -> Bool
     isFartherThan s1 s2 b = case isFartherThanWithDistance s1 s2 b of
@@ -56,14 +44,6 @@ class
         else dist
         where
             dist = distance s1 s2
-
-    {-# INLINE isFartherThanWithDistanceMonoCanError #-}
-    isFartherThanWithDistanceMonoCanError :: CanError (Ring s) => s -> s -> Ring s -> Ring s
-    isFartherThanWithDistanceMonoCanError s1 s2 b2 = if distmono > b2
-        then errorVal
-        else distmono
-        where
-            distmono = distanceMono s1 s2
 
 class (HasRing m, Ord (Ring m)) => Norm m where
     magnitude :: m -> Ring m

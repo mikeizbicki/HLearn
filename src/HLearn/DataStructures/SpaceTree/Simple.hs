@@ -48,3 +48,6 @@ simple_knn query knn (Simple v) = VG.foldl' cata knn v
             Strict.Nothing -> knn
             Strict.Just dist -> mkNeighborList dp dist <> knn
 
+-- instance SpaceTree (Simple v) where
+--     type NodeContainer = v
+--     type ChildContainer = v
