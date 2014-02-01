@@ -1,6 +1,6 @@
 #Homomorphic Learning
 
-HLearn is a suite of libraries for interpretting machine learning models according to their algebraic structure.  Every structure has associated algorithms useful for learning.  when we show that a model is an instance of a particular structure, we get the associated algorithms "for free."
+HLearn is a suite of libraries for interpreting machine learning models according to their algebraic structure.  Every structure has associated algorithms useful for learning.  when we show that a model is an instance of a particular structure, we get the associated algorithms "for free."
 
 | Structure | What we get |
 |:-----------|:------------|
@@ -11,7 +11,7 @@ HLearn is a suite of libraries for interpretting machine learning models accordi
 | Abelian group | more fast cross-validation |
 | R-Module    | weighted data points |
 | Vector space | fractionally weighted data points |
-| Functor | fast simple preprocsesing of data |
+| Functor | fast simple preprocessing of data |
 | Monad |  fast complex preprocessing of data |
 
 This interpretation of machine learning is somewhat limitting in that not all models have obvious algebraic structure.  But many important models do.  Currently implemented models include:
