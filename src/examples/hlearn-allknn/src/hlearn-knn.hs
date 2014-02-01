@@ -35,15 +35,19 @@ import HLearn.Metrics.Lebesgue
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Metrics.Mahalanobis.Lego
+import HLearn.Metrics.Mahalanobis.LegoPaper
 import HLearn.Metrics.Mahalanobis.Mega
 import HLearn.Models.Distributions
 
 import Utils
 
-type DP = MaybeLabeled String (L2 V.Vector Double)
+type DP = MaybeLabeled String (L2 VU.Vector Double)
 
-instance Num r => HasRing (V.Vector r) where
-    type Ring (V.Vector r) = r
+instance Num r => HasRing (V.Vector r) where type Ring (V.Vector r) = r
+instance Num r => HasRing (VU.Vector r) where type Ring (VU.Vector r) = r
+
+instance (NFData label, NFData attr) => NFData (MaybeLabeled label attr) where
+    rnf (MaybeLabeled l a) = deepseq l $ rnf a
 
 data Params = Params
     { k :: Int
@@ -110,8 +114,8 @@ main = do
         Right rs -> return rs
         Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
 
-    let numdp = V.length xs
-    let numdim = VG.length $ xs V.! 0
+    let numdp = VG.length xs
+    let numdim = VG.length $ xs VG.! 0
     let numlabels = Set.size $ Set.fromList $ VG.toList $ VG.map (VG.! label_index) xs
 
     putStrLn "  dataset info:"
@@ -124,7 +128,10 @@ main = do
 
     let ys = VG.map (\x -> MaybeLabeled   
             { label = Just $ x VG.! label_index
-            , attr = VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
+            , attr = VG.convert ( 
+                VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
+                :: V.Vector Double
+                )
             })
             xs
             :: V.Vector DP 
@@ -149,8 +156,8 @@ main = do
         minres=10
         pmult=2
     let loop p = forM [1..10] $ \i -> timeIO ("iteration "++show i) $ do
-        metricdata <- replicateM (20*numlabels^2) $ do
---         metricdata <- replicateM (10000) $ do
+--         metricdata <- replicateM (20*numlabels^2) $ do
+        metricdata <- replicateM (10000) $ do
             i <- randomRIO (0,numdp-1)
             j <- randomRIO (0,numdp-1)
             let targetdist = if label (ys VG.! i) == label (ys VG.! j)
@@ -160,40 +167,30 @@ main = do
             return (targetdist,dp) 
 --         timeIO "generating metric labels" $ return $ rnf metricdata
 
-        let legoI1 = train metricdata :: Lego Identity (1/1) (V.Vector Double)
-        let legoI2 = train metricdata :: Lego Identity (1/10) (V.Vector Double)
-        let legoI3 = train metricdata :: Lego Identity (1/100) (V.Vector Double)
-        let legoI4 = train metricdata :: Lego Identity (1/1000) (V.Vector Double)
-        let legoI5 = train metricdata :: Lego Identity (1/10000) (V.Vector Double)
-        let legoI6 = train metricdata :: Lego Identity (1/100000) (V.Vector Double)
-        let legoI7 = train metricdata :: Lego Identity (1/1000000) (V.Vector Double)
-        let legoI8 = train metricdata :: Lego Identity (1/10000000) (V.Vector Double)
-        let legoI9 = train metricdata :: Lego Identity (1/100000000) (V.Vector Double)
-        let legoI0 = train metricdata :: Lego Identity (0/1) (V.Vector Double)
+        let mega1000 = mkMega metricdata :: Mega (1000/1) (VU.Vector Double)
+        let mega100 = mkMega metricdata :: Mega (100/1) (VU.Vector Double)
+        let mega10 = mkMega metricdata :: Mega (10/1) (VU.Vector Double)
+        let mega1 = mkMega metricdata :: Mega (1/1) (VU.Vector Double)
+        let mega2 = mkMega metricdata :: Mega (1/10) (VU.Vector Double)
+        let mega3 = mkMega metricdata :: Mega (1/100) (VU.Vector Double)
+        let mega4 = mkMega metricdata :: Mega (1/1000) (VU.Vector Double)
+        let mega5 = mkMega metricdata :: Mega (1/10000) (VU.Vector Double)
+        let mega6 = mkMega metricdata :: Mega (1/100000) (VU.Vector Double)
+        let mega7 = mkMega metricdata :: Mega (1/1000000) (VU.Vector Double)
+        let mega0 = mkMega metricdata :: Mega (0/1) (VU.Vector Double)
 
-        let legoM1 = train metricdata :: Lego InvCovar (1/1) (V.Vector Double)
-        let legoM2 = train metricdata :: Lego InvCovar (1/10) (V.Vector Double)
-        let legoM3 = train metricdata :: Lego InvCovar (1/100) (V.Vector Double)
-        let legoM4 = train metricdata :: Lego InvCovar (1/1000) (V.Vector Double)
-        let legoM5 = train metricdata :: Lego InvCovar (1/10000) (V.Vector Double)
-        let legoM6 = train metricdata :: Lego InvCovar (1/100000) (V.Vector Double)
-        let legoM7 = train metricdata :: Lego InvCovar (1/1000000) (V.Vector Double)
-        let legoM8 = train metricdata :: Lego InvCovar (1/10000000) (V.Vector Double)
-        let legoM9 = train metricdata :: Lego InvCovar (1/100000000) (V.Vector Double)
-        let legoM0 = train metricdata :: Lego InvCovar (0/1) (V.Vector Double)
+        let legopaper1 = train_LegoPaper 1 metricdata :: LegoPaper  (VU.Vector Double)
+        let legopaper2 = train_LegoPaper 0.1 metricdata :: LegoPaper  (VU.Vector Double)
+        let legopaper3 = train_LegoPaper 0.01 metricdata :: LegoPaper  (VU.Vector Double)
+        let legopaper4 = train_LegoPaper 0.001 metricdata :: LegoPaper  (VU.Vector Double)
 
-        let mega1 = mkMega metricdata :: Mega (1/1) (V.Vector Double)
-        let mega2 = mkMega metricdata :: Mega (1/10) (V.Vector Double)
-        let mega3 = mkMega metricdata :: Mega (1/100) (V.Vector Double)
-        let mega4 = mkMega metricdata :: Mega (1/1000) (V.Vector Double)
+        let mahal = train (VG.map (unL2 . attr) ys) :: MahalanobisParams (VU.Vector Double)
 
---         let x_mega4 = train (zs ys mega4)::KNearestNeighbor (AddUnit (CoverTree' (2/1) V.Vector V.Vector) ()) 4
---                                                             (MaybeLabeled String (Mahalanobis (V.Vector Double)))
---         print x_mega4
-        
-
-        let mahal = train (VG.map (unL2 . attr) ys) :: MahalanobisParams (V.Vector Double)
-
+--         let tmpmodel = train (zs ys mega3) :: AddUnit (CoverTree' (13/10) V.Vector V.Vector) () 
+--                                                       (MaybeLabeled String (L2 V.Vector Double))
+--         let tmpmodel = train (zs ys mahal) :: AddUnit (CoverTree' (13/10) V.Vector V.Vector) () 
+--                                                       (MaybeLabeled String (L2 V.Vector Double))
+--         printTreeStats "reftree      " $ unUnit tmpmodel 
 
         -----------------------------------
         -- cross-validation
@@ -202,80 +199,69 @@ main = do
                 (kfold 2)
                 errorRate
                 zs 
-                (undefined :: NaiveNN V.Vector (MaybeLabeled String (Mahalanobis (V.Vector Double))))
---                 (undefined :: KNearestNeighbor (AddUnit (CoverTree' (13/10) V.Vector V.Vector) ()) 4 
---                                                (MaybeLabeled String (Mahalanobis (V.Vector Double)))) 
+--                 (undefined :: NaiveNN 4 V.Vector (MaybeLabeled String (L2 VU.Vector Double)))
+                (undefined :: KNearestNeighbor (AddUnit (CoverTree' (13/10) V.Vector V.Vector) ()) 4 
+                                               (MaybeLabeled String ((L2 VU.Vector Double)))) 
 
-        x_legoI1 <- docv $ zs ys legoI1
-        x_legoI2 <- docv $ zs ys legoI2
-        x_legoI3 <- docv $ zs ys legoI3
-        x_legoI4 <- docv $ zs ys legoI4
-        x_legoI5 <- docv $ zs ys legoI5
-        x_legoI6 <- docv $ zs ys legoI6
-        x_legoI7 <- docv $ zs ys legoI7
-        x_legoI8 <- docv $ zs ys legoI8
-        x_legoI9 <- docv $ zs ys legoI9
-        x_legoI0 <- docv $ zs ys legoI0
-
-        x_legoM1 <- docv $ zs ys legoM1
-        x_legoM2 <- docv $ zs ys legoM2
-        x_legoM3 <- docv $ zs ys legoM3
-        x_legoM4 <- docv $ zs ys legoM4
-        x_legoM5 <- docv $ zs ys legoM5
-        x_legoM6 <- docv $ zs ys legoM6
-        x_legoM7 <- docv $ zs ys legoM7
-        x_legoM8 <- docv $ zs ys legoM8
-        x_legoM9 <- docv $ zs ys legoM9
-        x_legoM0 <- docv $ zs ys legoM0
-
+        x_mega1000 <- docv $ zs ys mega1000 
+        x_mega100 <- docv $ zs ys mega100 
+        x_mega10 <- docv $ zs ys mega10
         x_mega1 <- docv $ zs ys mega1 
         x_mega2 <- docv $ zs ys mega2 
         x_mega3 <- docv $ zs ys mega3 
         x_mega4 <- docv $ zs ys mega4 
+        x_mega5 <- docv $ zs ys mega5 
+        x_mega6 <- docv $ zs ys mega6 
+        x_mega7 <- docv $ zs ys mega7 
+        x_mega0 <- docv $ zs ys mega0 
+
+--         timeIO "deepseq mega3" $ return $ rnf mega3
+--         timeIO "deepseq $ zs ys mega3" $ return $ rnf $ zs ys mega3
+--         timeIO "deepseq x_mega3" $ return $ rnf x_mega3
+
+        x_legopaper1 <- docv $ zs ys legopaper1 
+        x_legopaper2 <- docv $ zs ys legopaper2 
+        x_legopaper3 <- docv $ zs ys legopaper3 
+        x_legopaper4 <- docv $ zs ys legopaper4 
 
         x_mahal <- docv $ zs ys mahal
         x_id <- docv $ VG.map (\y -> MaybeLabeled
             { label = label y
-            , attr = mkIdentity $ unL2 $ attr y
+--             , attr = mkIdentity $ unL2 $ attr y
+            , attr = attr y
             })
             ys
 
         let cv = 
---                 [ x_legoI1
---                 , x_legoI2
---                 , x_legoI3
---                 , x_legoI4
---                 , x_legoI5
---                 , x_legoI6
---                 , x_legoI7
---                 , x_legoI8
---                 , x_legoI9
---                 , x_legoI0
--- 
---                 , x_legoM1
---                 , x_legoM2
---                 , x_legoM3
---                 , x_legoM4
---                 , x_legoM5
---                 , x_legoM6
---                 , x_legoM7
---                 , x_legoM8
---                 , x_legoM9
---                 , x_legoM0
-
---                 [ x_mega1
-                [ x_mega2
+                [ x_mega1000
+                , x_mega100
+                , x_mega10
+                , x_mega1
+                , x_mega2
                 , x_mega3
---                 , x_mega4
+                , x_mega4
+                , x_mega5
+                , x_mega6
+                , x_mega7
+--                 , x_mega0
+
+                , x_legopaper1
+                , x_legopaper2
+                , x_legopaper3
+                , x_legopaper4
 
                 , x_mahal
                 , x_id
                 ]
         deepseq cv $ return cv
 
-    cv <- fmap (map reduce . transpose) $ loop 10
-    putStrLn $ show (map mean cv)
-    putStrLn $ "  raw:  " ++ show cv
+    putStrLn "\nresults:"
+    cvraw <- loop 10
+    let cv = (map reduce . transpose) cvraw
+    putStrLn $   "mean: "++show (map mean cv)
+    putStrLn $   "var:  "++show (map variance cv)
+
+    putStrLn $ "\nresults_raw: " ++ show cvraw
     return cv
 
 --     forM (zip [1..] xs) $ \(p,cv) -> do
@@ -287,6 +273,33 @@ main = do
 
 zs ys matrix = VG.map (\y -> MaybeLabeled
         { label = label y
-        , attr = mkMahalanobis matrix $ unL2 $ attr y
+--         , attr = mkMahalanobis matrix $ unL2 $ attr y
+        , attr = applyMahalanobis matrix $ attr y
         })
         ys
+
+
+
+printTreeStats str t = do
+    putStrLn (str++" stats:")
+    putStr (str++"  stNumDp..............") >> hFlush stdout >> putStrLn (show $ stNumDp t) 
+    putStr (str++"  stNumNodes...........") >> hFlush stdout >> putStrLn (show $ stNumNodes t) 
+    putStr (str++"  stNumLeaves..........") >> hFlush stdout >> putStrLn (show $ stNumLeaves t) 
+    putStr (str++"  stNumGhosts..........") >> hFlush stdout >> putStrLn (show $ stNumGhosts t) 
+    putStr (str++"  stNumGhostSingletons.") >> hFlush stdout >> putStrLn (show $ stNumGhostSingletons t) 
+    putStr (str++"  stNumGhostLeaves.....") >> hFlush stdout >> putStrLn (show $ stNumGhostLeaves t) 
+    putStr (str++"  stNumGhostSelfparent.") >> hFlush stdout >> putStrLn (show $ stNumGhostSelfparent t) 
+    putStr (str++"  stAveGhostChildren...") >> hFlush stdout >> putStrLn (show $ mean $ stAveGhostChildren t) 
+    putStr (str++"  stMaxChildren........") >> hFlush stdout >> putStrLn (show $ stMaxChildren t) 
+    putStr (str++"  stAveChildren........") >> hFlush stdout >> putStrLn (show $ mean $ stAveChildren t) 
+    putStr (str++"  stMaxDepth...........") >> hFlush stdout >> putStrLn (show $ stMaxDepth t) 
+    putStr (str++"  stNumSingletons......") >> hFlush stdout >> putStrLn (show $ stNumSingletons t) 
+    putStr (str++"  stExtraLeaves........") >> hFlush stdout >> putStrLn (show $ stExtraLeaves t) 
+
+    putStrLn (str++" properties:")
+    putStr (str++"  covering...............") >> hFlush stdout >> putStrLn (show $ property_covering $ UnitLift t) 
+    putStr (str++"  leveled................") >> hFlush stdout >> putStrLn (show $ property_leveled $ UnitLift t) 
+    putStr (str++"  separating.............") >> hFlush stdout >> putStrLn (show $ property_separating $ UnitLift t)
+    putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance $ UnitLift t) 
+
+    putStrLn ""

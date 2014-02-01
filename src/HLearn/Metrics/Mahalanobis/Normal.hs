@@ -33,6 +33,9 @@ deriving instance Monoid (MultiNormal dp) => Monoid (MahalanobisParams dp)
 instance HasRing dp => HasRing (MahalanobisParams dp) where
     type Ring (MahalanobisParams dp) = Ring dp
 
+instance (Field (Ring dp)) => MahalanobisMetric (MahalanobisParams dp) where
+    getMatrix m = inv $ covar $ normal m 
+
 -------------------------------------------------------------------------------
 -- training
 

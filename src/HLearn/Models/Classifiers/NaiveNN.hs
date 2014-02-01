@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Models.Classifiers.NaiveNN
     where
 
@@ -12,16 +14,16 @@ import HLearn.Models.Classifiers.Common
 -------------------------------------------------------------------------------
 -- data structures
 
-newtype NaiveNN container dp = NaiveNN
+newtype NaiveNN (k::Nat) container dp = NaiveNN
     { getcontainer :: container dp }
 -- deriving (Read,Show,Eq,Ord,Semigroup,Monoid,RegularSemigroup)
     
-deriving instance (Show (container dp)) => Show (NaiveNN container dp)
+deriving instance (Show (container dp)) => Show (NaiveNN k container dp)
     
 -------------------------------------------------------------------------------
 -- algebra
     
-instance (Monoid (container dp)) => Monoid (NaiveNN container dp) where
+instance (Monoid (container dp)) => Monoid (NaiveNN k container dp) where
     mempty = NaiveNN mempty
     mappend nn1 nn2 = NaiveNN $ getcontainer nn1 `mappend` getcontainer nn2
 
@@ -31,22 +33,22 @@ instance (Monoid (container dp)) => Monoid (NaiveNN container dp) where
 instance
     ( Applicative container
     , Monoid (container ldp)
-    ) => HomTrainer (NaiveNN container ldp)
+    ) => HomTrainer (NaiveNN k container ldp)
         where
-    type Datapoint (NaiveNN container ldp) = ldp
+    type Datapoint (NaiveNN k container ldp) = ldp
     train1dp ldp = NaiveNN $ pure ldp
     
 -------------------------------------------------------------------------------
 -- classification
 
-instance (Probabilistic (NaiveNN container ldp)) where
-    type Probability (NaiveNN container ldp) = Double
+instance (Probabilistic (NaiveNN k container ldp)) where
+    type Probability (NaiveNN k container ldp) = Double
 
 neighborList ::
     ( F.Foldable container
     , MetricSpace ldp
     , Ord (Ring ldp)
-    ) => ldp -> NaiveNN container ldp -> [ldp]
+    ) => ldp -> NaiveNN k container ldp -> [ldp]
 neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
     where
 --         f (_,dp1) (_,dp2) = compare (distance dp dp1) (distance dp dp2)
@@ -61,23 +63,24 @@ instance
     , F.Foldable container
     , MetricSpace ldp
     , Ord (Ring ldp)
-    ) => ProbabilityClassifier (NaiveNN container ldp)
+    , SingI k
+    ) => ProbabilityClassifier (NaiveNN k container ldp)
         where
-    type ResultDistribution (NaiveNN container ldp) = Categorical (Ring (Attributes ldp)) (Label ldp)
+    type ResultDistribution (NaiveNN k container ldp) = Categorical (Ring (Attributes ldp)) (Label ldp)
               
     probabilityClassify nn dp = train (map getLabel $ take k $ neighborList (noLabel dp) nn)
         where
-            k = 1
+            k = fromIntegral $ fromSing (sing::Sing k)
 
 instance
-    ( ProbabilityClassifier (NaiveNN container ldp)
+    ( ProbabilityClassifier (NaiveNN k container ldp)
     , label ~ Label ldp
     , dp ~ Attributes ldp
     , Ord (Ring dp)
     , MetricSpace dp
     , F.Foldable container
     , Ord label
-    ) => Classifier (NaiveNN container ldp)
+    ) => Classifier (NaiveNN k container ldp)
         where
     
     classify nn dp = mean $ probabilityClassify nn dp 

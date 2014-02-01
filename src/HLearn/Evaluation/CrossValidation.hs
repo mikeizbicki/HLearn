@@ -87,7 +87,11 @@ crossValidate ::
     , Eq (Datapoint model)
     , Eq (Label (Datapoint model))
     , F.Foldable container
-    ) => SamplingMethod -> LossFunction -> container (Datapoint model) -> model -> Rand g (Normal Double Double)
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> model 
+      -> Rand g (Normal Double Double)
 crossValidate genfolds loss xs _model = do
     xs' <- genfolds $ F.toList xs
     return $ train $ do
@@ -105,7 +109,11 @@ crossValidate_group ::
     , Eq (Datapoint model)
     , Eq (Label (Datapoint model))
     , F.Foldable container
-    ) => SamplingMethod -> LossFunction -> container (Datapoint model) -> model -> Rand g (Normal Double Double)
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> model 
+      -> Rand g (Normal Double Double)
 crossValidate_group genfolds loss xs _model = do
     let m = train xs `asTypeOf` _model
     xs' <- genfolds $ F.toList xs

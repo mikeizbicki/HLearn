@@ -20,6 +20,11 @@ import HLearn.Models.Distributions.Multivariate.MultiNormalFast
 -------------------------------------------------------------------------------
 -- data types
 
+instance HasRing (Lego' reg eta dp) => HasRing (AddUnit1 (Lego' reg eta) dp) where
+    type Ring (AddUnit1 (Lego' reg eta) dp) = Ring (Lego' reg eta dp)
+
+instance Field (Ring dp) => MahalanobisMetric (AddUnit1 (Lego' reg eta) dp) where
+    getMatrix (UnitLift1 m) = inv $ covar $ multinorm m
 
 type Lego reg (eta::Frac) dp = AddUnit1 (Lego' reg eta) dp
 
@@ -109,7 +114,8 @@ instance
     ( SingI eta
     , RegMatrix reg
     , MatrixField (Vector r)
-    , r ~ Ring (dp r), F.Foldable dp
+    , r ~ Ring (dp r)
+    , VG.Vector dp r 
     ) => HomTrainer (Lego reg eta (dp r)) 
         where
     type Datapoint (Lego reg eta (dp r)) = (r,dp r)
@@ -117,7 +123,7 @@ instance
     train1dp (y,dp) = UnitLift1 $ mkLego (scale y zzT) (zzT LA.<> zzT) (train1dp dp)
         where 
             zzT = asColumn dp' LA.<> asRow dp'
-            dp' = fromList $ F.toList dp
+            dp' = fromList $ VG.toList dp
 
 -------------------------------------------------------------------------------
 -- metric
