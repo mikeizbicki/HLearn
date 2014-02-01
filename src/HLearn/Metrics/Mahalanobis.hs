@@ -4,6 +4,8 @@ module HLearn.Metrics.Mahalanobis
 import Control.DeepSeq
 import qualified Data.Vector.Generic as VG
 
+import Debug.Trace 
+
 import qualified Data.Strict as Strict
 import Foreign.Storable
 import Numeric.LinearAlgebra hiding ((<>),dim)
@@ -56,6 +58,23 @@ class MkMahalanobis params where
     type MetricDatapoint params -- = Datapoint params
     mkMahalanobis :: params -> MetricDatapoint params -> Mahalanobis (MetricDatapoint params)
 
+
+class MahalanobisMetric metric where
+    getMatrix :: metric -> Matrix (Ring metric)
+
+applyMahalanobis :: 
+    ( VG.Vector vec r
+    , MahalanobisMetric metric
+    , Element r
+    , Field r
+    , LA.Product r
+    , Ring metric ~ r
+    , r~Double
+    ) => metric -> vec r -> vec r
+applyMahalanobis metric dp = VG.fromList $ toList $ flatten $ 
+    (mapMatrix realPart $ matFunc sqrt $ mapMatrix (:+0) $ getMatrix metric) LA.<> asColumn dp'
+    where
+        dp' = fromList $ VG.toList dp 
 
 -------------------------------------------------------------------------------
 -- algebra

@@ -47,7 +47,7 @@ instance
     type Datapoint (KNearestNeighbor tree k dp) = dp 
 
     train1dp dp = KNearestNeighbor $ train1dp dp
-    train dps = trace "KNN-train" $ KNearestNeighbor $ train dps
+    train dps = KNearestNeighbor $ train dps
     add1dp m dp = KNearestNeighbor $ add1dp (gettree m) dp
     addBatch m dps = KNearestNeighbor $ addBatch (gettree m) dps
     

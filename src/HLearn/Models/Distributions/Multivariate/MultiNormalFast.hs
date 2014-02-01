@@ -7,6 +7,7 @@ module HLearn.Models.Distributions.Multivariate.MultiNormalFast
 import Control.DeepSeq
 import qualified Data.Foldable as F
 import qualified Data.Semigroup as SG
+import qualified Data.Vector.Generic as VG
 
 import Foreign.Storable
 import Numeric.LinearAlgebra hiding ((<>))
@@ -106,18 +107,18 @@ instance
     , Field r
     , Floating r
     , Ring (dp r) ~ r
-    , F.Foldable dp
+    , VG.Vector dp r
     ) => HomTrainer (MultiNormal (dp r)) 
         where
     type Datapoint (MultiNormal (dp r)) = dp r
 
     train1dp dp = UnitLift1 . mkMultiNormal' $ RawMoments
         { m0 = 1
-        , m1 = fromList $ F.toList dp 
-        , m2 = n><n $ [i*j | i <- F.toList dp, j <- F.toList dp]
+        , m1 = fromList $ VG.toList dp 
+        , m2 = n><n $ [i*j | i <- VG.toList dp, j <- VG.toList dp]
         }
         where
-            n = length $ F.toList dp
+            n = length $ VG.toList dp
 
 -------------------------------------------------------------------------------
 -- distribution 

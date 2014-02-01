@@ -16,12 +16,13 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
 import HLearn.Metrics.Mahalanobis
+import HLearn.Metrics.Mahalanobis.LegoPaper
 import HLearn.Models.Distributions.Multivariate.MultiNormalFast
 
 -------------------------------------------------------------------------------
 -- data types
 
-data Mega (eta::Frac) dp = Mega
+newtype Mega (eta::Frac) dp = Mega
     { _x :: Matrix (Ring dp)
     }
     
@@ -29,6 +30,12 @@ deriving instance (Element (Ring dp), Show (Ring dp)) => Show (Mega eta dp)
 
 instance (Storable (Ring dp), NFData (Ring dp), NFData dp) => NFData (Mega eta dp) where
     rnf mega =  rnf $ _x mega
+
+instance HasRing dp => MahalanobisMetric (Mega eta dp) where
+    getMatrix mega =  _x mega
+
+instance HasRing dp => HasRing (Mega eta dp) where
+    type Ring (Mega eta dp) = Ring dp
 
 -------------------------------------------------------------------------------
 -- algebra
@@ -40,18 +47,20 @@ instance Num r => HasRing (Vector r) where
     type Ring (Vector r) = r
 
 mkMega :: forall container eta. 
-    ( F.Foldable container
-    , Ring (container Double) ~ Double
+    ( Ring (container Double) ~ Double
+    , VG.Vector container Double
     , SingI eta
     ) => [(Double,container Double)] 
       -> Mega eta (container Double)
-mkMega xs = Mega $ _x $ (mkMega' xs'::Mega eta (Vector Double))
+mkMega !xs = Mega $ _x $ (mkMega' xs'::Mega eta (Vector Double))
     where
-        xs' = map (\(y,x) -> (y, fromList $ F.toList x)) xs
+        xs' = map (\(y,x) -> (y, fromList $ VG.toList x)) xs
 
 mkMega' :: forall eta. SingI eta => [(Double,Vector Double)] -> Mega eta (Vector Double)
-mkMega' xs = Mega $ findzero a b identity
+-- mkMega' !xs = Mega $ lego
+mkMega' !xs = Mega $ findzero a b lego
     where
+        (LegoPaper lego) = train_LegoPaper eta xs
         identity = ident (LA.dim $ snd $ head xs)
         xxt x = asColumn x LA.<> asRow x
         a = foldl1' LA.add $ map (\(_,x) -> eta `scale` kronecker (xxt x) (xxt x)) xs
@@ -60,14 +69,20 @@ mkMega' xs = Mega $ findzero a b identity
         eta = fromSing (sing :: Sing eta)
 
 findzero :: Matrix Double -> Matrix Double -> Matrix Double -> Matrix Double
-findzero a b x0 = go x0 x0'
+findzero !a !b !x0 =go x0 x0' 20
     where
         x0' = x0 `LA.sub` (((rows x0)><(cols x0)) $ repeat 1)
-        go x lastx = 
-          if (maxElement $ cmap abs $ x `LA.sub` lastx) <= 1e-6
+
+        go x lastx 0   = x
+        go x lastx itr = (if (itr `mod` 10==0)
+         then trace ("goitr itr="++show itr++"; diff="++show diff++";   ratio="++show ratio)
+         else id) $
+          if diff <= 1e-6 || ratio <= 1e-6
             then x 
-            else go x' x 
+            else go x' x (itr-1)
             where
+                diff = (maxElement $ cmap abs $ x `LA.sub` lastx) 
+                ratio = (maxElement $ cmap abs $ x `LA.sub` lastx) / maxElement (cmap abs x)
                 xinv = inv x
                 f = (vec $ (-1) `scale` xinv) `LA.add` (a LA.<> vec x) `LA.sub` b
                 df = kronecker xinv xinv `LA.add` a
