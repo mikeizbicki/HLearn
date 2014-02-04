@@ -50,6 +50,7 @@ import Data.Maybe
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Strict.Tuple as Strict
 import Data.Monoid
+import Data.Proxy
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
@@ -102,7 +103,7 @@ deriving instance (Read dp, Read (Ring dp)) => Read (NeighborList k dp)
 deriving instance (Show dp, Show (Ring dp)) => Show (NeighborList k dp)
 deriving instance (NFData dp, NFData (Ring dp)) => NFData (NeighborList k dp)
 
-nl_maxdist :: forall k dp. (SingI k, Fractional (Ring dp)) => NeighborList k dp -> Ring dp
+nl_maxdist :: forall k dp. (KnownNat k, Fractional (Ring dp)) => NeighborList k dp -> Ring dp
 nl_maxdist (NeighborList Strict.Nil) = infinity
 nl_maxdist (NeighborList (x:.Strict.Nil)) = neighborDistance x
 nl_maxdist (NeighborList xs ) = neighborDistance $ Strict.last xs
@@ -131,7 +132,7 @@ nm2list (NeighborMap nm) = Map.assocs nm
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (SingI k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
+instance (KnownNat k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
     {-# INLINE mempty #-}
     {-# INLINE mappend #-}
 
@@ -142,7 +143,7 @@ instance (SingI k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
         1 -> if x < y then NeighborList (x:.Strict.Nil) else NeighborList (y:.Strict.Nil)
         otherwise -> NeighborList $ Strict.take k $ interleave (x:.xs) (y:.ys)
         where
-            k=fromIntegral $ fromSing (sing :: Sing k)
+            k=fromIntegral $ natVal (Proxy :: Proxy k)
 
             interleave !xs Strict.Nil = xs
             interleave Strict.Nil !ys = ys
@@ -153,7 +154,7 @@ instance (SingI k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
                     then x:.interleave xs ys
                     else x:.(y:.(interleave xs ys))
 
-instance (SingI k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
+instance (KnownNat k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
     {-# INLINE mempty #-}
     {-# INLINE mappend #-}
 
@@ -166,12 +167,12 @@ instance (SingI k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
 
 {-# INLINABLE findNeighborList  #-}
 findNeighborList !t !query = findNeighborListWith mempty t query
--- findNeighborList :: (SingI k, SpaceTree t dp, Eq dp) => t dp -> dp -> NeighborList k dp
+-- findNeighborList :: (KnownNat k, SpaceTree t dp, Eq dp) => t dp -> dp -> NeighborList k dp
 
 {-# INLINABLE findNeighborListWith #-}
 findNeighborListWith !nl !t !q = findEpsilonNeighborListWith nl 0 t q 
 -- findNeighborListWith :: 
---     ( SingI k
+--     ( KnownNat k
 --     , SpaceTree t dp
 --     , Eq dp
 --     ) => NeighborList k dp -> t dp -> dp -> NeighborList k dp
@@ -182,7 +183,7 @@ findEpsilonNeighborList !e !t !q = findEpsilonNeighborListWith mempty e t q
 
 {-# INLINABLE findEpsilonNeighborListWith #-}
 findEpsilonNeighborListWith :: 
-    ( SingI k
+    ( KnownNat k
     , SpaceTree t dp
     , Eq dp
     , Floating (Ring dp)
@@ -193,12 +194,12 @@ findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB_CanError (knn_c
         smudge = 1/(1+epsilon)
 
 {-# INLINABLE findNeighborList_batch #-}
--- findNeighborList_batch :: (SingI k, SpaceTree t dp, Eq dp, CanError (Ring dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
+-- findNeighborList_batch :: (KnownNat k, SpaceTree t dp, Eq dp, CanError (Ring dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
 findNeighborList_batch v st = fmap (findNeighborList st) v
 
 {-# INLINABLE knn_catadp #-}
 knn_catadp :: forall k dp.
-    ( SingI k
+    ( KnownNat k
     , MetricSpace dp
     , Eq dp
     , CanError (Ring dp)
@@ -214,7 +215,7 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
 
 {-# INLINABLE knn_cata #-}
 knn_cata :: forall k t dp. 
-    ( SingI k
+    ( KnownNat k
     , SpaceTree t dp
     , Floating (Ring dp)
     , Eq dp
@@ -241,7 +242,7 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 
 -- {-# INLINABLE knn_catadp #-}
 -- knn_catadp :: forall k dp.
---     ( SingI k
+--     ( KnownNat k
 --     , MetricSpace dp
 --     , Eq dp
 --     ) => Ring dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
@@ -254,7 +255,7 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 
 -- {-# INLINABLE knn_cata #-}
 -- knn_cata :: forall k t dp. 
---     ( SingI k
+--     ( KnownNat k
 --     , SpaceTree t dp
 --     , Eq dp
 --     ) => Ring dp -> dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
@@ -269,7 +270,7 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 
 {-# INLINABLE findNeighborMap #-}
 findNeighborMap :: 
-    ( SingI k
+    ( KnownNat k
     , SpaceTree t dp
     , Ord dp
     , Floating (Ring dp)
@@ -280,7 +281,7 @@ findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $
 
 {-# INLINABLE parFindNeighborMap #-}
 parFindNeighborMap :: 
-    ( SingI k
+    ( KnownNat k
     , SpaceTree t dp
     , Ord dp
     , NFData (Ring dp)
@@ -293,7 +294,7 @@ parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $
 
 {-# INLINABLE parFindNeighborMapWith #-}
 parFindNeighborMapWith ::
-    ( SingI k
+    ( KnownNat k
     , SpaceTree t dp
     , Ord dp
     , NFData (Ring dp)
@@ -311,7 +312,7 @@ parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith mempty e d
 
 {-# INLINABLE parFindEpsilonNeighborMapWith #-}
 parFindEpsilonNeighborMapWith ::
-    ( SingI k
+    ( KnownNat k
     , SpaceTree t dp
     , Ord dp
     , NFData (Ring dp)

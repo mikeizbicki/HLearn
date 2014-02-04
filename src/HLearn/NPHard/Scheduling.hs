@@ -20,6 +20,7 @@ import qualified Data.Foldable as F
 import qualified Data.Heap as Heap
 import Data.List
 import Data.List.Extras
+import Data.Proxy
 import Debug.Trace
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
@@ -44,10 +45,10 @@ instance NFData a => NFData (Scheduling n a) where
 
 ---------------------------------------
 
-lptf :: forall a n. (Norm a, Ord (Ring a), SingI n) => SortedVector a -> Scheduling n a
+lptf :: forall a n. (Norm a, Ord (Ring a), KnownNat n) => SortedVector a -> Scheduling n a
 lptf vector = Scheduling
     { vector = vector
-    , schedule = vector2schedule (fromIntegral $ fromSing (sing :: Sing n)) vector
+    , schedule = vector2schedule (fromIntegral $ natVal (Proxy :: Proxy n)) vector
     }
 
 vector2schedule :: (Norm a, Ord (Ring a)) => Bin -> SortedVector a -> Map.Map Bin [a]
@@ -87,12 +88,12 @@ spread p = (maxpartition p)-(minpartition p)
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n) => Abelian (Scheduling n a) 
-instance (Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (Scheduling n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Abelian (Scheduling n a) 
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Monoid (Scheduling n a) where
     mempty = lptf mempty
     p1 `mappend` p2 = lptf $ (vector p1) <> (vector p2)
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n, Group (SortedVector a)) => Group (Scheduling n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Group (SortedVector a)) => Group (Scheduling n a) where
     inverse p = Scheduling
         { vector = inverse $ vector p
         , schedule = error "Scheduling.inverse: schedule does not exist for inverses"
@@ -101,13 +102,13 @@ instance (Ord a, Ord (Ring a), Norm a, SingI n, Group (SortedVector a)) => Group
 instance (HasRing (SortedVector a)) => HasRing (Scheduling n a) where
     type Ring (Scheduling n a) = Ring (SortedVector a)
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n, Module (SortedVector a)) => Module (Scheduling n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Module (SortedVector a)) => Module (Scheduling n a) where
     r .* p = p { vector = r .* vector p }
 
 ---------------------------------------
 
 instance CK.Functor (Scheduling n) where
-    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, SingI n)
+    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, KnownNat n)
     fmap f sched = lptf $ CK.fmap f $ vector sched
 
 -- instance CK.Monad (Scheduling n) where
@@ -117,7 +118,7 @@ instance CK.Functor (Scheduling n) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (Scheduling n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => HomTrainer (Scheduling n a) where
     type Datapoint (Scheduling n a) = a
     train1dp dp = lptf $ train1dp dp
     train dp = lptf $ train dp

@@ -6,6 +6,7 @@ module HLearn.Models.Classifiers.NaiveNN
 import Control.Applicative
 import qualified Data.Foldable as F
 import Data.List
+import Data.Proxy
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
@@ -63,14 +64,14 @@ instance
     , F.Foldable container
     , MetricSpace ldp
     , Ord (Ring ldp)
-    , SingI k
+    , KnownNat k
     ) => ProbabilityClassifier (NaiveNN k container ldp)
         where
     type ResultDistribution (NaiveNN k container ldp) = Categorical (Ring (Attributes ldp)) (Label ldp)
               
     probabilityClassify nn dp = train (map getLabel $ take k $ neighborList (noLabel dp) nn)
         where
-            k = fromIntegral $ fromSing (sing::Sing k)
+            k = fromIntegral $ natVal (Proxy::Proxy k)
 
 instance
     ( ProbabilityClassifier (NaiveNN k container ldp)

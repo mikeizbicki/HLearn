@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators, UndecidableInstances, ExistentialQuantification, GADTs #-}
 
 import Control.Applicative
 import Control.DeepSeq
@@ -8,6 +8,7 @@ import Data.Csv
 import Data.List
 import Data.Maybe
 import qualified Data.ByteString.Lazy.Char8 as BS
+import qualified Data.Foldable as F
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -16,6 +17,7 @@ import qualified Data.Vector.Unboxed.Mutable as VUM
 import System.Console.CmdArgs.Implicit
 import System.Environment
 import System.IO
+import Text.Read
 
 import Debug.Trace
 import Diagrams.TwoD.Size
@@ -49,53 +51,54 @@ instance Num r => HasRing (VU.Vector r) where type Ring (VU.Vector r) = r
 instance (NFData label, NFData attr) => NFData (MaybeLabeled label attr) where
     rnf (MaybeLabeled l a) = deepseq l $ rnf a
 
+-------------------------------------------------------------------------------
+-- command line args
+
 data Params = Params
-    { k :: Int
-    , label_column :: Maybe Int
-    , data_file :: Maybe String 
-    , verbose :: Bool
+    { k                 :: Int
+    , folds             :: Int
+    , trials            :: Int
+    , param_nummetricsamples  :: String
+    , regularization    :: String 
+    , metric            :: String
+    , label_column      :: Maybe Int
+    , data_file         :: Maybe String 
+    , verbose           :: Bool
     } 
     deriving (Show, Data, Typeable)
 
 sample = Params 
-    { k              = 1 &= help "number of nearest neighbors to find" 
-    , label_column   = Nothing &= help "column of the label in data_file"
-    , data_file      = def &= help "reference data set in CSV format" &= typFile
-    , verbose        = False &= help "print tree statistics (takes some extra time)"
+    { k                 = 1 &= help "number of nearest neighbors to find" 
+    , folds             = 2 &= help "number of folds for crossvalidation"
+    , trials            = 10 &= help "number of trials to repeat crossvalidation"
+    , param_nummetricsamples  = "10000" &= help "number of training samples for the metric learner"
+    , regularization    = "[0.01]" &= help "regularization rate for metric learning"
+    , metric            = "[mega]" &= help "metric to use for nearest neighbor classificaiton"
+    , label_column      = Nothing &= help "column of the label in data_file"
+    , data_file         = def &= help "reference data set in CSV format" &= typFile
+    , verbose           = True &= help "print tree statistics (takes some extra time)"
     }
     &= summary "HLearn k-nearest neighbor classifier, version 1.0"
 
+readParamList :: forall a. Read a => String -> [a]
+readParamList str = case readMaybe str :: Maybe a of
+    Just x -> [x]
+    Nothing -> case readMaybe str :: Maybe [a] of
+        Just xs -> xs
+        Nothing -> error $ "readList failed to parse: "++str
+
+-------------------------------------------------------------------------------
+-- main
 
 main = do
-    -- cmd line args
-    params <- cmdArgs sample
-
---     case k params of 
---         1 -> runit params (undefined :: KNearestNeighbor (AddUnit (CoverTree' (2/1)) ()) 1 DP)
---         otherwise -> error "specified k value not supported"
--- 
--- -- {-# SPECIALIZE runit :: Params -> Tree -> IO ()#-}
--- runit :: forall k tree base dp ring model. 
---     ( MetricSpace dp
---     , Ord dp
---     , SingI k
---     , Show dp
---     , Show (Ring dp)
---     , NFData dp
---     , NFData (Ring dp)
---     , RealFloat (Ring dp)
---     , FromRecord dp 
---     , VU.Unbox (Ring dp)
---     , dp ~ Datapoint model
---     , HomTrainer model
---     , Classifier model
---     , dp ~ DP
---     ) => Params -> model -> IO ()
--- runit params _ = do
-
 
     -----------------------------------
     -- validate command line args
+
+    params <- cmdArgs sample
+
+    let numMetricSamplesL = readParamList $ param_nummetricsamples params :: [Int]
+    print $ numMetricSamplesL
 
     let filename = case data_file params of
             Just str -> str
@@ -104,6 +107,16 @@ main = do
     let label_index = case label_column params of
             Just x -> x
             Nothing -> error "must specify a label column"
+    
+    let metricLstr = words $ tail $ init $ map (\x -> if x==',' then ' ' else x) $  metric params :: [String]
+        regularizationL = readParamList $ regularization params :: [Double]
+        
+    print metricLstr
+    let metricL = map go [ (a,b) | a <- metricLstr, b <- regularizationL ]
+        go (a,b) = case a of
+            "mega" -> ("Mega-"++show b, MetricBox $ (mkMega b
+                                    :: [(Double, VU.Vector Double)] -> Mega (1/1) (VU.Vector Double)))
+            "lego" -> ("Lego-"++show b, MetricBox $ train_LegoPaper b)
 
     -----------------------------------
     -- load data
@@ -118,10 +131,13 @@ main = do
     let numdim = VG.length $ xs VG.! 0
     let numlabels = Set.size $ Set.fromList $ VG.toList $ VG.map (VG.! label_index) xs
 
-    putStrLn "  dataset info:"
-    putStrLn $ "    num dp:     " ++ show numdp
-    putStrLn $ "    num dim:    " ++ show numdim
-    putStrLn $ "    num labels: " ++ show numlabels
+    if verbose params
+        then do 
+            hPutStrLn stderr "  dataset info:"
+            hPutStrLn stderr $ "    num dp:     " ++ show numdp
+            hPutStrLn stderr $ "    num dim:    " ++ show numdim
+            hPutStrLn stderr $ "    num labels: " ++ show numlabels
+        else return ()
 
     -----------------------------------
     -- convert to right types
@@ -137,148 +153,41 @@ main = do
             :: V.Vector DP 
 
     -----------------------------------
-    -- distance percentiles
+    -- perform tests
 
-    let distances [] = []
-        distances (x:xs) = map (distance x) xs ++ distances xs
+    forM numMetricSamplesL $ \nummetricsamples -> do
+    forM metricL $ \(msg,trainmetric) -> do
 
-    let ys2 = sort . distances $ map (L2 . attr) $ VG.toList ys
-        p05 = ys2 !! (floor $ 0.05 * fromIntegral (length ys2))
-        p95 = ys2 !! (floor $ 0.95 * fromIntegral (length ys2))
-    
-    putStrLn $ "0.05 = " ++ show p05
-    putStrLn $ "0.95 = " ++ show p95
-
-    -----------------------------------
-    -- learn metric
-
-    let maxp=90
-        minres=10
-        pmult=2
-    let loop p = forM [1..10] $ \i -> timeIO ("iteration "++show i) $ do
---         metricdata <- replicateM (20*numlabels^2) $ do
-        metricdata <- replicateM (10000) $ do
-            i <- randomRIO (0,numdp-1)
-            j <- randomRIO (0,numdp-1)
-            let targetdist = if label (ys VG.! i) == label (ys VG.! j)
-                    then p05
-                    else p95
-            let dp = unL2 $ VG.zipWith (-) (attr $ ys VG.! i) (attr $ ys VG.! j)
-            return (targetdist,dp) 
---         timeIO "generating metric labels" $ return $ rnf metricdata
-
-        let mega1000 = mkMega metricdata :: Mega (1000/1) (VU.Vector Double)
-        let mega100 = mkMega metricdata :: Mega (100/1) (VU.Vector Double)
-        let mega10 = mkMega metricdata :: Mega (10/1) (VU.Vector Double)
-        let mega1 = mkMega metricdata :: Mega (1/1) (VU.Vector Double)
-        let mega2 = mkMega metricdata :: Mega (1/10) (VU.Vector Double)
-        let mega3 = mkMega metricdata :: Mega (1/100) (VU.Vector Double)
-        let mega4 = mkMega metricdata :: Mega (1/1000) (VU.Vector Double)
-        let mega5 = mkMega metricdata :: Mega (1/10000) (VU.Vector Double)
-        let mega6 = mkMega metricdata :: Mega (1/100000) (VU.Vector Double)
-        let mega7 = mkMega metricdata :: Mega (1/1000000) (VU.Vector Double)
-        let mega0 = mkMega metricdata :: Mega (0/1) (VU.Vector Double)
-
-        let legopaper1 = train_LegoPaper 1 metricdata :: LegoPaper  (VU.Vector Double)
-        let legopaper2 = train_LegoPaper 0.1 metricdata :: LegoPaper  (VU.Vector Double)
-        let legopaper3 = train_LegoPaper 0.01 metricdata :: LegoPaper  (VU.Vector Double)
-        let legopaper4 = train_LegoPaper 0.001 metricdata :: LegoPaper  (VU.Vector Double)
-
-        let mahal = train (VG.map (unL2 . attr) ys) :: MahalanobisParams (VU.Vector Double)
-
---         let tmpmodel = train (zs ys mega3) :: AddUnit (CoverTree' (13/10) V.Vector V.Vector) () 
---                                                       (MaybeLabeled String (L2 V.Vector Double))
---         let tmpmodel = train (zs ys mahal) :: AddUnit (CoverTree' (13/10) V.Vector V.Vector) () 
---                                                       (MaybeLabeled String (L2 V.Vector Double))
---         printTreeStats "reftree      " $ unUnit tmpmodel 
-
-        -----------------------------------
-        -- cross-validation
-
-        let docv zs = evalRandIO $ crossValidate 
-                (kfold 2)
+        hPutStrLn stderr $ replicate 80 '-'
+        hPutStrLn stderr $ "-- Test: "++show msg++"; nummetricsamples="++show nummetricsamples
+        hPutStrLn stderr $ replicate 80 '-'
+        
+        cvraw <- forM [1..trials params] $ \i -> 
+            timeIO ("iteration "++show i) $ evalRandIO $ cv_legit_MetricBox
+                (kfold $ folds params)
                 errorRate
-                zs 
---                 (undefined :: NaiveNN 4 V.Vector (MaybeLabeled String (L2 VU.Vector Double)))
-                (undefined :: KNearestNeighbor (AddUnit (CoverTree' (13/10) V.Vector V.Vector) ()) 4 
-                                               (MaybeLabeled String ((L2 VU.Vector Double)))) 
+                ys 
+                trainmetric
+                nummetricsamples
+                (train :: F.Foldable container => container DP -> 
+                    KNearestNeighbor (AddUnit (CoverTree' (13/10) V.Vector V.Vector) ()) 4
+                        (MaybeLabeled String (L2 VU.Vector Double)))
 
-        x_mega1000 <- docv $ zs ys mega1000 
-        x_mega100 <- docv $ zs ys mega100 
-        x_mega10 <- docv $ zs ys mega10
-        x_mega1 <- docv $ zs ys mega1 
-        x_mega2 <- docv $ zs ys mega2 
-        x_mega3 <- docv $ zs ys mega3 
-        x_mega4 <- docv $ zs ys mega4 
-        x_mega5 <- docv $ zs ys mega5 
-        x_mega6 <- docv $ zs ys mega6 
-        x_mega7 <- docv $ zs ys mega7 
-        x_mega0 <- docv $ zs ys mega0 
+        let cv = reduce cvraw
+        putStrLn $ msg ++ "    " ++ show nummetricsamples ++ "    " ++ show (mean cv)
+        hFlush stdout
 
---         timeIO "deepseq mega3" $ return $ rnf mega3
---         timeIO "deepseq $ zs ys mega3" $ return $ rnf $ zs ys mega3
---         timeIO "deepseq x_mega3" $ return $ rnf x_mega3
+        hPutStrLn stderr $   "mean:   "++show (mean cv)
+        hPutStrLn stderr $   "stddev: "++show (sqrt $ variance cv)
+        hPutStrLn stderr ""
+        hPutStrLn stderr $   "meanL: "++show (map mean cvraw)
+        hPutStrLn stderr $   "varL:  "++show (map variance cvraw)
 
-        x_legopaper1 <- docv $ zs ys legopaper1 
-        x_legopaper2 <- docv $ zs ys legopaper2 
-        x_legopaper3 <- docv $ zs ys legopaper3 
-        x_legopaper4 <- docv $ zs ys legopaper4 
+--         if verbose params
+--             then putStrLn $ "\nresults_raw: " ++ show cvraw
+--             else return ()
 
-        x_mahal <- docv $ zs ys mahal
-        x_id <- docv $ VG.map (\y -> MaybeLabeled
-            { label = label y
---             , attr = mkIdentity $ unL2 $ attr y
-            , attr = attr y
-            })
-            ys
-
-        let cv = 
-                [ x_mega1000
-                , x_mega100
-                , x_mega10
-                , x_mega1
-                , x_mega2
-                , x_mega3
-                , x_mega4
-                , x_mega5
-                , x_mega6
-                , x_mega7
---                 , x_mega0
-
-                , x_legopaper1
-                , x_legopaper2
-                , x_legopaper3
-                , x_legopaper4
-
-                , x_mahal
-                , x_id
-                ]
-        deepseq cv $ return cv
-
-    putStrLn "\nresults:"
-    cvraw <- loop 10
-    let cv = (map reduce . transpose) cvraw
-    putStrLn $   "mean: "++show (map mean cv)
-    putStrLn $   "var:  "++show (map variance cv)
-
-    putStrLn $ "\nresults_raw: " ++ show cvraw
-    return cv
-
---     forM (zip [1..] xs) $ \(p,cv) -> do
--- --         putStrLn $ show (p/maxp) ++ " " ++ show (mean cv)
---         putStrLn $ show (minres+p*pmult) ++ " " ++ show (mean cv)
-
-    -- end
-    putStrLn "end"
-
-zs ys matrix = VG.map (\y -> MaybeLabeled
-        { label = label y
---         , attr = mkMahalanobis matrix $ unL2 $ attr y
-        , attr = applyMahalanobis matrix $ attr y
-        })
-        ys
-
-
+-------------------------------------------------------------------------------
 
 printTreeStats str t = do
     putStrLn (str++" stats:")
@@ -303,3 +212,188 @@ printTreeStats str t = do
     putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance $ UnitLift t) 
 
     putStrLn ""
+
+
+-------------------------------------------------------------------------------
+--
+
+data MetricBox = forall metric. (MahalanobisMetric metric, Double~Ring metric) => 
+        MetricBox ([(Double,VU.Vector Double)] -> metric)
+
+cv_legit_MetricBox :: 
+    ( HomTrainer model
+    , Classifier model
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    , Functor container
+    , Datapoint model ~ DP
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> MetricBox
+      -> Int
+      -> ([DP] -> model)
+      -> Rand g (Normal Double Double)
+cv_legit_MetricBox genfolds loss xs (MetricBox trainmetric) nummetric trainmodel = do
+    xs' <- genfolds $ F.toList xs
+    return $ trace (" cv_hash="++show (VG.sum $ attr $ head $ head xs')) $ train $ do
+        testset <- xs'
+        let trainingset = concat $ filter (/=testset) xs'
+            metric = trainmetric $ genMetricConstraints (V.fromList $ F.toList xs) nummetric
+            trainingset' = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) trainingset
+            testset' = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) testset 
+        let model = trainmodel trainingset'
+        return $ loss model testset'
+
+cvnormal :: 
+    ( HomTrainer model
+    , Classifier model
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([Datapoint model] -> model)
+      -> Rand g (Normal Double Double)
+cvnormal genfolds loss xs trainmodel = do
+    xs' <- genfolds $ F.toList xs
+    return $ train $ do
+        testset <- xs'
+        let trainingset = concat $ filter (/=testset) xs'
+        let model = trainmodel trainingset
+        return $ loss model testset
+
+cv_legit :: 
+    ( HomTrainer model
+    , Classifier model
+    , MahalanobisMetric metric
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    , Functor container
+    , Double ~ Ring metric
+    , Datapoint model ~ DP
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([(Double,VU.Vector Double)] -> metric)
+      -> Int
+      -> ([DP] -> model)
+      -> Rand g (Normal Double Double)
+cv_legit genfolds loss xs trainmetric nummetric trainmodel = do
+    xs' <- genfolds $ F.toList xs
+    return $ train $ do
+        testset <- xs'
+        let trainingset = concat $ filter (/=testset) xs'
+            metric = trainmetric $ genMetricConstraints (V.fromList $ F.toList xs) nummetric
+            trainingset' = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) trainingset
+            testset' = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) testset 
+        let model = trainmodel trainingset'
+        return $ loss model testset'
+
+cv :: 
+    ( HomTrainer model
+    , Classifier model
+    , MahalanobisMetric metric
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    , Functor container
+    , Double ~ Ring metric
+    , Datapoint model ~ DP
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([(Double,VU.Vector Double)] -> metric)
+      -> Int
+      -> ([DP] -> model)
+      -> Rand g (Normal Double Double)
+cv genfolds loss xs trainmetric nummetric trainmodel = do
+    xs' <- genfolds $ F.toList xsmetric
+    return $ train $ do
+        testset <- xs'
+        let trainingset = concat $ filter (/=testset) xs'
+        let model = trainmodel trainingset
+        return $ loss model testset
+    where
+        xsmetric = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) xs
+        metric = trainmetric $ genMetricConstraints (V.fromList $ F.toList xs) nummetric
+
+genClassifier :: 
+    ( MahalanobisMetric metric
+    , Ring metric ~ Double
+    ) => ([(Double,VU.Vector Double)] -> metric)
+      -> Int
+      -> ([DP] -> classifier)
+      -> [DP]
+      -> classifier
+genClassifier trainmetric n traintree dps = traintree dps'
+    where
+        dpsv = V.fromList dps
+        dps' = map (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) dps
+        metric = trainmetric $ genMetricConstraints dpsv n
+
+genMetricConstraints :: VG.Vector vec DP => vec DP -> Int -> [(Double, VU.Vector Double)]
+genMetricConstraints dps n = flip evalRand (mkStdGen seed) $ replicateM n genConstraint
+    where
+        seed=0
+        numdp = VG.length dps
+
+        distances :: MetricSpace dp => [dp] -> [Ring dp]
+        distances [] = []
+        distances (x:xs) = map (distance x) xs ++ distances xs
+
+--         distances (x1:x2:x3:xs) = distance x1 x2:distance x1 x3: distances (x2:x3:xs)
+--         distances _ = []
+
+        dps_shuffle = flip evalRand (mkStdGen $ seed+100000) $ shuffle $ VG.toList dps
+        ys2 = sort . distances $ map (L2 . attr) dps_shuffle
+        p05 = ys2 !! (floor $ 0.05 * fromIntegral (length ys2))
+        p95 = ys2 !! (floor $ 0.95 * fromIntegral (length ys2))
+
+        genConstraint = do
+            i <- getRandomR (0,numdp-1)
+            j <- getRandomR (0,numdp-1)
+            let targetdist = if label (dps VG.! i) == label (dps VG.! j)
+                    then p05
+                    else p95
+            let dp = VG.zipWith (-) (attr $ dps VG.! i) (attr $ dps VG.! j)
+            return (targetdist,unL2 dp)
+
+data MetricNN metric k dp = MetricNN 
+    { knnmetric :: metric 
+    , knntree :: KNearestNeighbor (AddUnit (CoverTree' (13/10) V.Vector V.Vector) ()) k dp
+    }
+
+instance Monoid (MetricNN metric k dp) where
+    mempty = undefined
+    mappend = undefined
+
+instance
+    ( dp ~ vec Double
+    , VG.Vector vec Double
+    , Ring (vec Double) ~ Double
+    , Ord (vec Double)
+    , Double ~ Ring metric
+    , MahalanobisMetric metric
+    , HomTrainer metric
+    , MetricSpace dp
+    , Datapoint metric ~ dp 
+    , Show (vec Double)
+    ) => HomTrainer (MetricNN metric k dp) 
+        where
+
+    type Datapoint (MetricNN metric k dp) = dp
+    train dps = MetricNN 
+        { knnmetric = metric
+        , knntree = train dps'
+        }
+        where
+            metric = train dps
+            dps' = map (applyMahalanobis metric) $ F.toList dps

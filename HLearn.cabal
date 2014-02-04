@@ -54,8 +54,9 @@ Library
         QuickCheck          >= 2.6,
 
         -- visualize
-        diagrams-svg        >= 0.6,
-        diagrams-lib        >= 0.6,
+
+        --diagrams-svg        >= 0.6,
+        --diagrams-lib        >= 0.6,
         process             >= 1.1,
         graphviz            >= 2999.16
         
@@ -75,9 +76,6 @@ Library
         HLearn.Algebra
         HLearn.Algebra.Common
         HLearn.Algebra.Functions
-        HLearn.Algebra.Types.Indexing
-        HLearn.Algebra.Types.HList
-        HLearn.Algebra.Types.Nat1
         HLearn.Algebra.Types.Frac
         HLearn.Algebra.Models.HomTrainer
         HLearn.Algebra.Models.CoHomTrainer
@@ -87,14 +85,9 @@ Library
         HLearn.Algebra.Structures.Groups
         HLearn.Algebra.Structures.MetricSpace
         HLearn.Algebra.Structures.Modules
-        HLearn.Algebra.Structures.Triangles
         HLearn.Algebra.Structures.Topology
         HLearn.Algebra.Structures.Free.AddUnit
-        HLearn.Algebra.Structures.Free.Bagging
-        HLearn.Algebra.Structures.Free.FreeHomTrainer
-        HLearn.Algebra.Structures.Free.FreeModule
         
-        Data.Prunable
         HLearn.DataStructures.SortedVector
         HLearn.DataStructures.CoverTree
         HLearn.DataStructures.SpaceTree
@@ -104,21 +97,15 @@ Library
         HLearn.DataStructures.SpaceTree.Simple
         HLearn.DataStructures.StrictList
         HLearn.DataStructures.StrictVector
-        HLearn.DataStructures.KDTree
-        --HLearn.DataStructures.BitTwiddlerSort.BitTwiddler
 
         HLearn.Evaluation.CrossValidation
-        HLearn.Evaluation.RSquared
         
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
-        HLearn.Models.Classifiers.Bayes
         HLearn.Models.Classifiers.NearestNeighbor
         HLearn.Models.Classifiers.NaiveNN
         HLearn.Models.Classifiers.Perceptron
         HLearn.Models.Classifiers.Centroid
-        --HLearn.Models.Classifiers.Experimental.Boosting.FiniteBoost
-        --HLearn.Models.Classifiers.Experimental.Boosting.MonoidBoost
 
         HLearn.Metrics.Generic
         HLearn.Metrics.Lebesgue
@@ -133,37 +120,17 @@ Library
         
         HLearn.Models.Distributions
         HLearn.Models.Distributions.Common
-        HLearn.Models.Distributions.Kernels
         HLearn.Models.Distributions.Visualization.Gnuplot
-        HLearn.Models.Distributions.Visualization.Graphviz
         HLearn.Models.Distributions.Univariate.Binomial
         HLearn.Models.Distributions.Univariate.Categorical
         HLearn.Models.Distributions.Univariate.Exponential
         HLearn.Models.Distributions.Univariate.Geometric
-        HLearn.Models.Distributions.Univariate.KernelDensityEstimator
         HLearn.Models.Distributions.Univariate.LogNormal
         HLearn.Models.Distributions.Univariate.Normal
         HLearn.Models.Distributions.Univariate.Poisson
-        --HLearn.Models.Distributions.Univariate.Uniform
         HLearn.Models.Distributions.Univariate.Internal.MissingData
         HLearn.Models.Distributions.Univariate.Internal.Moments
-        HLearn.Models.Distributions.Multivariate.Interface
-        HLearn.Models.Distributions.Multivariate.MultiNormal
         HLearn.Models.Distributions.Multivariate.MultiNormalFast
-        HLearn.Models.Distributions.Multivariate.Internal.CatContainer
-        HLearn.Models.Distributions.Multivariate.Internal.Container
-        HLearn.Models.Distributions.Multivariate.Internal.Ignore
-        HLearn.Models.Distributions.Multivariate.Internal.Marginalization
-        HLearn.Models.Distributions.Multivariate.Internal.TypeLens
-        HLearn.Models.Distributions.Multivariate.Internal.Unital
-        
-        --HLearn.Models.Markov.MarkovChain
-        
-        HLearn.Models.Regression.Common
-        HLearn.Models.Regression.PowerLaw
-        HLearn.Models.Regression.Exponential
-        --HLearn.Models.Regression.ModifiedExponential
-        HLearn.Models.Regression.Logarithmic
         
         HLearn.NPHard.Scheduling
         HLearn.NPHard.BinPacking

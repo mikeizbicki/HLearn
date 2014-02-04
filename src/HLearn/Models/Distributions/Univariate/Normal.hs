@@ -36,10 +36,6 @@ addNoise f dp = mkNormal dp (f dp)
 -------------------------------------------------------------------------------
 -- training
 
-instance (Num prob) => HomTrainer (Normal prob (Normal prob dp)) where
-    type Datapoint (Normal prob (Normal prob dp)) = Normal prob dp
-    train1dp (Normal dp) = Normal dp
-
 instance (Num prob) => HomTrainer (Normal prob prob) where
     type Datapoint (Normal prob prob) = prob
     train1dp dp = Normal $ train1dp dp
@@ -101,11 +97,3 @@ instance
         where
             min = (mean dist)-5*(sqrt $ variance dist)
             max = (mean dist)+5*(sqrt $ variance dist)
-
--------------------------------------------------------------------------------
--- test
-
-dp1 = mkNormal 1 1
-dp2 = mkNormal 10 1
-
-model = train [dp1,dp2] :: Normal Double (Normal Double Double)

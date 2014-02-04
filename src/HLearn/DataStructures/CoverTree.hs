@@ -14,9 +14,9 @@ module HLearn.DataStructures.CoverTree
     , packCT
 
     -- * drawing
-    , draw
-    , draw'
-    , IntShow (..)
+--     , draw
+--     , draw'
+--     , IntShow (..)
 
     -- * QuickCheck properties
     , property_separating
@@ -34,6 +34,8 @@ import Control.DeepSeq
 import Data.List hiding (insert)
 import Data.Maybe
 import Data.Monoid hiding ((<>))
+import Data.Semigroup
+import Data.Proxy
 import qualified Data.Foldable as F
 import qualified Data.Set as Set
 import qualified Data.Strict.Maybe as Strict
@@ -50,8 +52,8 @@ import qualified Data.Vector.Unboxed.Mutable as VUM
 import Test.QuickCheck
 import Debug.Trace
 
-import Diagrams.Prelude hiding (distance,trace,query,connect)
-import Diagrams.Backend.SVG.CmdLine
+-- import Diagrams.Prelude hiding (distance,trace,query,connect)
+-- import Diagrams.Backend.SVG.CmdLine
 -- import Diagrams.Backend.Postscript.CmdLine
 
 import qualified Control.ConstraintKinds as CK
@@ -128,7 +130,7 @@ class
     , FromList childContainer dp
     , FromList childContainer (Ring dp)
     , FromList childContainer (CoverTree' base childContainer nodeContainer tag dp)
-    , SingI base
+    , KnownFrac base
     , Show (Ring dp)
     , Show dp
     , Ord dp
@@ -146,7 +148,7 @@ instance
     , FromList childContainer dp
     , FromList childContainer (Ring dp)
     , FromList childContainer (CoverTree' base childContainer nodeContainer tag dp)
-    , SingI base
+    , KnownFrac base
     , Show (Ring dp)
     , Show dp
     , Ord dp
@@ -329,12 +331,12 @@ safeInsert node (w,dp) = case insert node (w,dp) of
     Just x -> x
     Nothing -> Node
         { nodedp    = dp
-        , level     = dist2level_up (sing::Sing base) dist
+        , level     = dist2level_up (Proxy::Proxy base) dist
         , weight    = w
         , numdp     = numdp node+1
         , tag       = mempty
         , children  = if stIsLeaf node
-            then fromList [node { level = dist2level_down (sing::Sing base) dist } ]
+            then fromList [node { level = dist2level_down (Proxy::Proxy base) dist } ]
             else fromList [node]
         , nodeV     = mempty
         , maxDescendentDistance = maximum $ map (distance dp) $ stToList node
@@ -428,7 +430,7 @@ instance
         where
     partition n ct = [ takeFromTo (fromIntegral i*splitlen) splitlen ct | i <- [0..n-1] ]  
         where
-            splitlen = fromIntegral $ ceiling $ toRational (numdp ct) / toRational n
+            splitlen = fromIntegral (ceiling $ toRational (numdp ct) / toRational n::Int)
 
 takeFromTo :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
@@ -482,7 +484,7 @@ instance
         Strict.Nothing -> 
             (growct 
                 ct1' 
-                (dist2level_up (sing::Sing base) $ distance (nodedp ct1') (nodedp ct2'))
+                (dist2level_up (Proxy::Proxy base) $ distance (nodedp ct1') (nodedp ct2'))
             ) <> ct2'
         where
             ct1' = growct ct1 maxlevel
@@ -490,7 +492,7 @@ instance
             maxlevel = maximum 
                 [ level ct1
                 , level ct2
-                , dist2level_down (sing::Sing base) $ distance (nodedp ct1) (nodedp ct2)
+                , dist2level_down (Proxy::Proxy base) $ distance (nodedp ct1) (nodedp ct2)
                 ]
 
 ctmerge' :: forall base childContainer nodeContainer tag dp.
@@ -553,7 +555,7 @@ ctmerge' ct1 ct2 =
                         maxlevel = maximum 
                             [ level ct1
                             , level ct2
-                            , dist2level_down (sing::Sing base) $ distance (nodedp ct1) (nodedp ct2)
+                            , dist2level_down (Proxy::Proxy base) $ distance (nodedp ct1) (nodedp ct2)
                             ]
 
 -------------------------------------------------------------------------------
@@ -582,8 +584,8 @@ growct_safe ct d = if sepdist ct==0 || stIsLeaf ct
             }
             ) d
         else ct
-    where
-        coverfactor = fromSing (sing :: Sing base)
+--     where
+--         coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
 
 -- | this version of growct does not strictly obey the separating property; it never creates ghosts, however, so seems to work better in practice
 growct_unsafe :: forall base childContainer nodeContainer tag dp.
@@ -618,56 +620,53 @@ rmleaf ct = if stIsLeaf (head childL)
         (itrleaf,itrtree) = rmleaf $ head childL
         childL = toList $ children ct
 
-level2sepdist :: forall base num. (SingI (base::a), SingE (Kind::a) num, Num num, Floating num) => 
-    Sing base -> Int -> num
-level2sepdist _ l = (fromSing (sing :: Sing base))**(fromIntegral l)
+level2sepdist :: forall base num. (KnownFrac base, Floating num) =>  Proxy base -> Int -> num
+level2sepdist _ l = (fromRational $ fracVal (Proxy :: Proxy base))**(fromIntegral l)
 
-dist2level_down :: forall base num. (SingI (base::a), SingE (Kind::a) num, RealFrac num, Floating num) => 
-    Sing base -> num -> Int
-dist2level_down _ d = floor $ log d / log (fromSing (sing::Sing base))
+dist2level_down :: forall base num. (KnownFrac base, RealFrac num, Floating num) => Proxy base -> num -> Int
+dist2level_down _ d = floor $ log d / log (fromRational $ fracVal (Proxy::Proxy base))
 
-dist2level_up :: forall base num. (SingI (base::a), SingE (Kind::a) num, RealFrac num, Floating num) => 
-    Sing base -> num -> Int
-dist2level_up _ d = ceiling $ log d / log (fromSing (sing::Sing base))
+dist2level_up :: forall base num. (KnownFrac base, RealFrac num, Floating num) => Proxy base -> num -> Int
+dist2level_up _ d = ceiling $ log d / log (fromRational $ fracVal (Proxy::Proxy base))
 
-sepdist :: forall base childContainer nodeContainer tag dp. (SingI base, Floating (Ring dp)) => 
+sepdist :: forall base childContainer nodeContainer tag dp. (KnownFrac base, Floating (Ring dp)) => 
     CoverTree' base childContainer nodeContainer tag dp -> Ring dp
-sepdist ct = level2sepdist (undefined::Sing base) (level ct)
+sepdist ct = level2sepdist (Proxy::Proxy base) (level ct)
 
 {-# INLINE coverDist #-}
 coverDist :: forall base childContainer nodeContainer tag dp.
     ( Floating (Ring dp)
-    , SingI base
+    , KnownFrac base
     ) => CoverTree' base childContainer nodeContainer tag dp -> Ring dp
 coverDist node = sepdist node*coverfactor 
     where
-        coverfactor = fromSing (sing :: Sing base)
+        coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
 
 {-# INLINE sepdist_child #-}
-sepdist_child :: forall base childContainer nodeContainer tag dp. (SingI base, MetricSpace dp, Floating (Ring dp)) => 
+sepdist_child :: forall base childContainer nodeContainer tag dp. (KnownFrac base, MetricSpace dp, Floating (Ring dp)) => 
     CoverTree' base childContainer nodeContainer tag dp -> Ring dp
 sepdist_child ct = next -- rounddown (sing::Sing base) $ next --next/10
-    where next = sepdist ct/(fromSing (sing :: Sing base)) 
+    where next = sepdist ct/(fromRational $ fracVal (Proxy :: Proxy base)) 
 
 {-# INLINE roundup #-}
 roundup :: forall base d. 
     ( Floating d
     , RealFrac d
-    , SingI base
-    ) => Sing (base::Frac) -> d -> d
+    , KnownFrac base
+    ) => Proxy (base::Frac) -> d -> d
 roundup s d = rounddown s $ d * coverfactor
     where
-        coverfactor = fromSing (sing :: Sing base)
+        coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
 
 {-# INLINE rounddown #-}
 rounddown :: forall base d. 
     ( Floating d
     , RealFrac d
-    , SingI base
-    ) => Sing (base::Frac) -> d -> d
+    , KnownFrac base
+    ) => Proxy (base::Frac) -> d -> d
 rounddown _ d = coverfactor^^(floor $ log d / log coverfactor :: Int)
     where
-        coverfactor = fromSing (sing :: Sing base)
+        coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
 
 ---------------------------------------
 
@@ -679,7 +678,7 @@ recover ct = foldl' safeInsert ct' xs
 recover' :: forall base childContainer nodeContainer tag dp.
     ( MetricSpace dp
     
-    , SingI base
+    , KnownFrac base
     ) => CoverTree' base childContainer nodeContainer tag dp -> (CoverTree' base childContainer nodeContainer tag dp, [Weighted dp])
 recover' ct = (ct', failed)
     where
@@ -699,7 +698,7 @@ recover' ct = (ct', failed)
 --     ( MetricSpace dp2
 --     , Ring dp1 ~ Ring dp2
 --     2
---     , SingI base
+--     , KnownFrac base
 --     ) => (dp1 -> dp2) -> AddUnit (CoverTree' base) tag dp1 -> AddUnit (CoverTree' base) tag dp2
 unsafeMap f Unit = Unit
 unsafeMap f (UnitLift ct) = UnitLift $ unsafeMap' f ct
@@ -708,7 +707,7 @@ unsafeMap' :: forall base childContainer nodeContainer tag dp1 dp2.
     ( MetricSpace dp2
     , Ring dp1 ~ Ring dp2
     2
-    , SingI base
+    , KnownFrac base
     ) => (dp1 -> dp2) -> CoverTree' base childContainer nodeContainer tag dp1 -> CoverTree' base childContainer nodeContainer tag dp2
 unsafeMap' f ct = Node
     { nodedp = nodedp'
@@ -735,7 +734,7 @@ ctmap' :: forall base childContainer nodeContainer tag dp1 dp2.
     , Floating (Ring dp1)
     2
     , Monoid tag
-    , SingI base
+    , KnownFrac base
     ) => (dp1 -> dp2) -> CoverTree' base childContainer nodeContainer tag dp1 -> CoverTree' base childContainer nodeContainer tag dp2
 ctmap' f ct = recover $ unsafeMap' f ct
  
@@ -754,7 +753,7 @@ implicitChildrenMap ct = Map.union (childrenMap ct) (Map.singleton (nodedp ct) $
 extractLeaf :: forall base childContainer nodeContainer tag dp.
     ( MetricSpace dp 
     
-    , SingI base
+    , KnownFrac base
     ) => CoverTree' base childContainer nodeContainer tag dp -> (Weighted dp, Maybe (CoverTree' base childContainer nodeContainer tag dp))
 extractLeaf ct = if stIsLeaf ct
     then (stNodeW ct, Nothing)
@@ -771,7 +770,7 @@ extractLeaf ct = if stIsLeaf ct
                 Just c' -> Map.fromList $ (nodedp c', c'):(tail $ Map.toList $ childrenMap ct)
 -}
 
--- setLeafSize :: (MetricSpace dp, SingI base) => Int -> CoverTree' base childContainer nodeContainer tag dp -> CoverTree' base childContainer nodeContainer tag dp
+-- setLeafSize :: (MetricSpace dp, KnownFrac base) => Int -> CoverTree' base childContainer nodeContainer tag dp -> CoverTree' base childContainer nodeContainer tag dp
 -- setLeafSize n ct = if stNumNodes ct < n
 --     then ct { children = fmap singleton $ Strict.list2strictlist $ stToListW ct } 
 --     else ct { children = fmap (setLeafSize n) $ children ct }
@@ -828,8 +827,8 @@ instance
         xs <- replicateM num $ do
 --             x <- arbitrary
 --             y <- arbitrary
-            x <- choose (-2^^50,2^^50)
-            y <- choose (-2^^50,2^^50)
+            x <- choose (-2**50,2**50)
+            y <- choose (-2**50,2**50)
             return (x,y)
 --         return $ unUnit $ train xs 
         return $ train xs 
@@ -963,6 +962,7 @@ gs' i = take i gs
 -------------------------------------------------------------------------------
 -- diagrams
 
+{-
 drawT ct1 ct2 = (strutY 2.5 === draw (unUnit ct2))
 --             ||| (text "<>" <> strutX 2.5)
             ||| (strutX 2.5)
@@ -1030,3 +1030,5 @@ instance (IntShow attr,Show label) => IntShow (MaybeLabeled label attr) where
             label = case getLabel dp of
                 Just x -> show x
                 Nothing -> "_"
+
+-}

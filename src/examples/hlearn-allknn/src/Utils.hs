@@ -73,8 +73,8 @@ shuffleVec vmap v = runST $ do
 
 timeIO :: NFData a => String -> IO a -> IO a
 timeIO str f = do 
-    putStr $ str ++ replicate (45-length str) '.'
-    hFlush stdout
+    hPutStr stderr $ str ++ replicate (45-length str) '.'
+    hFlush stderr
     cputime1 <- getCPUTime
     realtime1 <- getCurrentTime >>= return . utctDayTime
     ret <- f
@@ -82,7 +82,7 @@ timeIO str f = do
     cputime2 <- getCPUTime
     realtime2 <- getCurrentTime >>= return . utctDayTime
     
-    putStrLn $ "done"
+    hPutStrLn stderr $ "done"
         ++ ". real time=" ++ show (realtime2-realtime1) 
         ++ "; cpu time=" ++ showFFloat (Just 6) ((fromIntegral $ cputime2-cputime1)/1e12 :: Double) "" ++ "s"
     return ret

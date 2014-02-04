@@ -39,7 +39,7 @@ instance VG.Vector v dp => HomTrainer (Simple v dp) where
 simple_knn :: 
     ( MetricSpace dp
     , VG.Vector v dp
-    , SingI k
+    , KnownNat k
     , Eq dp
     ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
 simple_knn query knn (Simple v) = VG.foldl' cata knn v

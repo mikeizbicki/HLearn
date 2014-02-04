@@ -15,10 +15,10 @@ maintainer:          mike@izbicki.me
 build-type:          Simple
 cabal-version:       >=1.8
 
---executable hlearn-allknn
---  main-is: hlearn-allknn.hs
-executable hlearn-knn
-  main-is: hlearn-knn.hs
+executable hlearn-allknn
+  main-is: hlearn-allknn.hs
+--executable hlearn-knn
+--  main-is: hlearn-knn.hs
 
   ghc-options:        
         -rtsopts
@@ -52,14 +52,10 @@ executable hlearn-knn
         time >=1.4, 
         cmdargs >=0.10, 
         QuickCheck >=2.6, 
-        diagrams-lib >=0.7, 
-        diagrams-svg >=0.7, 
         parallel >=3.2, 
         MonadRandom >=0.1,
         vector-algorithms >= 0.5,
         strict >=0.3,
-        csv-conduit >=0.5,
-        conduit >= 1,
         vector-th-unbox >= 0.2,
         primitive >= 0.5,
         deepseq >= 1.3

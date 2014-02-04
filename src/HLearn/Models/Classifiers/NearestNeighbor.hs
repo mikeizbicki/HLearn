@@ -60,7 +60,7 @@ instance Probabilistic (KNearestNeighbor tree k dp) where
 instance
     ( dp ~ MaybeLabeled label attr
     , SpaceTree tree dp
-    , SingI k
+    , KnownNat k
     , Eq dp
     , Ord (Label dp)
     , HasRing (tree dp)
