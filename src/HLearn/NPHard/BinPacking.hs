@@ -12,6 +12,7 @@ import qualified Data.Heap as Heap
 import Data.List
 import Data.List.Extras
 import Debug.Trace
+import Data.Proxy
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import GHC.TypeLits
@@ -28,10 +29,10 @@ data BinPacking (n::Nat) a = BinPacking
     }
     deriving (Read,Show,Eq,Ord)
 
-bfd :: forall a n. (Norm a, Ord (Ring a), SingI n) => SortedVector a -> BinPacking n a
+bfd :: forall a n. (Norm a, Ord (Ring a), KnownNat n) => SortedVector a -> BinPacking n a
 bfd vector = BinPacking
     { vector = vector
-    , packing = vector2packing (fromIntegral $ fromSing (sing :: Sing n)) vector
+    , packing = vector2packing (fromIntegral $ natVal (Proxy :: Proxy n)) vector
     }
 
 vector2packing :: (Norm a, Ord (Ring a)) => Ring a -> SortedVector a -> Map.Map Int [a]
@@ -52,12 +53,12 @@ vector2packing binsize vector = snd $ CK.foldr cata (Map.empty,Map.empty) vector
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n) => Abelian (BinPacking n a) 
-instance (Ord a, Ord (Ring a), Norm a, SingI n) => Monoid (BinPacking n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Abelian (BinPacking n a) 
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Monoid (BinPacking n a) where
     mempty = bfd mempty
     p1 `mappend` p2 = bfd $ (vector p1) <> (vector p2)
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n, Group (SortedVector a)) => Group (BinPacking n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Group (SortedVector a)) => Group (BinPacking n a) where
     inverse p = BinPacking 
         { vector = inverse $ vector p
         , packing = error "Scheduling.inverse: schedule does not exist for inverses"
@@ -66,13 +67,13 @@ instance (Ord a, Ord (Ring a), Norm a, SingI n, Group (SortedVector a)) => Group
 instance (HasRing (SortedVector a)) => HasRing (BinPacking n a) where
     type Ring (BinPacking n a) = Ring (SortedVector a)
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n, Module (SortedVector a)) => Module (BinPacking n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Module (SortedVector a)) => Module (BinPacking n a) where
     r .* p = p { vector = r .* vector p }
 
 ---------------------------------------
 
 instance CK.Functor (BinPacking n) where
-    type FunctorConstraint (BinPacking n) x = (Ord x, Norm x, SingI n)
+    type FunctorConstraint (BinPacking n) x = (Ord x, Norm x, KnownNat n)
     fmap f sched = bfd $ CK.fmap f $ vector sched
 
 -- instance CK.Monad (BinPacking n) where
@@ -82,7 +83,7 @@ instance CK.Functor (BinPacking n) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Ord a, Ord (Ring a), Norm a, SingI n) => HomTrainer (BinPacking n a) where
+instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => HomTrainer (BinPacking n a) where
     type Datapoint (BinPacking n a) = a
     train1dp dp = bfd $ train1dp dp
     

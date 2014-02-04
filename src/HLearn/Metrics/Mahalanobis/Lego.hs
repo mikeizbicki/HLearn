@@ -5,6 +5,7 @@ module HLearn.Metrics.Mahalanobis.Lego
 
 import Control.DeepSeq
 import Data.List
+import Data.Proxy
 import qualified Data.Semigroup as SG
 import qualified Data.Foldable as F
 import qualified Data.Vector.Generic as VG
@@ -60,7 +61,7 @@ instance RegMatrix InvCovar where
 ---------------------------------------
 
 mkLego :: forall reg eta dp. 
-    ( SingI eta
+    ( KnownFrac eta
     , MatrixField dp
     , RegMatrix reg
     ) => Matrix (Ring dp) -> Matrix (Ring dp) -> MultiNormal dp -> Lego' reg eta dp
@@ -75,7 +76,7 @@ mkLego b c multinorm = Lego'
             Identity_ -> ident (rows b)
             InvCovar_ -> inv $ covar multinorm
         b' = scale (1/2) (m `add` scale eta b)
-        eta = fromSing (sing :: Sing eta)
+        eta = fromRational $ fracVal (Proxy :: Proxy eta)
 
 -- | given an equation Y^2 + BY + YB + C, solve for Y
 completeTheSquare :: 
@@ -94,7 +95,7 @@ completeTheSquare b c = (sqrtm' ((scale (1/4) $ b LA.<> b) `sub` c)) `sub` b
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (SingI eta, RegMatrix reg, MatrixField dp) => SG.Semigroup (Lego' reg eta dp) where
+instance (KnownFrac eta, RegMatrix reg, MatrixField dp) => SG.Semigroup (Lego' reg eta dp) where
     lego1 <> lego2 = mkLego  b' c' mn'
         where
             b' = b lego1 `add` b lego2
@@ -111,7 +112,7 @@ instance Num r => HasRing (Vector r) where
 -- training
 
 instance 
-    ( SingI eta
+    ( KnownFrac eta
     , RegMatrix reg
     , MatrixField (Vector r)
     , r ~ Ring (dp r)

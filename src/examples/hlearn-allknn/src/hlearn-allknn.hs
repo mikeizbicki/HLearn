@@ -36,12 +36,6 @@ import Numeric
 
 import Test.QuickCheck hiding (verbose,sample)
 import Debug.Trace
-import Diagrams.TwoD.Size
-import Diagrams.Backend.SVG
-
-import Data.Conduit
-import qualified Data.Conduit.List as CL
-import Data.CSV.Conduit
 
 import Control.Parallel.Strategies
 import qualified Control.ConstraintKinds as CK
@@ -126,7 +120,7 @@ main = do
 runit :: forall k tree base childContainer nodeVvec dp ring. 
     ( MetricSpace dp
     , Ord dp
-    , SingI k
+    , KnownNat k
     , Show dp
     , Show (Ring dp)
     , NFData dp
@@ -178,19 +172,20 @@ runit params tree knn = do
     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
 
-    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-
-    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--     let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--     let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--     let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+-- 
+--     let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--     let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--     let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+--
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
 --     res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
@@ -201,8 +196,8 @@ runit params tree knn = do
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
-    let qs_index = Map.fromList $ zip (VG.toList qs) [0..]
-        rs_index = Map.fromList $ zip (VG.toList rs) [0..]
+    let qs_index = Map.fromList $ zip (VG.toList qs) [0::Int ..]
+        rs_index = Map.fromList $ zip (VG.toList rs) [0::Int ..]
 
     timeIO "outputing distance" $ do
         hDistances <- openFile (distances_file params) WriteMode

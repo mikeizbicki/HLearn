@@ -34,11 +34,11 @@ instance (Storable (Ring dp), NFData (Ring dp), NFData dp) => NFData (Mega eta d
 instance HasRing dp => MahalanobisMetric (Mega eta dp) where
     getMatrix mega =  _x mega
 
-instance HasRing dp => HasRing (Mega eta dp) where
-    type Ring (Mega eta dp) = Ring dp
-
 -------------------------------------------------------------------------------
 -- algebra
+
+instance HasRing dp => HasRing (Mega eta dp) where
+    type Ring (Mega eta dp) = Ring dp
 
 -------------------------------------------------------------------------------
 -- training
@@ -49,37 +49,39 @@ instance Num r => HasRing (Vector r) where
 mkMega :: forall container eta. 
     ( Ring (container Double) ~ Double
     , VG.Vector container Double
-    , SingI eta
-    ) => [(Double,container Double)] 
+    , KnownFrac eta
+    ) => Double
+      -> [(Double,container Double)] 
       -> Mega eta (container Double)
-mkMega !xs = Mega $ _x $ (mkMega' xs'::Mega eta (Vector Double))
+mkMega etaraw !xs = Mega $ _x $ (mkMega' etaraw xs'::Mega eta (Vector Double))
     where
         xs' = map (\(y,x) -> (y, fromList $ VG.toList x)) xs
 
-mkMega' :: forall eta. SingI eta => [(Double,Vector Double)] -> Mega eta (Vector Double)
+mkMega' :: forall eta. KnownFrac eta => Double -> [(Double,Vector Double)] -> Mega eta (Vector Double)
 -- mkMega' !xs = Mega $ lego
-mkMega' !xs = Mega $ findzero a b lego
+mkMega' etaraw !xs = Mega $ findzero a b lego
     where
         (LegoPaper lego) = train_LegoPaper eta xs
         identity = ident (LA.dim $ snd $ head xs)
         xxt x = asColumn x LA.<> asRow x
+        -- TODO: remove kronecker
         a = foldl1' LA.add $ map (\(_,x) -> eta `scale` kronecker (xxt x) (xxt x)) xs
         b = foldl' LA.add (vec identity) $ map (\(y,x) -> vec $ (eta*y) `scale` xxt x) xs
 
-        eta = fromSing (sing :: Sing eta)
+        eta = etaraw -- /fromIntegral (length xs)
+
+--         eta = fromSing (sing :: Sing eta)
 
 findzero :: Matrix Double -> Matrix Double -> Matrix Double -> Matrix Double
 findzero !a !b !x0 =go x0 x0' 20
     where
         x0' = x0 `LA.sub` (((rows x0)><(cols x0)) $ repeat 1)
 
-        go x lastx 0   = x
-        go x lastx itr = (if (itr `mod` 10==0)
-         then trace ("goitr itr="++show itr++"; diff="++show diff++";   ratio="++show ratio)
-         else id) $
-          if diff <= 1e-6 || ratio <= 1e-6
-            then x 
-            else go x' x (itr-1)
+        go !x !lastx !itr = if itr==0
+            then trace ("WARNING: findzero probably failed to converge; diff="++show diff++"; ratio="++show ratio) x
+            else if diff <= 1e-6 || ratio <= 1e-6
+                then x 
+                else go x' x (itr-1)
             where
                 diff = (maxElement $ cmap abs $ x `LA.sub` lastx) 
                 ratio = (maxElement $ cmap abs $ x `LA.sub` lastx) / maxElement (cmap abs x)
