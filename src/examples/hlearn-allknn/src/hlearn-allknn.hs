@@ -172,20 +172,20 @@ runit params tree knn = do
     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
 
---     let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
---     let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
---     let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
--- 
---     let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
---     let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
---     let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
---
+    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+
+    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
+
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
 --     res <- timeIO "computing parallel findNeighborMap" $ return result
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP

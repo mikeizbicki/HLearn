@@ -15,10 +15,10 @@ maintainer:          mike@izbicki.me
 build-type:          Simple
 cabal-version:       >=1.8
 
-executable hlearn-allknn
-  main-is: hlearn-allknn.hs
---executable hlearn-knn
---  main-is: hlearn-knn.hs
+--executable hlearn-allknn
+--  main-is: hlearn-allknn.hs
+executable hlearn-knn
+  main-is: hlearn-knn.hs
 
   ghc-options:        
         -rtsopts

@@ -111,10 +111,11 @@ Library
         HLearn.Metrics.Lebesgue
         HLearn.Metrics.Jaccard
         HLearn.Metrics.Mahalanobis
-        HLearn.Metrics.Mahalanobis.Normal
+        HLearn.Metrics.Mahalanobis.ITML
         HLearn.Metrics.Mahalanobis.Lego
         HLearn.Metrics.Mahalanobis.LegoPaper
         HLearn.Metrics.Mahalanobis.Mega
+        HLearn.Metrics.Mahalanobis.Normal
         HLearn.Metrics.String.Levenshtein
         HLearn.Metrics.String.Hamming
         
@@ -131,6 +132,9 @@ Library
         HLearn.Models.Distributions.Univariate.Internal.MissingData
         HLearn.Models.Distributions.Univariate.Internal.Moments
         HLearn.Models.Distributions.Multivariate.MultiNormalFast
+
+        HLearn.Numeric.Recipes
+        HLearn.Numeric.Recipes.LineMin
         
         HLearn.NPHard.Scheduling
         HLearn.NPHard.BinPacking

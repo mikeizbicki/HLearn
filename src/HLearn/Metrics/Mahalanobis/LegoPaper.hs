@@ -1,6 +1,11 @@
 module HLearn.Metrics.Mahalanobis.LegoPaper
     where
 
+import Control.Monad
+import Control.Monad.Random hiding (fromList)
+import Control.Monad.ST
+import Data.Array.ST
+import GHC.Arr
 import qualified Data.Foldable as F
 import qualified Data.Vector.Generic as VG
 import Debug.Trace
@@ -40,11 +45,26 @@ train_LegoPaper ::
     , r ~ Ring (vec r)
     , Show r
     , Ord r
-    ) => r -> container (r,vec r) -> LegoPaper (vec r) 
-train_LegoPaper eta dps = 
-    F.foldl' (add1dp_LegoPaper eta) reg $ fmap (\(y,v) -> (y,fromList $ VG.toList v)) $ dps
+    ) => Int -> r -> container (r,vec r) -> LegoPaper (vec r) 
+train_LegoPaper rep eta dps = 
+    F.foldl' (add1dp_LegoPaper eta) reg $ fmap (\(y,v) -> (y,fromList $ VG.toList v)) $ dps'
     where
+        dps' = evalRand (shuffle $ concat $ replicate rep $ F.toList dps) $ mkStdGen 10
         reg = LegoPaper $ ident $ VG.length $ snd $ head $ F.toList dps
+
+shuffle :: RandomGen g => [a] -> Rand g [a]
+shuffle xs = do
+    let l = length xs
+    rands <- take l `fmap` getRandomRs (0, l-1)
+    let ar = runSTArray $ do
+            ar <- thawSTArray $ listArray (0, l-1) xs
+            forM_ (zip [0..(l-1)] rands) $ \(i, j) -> do
+                vi <- readSTArray ar i
+                vj <- readSTArray ar j
+                writeSTArray ar j vi
+                writeSTArray ar i vj
+            return ar
+    return (elems ar)
 
 add1dp_LegoPaper :: 
     ( Storable r
