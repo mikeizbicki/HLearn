@@ -20,8 +20,6 @@ import System.IO
 import Text.Read
 
 import Debug.Trace
-import Diagrams.TwoD.Size
-import Diagrams.Backend.SVG
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
@@ -36,8 +34,9 @@ import HLearn.Evaluation.CrossValidation
 import HLearn.Metrics.Lebesgue
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
+import HLearn.Metrics.Mahalanobis.ITML
 import HLearn.Metrics.Mahalanobis.Lego
-import HLearn.Metrics.Mahalanobis.LegoPaper
+import HLearn.Metrics.Mahalanobis.LegoPaper hiding (shuffle)
 import HLearn.Metrics.Mahalanobis.Mega
 import HLearn.Models.Distributions
 
@@ -114,9 +113,11 @@ main = do
     print metricLstr
     let metricL = map go [ (a,b) | a <- metricLstr, b <- regularizationL ]
         go (a,b) = case a of
-            "mega" -> ("Mega-"++show b, MetricBox $ (mkMega b
+            "mega" -> ("Mega "++show b, MetricBox $ (mkMega b
                                     :: [(Double, VU.Vector Double)] -> Mega (1/1) (VU.Vector Double)))
-            "lego" -> ("Lego-"++show b, MetricBox $ train_LegoPaper b)
+            "lego" -> ("Lego "++show b, MetricBox $ train_LegoPaper 1 b)
+            "itml" -> ("ITML "++show b, MetricBox $ train_ITML b)
+            otherwise -> error $ a++" is not a known metric"
 
     -----------------------------------
     -- load data
@@ -238,10 +239,10 @@ cv_legit_MetricBox ::
       -> Rand g (Normal Double Double)
 cv_legit_MetricBox genfolds loss xs (MetricBox trainmetric) nummetric trainmodel = do
     xs' <- genfolds $ F.toList xs
-    return $ trace (" cv_hash="++show (VG.sum $ attr $ head $ head xs')) $ train $ do
+    return $ train $ do
         testset <- xs'
         let trainingset = concat $ filter (/=testset) xs'
-            metric = trainmetric $ genMetricConstraints (V.fromList $ F.toList xs) nummetric
+            metric = trainmetric $ genMetricConstraints (V.fromList $ F.toList trainingset) nummetric
             trainingset' = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) trainingset
             testset' = fmap (\dp -> MaybeLabeled (label dp) (applyMahalanobis metric $ attr dp)) testset 
         let model = trainmodel trainingset'
