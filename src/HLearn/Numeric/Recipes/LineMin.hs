@@ -7,7 +7,7 @@ import Debug.Trace
 
 -- stepGoldenSectionSearch :: (Fractional a,Ord a) => (a -> a) -> a -> a -> a -> a
 -- stepGoldenSectionSearch f ax bx cx = go 0 (f x1_) (f x2_) 0 ax x1_ x2_ cx
-goldenSectionSearch f ax bx cx = go (f ax) (f x1_) (f x2_) (f cx) ax x1_ x2_ cx
+goldenSectionSearch !f !ax !bx !cx = go (f ax) (f x1_) (f x2_) (f cx) ax x1_ x2_ cx
     where
         x1_ = if abs (cx-bx) > abs (bx-ax)
             then bx
@@ -87,10 +87,10 @@ step_GoldenSectionSearch !f !( !f1, !f2, !x0, !x1, !x2, !x3 ) = if f2 < f1
     
 -------------------------------------------------------------------------------
 
-data LineBracket a = LineBracket { _ax :: a, _bx :: a, _cx :: a, _fa :: a, _fb :: a, _fc :: a }
+data LineBracket a = LineBracket { _ax :: !a, _bx :: !a, _cx :: !a, _fa :: !a, _fb :: !a, _fc :: !a }
     deriving (Read,Show)
 
-lineBracket f pt1 pt2 = itr 100 id stop_LineBracket (step_LineBracket f) $ LineBracket
+lineBracket !f !pt1 !pt2 = itr 100 id stop_LineBracket (step_LineBracket f) $ LineBracket
     { _ax = ax
     , _bx = bx
     , _cx = cx
@@ -107,10 +107,10 @@ lineBracket f pt1 pt2 = itr 100 id stop_LineBracket (step_LineBracket f) $ LineB
 
 
 stop_LineBracket :: (Fractional a, Ord a) => LineBracket a -> Bool
-stop_LineBracket lb = _fb lb <= _fc lb
+stop_LineBracket !lb = _fb lb <= _fc lb
 
 
-step_LineBracket f lb@(LineBracket ax bx cx fa fb fc) = ret
+step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = ret
     where
         sign a b = if b>0 then abs a else -(abs a)
         tiny = 1e-20
@@ -182,10 +182,10 @@ step_LineBracket f lb@(LineBracket ax bx cx fa fb fc) = ret
 
 -------------------------------------------------------------------------------
 
-data Brent a = Brent { _a :: a, _b :: a, _d :: a, _e :: a, _fv :: a, _fw :: a, _fx :: a, _v :: a, _w :: a, _x :: a }
+data Brent a = Brent { _a :: !a, _b :: !a, _d :: !a, _e :: !a, _fv :: !a, _fw :: !a, _fx :: !a, _v :: !a, _w :: !a, _x :: !a }
     deriving (Read,Show)
 
-brent f (LineBracket ax bx cx fa fb fc) = itr 100 id stop_Brent (step_Brent f) init
+brent !f (LineBracket ax bx cx fa fb fc) = itr 100 id stop_Brent (step_Brent f) init
     where
         init = Brent
             { _a = min ax cx
@@ -210,11 +210,11 @@ stop_Brent (Brent a b d e fv fw fx v w x) = abs (x-xm) <= tol2'-0.5*(b-a)
         tol = 1e-6
         zeps = 1e-10
 
-findmin f = _x $ brent f $ lineBracket f 10 100 
+findmin 1f = _x $ brent f $ lineBracket f 10 100 
 findmin_gss f = gss f $ lineBracket f 10 100 
 
 -- step_Brent :: (Fractional a, Ord a) => Brent a -> Brent a
-step_Brent f brent@(Brent a b d e fv fw fx v w x) = brent'
+step_Brent !f brent@(Brent a b d e fv fw fx v w x) = brent'
     where
         cgold = 0.3819660
         zeps = 1e-10

@@ -47,6 +47,7 @@ Library
         memoize             >= 0.6,
         cassava             >= 0.2.2,
         strict              >= 0.3.2,
+        normaldistribution  >= 1.1.0.3,
         
         ghc-prim, 
 
@@ -133,8 +134,11 @@ Library
         HLearn.Models.Distributions.Univariate.Internal.Moments
         HLearn.Models.Distributions.Multivariate.MultiNormalFast
 
+        HLearn.Numeric.Conic
         HLearn.Numeric.Recipes
+        HLearn.Numeric.Recipes.GradientDescent
         HLearn.Numeric.Recipes.LineMin
+        HLearn.Numeric.Recipes.Amoeba
         
         HLearn.NPHard.Scheduling
         HLearn.NPHard.BinPacking
@@ -204,6 +208,7 @@ test-suite tests
     dlist               >= 0.5,
     split               >= 0.2.2,
     semigroups          >= 0.9,
+    normaldistribution  >= 1.1.0.3,
 
     QuickCheck          >= 2.6,
 

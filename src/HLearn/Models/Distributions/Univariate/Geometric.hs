@@ -21,7 +21,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- Geometric
 
-newtype Geometric prob dp = Geometric {  moments :: (Moments3 dp) }
+newtype Geometric (prob :: *) dp = Geometric {  moments :: (Moments3 dp) }
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 instance (Num dp) => HomTrainer (Geometric prob dp) where

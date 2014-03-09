@@ -27,10 +27,14 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
 import HLearn.Metrics.Mahalanobis
+import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Metrics.Mahalanobis.LegoPaper
 import HLearn.Metrics.Mahalanobis.ITML hiding (_x)
 import HLearn.Models.Distributions.Multivariate.MultiNormalFast
+import qualified HLearn.Numeric.Conic as Recipe
 import qualified HLearn.Numeric.Recipes as Recipe
+import qualified HLearn.Numeric.Recipes.GradientDescent as Recipe
+import qualified HLearn.Numeric.Recipes.Amoeba as Recipe
 
 -------------------------------------------------------------------------------
 -- data types
@@ -56,17 +60,15 @@ instance HasRing dp => HasRing (Mega eta dp) where
 -------------------------------------------------------------------------------
 -- training
 
-instance Num r => HasRing (Vector r) where
-    type Ring (Vector r) = r
-
 mkMega :: forall container eta. 
     ( Ring (container Double) ~ Double
     , VG.Vector container Double
     , KnownFrac eta
     ) => Double
+      -> Double
       -> [(Double,container Double)] 
       -> Mega eta (container Double)
-mkMega etaraw !xs = Mega $ _x $ (mkMega' etaraw xs'::Mega eta (Vector Double))
+mkMega etaraw eta2 !xs = Mega $ _x $ (mkMega' etaraw eta2 xs'::Mega eta (Vector Double))
     where
         xs' = map (\(y,x) -> (y, fromList $ VG.toList x)) xs
 
@@ -86,47 +88,127 @@ mkMega etaraw !xs = Mega $ _x $ (mkMega' etaraw xs'::Mega eta (Vector Double))
 --         eta = etaraw 
 
 
-mkMega' :: forall eta. KnownFrac eta => Double -> [(Double,Vector Double)] -> Mega eta (Vector Double)
-mkMega' etaraw !xs = {-trace ("megamatrix="++show res) $ -} Mega $ res 
+mkMega' :: forall eta. KnownFrac eta => Double -> Double -> [(Double,Vector Double)] -> Mega eta (Vector Double)
+mkMega' etaraw eta2 !xs = {-trace ("megamatrix="++show res) $ -} 
+    deepseq lego $ deepseq itml $ deepseq res $
+    trace ("rank q_zz="++show (LA.rank (q_zz :: Matrix Double))++"; rank a="++show (LA.rank a)) $
+    trace ("lego score="++show (f lego)) $
+    trace ("itml score="++show (f itml)) $
+    trace ("mega score="++show (f res)) $
+    trace ("trace  = "++show (tr $ res)) $ 
+    trace ("logdet = "++show (log $ det res)) $
+    trace ("zAzzAz = "++show (0.5*eta*(sumElements $ (trans $ vec res) LA.<> q_zz LA.<> (vec res)))) $
+    trace ("yzAz   = "++show (0.5*eta*(sumElements $ scale (-2) $ q_yz * res))) $
+    trace ("yy     = "++show (0.5*eta*q_yy)) $
+    trace ("sum    = "++show (0.5*eta*((sumElements $ (trans $ vec res) LA.<> q_zz LA.<> (vec res))
+                                      +(sumElements $ scale (-2) $ q_yz * res)
+                                      +q_yy))) $
+--     trace ("eigenvalues q_zz="++show (eigenvalues q_zz)) $
+--     deepseq res $ deepseq res2 $ deepseq res3 $
+--     trace ("res="++show res++"\n\nres2="++show res2++"\n\nres3="++show res3) $
+    Mega $ res 
     where
-        res = Recipe.conjugateGradientDescent f f' init
-        x0 = identity
-        (ITML init) = train_ITML 10 xs
+        magicJumble2 0 x = x
+        magicJumble2 i x = magicJumble2 (i-1) 
+--                        $ trace "---------------\nunderscore" $ Recipe.newtonRaphson_constrained f_ f'_ f''_
+--                        $ trace "---------------\nplain" $ Recipe.newtonRaphson_constrained f f'c f''
+                       $ Recipe.conjugateGradientDescent f f'
+                       $ Recipe.newtonRaphson_constrained f f'c f''
+                       $ x
+        
+        magicJumble 0 x = x
+        magicJumble i x = magicJumble (i-1) x'
+            where
+                x_proj = Recipe.conicProjection f
+                       $ Recipe.newtonRaphson_constrained f f'c f''
+                       $ x
+                
+                fx = f x
+                fx_proj = f x_proj
+
+                x' = Recipe.randomConicPersuit f $ if fx_proj < fx
+                    then x_proj
+                    else x
+
+        res = 
+            Recipe.newtonRaphson_constrained f f'c f''
+            $ Recipe.conjugateGradientDescent f f'
+            $ x0
+
+        res1 = findzero a b x0
+        res2 = findzero a b $ Recipe.conjugateGradientDescent f f' x0
+        res3 = findzero a b itml
+
+--         x0 = identity
+        x0 = mahalanobis
+        mahalanobis = getMatrix $ (train $ map snd xs :: MahalanobisParams (Vector Double))
+        (ITML itml) = train_ITML 10 xs -- :: ITML (Double,Vector Double)
+        (LegoPaper lego _ _) = train_LegoPaper 1 0.01 xs -- :: LegoPaper (Double,Vector Double)
         
         identity = ident (LA.dim $ snd $ head xs)
         xxt x = asColumn x LA.<> asRow x
-        a = foldl1' LA.add $ map (\(_,x) -> eta `scale` kronecker (xxt x) (xxt x)) xs
+--         a = foldl1' LA.add $ map (\(_,x) -> eta `scale` kronecker (xxt x) (xxt x)) xs
+        a = scale eta q_zz
         b = foldl' LA.add (vec identity) $ map (\(y,x) -> vec $ (eta*y) `scale` xxt x) xs
 
---         q_zz = foldl1' LA.add $ map (\(y,x) -> let z=asColumn x in (vec z)*(trans $ vec z) * (trans $ (vec z)*(trans $ vec z))) xs
---         q_yz = foldl1' LA.add $ map (\(y,x) -> let z=asColumn x in scale ((-2)*y) (z `LA.mul` trans z)) xs
-        q_zz = foldl1' LA.add $ map (\(y,x) -> (asColumn $ flatten $ xxt x) LA.<> (asRow$flatten$xxt x)) xs
-        q_yz = foldl1' LA.add $ map (\(y,x) -> scale (-2*y) (xxt x)) xs
-        q_yy = sum $ map fst xs
+--         q_zz = foldl1' LA.add $ map (\(y,x) -> (asColumn$flatten$xxt x) LA.<> (asRow$flatten$xxt x)) xs
+--         q_yz = foldl1' LA.add $ map (\(y,x) -> scale (-2*y) (xxt x)) xs
+        q_z  = sum $ map (\(y,x) -> xxt x) xs
+        q_zz = q_zz_mock
+        q_zz_lowrank = (head $ head $ toBlocks [size] [rank] u) 
+                 LA.<> (diagRect 0 (VG.slice 0 rank sigma) rank rank)
+                 LA.<> (head $ head $ toBlocks [rank] [size] $ trans v) :: Matrix Double
+--         rank=rows x0
+        rank=floor  $ (fromIntegral size::Double)/2
+        size=rows q_zz_full
+        (u,sigma,v) = svd q_zz_full
+        q_zz_full = sum $ map (\(y,x) -> kronecker (xxt x) (xxt x)) xs
+        q_zz_mock = kronecker zz zz
+            where
+                zz = sum $ (map (\(y,x) -> xxt x)) xs
+        q_yz = sum $ map (\(y,x) -> scale y (xxt x)) xs
+        q_yy = sum $ map (\(y,x) -> y^2) xs
+        q_zzk= sum $ map (\(y,x) -> kronecker (xxt x) (xxt x)) xs
 
         eta = etaraw 
+--         eta = etaraw / fromIntegral (length xs)
 
         tr = LA.sumElements . LA.takeDiag
-        f x   = -- trace ("x="++show x++"\n\n\nvec x="++show (vec x)++"\n\n\nq_zz="++show q_zz) $ 
---                 trace ("det="++show (LA.det $ x LA.<> LA.inv x0))
-                (tr $ x LA.<> x0)
-              + if det < 0
-                    then 1e100
-                    else log det
-              + (maxElement $ (trans $ vec x) LA.<> q_zz LA.<> (vec x))
-              + (sumElements $ q_yz * x)
-              + q_yy
-            where det = LA.det $ x LA.<> LA.inv x0 
-        f' x  = reshape (rows x) $ flatten $ (scale (-1) $ vec (inv x)) `LA.add` (a LA.<> vec x) `LA.sub` b
---         f' x  = (scale (-1) $ vec (inv x)) `LA.add` (a LA.<> vec x) `LA.sub` b
-        f'' x = kronecker (inv x) (inv x) `LA.add` a 
 
-megaZero a b x0 = Recipe.conjugateGradientDescent f f' x0 
-    where
-        tr = LA.sumElements . LA.takeDiag
-        f x   = (tr $ x `LA.mul` x0) + (log $ LA.det $ x `LA.mul` LA.inv x0) 
-        f' x  = (scale (-1) $ vec (inv x)) `LA.add` (a LA.<> vec x) `LA.sub` b
-        f'' x = kronecker (inv x) (inv x) `LA.add` a 
+        f :: Matrix Double -> Double
+        f x = tr prod
+            + if det < 0
+                then infinity
+                else (-1) * log det
+            + 0.5*eta*
+                ( (sumElements $ (trans $ vec x) LA.<> q_zz LA.<> (vec x))
+                + (sumElements $ scale (-2) $ q_yz * x)
+                + q_yy
+                )
+            + eta2 * (pnorm Frobenius x)
+            where 
+                det = LA.det prod
+                prod = x LA.<> LA.inv x0
+
+        f_ x = tr (x LA.<> LA.inv x0)
+            + 0.5*eta*
+                ( (sumElements $ (trans $ vec x) LA.<> q_zz LA.<> (vec x))
+                + (sumElements $ scale (-2) $ q_yz * x)
+                + q_yy
+                )
+        f'_ x = (a LA.<> vec x) `LA.sub` b
+        f''_ x = a
+
+        f' x = f'a x + scale (eta2*2) x
+        f'a x = reshape (rows x) $ flatten $ (vec $ (-1) `scale` inv x) `LA.add` (a LA.<> vec x) `LA.sub` b
+        f'b x = inv x0 - inv x + scale eta ((reshape (rows x) $ flatten $ q_zzk LA.<> vec x) - q_yz)
+        f'c x = (vec $ (-1) `scale` inv x) `LA.add` (a LA.<> vec x) `LA.sub` b
+
+        f'' x = kronecker xinv xinv `LA.add` a
+              + scale eta2 (ident $ (rows xinv)^2)
+--         f'' x = reshape (rows x) $ flatten $ kronecker xinv xinv `LA.add` a
+            where
+                xinv = inv x
 
 -- stepLineMin f f' lower mid upper
 

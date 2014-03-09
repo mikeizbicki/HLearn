@@ -7,7 +7,9 @@ module HLearn.Models.Distributions.Univariate.Categorical
     
     -- * Helper functions
     , dist2list
+    , pdfmap
     , mostLikely
+    , map2cat
     )
     where
 
@@ -140,6 +142,9 @@ mostLikely dist = fst $ argmax snd $ Map.toList $ pdfmap dist
 dist2list :: Categorical prob label -> [(label,prob)]
 dist2list (Categorical pdfmap) = Map.toList pdfmap
 
+-- | Constructs a categorical distribution
+map2cat :: Map.Map label prob -> Categorical prob label
+map2cat = Categorical
 
 instance 
     ( Ord label, Show label
