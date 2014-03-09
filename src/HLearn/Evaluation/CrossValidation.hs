@@ -36,6 +36,11 @@ withPercent p f xs = do
     xs' <- shuffle xs
     f $ take (floor $ (fromIntegral $ length xs') * p) xs'
 
+repeatExperiment :: Int -> SamplingMethod -> SamplingMethod
+repeatExperiment i f xs = do
+    liftM concat $ forM [1..i] $ \i -> do
+        f xs
+
 kfold :: Int -> SamplingMethod
 kfold k xs = do
     xs' <- shuffle xs

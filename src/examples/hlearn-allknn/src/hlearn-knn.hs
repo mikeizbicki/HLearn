@@ -12,6 +12,7 @@ import qualified Data.Foldable as F
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import System.Console.CmdArgs.Implicit
@@ -59,6 +60,9 @@ data Params = Params
     , trials            :: Int
     , param_nummetricsamples  :: String
     , regularization    :: String 
+    , regularization2   :: String 
+    , splits            :: String 
+    , takes             :: String 
     , metric            :: String
     , label_column      :: Maybe Int
     , data_file         :: Maybe String 
@@ -72,6 +76,9 @@ sample = Params
     , trials            = 10 &= help "number of trials to repeat crossvalidation"
     , param_nummetricsamples  = "10000" &= help "number of training samples for the metric learner"
     , regularization    = "[0.01]" &= help "regularization rate for metric learning"
+    , regularization2   = "[0]" &= help "regularization rate for metric learning (2nd param)"
+    , splits            = "[1]" &= help "splits for monoid test"
+    , takes             = "[1]" &= help "how many splits to actually use"
     , metric            = "[mega]" &= help "metric to use for nearest neighbor classificaiton"
     , label_column      = Nothing &= help "column of the label in data_file"
     , data_file         = def &= help "reference data set in CSV format" &= typFile
@@ -109,14 +116,23 @@ main = do
     
     let metricLstr = words $ tail $ init $ map (\x -> if x==',' then ' ' else x) $  metric params :: [String]
         regularizationL = readParamList $ regularization params :: [Double]
+        regularization2L = readParamList $ regularization2 params :: [Double]
+        splitsL = readParamList $ splits params :: [Int]
+        takesL = readParamList $ takes params :: [Int]
         
     print metricLstr
-    let metricL = map go [ (a,b) | a <- metricLstr, b <- regularizationL ]
+    let metricL = join $ map go [ (a,b) | a <- metricLstr, b <- regularizationL ]
         go (a,b) = case a of
-            "mega" -> ("Mega "++show b, MetricBox $ (mkMega b
+            "mega" -> [("Mega "++show b++" "++show c, MetricBox $ (mkMega b c
                                     :: [(Double, VU.Vector Double)] -> Mega (1/1) (VU.Vector Double)))
-            "lego" -> ("Lego "++show b, MetricBox $ train_LegoPaper 1 b)
-            "itml" -> ("ITML "++show b, MetricBox $ train_ITML b)
+                      | c<-regularization2L
+                      ]
+            "lego" -> [("Lego "++show b, MetricBox $ train_LegoPaper 1 b)]
+            "lMon1" -> [("LegoMonoid1 "++show b++"; splits="++show c++"; takes="++show d, MetricBox $ train_LegoMonoid mappend1 c d b)
+                       | c <- splitsL, d <- takesL ]
+            "lMon2" -> [("LegoMonoid2 "++show b++"; splits="++show c++"; takes="++show d, MetricBox $ train_LegoMonoid mappend1 c d b)
+                       | c <- splitsL, d <- takesL ]
+            "itml" -> [("ITML "++show b, MetricBox $ train_ITML b)]
             otherwise -> error $ a++" is not a known metric"
 
     -----------------------------------

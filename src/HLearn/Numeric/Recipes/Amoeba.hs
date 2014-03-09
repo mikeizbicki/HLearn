@@ -1,4 +1,5 @@
 module HLearn.Numeric.Recipes.Amoeba
+    where
 
 import Control.Monad
 import Control.Monad.ST

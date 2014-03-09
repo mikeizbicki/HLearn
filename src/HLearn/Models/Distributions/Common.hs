@@ -15,6 +15,7 @@ module HLearn.Models.Distributions.Common
     
     -- * Utility functions
     , nonoverlap
+    , stddev
     )
     where
 
@@ -41,8 +42,12 @@ class (Probabilistic dist) => PDF dist where
 class (HomTrainer dist) => Mean dist where
     mean :: dist -> Datapoint dist
     
-class (Probabilistic dist) => Variance dist where
+class Probabilistic dist => Variance dist where
     variance :: dist -> Probability dist
+
+
+stddev :: (Variance dist, Floating (Probability dist)) => dist -> Probability dist
+stddev = sqrt . variance
 
 
 -- class PDF dist dp prob | dist -> dp, dist -> prob where

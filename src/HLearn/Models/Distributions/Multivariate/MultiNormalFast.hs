@@ -82,6 +82,9 @@ mkMultiNormal' raw = MultiNormal'
 -------------------------------------------------------------------------------
 -- algebra
 
+instance HasRing dp => HasRing (MultiNormal dp) where
+    type Ring (MultiNormal dp) = Ring dp
+
 instance 
     ( Container Matrix (Ring dp)
     , Container Vector (Ring dp)

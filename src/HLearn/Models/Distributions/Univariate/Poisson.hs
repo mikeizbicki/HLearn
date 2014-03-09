@@ -23,7 +23,7 @@ import HLearn.Models.Distributions.Visualization.Gnuplot
 -------------------------------------------------------------------------------
 -- Poisson
 
-newtype Poisson prob dp = Poisson {  pmoments :: (Moments3 dp) }
+newtype Poisson (prob :: *) dp = Poisson {  pmoments :: (Moments3 dp) }
     deriving (Read,Show,Eq,Ord,Monoid,Group)
 
 instance (Num dp) => HomTrainer (Poisson prob dp) where

@@ -1,9 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE BangPatterns #-}
 module HLearn.Models.Distributions.Univariate.Binomial
     where
 
@@ -18,7 +12,7 @@ import Statistics.Distribution.Binomial
 -------------------------------------------------------------------------------
 -- data types
 
-newtype Binomial prob dp = Binomial {  bmoments :: (Moments3 dp) }
+newtype Binomial (prob :: *) dp = Binomial {  bmoments :: (Moments3 dp) }
     deriving (Read,Show,Eq,Ord,Monoid,Group)
     
 -------------------------------------------------------------------------------
