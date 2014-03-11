@@ -23,8 +23,8 @@ import HLearn.Numeric.Recipes
 import qualified HLearn.Numeric.Recipes.LineMin as LineMin
 
 
-g x = (x - 3) * (x + 5) * (x - 12) * (x+1)
-g2 x = (x - 3) * (x+1)
+-- g x = (x - 3) * (x + 5) * (x - 12) * (x+1)
+-- g2 x = (x - 3) * (x+1)
 
 step_NewtonRaphson_constrained !f !f' !f'' !tmp = OptTmp
     { __x = x'
@@ -61,7 +61,7 @@ step_NewtonRaphson_unconstrained !f !f' !f'' !tmp = OptTmp
 newtonRaphson_constrained !f !f' !f''  !x0 = if __fx res > __fx_old res then __x res else __x_old res
     where
         res = itr2
-            ( f_or 
+            ( 
                 [ stop_itr __itr 10
                 , stop_tolerance __fx __fx_old 1e-12
                 ]
@@ -73,7 +73,7 @@ newtonRaphson_constrained !f !f' !f''  !x0 = if __fx res > __fx_old res then __x
 newtonRaphson_unconstrained !f !f' !f''  !x0 = if __fx res > __fx_old res {- || __fx res == infinity -} then __x res else __x_old res
     where
         res = itr2
-            ( f_or 
+            ( 
                 [ stop_itr __itr 10
                 , stop_tolerance __fx __fx_old 1e-12
                 ]
@@ -92,11 +92,11 @@ data OptTmp a = OptTmp
 
 -------------------------------------------------------------------------------
 
-itr2 :: Show tmp => (tmp -> Bool) -> (tmp -> tmp) -> tmp -> tmp
-itr2 !stop !step !tmp =  -- trace ("tmp="++show tmp) $ 
-  if stop tmp
-    then tmp
-    else itr2 stop step (step tmp)
+-- itr2 :: Show tmp => (tmp -> Bool) -> (tmp -> tmp) -> tmp -> tmp
+-- itr2 !stop !step !tmp =  -- trace ("tmp="++show tmp) $ 
+--   if stop tmp
+--     then tmp
+--     else itr2 stop step (step tmp)
 
 randomStart !reps !f !opt !x0 = deepseq optL $ trace ("map f optL="++show (map f optL)) $ argmin f optL
     where
@@ -118,121 +118,67 @@ randomStart !reps !f !opt !x0 = deepseq optL $ trace ("map f optL="++show (map f
                         i' = min i j
                         j' = max i j
 
-f_or :: [a -> Bool] -> a -> Bool
-f_or xs a = or $ map ($a) xs
 
-conjugateGradientDescent !f !f' !x0 = _x $ itr2
-    ( f_or 
-        [ stop_itr _itr 100
-        , stop_tolerance _fx _fxlast 1e-6
-        ]
-    )
-    (step_ConjugateGradientDescent f f') 
-    init
-    where
-        init = ConjugateGradientDescent 
-            { _x = x'
-            , _fx = f x'
-            , _dir = dir'
-            , _grad = dir'
-            , _xlast = x0 
-            , _fxlast = fx0
-            , _nomove = 0
-            , _itr = 0
-            }
-
-        dir' = scale (-1) $ f' x0
-        alpha = LineMin._x $ LineMin.brent g (LineMin.lineBracket g 0 1e-2)
-        g y = f $ x0 + scale y dir'
-        x' = x0 + scale alpha dir'
-                
-
-        fx0 = f x0
-
-data ConjugateGradientDescent a = ConjugateGradientDescent 
-    { _x :: !a
-    , _fx :: !(Ring a)
-    , _dir :: !a
-    , _grad :: !a
-    , _xlast :: !a
-    , _fxlast :: !(Ring a)
-    , _nomove :: !Int
-    , _itr :: !Int
+data CGD a = CGD
+    { ___x1 :: !a
+    , ___fx1 :: !(Ring a)
+    , ___f'x1 :: !a
+    , ___f'x0 :: !a
+    , ___s0 :: !a
     }
 
-deriving instance (Show a, Show (Ring a)) => Show (ConjugateGradientDescent a)
-
--- stop_ConjugateGradientDescent :: (HasRing a, Field (Ring a), Ord (Ring a)) => ConjugateGradientDescent a -> Bool
-stop_ConjugateGradientDescent (ConjugateGradientDescent x fx dir grad xlast fxlast nomove itr) = trace ("left="++show left++"; right="++show right++"; diff="++show (left-right)++"; fx="++show fx++"; fxlast="++show fxlast++"; gradsize="++show gradsize++"; nomove="++show nomove) $ 
-    (nomove > 500 && left <= right) || fx > 1e200 || fx /= fx
+cgd f f' x0 = optimize
+    (_stop_itr 1000 <> _stop_tolerance ___fx1 1e-2)
+    (step_cgd LineSearch PolakRibiere f f')
+    (initTrace cgd1 cgd0)
     where
-        left = 2*(abs $ fx-fxlast) 
-        right = tol*(abs fxlast+abs fx+eps)
---         left = abs (fx-fxlast)
---         right = tol
---         eps = 1e-10
-        tol = 1e-18
-        gradsize = sumElements $ cmap abs dir
+        cgd1 = step_cgd LineSearch None f f' cgd0
 
-step_ConjugateGradientDescent f f' (ConjugateGradientDescent x fx dir grad xlast fxlast nomove itr) = 
-    trace ("step_cgd; alphs="++show alpha++"; fx="++show fx++"; gradsize="++show gradsize++"; beta="++show beta) 
---     $ trace ("dir'="++show dir') 
-    ret
-    where
-        delta_x = scale (-1) $ f' x
---         beta = 1::Double
-        beta = (sumElements $ delta_x * delta_x)
-             / (sumElements $ grad * grad)
---         beta = (sumElements $ (trans $ delta_x) LA.<> (delta_x - grad))
---              / (sumElements $ (trans $ grad) LA.<> grad)
-        dir' = delta_x + scale beta dir
---         alpha = 0.01 
-        alpha = LineMin._x $ LineMin.brent g (LineMin.lineBracket g 0 1e-2)
-        g y = f $ x + scale y dir'
-        x' = x + scale alpha dir'
-
-        gradsize = sumElements $ cmap abs dir'
-
-        ret = ConjugateGradientDescent
-            { _x = x'
-            , _fx = f x'
-            , _dir = dir'
-            , _grad = delta_x
-            , _xlast = x
-            , _fxlast = fx
-            , _nomove = if fx==fxlast
-                then nomove+1
-                else 0
---                 else if nomove > 0
---                     then error "nomove reset"
---                     else 0
-            , _itr = itr+1
+        cgd0 = CGD
+            { ___x1 = x0
+            , ___fx1 = f x0
+            , ___f'x1 = f' x0
+            , ___f'x0 = f' x0
+            , ___s0 = f' x0
             }
 
--- step_ConjugateGradientDescent f f' (ConjugateGradientDescent x fx dir xlast fxlast) = trace ("step_cgd; dist="++show dist++"; fx="++show fx++{-"; fxlast="++show fxlast++-}"; gradsize="++show gradsize++"; beta="++show beta) ret
---     where
---         g y = f $ x `LA.add` scale (y) dir'
--- 
--- --         dist = LineMin.gss g (LineMin.lineBracket g 0 1e-20)
---         dist = LineMin._x $ LineMin.brent g (LineMin.lineBracket g 0 1e-20)
--- 
--- --         betaraw = (f'x' LA.<> trans f'x') / ( dir LA.<> trans dir)
---         beta = (sumElements $ f'x' * f'x') / (sumElements $ dir * dir)
--- --         beta = sumElements $ betaraw
--- --         beta = maxElement $ (trans f'x' LA.<> (f'x' `LA.sub` dir)) / (trans dir LA.<> dir)
--- 
---         dir' = f'x' -- `LA.add` scale beta dir
--- 
---         gradsize = sumElements f'x'
--- 
---         f'x' = scale (-1) $ f' x
--- 
---         x' = x `LA.add` scale dist f'x'
--- 
---         ret = ConjugateGradientDescent
---             { _x = x'
---             , _fx = f x'
---             , _dir = dir'
---             , _xlast = x
---             , _fxlast = fx
---             }
+-- | Selects a method for choosing the step size
+data StepMethod
+    = StepSize Double
+    | LineSearch
+
+-- | method for determining the conjugate direction; See <https://en.wikipedia.org/wiki/Nonlinear_conjugate_gradient>
+data ConjugateMethod
+    = None
+    | FletcherReeves
+    | PolakRibiere
+    | HestenesStiefel
+
+
+step_cgd stepMethod conjMethod f f' (CGD x1 fx1 f'x1 f'x0 s0) = 
+  trace ("fx1="++show fx1++"; beta="++show beta++"; alpha="++show alpha) $ CGD
+    { ___x1 = x
+    , ___fx1 = f x
+    , ___f'x1 = f' x
+    , ___f'x0 = f'x1
+    , ___s0 = s1
+    }
+    where
+        beta = max 0 $ case conjMethod of
+            None -> 0
+            FletcherReeves -> (sumElements $ f'x1 * f'x1) / (sumElements $ f'x0 * f'x0)
+            PolakRibiere -> (sumElements $ f'x1*(f'x1-f'x0)) / (sumElements $ f'x0 * f'x0)
+            HestenesStiefel -> -(sumElements $ f'x1*(f'x1-f'x0)) / (sumElements $ s0 * (f'x1-f'x0))
+
+        s1 = -f'x1 + scale beta f'x1
+        g y = f $ x1 + scale y s1
+
+        alpha = case stepMethod of
+            StepSize x -> x
+            LineSearch -> LineMin._x $ LineMin.brent g (LineMin.lineBracket g 0 1)
+
+        x = x1 + scale alpha s1
+
+runOptimization :: DoTrace (CGD a) -> a
+runOptimization (DoTrace (x:_)) = ___x1 $ x
+

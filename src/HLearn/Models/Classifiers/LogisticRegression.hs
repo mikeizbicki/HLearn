@@ -1,8 +1,11 @@
 module HLearn.Models.Classifiers.LogisticRegression
     where
 
+import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
+import Data.List.Extras
+import Data.Maybe
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
@@ -22,173 +25,251 @@ import HLearn.Algebra
 import HLearn.Evaluation.CrossValidation
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
+import qualified HLearn.Numeric.Recipes.GradientDescent as Recipe
+import qualified HLearn.Numeric.Recipes as Recipe
 
 
 -------------------------------------------------------------------------------
 -- data types
 
-data LogisticRegression dp = LogisticRegression
-    { m0 :: !(Map.Map (Label dp) (Ring dp))
-    , m1 :: !(Map.Map (Label dp) (Attributes dp))
-    , m2 :: !(Attributes dp)
-    , w :: (VS.Vector (Ring dp))
+newtype LogReg dp = LogReg
+    { weights :: Map.Map (Label dp) (Attributes dp)
     }
 
-data LogRes dp = LogRes
-    { _w :: !(Map.Map (Label dp) (Attributes dp))
-    , _bias :: Ring dp
-    }
+deriving instance 
+    ( NFData (Ring dp)
+    , NFData (Label dp)
+    , NFData (Attributes dp)
+    ) => NFData (LogReg dp)
 
 class InnerProduct v where
     inner :: v -> v -> Ring v
 
 instance (VS.Storable r, Num r) => InnerProduct (Vector r) where
-    inner v1 v2 = sum $ zipWith (+) (VG.toList v1) (VG.toList v2)
+    inner v1 v2 = sum $ zipWith (*) (VG.toList v1) (VG.toList v2)
 
 deriving instance 
     ( Show (Label dp)
     , Show (Ring dp)
     , Show (Attributes dp)
     , VS.Storable (Ring dp)
-    ) => Show (LogisticRegression dp)
-
--------------------------------------------------------------------------------
--- algebra
-
-instance HasRing dp => HasRing (LogisticRegression dp) where
-    type Ring (LogisticRegression dp) = Ring dp
-
-instance 
-    ( Ord (Label dp)
-    , VG.Vector vec a
-    , (Attributes dp) ~ vec a
-    , Num (Attributes dp)
-    , HasRing dp
-    , Fractional a
-    , Fractional (Ring dp)
-    , VS.Storable (Ring dp)
-    ) => Monoid (LogisticRegression dp) 
-        where
-    mempty = LogisticRegression
-        { m0 = mempty
-        , m1 = mempty
---         , m2 = VG.fromList $ replicate 8 0
-        , m2 = VG.fromList $ replicate 1000 0
-        , w = VG.replicate 1000 0
-        }
-
-    mappend a b = LogisticRegression
-        { m0 = Map.unionWith (+) (m0 a) (m0 b)
-        , m1 = Map.unionWith (+) (m1 a) (m1 b)
-        , m2 = VG.fromList $ zipWith (+) (VG.toList $ m2 a) (VG.toList $ m2 b)
-        , w = VG.fromList $ zipWith (\ax bx -> ax/numdp a + bx/numdp b) (VG.toList $ w a) (VG.toList $ w b)
-        }
+    ) => Show (LogReg dp)
 
 -------------------------------------------------------------------------------
 -- training
 
-instance (HasRing dp, Fractional (Ring dp)) => NumDP (LogisticRegression dp) where
-    numdp m = sum $ Map.elems $ m0 m
+instance Monoid (LogReg dp) where
+    mempty = undefined
+    mappend = undefined
+
+invlogit x = 1 / (1 + exp (-x))
+invlogit' x = tmp*(1+tmp)**2
+    where tmp = exp $ -x
+
+logSumOfExp xs = m + log (sum [ exp $ x-m | x <- xs ] )
+    where
+        m = maximum xs
+
+logSumOfExp2 x1 x2 = m + log ( exp (x1-m) + exp (x2-m) )
+    where
+        m = max x1 x2
+
+-- squaredLoss yhat y = 0.5 * (yhat-y)^2
+
+zeroOneLoss yhat y = if yhat==y
+    then 1
+    else 0
+
+-- logLoss yhat y = y*log yhat + (1-y)*log(y-yhat)
+-- 
+-- hingeLoss yhat y = max 0 $ 1 - yhat*y
 
 instance 
-    ( Ord (Label dp)
-    , VG.Vector vec a
-    , (Attributes dp) ~ vec a
-    , Num (Attributes dp)
+    ( Ord dp
+    , Ord (Label dp)
     , Labeled dp
-    , HasRing dp
-    , Floating a
-    , Fractional (Ring dp)
-    , VS.Storable (Ring dp)
-    , vec ~ Vector
-    , LA.Field a
-    , a ~ Ring dp
-    ) => HomTrainer (LogisticRegression dp) 
+    , Attributes dp ~ vec r
+    , VG.Vector vec r
+    , Num (Attributes dp)
+    , Floating r
+    , r ~ Ring dp
+    , Ord r
+    , r ~ Ring (vec r)
+    , InnerProduct (vec r)
+    , Container vec r
+    , Show (Label dp) 
+    , Show (vec r)
+    , Show r
+    , Show dp
+    ) => HomTrainer (LogReg dp) 
         where
-    type Datapoint (LogisticRegression dp) = dp
+    type Datapoint (LogReg dp) = dp
 
-    train1dp dp = LogisticRegression
-        { m0 = Map.singleton (getLabel dp) 1
-        , m1 = Map.singleton (getLabel dp) (getAttributes dp)
-        , m2 = VG.map (**2) $ getAttributes dp
-        , w = undefined
-        }
+    train = lrtrain2
+--     train = nbtrain 
 
-    train dps = m
-        { w = undefined
-        }
-        where
-            m = batch train1dp dps
+lrtrain2 :: forall dp vec r container.
+    ( Ord dp
+    , Ord (Label dp)
+    , Labeled dp
+    , Attributes dp ~ vec r
+    , VG.Vector vec r
+    , Num (Attributes dp)
+    , Floating r
+    , r ~ Ring dp
+    , Ord r
+    , r ~ Ring (vec r)
+    , InnerProduct (vec r)
+    , Container vec r
+    , Show (Label dp) 
+    , Show (vec r)
+    , Show r
+    , Show dp
+    , F.Foldable container
+    ) => container dp -> LogReg dp
+-- lrtrain2 dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ nbtrain dps
+lrtrain2 dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dps
+    where
+        -- the weights for the last label are set to zero;
+        -- this is equivalent to running the optimization procedure,
+        -- but much cheaper
+        go ((l,w0):[]) = [(l, VG.replicate (VG.length w0) 0)]
 
---     train dps = m
---         { w = VG.zipWith3 (\a b c -> (a-b)/c) mu0 mu1 $ VG.convert varV
---         }
---         where 
---             mu0 = scale (1 / Map.elems (m0 m) !! 0) $ Map.elems (m1 m) !! 0 
---             mu1 = scale (1 / Map.elems (m0 m) !! 1) $ Map.elems (m1 m) !! 1 
---             varV = VG.convert $ VG.map variance normV :: Vector a
---             normV = F.foldl1 (V.zipWith (<>)) $ map (V.map train1dp . VG.convert)  $ map getAttributes $ F.toList dps :: V.Vector (Normal a a)
---             m = batch train1dp dps
+        -- calculate the weights for label l
+--         go ((l,w0):xs) = (l, Recipe.conjugateGradientDescent f f' w0):go xs
+        go ((l,w0):xs) = (l, Recipe.runOptimization $ Recipe.cgd f f' w0):go xs
+            where
+
+                f w = sumOver dps $ \dp ->
+                        logSumOfExp2 0 $ -y dp * inner w (getAttributes dp)
+
+                f' w = negate $ sumOver dps $ \dp ->
+                        scale (y dp*(1-invlogit (y dp*inner w (getAttributes dp)))) (getAttributes dp)
+                        
+
+                y dp = bool2num $ getLabel dp==l 
+
+sumOver :: (F.Foldable container, Num r) => container x -> (x -> r) -> r
+sumOver xs f = F.foldl' (\r x -> r + f x) 0 xs
+
+zeroWeights :: forall dp vec r container.
+    ( Ord dp
+    , Ord (Label dp)
+    , Labeled dp
+    , Attributes dp ~ vec r
+    , VG.Vector vec r
+    , Num (Attributes dp)
+    , Floating r
+    , r ~ Ring dp
+    , Ord r
+    , r ~ Ring (vec r)
+    , InnerProduct (vec r)
+    , Container vec r
+    , Show (Label dp) 
+    , Show (vec r)
+    , Show r
+    , F.Foldable container
+    ) => container dp -> LogReg dp
+zeroWeights dps = LogReg $ Map.fromList [ (label,VG.replicate dim 0) | label <- labels ]
+    where
+        labels = map getLabel $ F.toList dps
+        dim = VG.length $ getAttributes $ head $ F.toList dps
+
+nbtrain :: forall dp vec r container.
+    ( Ord dp
+    , Ord (Label dp)
+    , Labeled dp
+    , Attributes dp ~ vec r
+    , VG.Vector vec r
+    , Num (Attributes dp)
+    , Floating r
+    , r ~ Ring dp
+    , Ord r
+    , r ~ Ring (vec r)
+    , InnerProduct (vec r)
+    , Container vec r
+    , Show (Label dp) 
+    , Show r
+    , Show (vec r)
+    , F.Foldable container
+    ) => container dp -> LogReg dp
+nbtrain dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dps
+    where
+        go [] = []
+--         go ((l,w0):xs) = trace ("gaussianMap="++show gaussianMap) $ (l,w'):go xs
+        go ((l,w0):xs) = (l,w'):go xs
+            where
+                w' = (VG.convert $ VG.map (\(n,t) -> mean n/(variance t+1e-6)) normV)
+                   VG.// [(0,bias)]
+
+                bias = -sumOver normV (\(n,t) -> (mean n*mean n)/(2*(variance t+1e-6)))
+
+                normV = VG.zip (fromJust $ Map.lookup l gaussianMap) gaussianTot
+
+        gaussianTot = foldl1 (VG.zipWith (<>)) $ Map.elems gaussianMap
+
+        gaussianMap = Map.fromListWith (VG.zipWith (<>)) 
+            [ ( getLabel dp
+              , V.map (train1dp :: r -> Normal r r) $ VG.convert $ getAttributes dp
+              ) 
+            | dp <- F.toList dps
+            ]
+
+-- nbtrain dps = LogReg
+--     { weights = Map.mapWithKey mkWeights gaussianMap 
+--     }
+--     where
+--         mkWeights label normV = 
+-- --             ( log (pdf labeldist label)
+-- --             + (VG.sum $ VG.map (\(n,t) -> {- -log (variance n)/2 -} (mean n)**2 / (2*variance t)) normV')
+-- --                 ( 0
+--             ( VG.convert $ VG.map (\(n,t) -> 0) normV' 
+-- --             ( VG.convert $ VG.map (\(n,t) -> 2*mean n/variance t) normV' 
+-- --             VG.// [(0, log (pdf labeldist label) + sumOver normV' (\(n,t) -> -(mean n)**2/(2*variance t) ))]
+-- --             , VG.convert $ VG.map (\(n,t) -> mean n/variance t) normV' 
+--             )
+--             where
+--                 normV' = VG.zip normV totdist
+-- 
+--         labeldist = train $ map getLabel dpsL :: Categorical (Ring dp) (Label dp)
+--         totdist = foldl1 (VG.zipWith (<>)) $ Map.elems gaussianMap
+-- 
+--         gaussianMap = Map.fromListWith (VG.zipWith (<>)) 
+--             [ ( getLabel dp
+--               , V.map (train1dp :: r -> Normal r r) $ VG.convert $ getAttributes dp
+--               ) 
+--             | dp <- dpsL
+--             ]
+-- 
+--         dpsL = F.toList dps
 
 -------------------------------------------------------------------------------
 -- classification
 
--- instance 
---     ( Labeled dp
---     ) => ProbabilityClassifier (LogisticRegression dp)
---         where
---     type ResultDistribution (LogisticRegression dp) = Categorical (Ring dp) (Label dp)
--- 
---     probabilityClassify m attr = 
---     probabilityClassify :: model -> Attributes (Datapoint model) -> ResultDistribution model
-    
-getparams m = (bias,weights)
-    where
-        bias = (log $ (0-pi)/pi) + (VG.sum $ VG.zipWith3 (\a b c -> (a*a-b*b)/(2*c)) mu1 mu0 sigma2)
-        pi = Map.elems (m0 m) !! 0 / (sum $ Map.elems (m0 m))
-
---         weights = w m
-        weights = VG.zipWith3 (\a b c -> (a-b)/c) mu0 mu1 sigma2
-        mu0 = scale (1 / Map.elems (m0 m) !! 0) $ Map.elems (m1 m) !! 0 
-        mu1 = scale (1 / Map.elems (m0 m) !! 1) $ Map.elems (m1 m) !! 1 
-        sigma2 = scale (1 / (sum $ Map.elems $ m0 m)) $ VG.zipWith3 (\a b c -> a - (b+c)**2) 
-            (m2 m) (Map.elems (m1 m) !! 0) (Map.elems (m1 m) !! 1)
-
-
 instance
-    ( Ord (Label dp)
-    , VG.Vector vec a
-    , (Attributes dp) ~ vec a
-    , Num (Attributes dp)
-    , Labeled dp
-    , HasRing dp
-    , Floating a
-    , Ord a
-    , a ~ Ring dp
-    , Container vec a
-    , vec ~ Vector
+    ( Labeled dp
+    , Ring (Attributes dp) ~ Ring dp
+    , InnerProduct (Attributes dp)
+    , Floating (Ring dp)
+    , Ord (Ring dp)
+    , Attributes dp ~ vec (Ring dp)
+    , VG.Vector vec (Ring dp)
+    , Show (Ring dp)
     , Show (Label dp)
-    , Show a
-    ) => Classifier (LogisticRegression dp)
+    ) => Classifier (LogReg dp)
         where
+    classify m attr = fst $ argmax (\(l,s) -> s) $ Map.assocs $ Map.map (\w -> inner w attr) $ weights m
 
---     classify m attr = if 0 > tot then one else zero
-    classify m attr = if 0 > tot then zero else one
-        where
-            (bias,weights) = getparams m
-            tot = bias + VG.sum (weights * attr)
-            one = head $ Map.keys $ m1 m
-            zero = head $ drop 1 $ Map.keys $ m1 m
---     classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
-
-instance Num r => HasRing (Vector r) where
-    type Ring (Vector r) = r
+-------------------------------------------------------------------------------
+-- test
 
 test = do
     
-    let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
---     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
+--     let {filename = "../datasets/uci/haberman.data"; label_index=3}
+--     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
+    let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
 --     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
+--     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
         
     let verbose = True
 
@@ -219,7 +300,8 @@ test = do
     let ys = VG.map (\x -> MaybeLabeled   
             { label = Just $ x VG.! label_index
             , attr = VG.convert ( 
-                VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
+                VG.map read $ VG.fromList $ (:) "1" $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
+--                 VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
                 :: V.Vector Double
                 )
             })
@@ -229,14 +311,14 @@ test = do
     -----------------------------------
     -- convert to right types
 
---     let m = train $ VG.take 50 ys :: LogisticRegression (MaybeLabeled String (VS.Vector Double))
---     print $ m
-    let res = flip evalRand (mkStdGen 1) $ crossValidate
-            (kfold 10)
+--     let m = train ys :: LogReg (MaybeLabeled String (VS.Vector Double))
+--     deepseq m $ print $ m
+
+    let res = flip evalRand (mkStdGen 100) $ crossValidate
+            (repeatExperiment 1 (kfold 10))
             errorRate
---             (VG.take 150 ys)
             ys
-            (undefined :: LogisticRegression (MaybeLabeled String (VS.Vector Double)))
+            (undefined :: LogReg (MaybeLabeled String (VS.Vector Double)))
 
     putStrLn $ "mean = "++show (mean res)
     putStrLn $ "var  = "++show (variance res)
