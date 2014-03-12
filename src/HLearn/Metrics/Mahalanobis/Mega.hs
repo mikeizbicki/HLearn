@@ -35,33 +35,33 @@ import qualified HLearn.Numeric.Conic as Recipe
 import qualified HLearn.Numeric.Recipes as Recipe
 import qualified HLearn.Numeric.Recipes.GradientDescent as Recipe
 import qualified HLearn.Numeric.Recipes.Amoeba as Recipe
+import qualified HLearn.Numeric.Recipes.NewtonRaphson as Recipe
 
 -------------------------------------------------------------------------------
 -- data types
 
 newtype Mega (eta::Frac) dp = Mega
-    { _x :: Matrix (Ring dp)
+    { _x :: Matrix (Scalar dp)
     }
     
-deriving instance (Element (Ring dp), Show (Ring dp)) => Show (Mega eta dp)
+deriving instance (Element (Scalar dp), Show (Scalar dp)) => Show (Mega eta dp)
 
-instance (Storable (Ring dp), NFData (Ring dp), NFData dp) => NFData (Mega eta dp) where
+instance (Storable (Scalar dp), NFData (Scalar dp), NFData dp) => NFData (Mega eta dp) where
     rnf mega =  rnf $ _x mega
 
-instance HasRing dp => MahalanobisMetric (Mega eta dp) where
+instance MahalanobisMetric (Mega eta dp) where
     getMatrix mega =  _x mega
 
 -------------------------------------------------------------------------------
 -- algebra
 
-instance HasRing dp => HasRing (Mega eta dp) where
-    type Ring (Mega eta dp) = Ring dp
+type instance Scalar (Mega eta dp) = Scalar dp
 
 -------------------------------------------------------------------------------
 -- training
 
 mkMega :: forall container eta. 
-    ( Ring (container Double) ~ Double
+    ( Scalar (container Double) ~ Double
     , VG.Vector container Double
     , KnownFrac eta
     ) => Double
@@ -112,7 +112,7 @@ mkMega' etaraw eta2 !xs = {-trace ("megamatrix="++show res) $ -}
         magicJumble2 i x = magicJumble2 (i-1) 
 --                        $ trace "---------------\nunderscore" $ Recipe.newtonRaphson_constrained f_ f'_ f''_
 --                        $ trace "---------------\nplain" $ Recipe.newtonRaphson_constrained f f'c f''
-                       $ Recipe.conjugateGradientDescent f f'
+--                        $ Recipe.runOptimization (Recipe.conjugateGradientDescent f f')
                        $ Recipe.newtonRaphson_constrained f f'c f''
                        $ x
         
@@ -132,11 +132,11 @@ mkMega' etaraw eta2 !xs = {-trace ("megamatrix="++show res) $ -}
 
         res = 
             Recipe.newtonRaphson_constrained f f'c f''
-            $ Recipe.conjugateGradientDescent f f'
+--             $ Recipe.runOptimization (Recipe.conjugateGradientDescent f f')
             $ x0
 
         res1 = findzero a b x0
-        res2 = findzero a b $ Recipe.conjugateGradientDescent f f' x0
+--         res2 = findzero a b $ Recipe.runOptimization (Recipe.conjugateGradientDescent f f' x0)
         res3 = findzero a b itml
 
 --         x0 = identity
@@ -264,7 +264,7 @@ vec = asColumn . flatten
 
 instance
     ( VG.Vector dp r
-    , Ring (dp r) ~ r
+    , Scalar (dp r) ~ r
     , LA.Product r
     ) =>  MkMahalanobis (Mega eta (dp r)) 
         where

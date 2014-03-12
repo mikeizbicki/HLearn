@@ -27,32 +27,30 @@ import HLearn.Models.Distributions.Multivariate.MultiNormalFast
 -- data types
 
 newtype ITML dp = ITML
-    { _x :: Matrix (Ring dp)
+    { _x :: Matrix (Scalar dp)
     }
     
-deriving instance (Element (Ring dp), Show (Ring dp)) => Show (ITML dp)
+deriving instance (Element (Scalar dp), Show (Scalar dp)) => Show (ITML dp)
 
-instance (Storable (Ring dp), NFData (Ring dp), NFData dp) => NFData (ITML dp) where
+instance (Storable (Scalar dp), NFData (Scalar dp), NFData dp) => NFData (ITML dp) where
     rnf mega =  rnf $ _x mega
 
-instance HasRing dp => MahalanobisMetric (ITML dp) where
+instance MahalanobisMetric (ITML dp) where
     getMatrix mega =  _x mega
 
 -------------------------------------------------------------------------------
 -- algebra
 
-instance HasRing dp => HasRing (ITML dp) where
-    type Ring (ITML dp) = Ring dp
+type instance Scalar (ITML dp) = Scalar dp
 
-instance HasRing (Vector Double) where 
-    type Ring (Vector Double) = Double
+type instance Scalar (Vector Double) = Double
 
 -------------------------------------------------------------------------------
 -- training
 
 train_ITML :: 
     ( VG.Vector container Double
-    , Ring (container Double) ~ Double
+    , Scalar (container Double) ~ Double
     ) => Double -> [(Double,container Double)] -> ITML (container Double)   
 train_ITML gamma xs = ITML . _x $ train_ITML' xs' gamma u l 
     where
@@ -107,7 +105,7 @@ train_ITML' vec gamma u l = ITML $ runST $ do
 
 instance
     ( VG.Vector dp r
-    , Ring (dp r) ~ r
+    , Scalar (dp r) ~ r
     , LA.Product r
     ) =>  MkMahalanobis (ITML (dp r)) 
         where

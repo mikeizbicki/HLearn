@@ -34,7 +34,7 @@ instance (Ord label, Monoid (Centroid dp)) => Monoid (Perceptron label dp) where
 
 instance 
     ( Monoid dp
-    , HasRing dp
+    , Num (Scalar dp)
     , Ord label
     ) => HomTrainer (Perceptron label dp) 
         where
@@ -45,19 +45,19 @@ instance
 -------------------------------------------------------------------------------
 -- classification
 
-instance (HasRing dp) => Probabilistic (Perceptron label dp) where
-    type Probability (Perceptron label dp) = Ring dp
+instance Probabilistic (Perceptron label dp) where
+    type Probability (Perceptron label dp) = Scalar dp
 
 -- instance 
 --     ( Ord label
---     , Ord (Ring dp)
+--     , Ord (Scalar dp)
 --     , MetricSpace (Centroid dp)
 --     , Monoid dp
---     , HasRing dp
---     , label ~ Ring dp
+--     , HasScalar dp
+--     , label ~ Scalar dp
 --     ) => ProbabilityClassifier (Perceptron label dp)
 --         where
---     type ResultDistribution (Perceptron label dp) = (Categorical (Ring dp) label)
+--     type ResultDistribution (Perceptron label dp) = (Categorical (Scalar dp) label)
 --               
 --     probabilityClassify model dp = probabilityClassify nn (train1dp (dp) :: Centroid dp)
 --         where
@@ -66,9 +66,9 @@ instance (HasRing dp) => Probabilistic (Perceptron label dp) where
 -- instance 
 --     ( ProbabilityClassifier (Perceptron label dp)
 --     , Ord dp
---     , Ord (Ring dp)
+--     , Ord (Scalar dp)
 --     , Ord label
---     , Num (Ring dp)
+--     , Num (Scalar dp)
 --     ) => Classifier (Perceptron label dp)
 --         where
 --     classify model dp = mean $ probabilityClassify model dp

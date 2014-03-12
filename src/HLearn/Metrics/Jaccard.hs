@@ -12,12 +12,11 @@ newtype Jaccard a = Jaccard a
 -------------------------------------------------------------------------------
 -- metric space
 
-instance (HasRing a) => HasRing (Jaccard a) where
-    type Ring (Jaccard a) = Ring a 
+type instance Scalar (Jaccard a) = Scalar a 
 
 instance 
     ( Norm (a s)
-    , RealFrac (Ring (a s))
+    , RealFrac (Scalar (a s))
     , Topology a
     , TopologyConstraint a s 
     ) => MetricSpace (Jaccard (a s)) 

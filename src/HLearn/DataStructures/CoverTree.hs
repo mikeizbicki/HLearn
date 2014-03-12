@@ -77,9 +77,9 @@ type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector V.Vector) () dp
 data CoverTree' (base::Frac) childContainer nodeContainer tag dp = Node 
     { nodedp                :: !dp
     , level                 :: !Int
-    , weight                :: !(Ring dp)
-    , numdp                 :: !(Ring dp)
-    , maxDescendentDistance :: !(Ring dp)
+    , weight                :: !(Scalar dp)
+    , numdp                 :: !(Scalar dp)
+    , maxDescendentDistance :: !(Scalar dp)
     , children              :: !(childContainer (CoverTree' base childContainer nodeContainer tag dp))
     , nodeV                 :: !(nodeContainer dp)
     , tag                   :: !tag
@@ -89,7 +89,7 @@ data CoverTree' (base::Frac) childContainer nodeContainer tag dp = Node
 -- standard instances
 
 deriving instance 
-    ( Read (Ring dp)
+    ( Read (Scalar dp)
     , Read (childContainer (CoverTree' base childContainer nodeContainer tag dp))
     , Read (nodeContainer dp)
     , Read tag
@@ -97,7 +97,7 @@ deriving instance
     ) => Read (CoverTree' base childContainer nodeContainer tag dp)
 
 deriving instance 
-    ( Show (Ring dp)
+    ( Show (Scalar dp)
     , Show (childContainer (CoverTree' base childContainer nodeContainer tag dp))
     , Show (nodeContainer dp)
     , Show tag
@@ -106,7 +106,7 @@ deriving instance
 
 instance 
     ( NFData dp
-    , NFData (Ring dp)
+    , NFData (Scalar dp)
     , NFData tag
     ) => NFData (CoverTree' base childContainer nodeContainer tag dp) 
         where
@@ -120,36 +120,36 @@ instance
 --
 class 
     ( MetricSpace dp
-    , Ord (Ring dp)
-    , Floating (Ring dp)
+    , Ord (Scalar dp)
+    , Floating (Scalar dp)
     , Monoid tag
     , Monoid (nodeContainer dp)
     , Monoid (childContainer dp)
     , Monoid (childContainer (CoverTree' base childContainer nodeContainer tag dp))
     , FromList nodeContainer dp
     , FromList childContainer dp
-    , FromList childContainer (Ring dp)
+    , FromList childContainer (Scalar dp)
     , FromList childContainer (CoverTree' base childContainer nodeContainer tag dp)
     , KnownFrac base
-    , Show (Ring dp)
+    , Show (Scalar dp)
     , Show dp
     , Ord dp
     ) => ValidCT base childContainer nodeContainer tag dp
 
 instance 
     ( MetricSpace dp
-    , Ord (Ring dp)
-    , Floating (Ring dp)
+    , Ord (Scalar dp)
+    , Floating (Scalar dp)
     , Monoid tag
     , Monoid (nodeContainer dp)
     , Monoid (childContainer dp)
     , Monoid (childContainer (CoverTree' base childContainer nodeContainer tag dp))
     , FromList nodeContainer dp
     , FromList childContainer dp
-    , FromList childContainer (Ring dp)
+    , FromList childContainer (Scalar dp)
     , FromList childContainer (CoverTree' base childContainer nodeContainer tag dp)
     , KnownFrac base
-    , Show (Ring dp)
+    , Show (Scalar dp)
     , Show dp
     , Ord dp
     ) => ValidCT base childContainer nodeContainer tag dp
@@ -412,8 +412,7 @@ insertBatch (dp:dps) = go dps $ Node
 -------------------------------------------------------------------------------
 -- algebra
 
-instance HasRing dp => HasRing (CoverTree' base childContainer nodeContainer tag dp) where
-    type Ring (CoverTree' base childContainer nodeContainer tag dp) = Ring dp
+type instance Scalar (CoverTree' base childContainer nodeContainer tag dp) = Scalar dp
 
 -- instance VG.Foldable (CoverTree' tag) where
 --     foldr f i ct = if Map.size (childrenMap ct) == 0
@@ -434,8 +433,8 @@ instance
 
 takeFromTo :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
-    ) => Ring dp 
-      -> Ring dp 
+    ) => Scalar dp 
+      -> Scalar dp 
       -> CoverTree' base childContainer nodeContainer tag dp 
       -> CoverTree' base childContainer nodeContainer tag dp
 takeFromTo from len ct = 
@@ -445,17 +444,17 @@ takeFromTo from len ct =
         , children = children'
         }
     where
-        nodeweight :: Ring dp
+        nodeweight :: Scalar dp
         nodeweight = if from <= 0
             then min len (weight ct)
             else 0
 
         nodeV' = fromList $ take (round len) $ drop (round $ from-nodeweight) $ toList $ nodeV ct
 
---         taken = nodeweight+ (fromIntegral $ VG.length nodeV') :: Ring dp
---         nottaken = 1-nodeweight+(fromIntegral $ (VG.length $ nodeV ct)-(VG.length nodeV')) :: Ring dp
-        taken = nodeweight+ (fromIntegral $ length $ toList nodeV') :: Ring dp
-        nottaken = 1-nodeweight+(fromIntegral $ (length $ toList $ nodeV ct)-(length $ toList nodeV')) :: Ring dp
+--         taken = nodeweight+ (fromIntegral $ VG.length nodeV') :: Scalar dp
+--         nottaken = 1-nodeweight+(fromIntegral $ (VG.length $ nodeV ct)-(VG.length nodeV')) :: Scalar dp
+        taken = nodeweight+ (fromIntegral $ length $ toList nodeV') :: Scalar dp
+        nottaken = 1-nodeweight+(fromIntegral $ (length $ toList $ nodeV ct)-(length $ toList nodeV')) :: Scalar dp
 
         children' = fromList $ snd $ mapAccumL mapgo (from-nottaken,len-taken) $ toList $ children ct
         
@@ -629,22 +628,22 @@ dist2level_down _ d = floor $ log d / log (fromRational $ fracVal (Proxy::Proxy 
 dist2level_up :: forall base num. (KnownFrac base, RealFrac num, Floating num) => Proxy base -> num -> Int
 dist2level_up _ d = ceiling $ log d / log (fromRational $ fracVal (Proxy::Proxy base))
 
-sepdist :: forall base childContainer nodeContainer tag dp. (KnownFrac base, Floating (Ring dp)) => 
-    CoverTree' base childContainer nodeContainer tag dp -> Ring dp
+sepdist :: forall base childContainer nodeContainer tag dp. (KnownFrac base, Floating (Scalar dp)) => 
+    CoverTree' base childContainer nodeContainer tag dp -> Scalar dp
 sepdist ct = level2sepdist (Proxy::Proxy base) (level ct)
 
 {-# INLINE coverDist #-}
 coverDist :: forall base childContainer nodeContainer tag dp.
-    ( Floating (Ring dp)
+    ( Floating (Scalar dp)
     , KnownFrac base
-    ) => CoverTree' base childContainer nodeContainer tag dp -> Ring dp
+    ) => CoverTree' base childContainer nodeContainer tag dp -> Scalar dp
 coverDist node = sepdist node*coverfactor 
     where
         coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
 
 {-# INLINE sepdist_child #-}
-sepdist_child :: forall base childContainer nodeContainer tag dp. (KnownFrac base, MetricSpace dp, Floating (Ring dp)) => 
-    CoverTree' base childContainer nodeContainer tag dp -> Ring dp
+sepdist_child :: forall base childContainer nodeContainer tag dp. (KnownFrac base, MetricSpace dp, Floating (Scalar dp)) => 
+    CoverTree' base childContainer nodeContainer tag dp -> Scalar dp
 sepdist_child ct = next -- rounddown (sing::Sing base) $ next --next/10
     where next = sepdist ct/(fromRational $ fracVal (Proxy :: Proxy base)) 
 
@@ -696,7 +695,7 @@ recover' ct = (ct', failed)
 
 -- unsafeMap :: forall base childContainer nodeContainer tag dp1 dp2.
 --     ( MetricSpace dp2
---     , Ring dp1 ~ Ring dp2
+--     , Scalar dp1 ~ Scalar dp2
 --     2
 --     , KnownFrac base
 --     ) => (dp1 -> dp2) -> AddUnit (CoverTree' base) tag dp1 -> AddUnit (CoverTree' base) tag dp2
@@ -705,7 +704,7 @@ unsafeMap f (UnitLift ct) = UnitLift $ unsafeMap' f ct
 
 unsafeMap' :: forall base childContainer nodeContainer tag dp1 dp2.
     ( MetricSpace dp2
-    , Ring dp1 ~ Ring dp2
+    , Scalar dp1 ~ Scalar dp2
     2
     , KnownFrac base
     ) => (dp1 -> dp2) -> CoverTree' base childContainer nodeContainer tag dp1 -> CoverTree' base childContainer nodeContainer tag dp2
@@ -730,8 +729,8 @@ ctmap f (UnitLift ct) = UnitLift $ ctmap' f ct
 
 ctmap' :: forall base childContainer nodeContainer tag dp1 dp2.
     ( MetricSpace dp2
-    , Ring dp1 ~ Ring dp2
-    , Floating (Ring dp1)
+    , Scalar dp1 ~ Scalar dp2
+    , Floating (Scalar dp1)
     2
     , Monoid tag
     , KnownFrac base
@@ -790,7 +789,7 @@ extractLeaf ct = if stIsLeaf ct
 -------------------------------------------------------------------------------
 -- training
 
-instance HasRing dp => NumDP (CoverTree' base childContainer nodeContainer tag dp) where
+instance NumDP (CoverTree' base childContainer nodeContainer tag dp) where
     numdp = numdp
 
 instance 
@@ -890,18 +889,17 @@ property_maxDescendentDistance (UnitLift node)
 --     (CoverTree (Double,Double) -> Bool) -> CoverTree (Double,Double) -> CoverTree (Double,Double) -> Bool
 property_validmerge prop (UnitLift ct1) (UnitLift ct2) = prop . UnitLift $ ct1 <> ct2
 
-property_lossless :: [(Double,Double)] ->  Bool
-property_lossless [] = True
-property_lossless xs = Set.fromList xs == dpSet ct
-    where
-        UnitLift ct = train xs :: AddUnit (CoverTree' (2/1) V.Vector V.Vector) () (Double,Double)
-
-        dpSet :: (Ord dp) => CoverTree' base V.Vector V.Vector tag dp -> Set.Set dp
-        dpSet = Set.fromList . dpList
-            where
-                dpList :: CoverTree' base V.Vector V.Vector tag dp -> [dp]
---                 dpList node = nodedp node:(Strict.concat . fmap dpList . children node)
-                dpList node = nodedp node:(concat . fmap dpList . V.toList $ children node)
+-- property_lossless :: [(Double,Double)] ->  Bool
+-- property_lossless [] = True
+-- property_lossless xs = Set.fromList xs == dpSet ct
+--     where
+--         UnitLift ct = train xs :: AddUnit (CoverTree' (2/1) V.Vector V.Vector) () (Double,Double)
+-- 
+--         dpSet :: (Ord dp) => CoverTree' base V.Vector V.Vector tag dp -> Set.Set dp
+--         dpSet = Set.fromList . dpList
+--             where
+--                 dpList :: CoverTree' base V.Vector V.Vector tag dp -> [dp]
+--                 dpList node = nodedp node:(concat . fmap dpList . V.toList $ children node)
 
 -- property_numdp :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
 property_numdp Unit = True
@@ -910,6 +908,8 @@ property_numdp (UnitLift node) = numdp node == sum (map fst $ stToListW node)
 
 ---------------------------------------
 
+
+{-
 instance MkCentroid (Double,Double) where
     mkCentroid (a1,a2) (b1,b2) = ((a1+b1)/2,(a2+b2)/2)
 
@@ -958,6 +958,7 @@ gs' i = take i gs
 -- mg' i = train $ gs' i :: CoverTree (Double,Double)
 
 -- mg3 = train1dp (1,1) `mappend` ( train1dp (1,2) `mappend` train1dp (1,3) ) :: CoverTree (Double,Double)
+-}
 
 -------------------------------------------------------------------------------
 -- diagrams

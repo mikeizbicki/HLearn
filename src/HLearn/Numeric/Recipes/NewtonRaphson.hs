@@ -1,4 +1,4 @@
-module HLearn.Numeric.Recipes.GradientDescent
+module HLearn.Numeric.Recipes.NewtonRaphson
     where
 
 import Control.DeepSeq
@@ -80,11 +80,13 @@ newtonRaphson_unconstrained !f !f' !f''  !x0 = if __fx res > __fx_old res {- || 
 
 data OptTmp a = OptTmp
     { __x :: !a
-    , __fx :: !(Ring a)
+    , __fx :: !(Scalar a)
     , __x_old :: !a
-    , __fx_old :: !(Ring a)
+    , __fx_old :: !(Scalar a)
     , __itr :: Int
     }
+
+deriving instance (Show a, Show (Scalar a)) => Show (OptTmp a)
 
 -------------------------------------------------------------------------------
 

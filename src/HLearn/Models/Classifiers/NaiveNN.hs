@@ -48,7 +48,7 @@ instance (Probabilistic (NaiveNN k container ldp)) where
 neighborList ::
     ( F.Foldable container
     , MetricSpace ldp
-    , Ord (Ring ldp)
+    , Ord (Scalar ldp)
     ) => ldp -> NaiveNN k container ldp -> [ldp]
 neighborList dp (NaiveNN dps) = sortBy f $ F.toList dps
     where
@@ -63,11 +63,11 @@ instance
     , label ~ Label ldp
     , F.Foldable container
     , MetricSpace ldp
-    , Ord (Ring ldp)
+    , Ord (Scalar ldp)
     , KnownNat k
     ) => ProbabilityClassifier (NaiveNN k container ldp)
         where
-    type ResultDistribution (NaiveNN k container ldp) = Categorical (Ring (Attributes ldp)) (Label ldp)
+    type ResultDistribution (NaiveNN k container ldp) = Categorical (Scalar (Attributes ldp)) (Label ldp)
               
     probabilityClassify nn dp = train (map getLabel $ take k $ neighborList (noLabel dp) nn)
         where
@@ -77,7 +77,7 @@ instance
     ( ProbabilityClassifier (NaiveNN k container ldp)
     , label ~ Label ldp
     , dp ~ Attributes ldp
-    , Ord (Ring dp)
+    , Ord (Scalar dp)
     , MetricSpace dp
     , F.Foldable container
     , Ord label

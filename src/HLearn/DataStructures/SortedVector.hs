@@ -46,8 +46,7 @@ instance (NFData a) => NFData (SortedVector a) where
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance Num dp => HasRing (SortedVector dp) where
-    type Ring (SortedVector dp) = dp
+type instance Scalar (SortedVector dp) = dp
 
 instance Num dp => NumDP (SortedVector dp) where
     numdp (SortedVector v) = fromIntegral $ V.length v

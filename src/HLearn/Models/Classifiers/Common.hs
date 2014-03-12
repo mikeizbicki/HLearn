@@ -50,8 +50,7 @@ instance Labeled (MaybeLabeled label attr) where
     getLabel = label
     getAttributes = attr
 
-instance HasRing attr => HasRing (MaybeLabeled label attr) where
-    type Ring (MaybeLabeled label attr) = Ring attr
+type instance Scalar (MaybeLabeled label attr) = Scalar attr
 
 instance MetricSpace attr => MetricSpace (MaybeLabeled label attr) where
     distance (MaybeLabeled _ a1) (MaybeLabeled _ a2) = distance a1 a2
@@ -69,7 +68,7 @@ class
     probabilityClassify :: model -> Attributes (Datapoint model) -> ResultDistribution model
     
 class MarginClassifier model where
-    margin :: model -> Attributes (Datapoint model) -> (Ring model, Label (Datapoint model))
+    margin :: model -> Attributes (Datapoint model) -> (Scalar model, Label (Datapoint model))
     
 class 
     ( Labeled (Datapoint model)
@@ -90,5 +89,5 @@ class
 -- Regression
 
 -- | Regression is classification where the class labels are (isomorphic to) real numbers.  The constraints could probably be better specified, but they're close enough for now.
-class (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
-instance (Classifier model, Ring model ~ Label (Datapoint model)) => Regression model
+class (Classifier model, Scalar model ~ Label (Datapoint model)) => Regression model
+instance (Classifier model, Scalar model ~ Label (Datapoint model)) => Regression model

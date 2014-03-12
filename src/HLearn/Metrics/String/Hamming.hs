@@ -18,8 +18,7 @@ instance IsString (Hamming String) where
 -------------------------------------------------------------------------------
 -- metric space
 
-instance HasRing (Hamming String) where
-    type Ring (Hamming String) = Double
+type instance Scalar (Hamming String) = Double
 
 instance MetricSpace (Hamming String) where
     distance (Hamming xs) (Hamming ys) = fromIntegral $ go xs ys 0

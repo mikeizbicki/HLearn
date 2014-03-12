@@ -29,13 +29,13 @@ data BinPacking (n::Nat) a = BinPacking
     }
     deriving (Read,Show,Eq,Ord)
 
-bfd :: forall a n. (Norm a, Ord (Ring a), KnownNat n) => SortedVector a -> BinPacking n a
+bfd :: forall a n. (Norm a, Ord (Scalar a), Num (Scalar a), KnownNat n) => SortedVector a -> BinPacking n a
 bfd vector = BinPacking
     { vector = vector
     , packing = vector2packing (fromIntegral $ natVal (Proxy :: Proxy n)) vector
     }
 
-vector2packing :: (Norm a, Ord (Ring a)) => Ring a -> SortedVector a -> Map.Map Int [a]
+vector2packing :: (Norm a, Ord (Scalar a), Num (Scalar a)) => Scalar a -> SortedVector a -> Map.Map Int [a]
 vector2packing binsize vector = snd $ CK.foldr cata (Map.empty,Map.empty) vector
     where
         cata x (weight2bin,packing) = case Map.lookupLE (binsize - magnitude x) weight2bin of
@@ -53,27 +53,26 @@ vector2packing binsize vector = snd $ CK.foldr cata (Map.empty,Map.empty) vector
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Abelian (BinPacking n a) 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Monoid (BinPacking n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n) => Abelian (BinPacking n a) 
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n) => Monoid (BinPacking n a) where
     mempty = bfd mempty
     p1 `mappend` p2 = bfd $ (vector p1) <> (vector p2)
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Group (SortedVector a)) => Group (BinPacking n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n, Group (SortedVector a)) => Group (BinPacking n a) where
     inverse p = BinPacking 
         { vector = inverse $ vector p
         , packing = error "Scheduling.inverse: schedule does not exist for inverses"
         }
 
-instance (HasRing (SortedVector a)) => HasRing (BinPacking n a) where
-    type Ring (BinPacking n a) = Ring (SortedVector a)
+type instance Scalar (BinPacking n a) = Scalar (SortedVector a)
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Module (SortedVector a)) => Module (BinPacking n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n, Module (SortedVector a)) => Module (BinPacking n a) where
     r .* p = p { vector = r .* vector p }
 
 ---------------------------------------
 
 instance CK.Functor (BinPacking n) where
-    type FunctorConstraint (BinPacking n) x = (Ord x, Norm x, KnownNat n)
+    type FunctorConstraint (BinPacking n) x = (Ord x, Norm x, Num (Scalar x), KnownNat n)
     fmap f sched = bfd $ CK.fmap f $ vector sched
 
 -- instance CK.Monad (BinPacking n) where
@@ -83,7 +82,7 @@ instance CK.Functor (BinPacking n) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => HomTrainer (BinPacking n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n) => HomTrainer (BinPacking n a) where
     type Datapoint (BinPacking n a) = a
     train1dp dp = bfd $ train1dp dp
     

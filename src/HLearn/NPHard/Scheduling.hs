@@ -45,13 +45,13 @@ instance NFData a => NFData (Scheduling n a) where
 
 ---------------------------------------
 
-lptf :: forall a n. (Norm a, Ord (Ring a), KnownNat n) => SortedVector a -> Scheduling n a
+lptf :: forall a n. (Norm a, Ord (Scalar a), Num (Scalar a), KnownNat n) => SortedVector a -> Scheduling n a
 lptf vector = Scheduling
     { vector = vector
     , schedule = vector2schedule (fromIntegral $ natVal (Proxy :: Proxy n)) vector
     }
 
-vector2schedule :: (Norm a, Ord (Ring a)) => Bin -> SortedVector a -> Map.Map Bin [a]
+vector2schedule :: (Norm a, Ord (Scalar a), Num (Scalar a)) => Bin -> SortedVector a -> Map.Map Bin [a]
 vector2schedule p vector = snd $ CK.foldr cata (emptyheap p,Map.empty) vector
     where
         -- maintain the invariant that size of our heap is always p
@@ -74,41 +74,40 @@ getSchedules :: Scheduling n a -> [[a]]
 getSchedules = Map.elems . schedule
 
 -- | Returns the size of the largest bin
-maxpartition :: (Ord (Ring a), Norm a) => Scheduling n a -> Ring a
+maxpartition :: (Ord (Scalar a), Num (Scalar a), Norm a) => Scheduling n a -> Scalar a
 maxpartition p = maximum $ map (sum . map magnitude) $ Map.elems $ schedule p
 
 -- | Returns the size of the smallest bin
-minpartition :: (Ord (Ring a), Norm a) => Scheduling n a -> Ring a
+minpartition :: (Ord (Scalar a), Num (Scalar a), Norm a) => Scheduling n a -> Scalar a
 minpartition p = minimum $ map (sum . map magnitude) $ Map.elems $ schedule p
 
 -- | A schedule's spread is a measure of it's \"goodness.\"  The smaller the spread, the better the schedule.  It is equal to `maxpartition` - `minpartition`
-spread :: (Ord (Ring a), Norm a) => Scheduling n a -> Ring a
+spread :: (Ord (Scalar a), Num (Scalar a), Norm a) => Scheduling n a -> Scalar a
 spread p = (maxpartition p)-(minpartition p)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Abelian (Scheduling n a) 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => Monoid (Scheduling n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n) => Abelian (Scheduling n a) 
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n) => Monoid (Scheduling n a) where
     mempty = lptf mempty
     p1 `mappend` p2 = lptf $ (vector p1) <> (vector p2)
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Group (SortedVector a)) => Group (Scheduling n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n, Group (SortedVector a)) => Group (Scheduling n a) where
     inverse p = Scheduling
         { vector = inverse $ vector p
         , schedule = error "Scheduling.inverse: schedule does not exist for inverses"
         }
 
-instance (HasRing (SortedVector a)) => HasRing (Scheduling n a) where
-    type Ring (Scheduling n a) = Ring (SortedVector a)
+type instance Scalar (Scheduling n a) = Scalar (SortedVector a)
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n, Module (SortedVector a)) => Module (Scheduling n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n, Module (SortedVector a)) => Module (Scheduling n a) where
     r .* p = p { vector = r .* vector p }
 
 ---------------------------------------
 
 instance CK.Functor (Scheduling n) where
-    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, KnownNat n)
+    type FunctorConstraint (Scheduling n) x = (Ord x, Norm x, Num (Scalar x), KnownNat n)
     fmap f sched = lptf $ CK.fmap f $ vector sched
 
 -- instance CK.Monad (Scheduling n) where
@@ -118,7 +117,7 @@ instance CK.Functor (Scheduling n) where
 -------------------------------------------------------------------------------
 -- Training
 
-instance (Ord a, Ord (Ring a), Norm a, KnownNat n) => HomTrainer (Scheduling n a) where
+instance (Ord a, Ord (Scalar a), Num (Scalar a), Norm a, KnownNat n) => HomTrainer (Scheduling n a) where
     type Datapoint (Scheduling n a) = a
     train1dp dp = lptf $ train1dp dp
     train dp = lptf $ train dp
@@ -134,7 +133,7 @@ rmblankline [] = []
 rmblankline ('\n':'\n':xs) = rmblankline ('\n':xs)
 rmblankline (x:xs) = x:(rmblankline xs)
 
-visualize :: (Norm a, Labeled a, Show (Ring a), Fractional (Ring a)) => Ring a -> Map.Map Bin [a] -> String
+visualize :: (Norm a, Labeled a, Show (Scalar a), Fractional (Scalar a)) => Scalar a -> Map.Map Bin [a] -> String
 visualize height m = rmblankline $ unlines
     [ "\\begin{tikzpicture}"
     , "\\definecolor{hlearn_bgbox}{RGB}{127,255,127}"

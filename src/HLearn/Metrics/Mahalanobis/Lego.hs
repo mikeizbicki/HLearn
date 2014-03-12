@@ -21,22 +21,21 @@ import HLearn.Models.Distributions.Multivariate.MultiNormalFast
 -------------------------------------------------------------------------------
 -- data types
 
-instance HasRing (Lego' reg eta dp) => HasRing (AddUnit1 (Lego' reg eta) dp) where
-    type Ring (AddUnit1 (Lego' reg eta) dp) = Ring (Lego' reg eta dp)
+type instance Scalar (AddUnit1 (Lego' reg eta) dp) = Scalar (Lego' reg eta dp)
 
-instance Field (Ring dp) => MahalanobisMetric (AddUnit1 (Lego' reg eta) dp) where
+instance Field (Scalar dp) => MahalanobisMetric (AddUnit1 (Lego' reg eta) dp) where
     getMatrix (UnitLift1 m) = inv $ covar $ multinorm m
 
 type Lego reg (eta::Frac) dp = AddUnit1 (Lego' reg eta) dp
 
 data Lego' reg (eta::Frac) dp = Lego'
-    { b :: !(Matrix (Ring dp))
-    , c :: !(Matrix (Ring dp))
-    , x :: Matrix (Ring dp)
+    { b :: !(Matrix (Scalar dp))
+    , c :: !(Matrix (Scalar dp))
+    , x :: Matrix (Scalar dp)
     , multinorm :: MultiNormal dp
     }
     
-deriving instance (Element (Ring dp), Show (Ring dp)) => Show (Lego' reg eta dp)
+deriving instance (Element (Scalar dp), Show (Scalar dp)) => Show (Lego' reg eta dp)
 
 instance NFData dp => NFData (Lego' reg eta dp) where
     rnf lego = deepseq b
@@ -64,7 +63,7 @@ mkLego :: forall reg eta dp.
     ( KnownFrac eta
     , MatrixField dp
     , RegMatrix reg
-    ) => Matrix (Ring dp) -> Matrix (Ring dp) -> MultiNormal dp -> Lego' reg eta dp
+    ) => Matrix (Scalar dp) -> Matrix (Scalar dp) -> MultiNormal dp -> Lego' reg eta dp
 mkLego b c multinorm = Lego'
     { b = b
     , c = c
@@ -102,11 +101,9 @@ instance (KnownFrac eta, RegMatrix reg, MatrixField dp) => SG.Semigroup (Lego' r
             c' = c lego1 `add` c lego2
             mn' = multinorm lego1 <> multinorm lego2
 
-instance HasRing dp => HasRing (Lego' reg eta dp) where
-    type Ring (Lego' reg eta dp) = Ring dp
+type instance Scalar (Lego' reg eta dp) = Scalar dp
 
-instance Num r => HasRing (Vector r) where
-    type Ring (Vector r) = r
+type instance Scalar (Vector r) = r
 
 -------------------------------------------------------------------------------
 -- training
@@ -115,7 +112,7 @@ instance
     ( KnownFrac eta
     , RegMatrix reg
     , MatrixField (Vector r)
-    , r ~ Ring (dp r)
+    , r ~ Scalar (dp r)
     , VG.Vector dp r 
     ) => HomTrainer (Lego reg eta (dp r)) 
         where
@@ -131,7 +128,7 @@ instance
 
 instance
     ( VG.Vector dp r
-    , Ring (dp r) ~ r
+    , Scalar (dp r) ~ r
     , RegMatrix reg
     , LA.Product r
     ) =>  MkMahalanobis (Lego reg eta (dp r)) 

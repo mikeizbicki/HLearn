@@ -30,10 +30,9 @@ deriving instance NFData (MultiNormal dp) => NFData (MahalanobisParams dp)
 
 deriving instance Monoid (MultiNormal dp) => Monoid (MahalanobisParams dp)
 
-instance HasRing dp => HasRing (MahalanobisParams dp) where
-    type Ring (MahalanobisParams dp) = Ring dp
+type instance Scalar (MahalanobisParams dp) = Scalar dp
 
-instance (Field (Ring dp)) => MahalanobisMetric (MahalanobisParams dp) where
+instance (Field (Scalar dp)) => MahalanobisMetric (MahalanobisParams dp) where
     getMatrix m = inv $ covar $ normal m 
 
 -------------------------------------------------------------------------------
@@ -50,7 +49,7 @@ instance HomTrainer (MultiNormal dp) => HomTrainer (MahalanobisParams dp) where
 
 instance
     ( VG.Vector dp r
-    , Ring (dp r) ~ r
+    , Scalar (dp r) ~ r
     , LA.Product r
     , Field r
     ) =>  MkMahalanobis (MahalanobisParams (dp r)) 
@@ -65,7 +64,7 @@ instance
 
 -- mkMahalanobis :: 
 --     ( VG.Vector dp r
---     , Ring (dp r) ~ r
+--     , Scalar (dp r) ~ r
 --     , LA.Product r
 --     ) => MahalanobisParams (dp r) -> dp r -> Mahalanobis (dp r)
 -- mkMahalanobis (MahalanobisParams m) dp = Mahalanobis

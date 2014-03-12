@@ -19,8 +19,7 @@ instance IsString (Levenshtein String) where
 -------------------------------------------------------------------------------
 -- metric space
 
-instance HasRing (Levenshtein String) where
-    type Ring (Levenshtein String) = Double
+type instance Scalar (Levenshtein String) = Double
 
 instance MetricSpace (Levenshtein String) where
     distance (Levenshtein xs) (Levenshtein ys) = fromIntegral $ lev xs ys

@@ -21,15 +21,14 @@ import HLearn.Metrics.Mahalanobis
 -- data types
 
 data LegoPaper dp = LegoPaper 
-    { _matrix :: Matrix (Ring dp)
-    , _xs :: [(Ring dp,dp)]
-    , _numdp :: Ring dp
+    { _matrix :: Matrix (Scalar dp)
+    , _xs :: [(Scalar dp,dp)]
+    , _numdp :: Scalar dp
     }
 
-deriving instance (Element (Ring dp), Show(Ring dp), Show dp) => Show (LegoPaper dp)
+deriving instance (Element (Scalar dp), Show(Scalar dp), Show dp) => Show (LegoPaper dp)
 
-instance HasRing dp => HasRing (LegoPaper dp) where
-    type Ring (LegoPaper dp) = Ring dp
+type instance Scalar (LegoPaper dp) = Scalar dp
 
 instance MahalanobisMetric (LegoPaper dp) where
     getMatrix (LegoPaper x _ _) = x
@@ -39,7 +38,7 @@ fromSingleton m = if rows m /= 1 || cols m /= 1
     then error "fromSingleton on not 1x1 matrix"
     else atIndex m $ minIndex m
 
--- mappend1 :: (Field (Ring dp)) => LegoPaper dp -> LegoPaper dp -> LegoPaper dp
+-- mappend1 :: (Field (Scalar dp)) => LegoPaper dp -> LegoPaper dp -> LegoPaper dp
 mappend1 m1 m2 = LegoPaper 
     { _matrix = (scale (_numdp m1/totdp) $ _matrix m1) `LA.add` (scale (_numdp m2/totdp) $ _matrix m2)
     , _numdp = _numdp m1+_numdp m2
@@ -67,7 +66,7 @@ mappend2 eta m1 m2 = mappend1 m1' m2'
 --     , Container Vector r
 --     , LA.Product r
 --     , Floating r
---     , r ~ Ring (vec r)
+--     , r ~ Scalar (vec r)
 --     , Show r
 --     , Ord r
 --     ) => Int -> r -> container (r,vec r) -> LegoPaper (vec r) 
@@ -86,7 +85,7 @@ train_LegoPaper ::
     , Container Vector r
     , LA.Product r
     , Floating r
-    , r ~ Ring (vec r)
+    , r ~ Scalar (vec r)
     , Show r
     , Ord r
     ) => Int -> r -> container (r,vec r) -> LegoPaper (vec r) 
@@ -121,7 +120,7 @@ add1dp_LegoPaper ::
     , Floating r
     , Container Vector r
     , VG.Vector vec r
-    , r ~ Ring (vec r)
+    , r ~ Scalar (vec r)
     , Show r
     , Ord r
     ) => r -> LegoPaper (vec r) -> (r,vec r) -> LegoPaper (vec r)
@@ -149,7 +148,7 @@ add1dp_LegoPaper eta lp (y,vec) = LegoPaper
 
 instance
     ( VG.Vector vec r
-    , Ring (vec r) ~ r
+    , Scalar (vec r) ~ r
     , LA.Product r
     ) =>  MkMahalanobis (LegoPaper (vec r))
         where

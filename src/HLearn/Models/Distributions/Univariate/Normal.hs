@@ -40,8 +40,7 @@ instance (Num prob) => HomTrainer (Normal prob prob) where
     type Datapoint (Normal prob prob) = prob
     train1dp dp = Normal $ train1dp dp
 
-instance (Num prob) => HasRing (Normal prob dp) where
-    type Ring (Normal prob dp) = prob
+type instance Scalar (Normal prob dp) = prob
 
 ---------------------------------------
 

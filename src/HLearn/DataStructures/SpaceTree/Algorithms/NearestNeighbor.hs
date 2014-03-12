@@ -72,38 +72,38 @@ import HLearn.DataStructures.StrictList (List (..),strictlist2list)
 
 data Neighbor dp = Neighbor
     { neighbor         :: !dp
---     , weight           :: !(Ring dp)
-    , neighborDistance :: !(Ring dp)
+--     , weight           :: !(Scalar dp)
+    , neighborDistance :: !(Scalar dp)
     }
 
-deriving instance (Read dp, Read (Ring dp)) => Read (Neighbor dp)
-deriving instance (Show dp, Show (Ring dp)) => Show (Neighbor dp)
+deriving instance (Read dp, Read (Scalar dp)) => Read (Neighbor dp)
+deriving instance (Show dp, Show (Scalar dp)) => Show (Neighbor dp)
 
-instance Eq (Ring dp) => Eq (Neighbor dp) where
+instance Eq (Scalar dp) => Eq (Neighbor dp) where
     a == b = neighborDistance a == neighborDistance b
 
-instance Ord (Ring dp) => Ord (Neighbor dp) where
+instance Ord (Scalar dp) => Ord (Neighbor dp) where
     compare a b = compare (neighborDistance a) (neighborDistance b)
 
-instance (NFData dp, NFData (Ring dp)) => NFData (Neighbor dp) where
+instance (NFData dp, NFData (Scalar dp)) => NFData (Neighbor dp) where
     rnf n = deepseq (neighbor n) $ rnf (neighborDistance n)
 
 ---------------------------------------
 
 newtype NeighborList (k::Nat) dp = NeighborList { getknn :: Strict.List (Neighbor dp) }
 
-mkNeighborList :: Num (Ring dp) => dp -> Ring dp -> NeighborList k dp
+mkNeighborList :: Num (Scalar dp) => dp -> Scalar dp -> NeighborList k dp
 -- mkNeighborList dp dist = NeighborList $ Neighbor dp 1 dist :. Strict.Nil
 mkNeighborList dp dist = NeighborList $ Neighbor dp dist :. Strict.Nil
 
 getknnL :: NeighborList k dp -> [Neighbor dp]
 getknnL = strictlist2list . getknn
 
-deriving instance (Read dp, Read (Ring dp)) => Read (NeighborList k dp)
-deriving instance (Show dp, Show (Ring dp)) => Show (NeighborList k dp)
-deriving instance (NFData dp, NFData (Ring dp)) => NFData (NeighborList k dp)
+deriving instance (Read dp, Read (Scalar dp)) => Read (NeighborList k dp)
+deriving instance (Show dp, Show (Scalar dp)) => Show (NeighborList k dp)
+deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborList k dp)
 
-nl_maxdist :: forall k dp. (KnownNat k, Fractional (Ring dp)) => NeighborList k dp -> Ring dp
+nl_maxdist :: forall k dp. (KnownNat k, Fractional (Scalar dp)) => NeighborList k dp -> Scalar dp
 nl_maxdist (NeighborList Strict.Nil) = infinity
 nl_maxdist (NeighborList (x:.Strict.Nil)) = neighborDistance x
 nl_maxdist (NeighborList xs ) = neighborDistance $ Strict.last xs
@@ -122,9 +122,9 @@ newtype NeighborMap (k::Nat) dp = NeighborMap
     { nm2map :: Map.Map dp (NeighborList k dp)
     }
 
-deriving instance (Read dp, Read (Ring dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
-deriving instance (Show dp, Show (Ring dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
-deriving instance (NFData dp, NFData (Ring dp)) => NFData (NeighborMap k dp)
+deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
+deriving instance (Show dp, Show (Scalar dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
+deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborMap k dp)
 
 nm2list :: NeighborMap k dp -> [(dp,NeighborList k dp)]
 nm2list (NeighborMap nm) = Map.assocs nm
@@ -186,15 +186,15 @@ findEpsilonNeighborListWith ::
     ( KnownNat k
     , SpaceTree t dp
     , Eq dp
-    , Floating (Ring dp)
-    , CanError (Ring dp)
-    ) => NeighborList k dp -> Ring dp -> t dp -> dp -> NeighborList k dp
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
+    ) => NeighborList k dp -> Scalar dp -> t dp -> dp -> NeighborList k dp
 findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
     where
         smudge = 1/(1+epsilon)
 
 {-# INLINABLE findNeighborList_batch #-}
--- findNeighborList_batch :: (KnownNat k, SpaceTree t dp, Eq dp, CanError (Ring dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
+-- findNeighborList_batch :: (KnownNat k, SpaceTree t dp, Eq dp, CanError (Scalar dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
 findNeighborList_batch v st = fmap (findNeighborList st) v
 
 {-# INLINABLE knn_catadp #-}
@@ -202,8 +202,8 @@ knn_catadp :: forall k dp.
     ( KnownNat k
     , MetricSpace dp
     , Eq dp
-    , CanError (Ring dp)
-    ) => Ring dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
+    , CanError (Scalar dp)
+    ) => Scalar dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
 knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
     if isError dist 
         then knn
@@ -217,10 +217,10 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
 knn_cata :: forall k t dp. 
     ( KnownNat k
     , SpaceTree t dp
-    , Floating (Ring dp)
+    , Floating (Scalar dp)
     , Eq dp
-    , CanError (Ring dp)
-    ) => Ring dp -> dp -> t dp -> NeighborList k dp -> NeighborList k dp
+    , CanError (Scalar dp)
+    ) => Scalar dp -> dp -> t dp -> NeighborList k dp -> NeighborList k dp
 knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-} 
     if stNode t==query 
         then if isError knn
@@ -245,7 +245,7 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 --     ( KnownNat k
 --     , MetricSpace dp
 --     , Eq dp
---     ) => Ring dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
+--     ) => Scalar dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
 -- knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
 --     case isFartherThanWithDistance dp query (nl_maxdist knn * smudge) of
 --         Strict.Nothing -> knn
@@ -258,7 +258,7 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 --     ( KnownNat k
 --     , SpaceTree t dp
 --     , Eq dp
---     ) => Ring dp -> dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
+--     ) => Scalar dp -> dp -> t dp -> NeighborList k dp -> Strict.Maybe (NeighborList k dp)
 -- knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-} 
 --     case stIsMinDistanceDpFartherThanWithDistance t query (nl_maxdist knn * smudge) of
 --         Strict.Nothing -> Strict.Nothing
@@ -273,8 +273,8 @@ findNeighborMap ::
     ( KnownNat k
     , SpaceTree t dp
     , Ord dp
-    , Floating (Ring dp)
-    , CanError (Ring dp)
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
     ) => DualTree (t dp) -> NeighborMap k dp
 findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $ 
     map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
@@ -284,10 +284,10 @@ parFindNeighborMap ::
     ( KnownNat k
     , SpaceTree t dp
     , Ord dp
-    , NFData (Ring dp)
+    , NFData (Scalar dp)
     , NFData dp
-    , Floating (Ring dp)
-    , CanError (Ring dp)
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
     ) => DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ 
     map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
@@ -297,10 +297,10 @@ parFindNeighborMapWith ::
     ( KnownNat k
     , SpaceTree t dp
     , Ord dp
-    , NFData (Ring dp)
+    , NFData (Scalar dp)
     , NFData dp
-    , Floating (Ring dp)
-    , CanError (Ring dp)
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
     ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
     map 
@@ -315,11 +315,11 @@ parFindEpsilonNeighborMapWith ::
     ( KnownNat k
     , SpaceTree t dp
     , Ord dp
-    , NFData (Ring dp)
+    , NFData (Scalar dp)
     , NFData dp
-    , Floating (Ring dp)
-    , CanError (Ring dp)
-    ) => NeighborMap k dp -> Ring dp -> DualTree (t dp) -> NeighborMap k dp
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
+    ) => NeighborMap k dp -> Scalar dp -> DualTree (t dp) -> NeighborMap k dp
 parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = (parallel reduce) $
     map 
         (\dp -> NeighborMap $ Map.singleton dp $ findEpsilonNeighborListWith (Map.findWithDefault mempty dp nm) epsilon (reference dual) dp) 
