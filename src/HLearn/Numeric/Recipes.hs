@@ -97,9 +97,18 @@ optimize stop step opt = if or $ map ($ opt) stop
     then opt
     else optimize stop step $ addTrace opt $ step $ curValue opt
 
+---------------------------------------
+
+class Has_x1 opt where
+    x1 :: opt v -> v
+
+runOptimization :: Has_x1 opt => DoTrace (opt v) -> v
+runOptimization (DoTrace (opt:_)) = x1 opt
+
+---------------------------------------
+
 _stop_itr :: Int -> StopCriteria opt
 _stop_itr n = [\opt -> numitr opt > n]
-
 
 _stop_tolerance :: 
     ( Fractional num
