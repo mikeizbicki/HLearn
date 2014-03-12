@@ -1,4 +1,5 @@
-{- LANGUAGE UnboxedTuples -}
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Numeric.Recipes
     where
 
@@ -163,8 +164,5 @@ stop_tolerance _fx _fx_old tol tmp = trace ("fx="++show fx++"; fx_old="++show fx
         fx_old = _fx_old tmp
 
 
-instance Num r => HasRing (Vector r) where
-    type Ring (Vector r) = r
-
-instance Num r => HasRing (Matrix r) where
-    type Ring (Matrix r) = r
+type instance Scalar (Vector r) = r
+type instance Scalar (Matrix r) = r

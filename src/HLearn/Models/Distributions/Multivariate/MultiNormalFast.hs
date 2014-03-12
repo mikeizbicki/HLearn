@@ -23,16 +23,16 @@ type MultiNormal dp = AddUnit1 MultiNormal' dp
 
 data MultiNormal' dp = MultiNormal' 
     { raw       :: !(RawMoments dp)
-    , meanV     :: Vector (Ring dp)
-    , covarM    :: Matrix (Ring dp)
-    , invcovarM :: Matrix (Ring dp)
-    , pdfdenom  :: Ring dp
+    , meanV     :: Vector (Scalar dp)
+    , covarM    :: Matrix (Scalar dp)
+    , invcovarM :: Matrix (Scalar dp)
+    , pdfdenom  :: Scalar dp
     }
 
-deriving instance (Element (Ring dp), Read (Ring dp)) => Read (MultiNormal' dp)
-deriving instance (Element (Ring dp), Show (Ring dp)) => Show (MultiNormal' dp)
+deriving instance (Element (Scalar dp), Read (Scalar dp)) => Read (MultiNormal' dp)
+deriving instance (Element (Scalar dp), Show (Scalar dp)) => Show (MultiNormal' dp)
 
-instance (NFData (Ring dp), Storable (Ring dp)) => NFData (MultiNormal' dp) where
+instance (NFData (Scalar dp), Storable (Scalar dp)) => NFData (MultiNormal' dp) where
     rnf m = deepseq (raw m) 
           $ deepseq (meanV m) 
           $ deepseq (covarM m) 
@@ -42,13 +42,13 @@ instance (NFData (Ring dp), Storable (Ring dp)) => NFData (MultiNormal' dp) wher
 ---------------------------------------
 
 data RawMoments dp = RawMoments
-    { m0 :: !(Ring dp)
-    , m1 :: !(Vector (Ring dp))
-    , m2 :: !(Matrix (Ring dp))
+    { m0 :: !(Scalar dp)
+    , m1 :: !(Vector (Scalar dp))
+    , m2 :: !(Matrix (Scalar dp))
     }
 
-deriving instance (Element (Ring dp), Read (Ring dp)) => Read (RawMoments dp)
-deriving instance (Element (Ring dp), Show (Ring dp)) => Show (RawMoments dp)
+deriving instance (Element (Scalar dp), Read (Scalar dp)) => Read (RawMoments dp)
+deriving instance (Element (Scalar dp), Show (Scalar dp)) => Show (RawMoments dp)
 
 instance NFData (RawMoments dp) where
     rnf rm = seq (m0 rm) 
@@ -57,14 +57,14 @@ instance NFData (RawMoments dp) where
 
 ---------------------------------------
 
-covar :: MultiNormal dp -> Matrix (Ring dp)
+covar :: MultiNormal dp -> Matrix (Scalar dp)
 covar (UnitLift1 m) = covarM m
 
 mkMultiNormal' :: 
-    ( Storable (Ring dp)
-    , Element (Ring dp)
-    , Field (Ring dp)
-    , Floating (Ring dp)
+    ( Storable (Scalar dp)
+    , Element (Scalar dp)
+    , Field (Scalar dp)
+    , Floating (Scalar dp)
     ) => RawMoments dp -> MultiNormal' dp
 mkMultiNormal' raw = MultiNormal'
     { raw = raw
@@ -82,14 +82,13 @@ mkMultiNormal' raw = MultiNormal'
 -------------------------------------------------------------------------------
 -- algebra
 
-instance HasRing dp => HasRing (MultiNormal dp) where
-    type Ring (MultiNormal dp) = Ring dp
+type instance Scalar (MultiNormal dp) = Scalar dp
 
 instance 
-    ( Container Matrix (Ring dp)
-    , Container Vector (Ring dp)
-    , Field (Ring dp)
-    , Floating (Ring dp)
+    ( Container Matrix (Scalar dp)
+    , Container Vector (Scalar dp)
+    , Field (Scalar dp)
+    , Floating (Scalar dp)
     ) => SG.Semigroup (MultiNormal' dp) 
         where
     d1 <> d2 = mkMultiNormal' $ RawMoments 
@@ -101,15 +100,12 @@ instance
 -------------------------------------------------------------------------------
 -- training 
 
-instance Num a => HasRing [a] where 
-    type Ring [a] = a
-
 instance 
     ( Element r 
     , Container Vector r
     , Field r
     , Floating r
-    , Ring (dp r) ~ r
+    , Scalar (dp r) ~ r
     , VG.Vector dp r
     ) => HomTrainer (MultiNormal (dp r)) 
         where
@@ -127,14 +123,14 @@ instance
 -- distribution 
 
 instance Probabilistic (MultiNormal dp) where
-    type Probability (MultiNormal dp) = Ring dp
+    type Probability (MultiNormal dp) = Scalar dp
 
 instance 
     ( Element r
     , Container Vector r
     , Floating r
     , LA.Product r
-    , Ring (dp r) ~ r
+    , Scalar (dp r) ~ r
     , F.Foldable dp 
     ) => PDF (MultiNormal (dp r)) 
         where

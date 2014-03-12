@@ -18,16 +18,16 @@ import HLearn.DataStructures.SpaceTree
 
 data Range dp = Range
     { rangedp :: !dp
-    , rangedistance :: !(Ring dp)
+    , rangedistance :: !(Scalar dp)
     }
 
-deriving instance (Read dp, Read (Ring dp)) => Read (Range dp)
-deriving instance (Show dp, Show (Ring dp)) => Show (Range dp)
+deriving instance (Read dp, Read (Scalar dp)) => Read (Range dp)
+deriving instance (Show dp, Show (Scalar dp)) => Show (Range dp)
 
-instance Eq (Ring dp) => Eq (Range dp) where
+instance Eq (Scalar dp) => Eq (Range dp) where
     r1 == r2 = rangedistance r1 == rangedistance r2
 
-instance Ord (Ring dp) => Ord (Range dp) where
+instance Ord (Scalar dp) => Ord (Range dp) where
     compare r1 r2 = compare (rangedistance r1) (rangedistance r2)
 
 instance NFData (Range dp) where
@@ -37,23 +37,23 @@ instance NFData (Range dp) where
 -- RangeList
 
 data RangeList dp = RangeList
-    { mindist  :: !(Ring dp)
-    , maxdist  :: !(Ring dp)
+    { mindist  :: !(Scalar dp)
+    , maxdist  :: !(Scalar dp)
     , rangeset :: !(Set.Set (Range dp))
     }
 
-instance NFData (Ring dp) => NFData (RangeList dp) where
+instance NFData (Scalar dp) => NFData (RangeList dp) where
     rnf rl = seq rl $ rnf (rangeset rl)
 
-mkRangeList :: Ord (Ring dp) => Ring dp -> Ring dp -> RangeList dp
+mkRangeList :: Ord (Scalar dp) => Scalar dp -> Scalar dp -> RangeList dp
 mkRangeList !a !b = RangeList a b mempty
 
-rlInsert :: Ord (Ring dp) => Range dp -> RangeList dp -> RangeList dp
+rlInsert :: Ord (Scalar dp) => Range dp -> RangeList dp -> RangeList dp
 rlInsert !dp !rl = if rangedistance dp <= maxdist rl && rangedistance dp > mindist rl
     then rl { rangeset = Set.insert dp $ rangeset rl }
     else rl
 
-instance ( Fractional (Ring dp), Ord (Ring dp)) =>  Monoid (RangeList dp) where
+instance ( Fractional (Scalar dp), Ord (Scalar dp)) =>  Monoid (RangeList dp) where
     mempty = RangeList
         { mindist = 0
         , maxdist = infinity
@@ -73,12 +73,12 @@ instance ( Fractional (Ring dp), Ord (Ring dp)) =>  Monoid (RangeList dp) where
 ---------------------------------------
 
 {-# INLINABLE findRangeList #-}
-findRangeList :: (SpaceTree t dp, Eq dp) => t dp -> Ring dp -> Ring dp -> dp -> RangeList dp
+findRangeList :: (SpaceTree t dp, Eq dp) => t dp -> Scalar dp -> Scalar dp -> dp -> RangeList dp
 findRangeList tree mindist maxdist query = 
     prunefoldB (rl_catadp query) (rl_cata query) (mkRangeList mindist maxdist) tree
 
 {-# INLINABLE rl_catadp #-}
-rl_catadp :: (MetricSpace dp, Ord (Ring dp)) => dp -> dp -> RangeList dp -> RangeList dp
+rl_catadp :: (MetricSpace dp, Ord (Scalar dp)) => dp -> dp -> RangeList dp -> RangeList dp
 rl_catadp !query !dp !rl = {-# SCC rl_catadp #-} 
     case isFartherThanWithDistance dp query (maxdist rl) of
         Strict.Nothing -> rl
@@ -97,15 +97,15 @@ rl_cata !query !tree !rl = {-# SCC rl_cata #-}
 
 newtype RangeMap dp = RangeMap { rm2map :: Map.Map dp (RangeList dp) } 
 
-deriving instance (NFData dp, NFData (Ring dp)) => NFData (RangeMap dp)
+deriving instance (NFData dp, NFData (Scalar dp)) => NFData (RangeMap dp)
 
-instance (Ord dp, Ord (Ring dp), Fractional (Ring dp)) => Monoid (RangeMap dp) where
+instance (Ord dp, Ord (Scalar dp), Fractional (Scalar dp)) => Monoid (RangeMap dp) where
     mempty = RangeMap mempty
     mappend !(RangeMap rm1) !(RangeMap rm2) = RangeMap $ Map.unionWith (undefined) rm1 rm2
 
 ---------------------------------------
 
-findRangeMap :: (NFData (Ring dp), NFData dp, SpaceTree t dp, Ord dp) => Ring dp -> Ring dp -> DualTree (t dp) -> RangeMap dp
+findRangeMap :: (NFData (Scalar dp), NFData dp, SpaceTree t dp, Ord dp) => Scalar dp -> Scalar dp -> DualTree (t dp) -> RangeMap dp
 findRangeMap mindist maxdist dual = reduce $ 
     map (\dp -> RangeMap $ Map.singleton dp $ findRangeList (reference dual) mindist maxdist dp) (stToList $ query dual)
 

@@ -33,8 +33,7 @@ newtype KNearestNeighbor tree (k::Nat) (dp:: *) = KNearestNeighbor
 -------------------------------------------------------------------------------
 -- algebra
     
-instance HasRing (tree dp) => HasRing (KNearestNeighbor tree k dp) where
-    type Ring (KNearestNeighbor tree k dp) = Ring (tree dp)
+type instance Scalar (KNearestNeighbor tree k dp) = Scalar (tree dp)
 
 -------------------------------------------------------------------------------
 -- model
@@ -55,7 +54,7 @@ instance
 -- classification
 
 instance Probabilistic (KNearestNeighbor tree k dp) where
-    type Probability (KNearestNeighbor tree k dp) = Ring (KNearestNeighbor tree k dp)
+    type Probability (KNearestNeighbor tree k dp) = Scalar (KNearestNeighbor tree k dp)
 
 instance
     ( dp ~ MaybeLabeled label attr
@@ -63,12 +62,11 @@ instance
     , KnownNat k
     , Eq dp
     , Ord (Label dp)
-    , HasRing (tree dp)
-    , Ring (tree dp) ~ Ring dp
-    , Floating (Ring dp)
-    , CanError (Ring dp)
+    , Scalar (tree dp) ~ Scalar dp
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
     , Show attr
-    , Show (Ring dp)
+    , Show (Scalar dp)
     , Show label
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where
@@ -83,9 +81,9 @@ instance
 
 instance 
     ( ProbabilityClassifier (KNearestNeighbor tree k dp)
-    , Ord (Ring (tree dp))
+    , Ord (Scalar (tree dp))
+    , Num (Scalar (tree dp))
     , Ord (Label dp)
-    , HasRing (tree dp)
     ) => Classifier (KNearestNeighbor tree k dp)
         where
     classify model dp = {-trace "KNN-classify" $-}  mean $ probabilityClassify model dp

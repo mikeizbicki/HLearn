@@ -78,7 +78,7 @@ instance HasElems OpenInterval where
 
 data MetricBall dp = MetricBall 
     { center :: !dp
-    , radius :: !(Ring dp)
+    , radius :: !(Scalar dp)
     }
 
 instance HasElems MetricBall where

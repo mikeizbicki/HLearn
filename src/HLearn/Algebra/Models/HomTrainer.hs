@@ -33,8 +33,8 @@ import HLearn.Algebra.Structures.Modules
 -- NumDP
 
 -- | numdp returns the number of data points that the model has been trained on
-class (HasRing model) => NumDP model where
-    numdp :: model -> Ring model
+class NumDP model where
+    numdp :: model -> Scalar model
 
 -------------------------------------------------------------------------------
 -- HomTrainer
@@ -88,12 +88,12 @@ class
 -------------------------------------------------------------------------------
 -- WeightedHomTrainer
 
-type Weighted dp = (Ring dp, dp)
+type Weighted dp = (Scalar dp, dp)
 
 class 
     ( HomTrainer model
     , Module model
-    , Ring (Datapoint model) ~ Ring model
+    , Scalar (Datapoint model) ~ Scalar model
     ) => WeightedHomTrainer model where
         
     train1dpW :: Weighted (Datapoint model) -> model
@@ -108,7 +108,7 @@ class
     addBatchW :: (Foldable container) => model -> container (Weighted (Datapoint model)) -> model
     addBatchW = online trainW
     
-instance (Module model, HomTrainer model, Ring (Datapoint model) ~ Ring model) => WeightedHomTrainer model
+instance (Module model, HomTrainer model, Scalar (Datapoint model) ~ Scalar model) => WeightedHomTrainer model
     
 -------------------------------------------------------------------------------
 -- helper functions

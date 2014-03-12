@@ -9,27 +9,26 @@ import HLearn.Algebra
 -- data structures
 
 data Centroid vector = Centroid
-    { c_numdp :: Ring vector
+    { c_numdp :: Scalar vector
     , vector :: vector
     }
 
-deriving instance (Show (Ring vector), Show vector) => Show (Centroid vector)
-deriving instance (Read (Ring vector), Read vector) => Read (Centroid vector)
-deriving instance (Eq   (Ring vector), Eq   vector) => Eq   (Centroid vector)
-deriving instance (Ord  (Ring vector), Ord  vector) => Ord  (Centroid vector)
+deriving instance (Show (Scalar vector), Show vector) => Show (Centroid vector)
+deriving instance (Read (Scalar vector), Read vector) => Read (Centroid vector)
+deriving instance (Eq   (Scalar vector), Eq   vector) => Eq   (Centroid vector)
+deriving instance (Ord  (Scalar vector), Ord  vector) => Ord  (Centroid vector)
 
 -------------------------------------------------------------------------------
 -- algebra
 
-instance (HasRing vector, Monoid vector) => Monoid (Centroid vector) where
+instance (Num (Scalar vector), Monoid vector) => Monoid (Centroid vector) where
     mempty = Centroid 0 mempty
     c1 `mappend` c2 = Centroid
         { c_numdp = c_numdp c1 + c_numdp c2
         , vector = vector c1 <> vector c2
         }
 
-instance (HasRing vector) => HasRing (Centroid vector) where
-    type Ring (Centroid vector) = Ring vector
+type instance Scalar (Centroid vector) = Scalar vector
 
 instance 
     ( MetricSpace vector
@@ -41,12 +40,12 @@ instance
 -------------------------------------------------------------------------------
 -- model
 
-instance (HasRing vector) => NumDP (Centroid vector) where
+instance NumDP (Centroid vector) where
     numdp = c_numdp
 
 instance 
-    ( HasRing vector 
-    , Monoid vector
+    ( Monoid vector
+    , Num (Scalar vector)
     ) => HomTrainer (Centroid vector) 
         where
     type Datapoint (Centroid vector) = vector

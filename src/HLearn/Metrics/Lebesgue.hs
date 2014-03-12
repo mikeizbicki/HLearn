@@ -66,8 +66,7 @@ type instance VG.Mutable (L1 v) = L1M (VG.Mutable v)
 
 ---------------------------------------
 
-instance Num r => HasRing (L1 v r) where
-    type Ring (L1 v r) = r
+type instance Scalar (L1 v r) = r
 
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L1 v r) where
 -- instance (VG.Unbox r, RealFrac r,Floating r) => MetricSpace (L1 VG.Vector r) where
@@ -144,8 +143,7 @@ type instance VG.Mutable (L2 v) = L2M (VG.Mutable v)
 
 ---------------------------------------
 
-instance Num r => HasRing (L2 v r) where
-    type Ring (L2 v r) = r
+type instance Scalar (L2 v r) = r
 
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
 -- instance MetricSpace (L2 VU.Vector Float) where
@@ -346,79 +344,6 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 
 -------------------------------------------------------------------------------
--- SquaredL2
-
-newtype SquaredL2 v a = SquaredL2 { unSquaredL2 :: v a }
-    deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
-
-deriving instance F.Foldable v => F.Foldable (SquaredL2 v)
-deriving instance Functor v => Functor (SquaredL2 v)
-
-instance VG.Vector v a => VG.Vector (SquaredL2 v) a where
-    {-# INLINE basicUnsafeFreeze #-}
-    {-# INLINE basicUnsafeThaw #-}
-    {-# INLINE basicLength #-}
-    {-# INLINE basicUnsafeSlice #-}
-    {-# INLINE basicUnsafeIndexM #-}
-    {-# INLINE basicUnsafeCopy #-}
-    {-# INLINE elemseq #-}
-    basicUnsafeFreeze (SquaredL2M v) = liftM SquaredL2 $ VG.basicUnsafeFreeze v
-    basicUnsafeThaw (SquaredL2 v) = liftM SquaredL2M $ VG.basicUnsafeThaw v
-    basicLength (SquaredL2 v) = VG.basicLength v
-    basicUnsafeSlice s t (SquaredL2 v) = SquaredL2 $ VG.basicUnsafeSlice s t v
-    basicUnsafeIndexM (SquaredL2 v) i = VG.basicUnsafeIndexM v i
-    basicUnsafeCopy (SquaredL2M vm) (SquaredL2 v) = VG.basicUnsafeCopy vm v
-    elemseq (SquaredL2 v) a b = VG.elemseq v a b
-
-newtype SquaredL2M v s a = SquaredL2M { unSquaredL2M :: v s a } 
-
-instance VGM.MVector v a => VGM.MVector (SquaredL2M v) a where
-    {-# INLINE basicLength #-}
-    {-# INLINE basicUnsafeSlice #-}
-    {-# INLINE basicOverlaps #-}
-    {-# INLINE basicUnsafeNew #-}
-    {-# INLINE basicUnsafeReplicate #-}
-    {-# INLINE basicUnsafeRead #-}
-    {-# INLINE basicUnsafeWrite #-}
-    basicLength (SquaredL2M v) = VGM.basicLength v
-    basicUnsafeSlice s t (SquaredL2M v) = SquaredL2M $ VGM.basicUnsafeSlice s t v
-    basicOverlaps (SquaredL2M v1) (SquaredL2M v2) = VGM.basicOverlaps v1 v2
-    basicUnsafeNew n = liftM SquaredL2M $ VGM.basicUnsafeNew n
-    basicUnsafeReplicate i a = liftM SquaredL2M $ VGM.basicUnsafeReplicate i a
-    basicUnsafeRead (SquaredL2M v) i = VGM.basicUnsafeRead v i
-    basicUnsafeWrite (SquaredL2M v) i a = VGM.basicUnsafeWrite v i a
-
-type instance VG.Mutable (SquaredL2 v) = SquaredL2M (VG.Mutable v)
-
----------------------------------------
-
-instance Num r => HasRing (SquaredL2 v r) where
-    type Ring (SquaredL2 v r) = r
-
-instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (SquaredL2 v r) where
-    {-# INLINABLE distance #-}
-    {-# INLINABLE isFartherThan #-}
-
-    distance !(SquaredL2 v1) !(SquaredL2 v2) = {-# SCC distance #-} {-sqrt $-} go 0 (VG.length v1-1)
-        where
-            go tot (-1) = tot
-            go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
-
-    isFartherThanWithDistance (SquaredL2 v1) (SquaredL2 v2) !dist = {-# SCC isFartherThanWithDistance #-} 
-        go 0 (VG.length v1-1)
-        where
-            dist2=dist -- *dist
-
-            go tot (-1) = Strict.Just $ {-sqrt-} tot
-            go tot i = if tot'>dist2
-                then Strict.Nothing
-                else go tot' (i-1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-
--------------------------------------------------------------------------------
 -- Linf
 
 newtype Linf v a = Linf { unLinf :: v a }
@@ -465,8 +390,7 @@ type instance VG.Mutable (Linf v) = LinfM (VG.Mutable v)
 
 ---------------------------------------
 
-instance Num r => HasRing (Linf v r) where
-    type Ring (Linf v r) = r
+type instance Scalar (Linf v r) = r
 
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (Linf v r) where
 -- instance (VG.Unbox r, RealFrac r,Floating r) => MetricSpace (Linf VG.Vector r) where
@@ -503,10 +427,6 @@ instance MkCentroid (L1 VU.Vector Double) where
 --     {-# INLINABLE mkCentroid #-}
 --     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
 
-instance MkCentroid (SquaredL2 VU.Vector Double) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
 instance MkCentroid (Linf VU.Vector Double) where
     {-# INLINABLE mkCentroid #-}
     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
@@ -520,11 +440,4 @@ instance MkCentroid (L2 VU.Vector Float) where
     {-# INLINABLE mkCentroid #-}
     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
 
-instance MkCentroid (SquaredL2 VU.Vector Float) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
-instance MkCentroid (Linf VU.Vector Float) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
 

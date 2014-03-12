@@ -32,7 +32,7 @@ import qualified HLearn.Numeric.Recipes.LineMin as LineMin
 
 data ConjugateGradientDescent a = ConjugateGradientDescent 
     { ___x1 :: !a
-    , ___fx1 :: !(Ring a)
+    , ___fx1 :: !(Scalar a)
     , ___f'x1 :: !a
     , ___f'x0 :: !a
     , ___s0 :: !a
@@ -56,9 +56,9 @@ data ConjugateMethod
 -- | Conjugate gradient descent using reasonable defaults for the optimization parameters.  This is the recommended function to use.
 conjugateGradientDescent ::
     ( InnerProduct v
-    , Ord (Ring v)
-    , Show (Ring v)
-    ) => (v -> Ring v)
+    , Ord (Scalar v)
+    , Show (Scalar v)
+    ) => (v -> Scalar v)
       -> (v -> v)
       -> v
       -> DoTrace (ConjugateGradientDescent v)
@@ -67,9 +67,9 @@ conjugateGradientDescent = conjugateGradientDescent_ LineSearch PolakRibiere
 -- | The method of steepest descent is much worse in practice than conjugate gradient descent.  It should never be used in practice, and is provided only for comparison purposes.
 steepestDescent :: 
     ( InnerProduct v
-    , Ord (Ring v)
-    , Show (Ring v)
-    ) => (v -> Ring v)
+    , Ord (Scalar v)
+    , Show (Scalar v)
+    ) => (v -> Scalar v)
       -> (v -> v)
       -> v
       -> DoTrace (ConjugateGradientDescent v)
@@ -78,11 +78,11 @@ steepestDescent = conjugateGradientDescent_ LineSearch None
 -- | A generic method for conjugate gradient descent that gives you more control over the optimization parameters
 conjugateGradientDescent_ ::
     ( InnerProduct v
-    , Ord (Ring v)
-    , Show (Ring v)
-    ) => StepMethod (Ring v)
+    , Ord (Scalar v)
+    , Show (Scalar v)
+    ) => StepMethod (Scalar v)
       -> ConjugateMethod
-      -> (v -> Ring v)
+      -> (v -> Scalar v)
       -> (v -> v)
       -> v
       -> DoTrace (ConjugateGradientDescent v)
@@ -104,11 +104,11 @@ conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = optimize
 -- | performs a single iteration of the conjugate gradient descent algorithm
 step_conjugateGradientDescent :: 
     ( InnerProduct v
-    , Ord (Ring v)
-    , Show (Ring v)
-    ) => StepMethod (Ring v)
+    , Ord (Scalar v)
+    , Show (Scalar v)
+    ) => StepMethod (Scalar v)
       -> ConjugateMethod
-      -> (v -> Ring v)
+      -> (v -> Scalar v)
       -> (v -> v)
       -> ConjugateGradientDescent v
       -> ConjugateGradientDescent v

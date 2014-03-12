@@ -147,7 +147,7 @@ instance FromList Strict.List a where
 
 class 
     ( MetricSpace dp
-    , Ring dp ~ Ring (t dp)
+    , Scalar dp ~ Scalar (t dp)
     , NumDP (t dp)
     , FromList (NodeContainer t) dp
     , FromList (ChildContainer t) dp
@@ -163,38 +163,38 @@ class
 
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
-    stMinDistance :: t dp -> t dp -> Ring dp
+    stMinDistance :: t dp -> t dp -> Scalar dp
     stMinDistance t1 t2 = Strict.fst $ stMinDistanceWithDistance t1 t2
-    stMaxDistance :: t dp -> t dp -> Ring dp
+    stMaxDistance :: t dp -> t dp -> Scalar dp
     stMaxDistance t1 t2 = Strict.fst $ stMaxDistanceWithDistance t1 t2
     
-    stMinDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Ring dp) (Ring dp)
-    stMaxDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Ring dp) (Ring dp)
+    stMinDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Scalar dp) (Scalar dp)
+    stMaxDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Scalar dp) (Scalar dp)
 
     {-# INLINE stMinDistanceDp #-}
     {-# INLINE stMaxDistanceDp #-}
-    stMinDistanceDp :: t dp -> dp -> Ring dp
+    stMinDistanceDp :: t dp -> dp -> Scalar dp
     stMinDistanceDp t dp = Strict.fst $ stMinDistanceDpWithDistance t dp
-    stMaxDistanceDp :: t dp -> dp -> Ring dp
+    stMaxDistanceDp :: t dp -> dp -> Scalar dp
     stMaxDistanceDp t dp = Strict.fst $ stMaxDistanceDpWithDistance t dp
 
-    stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
-    stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Ring dp -> Strict.Maybe (Ring dp)
+    stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Strict.Maybe (Scalar dp)
+    stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Strict.Maybe (Scalar dp)
 
-    stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
-    stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Ring dp) => t dp -> dp -> Ring dp -> Ring dp
+    stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
+    stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
 
-    stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
-    stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Ring dp) (Ring dp)
+    stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Scalar dp) (Scalar dp)
+    stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Scalar dp) (Scalar dp)
 
-    stMinDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
-    stMaxDistanceDpFromDistance :: t dp -> dp -> Ring dp -> Ring dp
+    stMinDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
+    stMaxDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
 
     stHasNode   :: t dp -> Bool
     stIsLeaf    :: t dp -> Bool
     stChildren  :: t dp -> (ChildContainer t) (t dp)
     stNode      :: t dp -> dp
-    stWeight    :: t dp -> Ring dp
+    stWeight    :: t dp -> Scalar dp
 
     {-# INLINE stChildrenList #-}
     stChildrenList  :: t dp -> [t dp]
@@ -208,8 +208,8 @@ class
     stNodeW :: t dp -> Weighted dp
     stNodeW t = (stWeight t, stNode t)
 
-    ro :: t dp -> Ring dp
-    lambda :: t dp -> Ring dp
+    ro :: t dp -> Scalar dp
+    lambda :: t dp -> Scalar dp
 
 -------------------------------------------------------------------------------
 -- generic algorithms
@@ -251,7 +251,7 @@ stDescendents t = if stIsLeaf t
     else concatMap stDescendents $ stChildrenList t
 
 {-# INLINABLE stNumDp #-}
-stNumDp :: SpaceTree t dp => t dp -> Ring dp
+stNumDp :: SpaceTree t dp => t dp -> Scalar dp
 stNumDp t = if stIsLeaf t
     then stWeight t
     else stWeight t + sum (map stNumDp $ stChildrenList t)
@@ -515,8 +515,7 @@ instance NFData (sg tag dp) => NFData (AddUnit sg tag dp) where
     rnf Unit = ()
     rnf (UnitLift sg) = rnf sg
 
-instance HasRing (sg tag dp) => HasRing (AddUnit sg tag dp) where
-    type Ring (AddUnit sg tag dp) = Ring (sg tag dp)
+type instance Scalar (AddUnit sg tag dp) = Scalar (sg tag dp)
 
 instance Semigroup (sg tag dp) => Monoid (AddUnit sg tag dp) where
     {-# INLINE mempty #-}
@@ -547,7 +546,7 @@ instance Taggable sg dp => Taggable (AddUnit sg) dp where
     clearTags Unit = Unit
     clearTags (UnitLift sg) = UnitLift $ clearTags sg
 
-instance NumDP (sg tag dp) => NumDP (AddUnit sg tag dp) where
+instance (Num (Scalar (sg tag dp)), NumDP (sg tag dp)) => NumDP (AddUnit sg tag dp) where
     numdp Unit = 0
     numdp (UnitLift x) = numdp x
 

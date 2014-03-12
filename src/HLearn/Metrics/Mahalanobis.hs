@@ -37,21 +37,21 @@ dim m = VG.length $ rawdp m
 ---------------------------------------
 
 class 
-    ( Storable (Ring dp)
-    , Element (Ring dp)
-    , Container Vector (Ring dp)
-    , LA.Product (Ring dp)
-    , Field (Ring dp)
-    , Ring dp ~ Double
+    ( Storable (Scalar dp)
+    , Element (Scalar dp)
+    , Container Vector (Scalar dp)
+    , LA.Product (Scalar dp)
+    , Field (Scalar dp)
+    , Scalar dp ~ Double
     ) => MatrixField dp
 
 instance 
-    ( Storable (Ring dp)
-    , Element (Ring dp)
-    , Container Vector (Ring dp)
-    , LA.Product (Ring dp)
-    , Field (Ring dp)
-    , Ring dp ~ Double
+    ( Storable (Scalar dp)
+    , Element (Scalar dp)
+    , Container Vector (Scalar dp)
+    , LA.Product (Scalar dp)
+    , Field (Scalar dp)
+    , Scalar dp ~ Double
     ) => MatrixField dp
 
 class MkMahalanobis params where
@@ -60,7 +60,7 @@ class MkMahalanobis params where
 
 
 class MahalanobisMetric metric where
-    getMatrix :: metric -> Matrix (Ring metric)
+    getMatrix :: metric -> Matrix (Scalar metric)
 
 applyMahalanobis :: 
     ( VG.Vector vec r
@@ -68,7 +68,7 @@ applyMahalanobis ::
     , Element r
     , Field r
     , LA.Product r
-    , Ring metric ~ r
+    , Scalar metric ~ r
     , r~Double
     ) => metric -> vec r -> vec r
 applyMahalanobis metric dp = VG.fromList $ toList $ flatten $ 
@@ -79,14 +79,12 @@ applyMahalanobis metric dp = VG.fromList $ toList $ flatten $
 -------------------------------------------------------------------------------
 -- algebra
 
-instance HasRing dp => HasRing (Mahalanobis dp) where
-    type Ring (Mahalanobis dp) = Ring dp
+type instance Scalar (Mahalanobis dp) = Scalar dp
 
 instance 
     ( RealFrac r
     , Floating r
-    , Ring (dp r) ~ r
-    , HasRing (dp r)
+    , Scalar (dp r) ~ r
     , VG.Vector dp r
     ) => MetricSpace (Mahalanobis (dp r)) where
     {-# INLINABLE distance #-}

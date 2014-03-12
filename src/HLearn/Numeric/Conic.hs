@@ -37,7 +37,7 @@ conicprojection m = cmap realPart $ u LA.<> lambda' LA.<> trans u
 data RandomConicPersuit a = RandomConicPersuit
     { _stdgen :: !StdGen
     , _soln :: !a
-    , _fx :: !(Ring a)
+    , _fx :: !(Scalar a)
     , _solnlast :: !a
     }
 

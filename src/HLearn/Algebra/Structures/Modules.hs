@@ -9,33 +9,37 @@ import HLearn.Algebra.Structures.Groups
 -------------------------------------------------------------------------------
 -- Modules
 
-class Num (Ring m) => HasRing m where
-    type Ring m
+type family Scalar m :: *
+type instance Scalar Int = Int
+type instance Scalar Integer = Integer
+type instance Scalar Float = Float
+type instance Scalar Double = Double
+type instance Scalar Rational = Rational
 
 -- | Bug: The module classes have the constraint that r be of type Num.  Technically, this should be a Ring.  But creating a Ring class would be awkward because it would conflict with the Num class and require importing a different Prelude.
-class (HasRing m, Abelian m, Group m) => Module m where    
+class (Abelian m, Group m) => Module m where    
     infix 7 .*
-    (.*) :: Ring m -> m -> m
+    (.*) :: Scalar m -> m -> m
     
     {-# INLINE (*.) #-}
     infix 7 *.
-    (*.) :: m -> Ring m -> m
+    (*.) :: m -> Scalar m -> m
     m *. r = r .* m
 
 -------------------------------------------------------------------------------
 -- Vector Spaces
 
-class (Module m, Fractional (Ring m)) => VectorSpace m where
+class (Module m, Fractional (Scalar m)) => VectorSpace m where
     infix 7 /.
     {-# INLINE (/.) #-}
-    (/.) :: m -> Ring m -> m
+    (/.) :: m -> Scalar m -> m
     m /. r = m *. (1/r)
 
-instance (Module m, Fractional (Ring m)) => VectorSpace m
+instance (Module m, Fractional (Scalar m)) => VectorSpace m
 
 -------------------------------------------------------------------------------
 -- Inner Product spaces
 
 class VectorSpace v => InnerProduct v where
-    inner :: v -> v -> Ring v
+    inner :: v -> v -> Scalar v
 

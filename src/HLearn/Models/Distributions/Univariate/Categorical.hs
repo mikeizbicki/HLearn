@@ -57,8 +57,8 @@ instance (Ord label, Num prob) => Monoid (Categorical prob label) where
 instance (Ord label, Num prob) => Group (Categorical prob label) where
     inverse d1 = d1 {pdfmap=Map.map (0-) (pdfmap d1)}
 
-instance (Num prob) => HasRing (Categorical prob label) where
-    type Ring (Categorical prob label) = prob
+type instance Scalar (Categorical prob label) = prob
+
 instance (Ord label, Num prob) => Module (Categorical prob label) where
     p .* (Categorical pdf) = Categorical $ Map.map (*p) pdf
 

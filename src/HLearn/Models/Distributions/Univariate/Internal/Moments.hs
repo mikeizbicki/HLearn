@@ -49,8 +49,7 @@ instance (Num prob) => Monoid (Moments3 prob) where
 instance (Num prob) => Group (Moments3 prob ) where
     inverse !m = Moments3 (negate $ m0 m) (negate $ m1 m) (negate $ m2 m)
 
-instance (Num prob) => HasRing (Moments3 prob) where
-    type Ring (Moments3 prob) = prob
+type instance Scalar (Moments3 prob) = prob
     
 instance (Num prob) => Module (Moments3 prob) where
     r .* dist = Moments3

@@ -13,24 +13,23 @@ import HLearn.Algebra.Structures.Modules
 
 -- | We assume that the MetricSpace on s is compatible with the ordering on s
 class
-    ( HasRing s
-    , Ord (Ring s)
-    , Fractional (Ring s)
-    , Real (Ring s)
-    , RealFrac (Ring s)
+    ( Ord (Scalar s)
+    , Fractional (Scalar s)
+    , Real (Scalar s)
+    , RealFrac (Scalar s)
     ) => MetricSpace s
         where
 
-    distance :: s -> s -> Ring s
+    distance :: s -> s -> Scalar s
 
     {-# INLINE isFartherThan #-}
-    isFartherThan :: s -> s -> Ring s -> Bool
+    isFartherThan :: s -> s -> Scalar s -> Bool
     isFartherThan s1 s2 b = case isFartherThanWithDistance s1 s2 b of
         Strict.Nothing -> True
         Strict.Just _ -> False 
 
     {-# INLINE isFartherThanWithDistance #-}
-    isFartherThanWithDistance :: s -> s -> Ring s -> Strict.Maybe (Ring s)
+    isFartherThanWithDistance :: s -> s -> Scalar s -> Strict.Maybe (Scalar s)
     isFartherThanWithDistance s1 s2 b = if dist > b
         then Strict.Nothing
         else Strict.Just $ dist
@@ -38,15 +37,15 @@ class
             dist = distance s1 s2
 
     {-# INLINE isFartherThanWithDistanceCanError #-}
-    isFartherThanWithDistanceCanError :: CanError (Ring s) => s -> s -> Ring s -> Ring s
+    isFartherThanWithDistanceCanError :: CanError (Scalar s) => s -> s -> Scalar s -> Scalar s
     isFartherThanWithDistanceCanError s1 s2 b = if dist > b
         then errorVal
         else dist
         where
             dist = distance s1 s2
 
-class (HasRing m, Ord (Ring m)) => Norm m where
-    magnitude :: m -> Ring m
+class (Ord (Scalar m)) => Norm m where
+    magnitude :: m -> Scalar m
 
 ---------------------------------------
 
@@ -65,37 +64,36 @@ data MetricWrapper params dp = MetricWrapper
 -------------------------------------------------------------------------------
 -- instances
 
-instance Num a => HasRing (a,a) where
-    type Ring (a,a) = a
-
-instance (RealFrac a, Floating a) => MetricSpace (a,a) where
-    {-# INLINABLE distance #-}
-    distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
-
-    {-# INLINABLE isFartherThan #-}
-    isFartherThan (!x1,!y1) (!x2,!y2) !b = if pt1 > threshold
-        then True
-        else pt1 + (y1-y2)*(y1-y2) > threshold
-        where
-            {-# INLINE pt1 #-}
-            {-# INLINE threshold #-}
-            pt1 = (x1-x2)*(x1-x2)
-            threshold=b*b
-
-instance HasRing (Double,Double,Double,Double,Double) where
-    type Ring (Double,Double,Double,Double,Double) = Double
-
-instance MetricSpace (Double,Double,Double,Double,Double) where
-    distance (a0,a1,a2,a3,a4) (b0,b1,b2,b3,b4) = sqrt 
-        $ (a0+b0)*(a0+b0)
-        + (a1+b1)*(a1+b1)
-        + (a2+b2)*(a2+b2)
-        + (a3+b3)*(a3+b3)
-        + (a4+b4)*(a4+b4)
+-- type instance Scalar (a,a) = a
+-- 
+-- instance (RealFrac a, Floating a) => MetricSpace (a,a) where
+--     {-# INLINABLE distance #-}
+--     distance (x1,y1) (x2,y2) = sqrt $ (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
+-- 
+--     {-# INLINABLE isFartherThan #-}
+--     isFartherThan (!x1,!y1) (!x2,!y2) !b = if pt1 > threshold
+--         then True
+--         else pt1 + (y1-y2)*(y1-y2) > threshold
+--         where
+--             {-# INLINE pt1 #-}
+--             {-# INLINE threshold #-}
+--             pt1 = (x1-x2)*(x1-x2)
+--             threshold=b*b
+-- 
+-- instance HasScalar (Double,Double,Double,Double,Double) where
+--     type Scalar (Double,Double,Double,Double,Double) = Double
+-- 
+-- instance MetricSpace (Double,Double,Double,Double,Double) where
+--     distance (a0,a1,a2,a3,a4) (b0,b1,b2,b3,b4) = sqrt 
+--         $ (a0+b0)*(a0+b0)
+--         + (a1+b1)*(a1+b1)
+--         + (a2+b2)*(a2+b2)
+--         + (a3+b3)*(a3+b3)
+--         + (a4+b4)*(a4+b4)
 
 -------------------------------------------------------------------------------
 -- quick check
 
-property_isFartherThan :: MetricSpace dp => dp -> dp -> Ring dp -> Bool
+property_isFartherThan :: MetricSpace dp => dp -> dp -> Scalar dp -> Bool
 property_isFartherThan dp1 dp2 dist = (distance dp1 dp2 > abs dist) == isFartherThan dp1 dp2 (abs dist)
 
