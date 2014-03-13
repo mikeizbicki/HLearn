@@ -120,9 +120,7 @@ _stop_tolerance ::
       -> [DoTrace tmp -> Bool]
 _stop_tolerance _fx tol = [go]
     where
-        go tmp =  trace ("fx="++show fx++"; fx_old="++show fx_old++"; left="++show left++"; right="++show right) $ 
-    --     2 * abs (fx - fx_old) >= tol * ( abs fx + abs fx_old + 1e-18 )
-            left <= right
+        go tmp = left <= right
             where
                 left = 2 * abs (fx - fx_old) 
                 right = tol * ( abs fx + abs fx_old + 1e-18 )

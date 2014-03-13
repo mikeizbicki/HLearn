@@ -35,7 +35,7 @@ class (Module m, Fractional (Scalar m)) => VectorSpace m where
     (/.) :: m -> Scalar m -> m
     m /. r = m *. (1/r)
 
-instance (Module m, Fractional (Scalar m)) => VectorSpace m
+-- instance (Module m, Fractional (Scalar m)) => VectorSpace m
 
 -------------------------------------------------------------------------------
 -- Inner Product spaces
