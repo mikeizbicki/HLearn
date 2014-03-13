@@ -13,15 +13,17 @@ import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
+import Foreign.Storable
 import System.IO
 
 import Data.Csv
 import Numeric.LinearAlgebra hiding ((<>))
-import qualified Numeric.LinearAlgebra as LA
+-- import qualified Numeric.LinearAlgebra as LA
 
 import Debug.Trace
 
 import HLearn.Algebra
+import qualified HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Evaluation.CrossValidation
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
@@ -37,22 +39,22 @@ newtype LogReg dp = LogReg
     }
 
 deriving instance 
-    ( NFData (Ring dp)
+    ( NFData (Scalar dp)
     , NFData (Label dp)
     , NFData (Attributes dp)
     ) => NFData (LogReg dp)
 
-class InnerProduct v where
-    inner :: v -> v -> Ring v
+-- class InnerProduct v where
+--     inner :: v -> v -> Scalar v
 
-instance (VS.Storable r, Num r) => InnerProduct (Vector r) where
-    inner v1 v2 = sum $ zipWith (*) (VG.toList v1) (VG.toList v2)
+-- instance (Storable r, Num r) => InnerProduct (Vector r) where
+--     inner v1 v2 = sum $ zipWith (*) (VG.toList v1) (VG.toList v2)
 
 deriving instance 
     ( Show (Label dp)
-    , Show (Ring dp)
+    , Show (Scalar dp)
     , Show (Attributes dp)
-    , VS.Storable (Ring dp)
+    , Storable (Scalar dp)
     ) => Show (LogReg dp)
 
 -------------------------------------------------------------------------------
@@ -90,13 +92,13 @@ instance
     , Labeled dp
     , Attributes dp ~ vec r
     , VG.Vector vec r
-    , Num (Attributes dp)
     , Floating r
-    , r ~ Ring dp
+    , Monoid r
+    , r ~ Scalar dp
     , Ord r
-    , r ~ Ring (vec r)
+    , r ~ Scalar (vec r)
     , InnerProduct (vec r)
-    , Container vec r
+--     , Container vec r
     , Show (Label dp) 
     , Show (vec r)
     , Show r
@@ -114,13 +116,13 @@ lrtrain2 :: forall dp vec r container.
     , Labeled dp
     , Attributes dp ~ vec r
     , VG.Vector vec r
-    , Num (Attributes dp)
     , Floating r
-    , r ~ Ring dp
+    , Monoid r
+    , r ~ Scalar dp
     , Ord r
-    , r ~ Ring (vec r)
+    , r ~ Scalar (vec r)
     , InnerProduct (vec r)
-    , Container vec r
+--     , Container vec r
     , Show (Label dp) 
     , Show (vec r)
     , Show r
@@ -136,21 +138,21 @@ lrtrain2 dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights d
         go ((l,w0):[]) = [(l, VG.replicate (VG.length w0) 0)]
 
         -- calculate the weights for label l
---         go ((l,w0):xs) = (l, Recipe.conjugateGradientDescent f f' w0):go xs
-        go ((l,w0):xs) = (l, Recipe.runOptimization $ Recipe.cgd f f' w0):go xs
+--         go ((l,w0):xs) = undefined
+        go ((l,w0):xs) = (l, Recipe.runOptimization $ Recipe.conjugateGradientDescent f f' w0):go xs
             where
 
                 f w = sumOver dps $ \dp ->
                         logSumOfExp2 0 $ -y dp * inner w (getAttributes dp)
 
-                f' w = negate $ sumOver dps $ \dp ->
-                        scale (y dp*(1-invlogit (y dp*inner w (getAttributes dp)))) (getAttributes dp)
+                f' w = inverse $ sumOver dps $ \dp ->
+                        (y dp*(1-invlogit (y dp*inner w (getAttributes dp)))) .* (getAttributes dp)
                         
 
                 y dp = bool2num $ getLabel dp==l 
 
-sumOver :: (F.Foldable container, Num r) => container x -> (x -> r) -> r
-sumOver xs f = F.foldl' (\r x -> r + f x) 0 xs
+sumOver :: (F.Foldable container, Monoid r) => container x -> (x -> r) -> r
+sumOver xs f = F.foldl' (\r x -> r <> f x) mempty xs
 
 zeroWeights :: forall dp vec r container.
     ( Ord dp
@@ -158,19 +160,18 @@ zeroWeights :: forall dp vec r container.
     , Labeled dp
     , Attributes dp ~ vec r
     , VG.Vector vec r
-    , Num (Attributes dp)
     , Floating r
-    , r ~ Ring dp
+    , Monoid r
+    , r ~ Scalar dp
     , Ord r
-    , r ~ Ring (vec r)
+    , r ~ Scalar (vec r)
     , InnerProduct (vec r)
-    , Container vec r
     , Show (Label dp) 
     , Show (vec r)
     , Show r
     , F.Foldable container
     ) => container dp -> LogReg dp
-zeroWeights dps = LogReg $ Map.fromList [ (label,VG.replicate dim 0) | label <- labels ]
+zeroWeights dps = LogReg $ Map.fromList [ (label,VG.replicate dim mempty) | label <- labels ]
     where
         labels = map getLabel $ F.toList dps
         dim = VG.length $ getAttributes $ head $ F.toList dps
@@ -183,9 +184,10 @@ nbtrain :: forall dp vec r container.
     , VG.Vector vec r
     , Num (Attributes dp)
     , Floating r
-    , r ~ Ring dp
+    , Monoid r
+    , r ~ Scalar dp
     , Ord r
-    , r ~ Ring (vec r)
+    , r ~ Scalar (vec r)
     , InnerProduct (vec r)
     , Container vec r
     , Show (Label dp) 
@@ -231,7 +233,7 @@ nbtrain dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dp
 --             where
 --                 normV' = VG.zip normV totdist
 -- 
---         labeldist = train $ map getLabel dpsL :: Categorical (Ring dp) (Label dp)
+--         labeldist = train $ map getLabel dpsL :: Categorical (Scalar dp) (Label dp)
 --         totdist = foldl1 (VG.zipWith (<>)) $ Map.elems gaussianMap
 -- 
 --         gaussianMap = Map.fromListWith (VG.zipWith (<>)) 
@@ -248,13 +250,13 @@ nbtrain dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dp
 
 instance
     ( Labeled dp
-    , Ring (Attributes dp) ~ Ring dp
+    , Scalar (Attributes dp) ~ Scalar dp
     , InnerProduct (Attributes dp)
-    , Floating (Ring dp)
-    , Ord (Ring dp)
-    , Attributes dp ~ vec (Ring dp)
-    , VG.Vector vec (Ring dp)
-    , Show (Ring dp)
+    , Floating (Scalar dp)
+    , Ord (Scalar dp)
+    , Attributes dp ~ vec (Scalar dp)
+    , VG.Vector vec (Scalar dp)
+    , Show (Scalar dp)
     , Show (Label dp)
     ) => Classifier (LogReg dp)
         where
@@ -265,9 +267,9 @@ instance
 
 test = do
     
---     let {filename = "../datasets/uci/haberman.data"; label_index=3}
+    let {filename = "../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
-    let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
+--     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
 --     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
         
@@ -306,21 +308,21 @@ test = do
                 )
             })
             xs
-            :: V.Vector (MaybeLabeled String (VS.Vector Double))
+            :: V.Vector (MaybeLabeled String (LA.Vector Double))
 
     -----------------------------------
     -- convert to right types
 
---     let m = train ys :: LogReg (MaybeLabeled String (VS.Vector Double))
---     deepseq m $ print $ m
+    let m = train ys :: LogReg (MaybeLabeled String (LA.Vector Double))
+    deepseq m $ print $ m
 
-    let res = flip evalRand (mkStdGen 100) $ crossValidate
-            (repeatExperiment 1 (kfold 10))
-            errorRate
-            ys
-            (undefined :: LogReg (MaybeLabeled String (VS.Vector Double)))
-
-    putStrLn $ "mean = "++show (mean res)
-    putStrLn $ "var  = "++show (variance res)
+--     let res = flip evalRand (mkStdGen 100) $ crossValidate
+--             (repeatExperiment 1 (kfold 10))
+--             errorRate
+--             ys
+--             (undefined :: LogReg (MaybeLabeled String (LA.Vector Double)))
+-- 
+--     putStrLn $ "mean = "++show (mean res)
+--     putStrLn $ "var  = "++show (variance res)
 
     putStrLn "done."

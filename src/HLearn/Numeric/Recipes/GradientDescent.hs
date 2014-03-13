@@ -63,6 +63,7 @@ conjugateGradientDescent ::
       -> v
       -> DoTrace (ConjugateGradientDescent v)
 conjugateGradientDescent = conjugateGradientDescent_ LineSearch PolakRibiere
+-- conjugateGradientDescent = conjugateGradientDescent_ LineSearch PolakRibiere
 
 -- | The method of steepest descent is much worse in practice than conjugate gradient descent.  It should never be used in practice, and is provided only for comparison purposes.
 steepestDescent :: 
