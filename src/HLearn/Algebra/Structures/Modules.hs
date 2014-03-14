@@ -29,7 +29,11 @@ class (Abelian m, Group m) => Module m where
 -------------------------------------------------------------------------------
 -- Vector Spaces
 
-class (Module m, Fractional (Scalar m)) => VectorSpace m where
+class 
+    ( Module m
+    , Module (Scalar m)
+    , Fractional (Scalar m)
+    ) => VectorSpace m where
     infix 7 /.
     {-# INLINE (/.) #-}
     (/.) :: m -> Scalar m -> m

@@ -1,4 +1,4 @@
-module HLearn.Numeric.Recipes.Amoeba
+module HLearn.Optimization.Amoeba
     where
 
 import Control.Monad

@@ -6,7 +6,8 @@ import Control.Monad
 import Control.Monad.Random
 import Data.List.Extras
 import Data.Maybe
-import qualified Data.ByteString.Lazy as BS
+import Data.Typeable
+-- import qualified Data.ByteString.Lazy as BS
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -27,14 +28,14 @@ import qualified HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Evaluation.CrossValidation
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
-import qualified HLearn.Numeric.Recipes.GradientDescent as Recipe
-import qualified HLearn.Numeric.Recipes as Recipe
+import qualified HLearn.Optimization.GradientDescent as Recipe
+import qualified HLearn.Optimization.Common as Recipe
 
 
 -------------------------------------------------------------------------------
 -- data types
 
-newtype LogReg dp = LogReg
+newtype LogisticRegression dp = LogisticRegression
     { weights :: Map.Map (Label dp) (Attributes dp)
     }
 
@@ -42,7 +43,7 @@ deriving instance
     ( NFData (Scalar dp)
     , NFData (Label dp)
     , NFData (Attributes dp)
-    ) => NFData (LogReg dp)
+    ) => NFData (LogisticRegression dp)
 
 -- class InnerProduct v where
 --     inner :: v -> v -> Scalar v
@@ -55,12 +56,12 @@ deriving instance
     , Show (Scalar dp)
     , Show (Attributes dp)
     , Storable (Scalar dp)
-    ) => Show (LogReg dp)
+    ) => Show (LogisticRegression dp)
 
 -------------------------------------------------------------------------------
 -- training
 
-instance Monoid (LogReg dp) where
+instance Monoid (LogisticRegression dp) where
     mempty = undefined
     mappend = undefined
 
@@ -82,10 +83,6 @@ zeroOneLoss yhat y = if yhat==y
     then 1
     else 0
 
--- logLoss yhat y = y*log yhat + (1-y)*log(y-yhat)
--- 
--- hingeLoss yhat y = max 0 $ 1 - yhat*y
-
 instance 
     ( Ord dp
     , Ord (Label dp)
@@ -94,6 +91,8 @@ instance
     , VG.Vector vec r
     , Floating r
     , Monoid r
+    , Typeable r
+    , Typeable vec
     , r ~ Scalar dp
     , Ord r
     , r ~ Scalar (vec r)
@@ -103,9 +102,9 @@ instance
     , Show (vec r)
     , Show r
     , Show dp
-    ) => HomTrainer (LogReg dp) 
+    ) => HomTrainer (LogisticRegression dp) 
         where
-    type Datapoint (LogReg dp) = dp
+    type Datapoint (LogisticRegression dp) = dp
 
     train = lrtrain2
 --     train = nbtrain 
@@ -118,6 +117,8 @@ lrtrain2 :: forall dp vec r container.
     , VG.Vector vec r
     , Floating r
     , Monoid r
+    , Typeable r
+    , Typeable vec
     , r ~ Scalar dp
     , Ord r
     , r ~ Scalar (vec r)
@@ -128,9 +129,9 @@ lrtrain2 :: forall dp vec r container.
     , Show r
     , Show dp
     , F.Foldable container
-    ) => container dp -> LogReg dp
--- lrtrain2 dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ nbtrain dps
-lrtrain2 dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dps
+    ) => container dp -> LogisticRegression dp
+-- lrtrain2 dps = LogisticRegression $ Map.fromList $ go $ Map.assocs $ weights $ nbtrain dps
+lrtrain2 dps = LogisticRegression $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dps
     where
         -- the weights for the last label are set to zero;
         -- this is equivalent to running the optimization procedure,
@@ -138,8 +139,7 @@ lrtrain2 dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights d
         go ((l,w0):[]) = [(l, VG.replicate (VG.length w0) 0)]
 
         -- calculate the weights for label l
---         go ((l,w0):xs) = undefined
-        go ((l,w0):xs) = (l, Recipe.runOptimization $ Recipe.conjugateGradientDescent f f' w0):go xs
+        go ((l,w0):xs) = (l, Recipe.traceOptimization $ Recipe.conjugateGradientDescent f f' w0):go xs
             where
 
                 f w = sumOver dps $ \dp ->
@@ -170,8 +170,8 @@ zeroWeights :: forall dp vec r container.
     , Show (vec r)
     , Show r
     , F.Foldable container
-    ) => container dp -> LogReg dp
-zeroWeights dps = LogReg $ Map.fromList [ (label,VG.replicate dim mempty) | label <- labels ]
+    ) => container dp -> LogisticRegression dp
+zeroWeights dps = LogisticRegression $ Map.fromList [ (label,VG.replicate dim mempty) | label <- labels ]
     where
         labels = map getLabel $ F.toList dps
         dim = VG.length $ getAttributes $ head $ F.toList dps
@@ -182,20 +182,18 @@ nbtrain :: forall dp vec r container.
     , Labeled dp
     , Attributes dp ~ vec r
     , VG.Vector vec r
-    , Num (Attributes dp)
     , Floating r
     , Monoid r
     , r ~ Scalar dp
     , Ord r
     , r ~ Scalar (vec r)
     , InnerProduct (vec r)
-    , Container vec r
     , Show (Label dp) 
     , Show r
     , Show (vec r)
     , F.Foldable container
-    ) => container dp -> LogReg dp
-nbtrain dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dps
+    ) => container dp -> LogisticRegression dp
+nbtrain dps = LogisticRegression $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dps
     where
         go [] = []
 --         go ((l,w0):xs) = trace ("gaussianMap="++show gaussianMap) $ (l,w'):go xs
@@ -217,34 +215,6 @@ nbtrain dps = LogReg $ Map.fromList $ go $ Map.assocs $ weights $ zeroWeights dp
             | dp <- F.toList dps
             ]
 
--- nbtrain dps = LogReg
---     { weights = Map.mapWithKey mkWeights gaussianMap 
---     }
---     where
---         mkWeights label normV = 
--- --             ( log (pdf labeldist label)
--- --             + (VG.sum $ VG.map (\(n,t) -> {- -log (variance n)/2 -} (mean n)**2 / (2*variance t)) normV')
--- --                 ( 0
---             ( VG.convert $ VG.map (\(n,t) -> 0) normV' 
--- --             ( VG.convert $ VG.map (\(n,t) -> 2*mean n/variance t) normV' 
--- --             VG.// [(0, log (pdf labeldist label) + sumOver normV' (\(n,t) -> -(mean n)**2/(2*variance t) ))]
--- --             , VG.convert $ VG.map (\(n,t) -> mean n/variance t) normV' 
---             )
---             where
---                 normV' = VG.zip normV totdist
--- 
---         labeldist = train $ map getLabel dpsL :: Categorical (Scalar dp) (Label dp)
---         totdist = foldl1 (VG.zipWith (<>)) $ Map.elems gaussianMap
--- 
---         gaussianMap = Map.fromListWith (VG.zipWith (<>)) 
---             [ ( getLabel dp
---               , V.map (train1dp :: r -> Normal r r) $ VG.convert $ getAttributes dp
---               ) 
---             | dp <- dpsL
---             ]
--- 
---         dpsL = F.toList dps
-
 -------------------------------------------------------------------------------
 -- classification
 
@@ -258,12 +228,14 @@ instance
     , VG.Vector vec (Scalar dp)
     , Show (Scalar dp)
     , Show (Label dp)
-    ) => Classifier (LogReg dp)
+    ) => Classifier (LogisticRegression dp)
         where
     classify m attr = fst $ argmax (\(l,s) -> s) $ Map.assocs $ Map.map (\w -> inner w attr) $ weights m
 
 -------------------------------------------------------------------------------
 -- test
+
+{-
 
 test = do
     
@@ -313,16 +285,17 @@ test = do
     -----------------------------------
     -- convert to right types
 
-    let m = train ys :: LogReg (MaybeLabeled String (LA.Vector Double))
-    deepseq m $ print $ m
+--     let m = train ys :: LogisticRegression (MaybeLabeled String (LA.Vector Double))
+--     deepseq m $ print $ m
 
---     let res = flip evalRand (mkStdGen 100) $ crossValidate
---             (repeatExperiment 1 (kfold 10))
---             errorRate
---             ys
---             (undefined :: LogReg (MaybeLabeled String (LA.Vector Double)))
--- 
---     putStrLn $ "mean = "++show (mean res)
---     putStrLn $ "var  = "++show (variance res)
+    let res = flip evalRand (mkStdGen 100) $ crossValidate
+            (repeatExperiment 1 (kfold 10))
+            errorRate
+            ys
+            (undefined :: LogisticRegression (MaybeLabeled String (LA.Vector Double)))
+
+    putStrLn $ "mean = "++show (mean res)
+    putStrLn $ "var  = "++show (variance res)
 
     putStrLn "done."
+-}

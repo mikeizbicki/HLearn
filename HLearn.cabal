@@ -48,6 +48,7 @@ Library
         cassava             >= 0.2.2,
         strict              >= 0.3.2,
         normaldistribution  >= 1.1.0.3,
+        mtl                 >= 2.1.2,
         
         ghc-prim, 
 
@@ -76,6 +77,7 @@ Library
     Exposed-modules:
         HLearn.Algebra
         HLearn.Algebra.Common
+        HLearn.Algebra.LinearAlgebra
         HLearn.Algebra.Functions
         HLearn.Algebra.Types.Frac
         HLearn.Algebra.Models.HomTrainer
@@ -103,6 +105,7 @@ Library
         
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
+        HLearn.Models.Classifiers.LogisticRegression
         HLearn.Models.Classifiers.NearestNeighbor
         HLearn.Models.Classifiers.NaiveNN
         HLearn.Models.Classifiers.Perceptron
@@ -134,11 +137,12 @@ Library
         HLearn.Models.Distributions.Univariate.Internal.Moments
         HLearn.Models.Distributions.Multivariate.MultiNormalFast
 
-        HLearn.Numeric.Conic
-        HLearn.Numeric.Recipes
-        HLearn.Numeric.Recipes.GradientDescent
-        HLearn.Numeric.Recipes.LineMin
-        HLearn.Numeric.Recipes.Amoeba
+        HLearn.Optimization.Amoeba
+        HLearn.Optimization.Conic
+        HLearn.Optimization.Common
+        HLearn.Optimization.GradientDescent
+        HLearn.Optimization.LineMinimization
+        HLearn.Optimization.NewtonRaphson
         
         HLearn.NPHard.Scheduling
         HLearn.NPHard.BinPacking
@@ -161,6 +165,7 @@ Library
         GADTs
         KindSignatures
         ConstraintKinds
+        DeriveDataTypeable
 
 test-suite tests
   type:
