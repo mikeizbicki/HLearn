@@ -1,4 +1,4 @@
-module HLearn.Numeric.Recipes.NewtonRaphson
+module HLearn.Optimization.NewtonRaphson
     where
 
 import Control.DeepSeq
@@ -19,8 +19,8 @@ import Numeric.LinearAlgebra hiding ((<>))
 import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
-import HLearn.Numeric.Recipes
-import qualified HLearn.Numeric.Recipes.LineMin as LineMin
+import HLearn.Optimization.Common
+import qualified HLearn.Optimization.LineMinimization as LineMin
 
 step_NewtonRaphson_constrained !f !f' !f'' !tmp = OptTmp
     { __x = x'

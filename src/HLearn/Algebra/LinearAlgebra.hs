@@ -7,6 +7,7 @@ module HLearn.Algebra.LinearAlgebra
 
 import Control.DeepSeq
 import Control.Monad
+import Data.Typeable
 import Foreign.Storable
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
@@ -43,7 +44,7 @@ instance InnerProduct Double where
 -- vectors
 
 newtype Vector a = Vector (VS.Vector a)
-    deriving (Read,Show,Eq,Ord,NFData)
+    deriving (Read,Show,Eq,Ord,NFData,Typeable)
 
 instance Storable a => VG.Vector Vector a where
     {-# INLINE basicUnsafeFreeze #-}

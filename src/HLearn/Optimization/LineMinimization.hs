@@ -1,116 +1,136 @@
-module HLearn.Numeric.Recipes.LineMin
+module HLearn.Optimization.LineMinimization
     where
 
+import Control.Monad
+import Control.Monad.Writer
+import Data.Dynamic
+import Data.Typeable
+import qualified Data.DList as DList
 import Debug.Trace
 
--------------------------------------------------------------------------------
-
--- stepGoldenSectionSearch :: (Fractional a,Ord a) => (a -> a) -> a -> a -> a -> a
--- stepGoldenSectionSearch f ax bx cx = go 0 (f x1_) (f x2_) 0 ax x1_ x2_ cx
-goldenSectionSearch !f !ax !bx !cx = go (f ax) (f x1_) (f x2_) (f cx) ax x1_ x2_ cx
-    where
-        x1_ = if abs (cx-bx) > abs (bx-ax)
-            then bx
-            else bx-c*(bx-ax)
-        x2_ = if abs (cx-bx) > abs (bx-ax)
-            then bx+c*(cx-bx)
-            else bx
-
-        tol = 1e-3
-        r = 0.61803399
-        c = 1-r
-
-        go !f0 !f1 !f2 !f3 !x0 !x1 !x2 !x3 = trace ("go x1="++show x1++"; f1="++show f1++"; x2="++show x2++"; f2="++show f2) $
-          if abs (x3-x0) > tol * (abs x1 + abs x2)
-            then if f2 < f1
-                then let 
-                    x0' = x1
-                    x1' = x2
-                    x2' = r*x2+c*x3
-                    x3' = x3
-                    f0' = f1
-                    f1' = f2
-                    f2' = f x2'
-                    f3' = f3
-                    in go f0' f1' f2' f3' x0' x1' x2' x3'
-                else let 
-                    x3' = x2
-                    x2' = x1
-                    x1' = r*x1+c*x0
-                    x0' = x0
-                    f3' = f2
-                    f2' = f1
-                    f1' = f x1'
-                    f0' = f0 
-                    in go f0' f1' f2' f3' x0' x1' x2' x3'
-            else trace "stopping" $ if f1 < f2
-                then x1
-                else x2
-
-gss f (LineBracket ax bx cx fa fb fc) = itr 100 result_GoldenSectionSearch stop_GoldenSectionSearch (step_GoldenSectionSearch f) ( f x1,f x2,ax,x1,x2,cx )
-    where
-        x1 = if abs (cx-bx) > abs (bx-ax)
-            then bx
-            else bx-c*(bx-ax)
-        x2 = if abs (cx-bx) > abs (bx-ax)
-            then bx+c*(cx-bx)
-            else bx
-
-        r = 0.61803399
-        c = 1-r
-
-itr :: Int -> (tmp -> a) -> (tmp -> Bool) -> (tmp -> tmp) -> tmp -> a
-itr i result stop step init = --trace ("i="++show i++"; init="++show init) $ 
-  if i==0 || stop init
-    then result init
-    else itr (i-1) result stop step (step init)
+import HLearn.Algebra
+import HLearn.Optimization.Common
 
 -------------------------------------------------------------------------------
 
-result_GoldenSectionSearch :: (Fractional a, Ord a) => ( a,a,a,a,a,a ) -> a
-result_GoldenSectionSearch ( !f1,!f2,_,!x1,!x2,_ ) = if f1 < f2
-    then x1
-    else x2
+data GoldenSectionSearch a = GoldenSectionSearch
+    { _gss_fxb :: !a
+    , _gss_fxc :: !a
+    , _gss_xa :: !a
+    , _gss_xb :: !a
+    , _gss_xc :: !a
+    , _gss_xd :: !a
+    }
+    deriving (Typeable)
+
+getgss = _gss_xc
+
+instance (Ord a, a ~ Scalar a) => Has_fx1 GoldenSectionSearch a where
+    fx1 gss = min (_gss_fxb gss) (_gss_fxc gss)
+
+instance (Ord a, a ~ Scalar a) => Has_x1 GoldenSectionSearch a where
+    x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
+        then _gss_xb gss
+        else _gss_xc gss
+
+-- instance Has_x1 GoldenSectionSearch where
+--     x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
+--         then _gss_bx gss
+--         else _gss_cx gss
+
+goldenSectionSearch f (LineBracket ax bx cx fa fb fc) = do
+    let r = 0.61803399
+        c = 1-r
+
+    let xb = if abs (cx-bx) > abs (bx-ax)
+            then bx
+            else bx-c*(bx-ax)
+
+    let xc = if abs (cx-bx) > abs (bx-ax)
+            then bx+c*(cx-bx)
+            else bx
+
+    let gss0 = GoldenSectionSearch
+            { _gss_fxb = f xb
+            , _gss_fxc = f xc
+            , _gss_xa = ax
+            , _gss_xb = xb
+            , _gss_xc = xc
+            , _gss_xd = cx
+            }
+
+    gss1 <- step_GoldenSectionSearch f gss0
+    
+    optimize
+        (_stop_itr 100)
+        (step_GoldenSectionSearch f) 
+        (initTrace gss0 gss1)
+
+----------------------------------------
 
 stop_GoldenSectionSearch :: (Fractional a, Ord a) => ( a,a,a,a,a,a ) -> Bool
 stop_GoldenSectionSearch ( _,_,!x0,!x1,!x2,!x3 ) = abs (x3-x0) <= tol*(abs x1+abs x2)
     where
         tol = 1e-6
 
-step_GoldenSectionSearch :: (Fractional a, Ord a) => (a -> a) -> ( a,a,a,a,a,a ) -> ( a,a,a,a,a,a )
-step_GoldenSectionSearch !f !( !f1, !f2, !x0, !x1, !x2, !x3 ) = if f2 < f1
-    then let x' = r*x2+c*x3 in ( f2, f x', x1, x2, x', x3 )
-    else let x' = r*x1+c*x0 in ( f x', f1, x0, x', x1, x2 )
+step_GoldenSectionSearch :: 
+    ( Fractional a
+    , Ord a
+    , Typeable a
+    , OptMonad m
+    ) => (a -> a) -> GoldenSectionSearch a -> m (GoldenSectionSearch a)
+step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = report $ if f2 < f1
+    then let x' = r*x2+c*x3 in GoldenSectionSearch f2 (f x') x1 x2 x' x3
+    else let x' = r*x1+c*x0 in GoldenSectionSearch (f x') f1 x0 x' x1 x2
     where
         r = 0.61803399
         c = 1-r
     
 -------------------------------------------------------------------------------
 
-data LineBracket a = LineBracket { _ax :: !a, _bx :: !a, _cx :: !a, _fa :: !a, _fb :: !a, _fc :: !a }
-    deriving (Read,Show)
-
-lineBracket !f !pt1 !pt2 = itr 100 id stop_LineBracket (step_LineBracket f) $ LineBracket
-    { _ax = ax
-    , _bx = bx
-    , _cx = cx
-    , _fa = f ax
-    , _fb = f bx
-    , _fc = f cx
+data LineBracket a = LineBracket 
+    { _ax :: !a
+    , _bx :: !a
+    , _cx :: !a
+    , _fa :: !a
+    , _fb :: !a
+    , _fc :: !a 
     }
-    where
-        (ax,bx) = if f pt1 > f pt2
+    deriving (Read,Show,Typeable)
+
+-- | finds two points ax and cs between which a minimum is guaranteed to exist
+-- this is a transliteration of the lineBracket routine from the \"Numerical
+-- Recipes\" series
+lineBracket !f !pt1 !pt2 = do
+    let gold = 1.618034
+
+    let (ax,bx) = if f pt1 > f pt2
             then (pt1,pt2)
             else (pt2,pt1)
-        cx = bx+gold*(bx-ax)
-        gold = 1.618034
 
+    let cx = bx+gold*(bx-ax)
 
-stop_LineBracket :: (Fractional a, Ord a) => LineBracket a -> Bool
-stop_LineBracket !lb = _fb lb <= _fc lb
+    let lb0 = LineBracket
+            { _ax = ax
+            , _bx = bx
+            , _cx = cx
+            , _fa = f ax
+            , _fb = f bx
+            , _fc = f cx
+            }
 
+    optimize 
+        (stop_LineBracket) 
+        (step_LineBracket f) 
+        (initTrace lb0 lb0)
 
-step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = ret
+stop_LineBracket :: (Fractional a, Ord a) => [DoTrace (LineBracket a) -> Bool]
+stop_LineBracket = [go]
+    where
+        go lb =  _fb (curValue lb) <= _fc (curValue lb)
+
+step_LineBracket :: (Fractional a, Ord a, Typeable a, OptMonad m) => (a -> a) -> LineBracket a -> m (LineBracket a)
+step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = report ret
     where
         sign a b = if b>0 then abs a else -(abs a)
         tiny = 1e-20
@@ -182,14 +202,36 @@ step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = ret
 
 -------------------------------------------------------------------------------
 
-data Brent a = Brent { _a :: !a, _b :: !a, _d :: !a, _e :: !a, _fv :: !a, _fw :: !a, _fx :: !a, _v :: !a, _w :: !a, _x :: !a }
-    deriving (Read,Show)
+data Brent a = Brent 
+    { _a :: !a
+    , _b :: !a
+    , _d :: !a
+    , _e :: !a
+    , _fv :: !a
+    , _fw :: !a
+    , _fx :: !a
+    , _v :: !a
+    , _w :: !a
+    , _x :: !a 
+    }
+    deriving (Read,Show,Typeable)
 
-brent !f (LineBracket ax bx cx fa fb fc) = itr 100 id stop_Brent (step_Brent f) init
-    where
-        init = Brent
+instance Has_x1 Brent v where x1 = _x
+-- instance Has_fx1 Brent where fx1 = _fx
+
+-- | Brent's method uses parabolic interpolation.  
+-- This function is a transliteration of the method found in numerical recipes.
+brent :: 
+    ( Fractional a
+    , Ord a
+    , Typeable a
+    , MonadWriter (DList.DList Dynamic) m
+    ) => (a -> a) -> LineBracket a -> m (DoTrace (Brent a))
+brent f (LineBracket ax bx cx fa fb fc) = do
+    let init0 = Brent
             { _a = min ax cx
             , _b = max ax cx
+            , _d = 0
             , _e = 0
             , _v = bx
             , _w = bx
@@ -197,24 +239,30 @@ brent !f (LineBracket ax bx cx fa fb fc) = itr 100 id stop_Brent (step_Brent f) 
             , _fv = f bx
             , _fw = f bx
             , _fx = f bx
-
-            , _d = 0
             }
 
-stop_Brent :: (Fractional a, Ord a) => Brent a -> Bool
-stop_Brent (Brent a b d e fv fw fx v w x) = abs (x-xm) <= tol2'-0.5*(b-a)
+    init1 <- step_Brent f init0
+
+    optimize
+        (_stop_itr 100 <> stop_Brent 1e-6) 
+        (step_Brent f) 
+        (initTrace init1 init0)
+
+stop_Brent :: (Fractional a, Ord a) => a -> [DoTrace (Brent a) -> Bool]
+stop_Brent tol = [go] 
     where
-        xm = 0.5*(a+b)
-        tol1' = tol*(abs x)+zeps
-        tol2' = 2*tol1'
-        tol = 1e-6
-        zeps = 1e-10
+        go opt = abs (x-xm) <= tol2'-0.5*(b-a)
+            where
 
-findmin 1f = _x $ brent f $ lineBracket f 10 100 
-findmin_gss f = gss f $ lineBracket f 10 100 
+                (Brent a b d e fv fw fx v w x) = curValue opt
+                xm = 0.5*(a+b)
+                tol1' = tol*(abs x)+zeps
+                tol2' = 2*tol1'
+                zeps = 1e-10
 
--- step_Brent :: (Fractional a, Ord a) => Brent a -> Brent a
-step_Brent !f brent@(Brent a b d e fv fw fx v w x) = brent'
+step_Brent :: (Typeable a, Fractional a, Ord a, OptMonad m) => (a -> a) -> Brent a -> m (Brent a)
+step_Brent f brent@(Brent a b d e fv fw fx v w x) = do
+    report brent'
     where
         cgold = 0.3819660
         zeps = 1e-10

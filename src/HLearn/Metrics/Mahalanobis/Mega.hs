@@ -31,11 +31,11 @@ import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Metrics.Mahalanobis.LegoPaper
 import HLearn.Metrics.Mahalanobis.ITML hiding (_x)
 import HLearn.Models.Distributions.Multivariate.MultiNormalFast
-import qualified HLearn.Numeric.Conic as Recipe
-import qualified HLearn.Numeric.Recipes as Recipe
-import qualified HLearn.Numeric.Recipes.GradientDescent as Recipe
-import qualified HLearn.Numeric.Recipes.Amoeba as Recipe
-import qualified HLearn.Numeric.Recipes.NewtonRaphson as Recipe
+import qualified HLearn.Optimization.Conic as Recipe
+import qualified HLearn.Optimization.Common as Recipe
+import qualified HLearn.Optimization.GradientDescent as Recipe
+import qualified HLearn.Optimization.Amoeba as Recipe
+import qualified HLearn.Optimization.NewtonRaphson as Recipe
 
 -------------------------------------------------------------------------------
 -- data types
@@ -56,6 +56,7 @@ instance MahalanobisMetric (Mega eta dp) where
 -- algebra
 
 type instance Scalar (Mega eta dp) = Scalar dp
+type instance Scalar (Matrix r) = r
 
 -------------------------------------------------------------------------------
 -- training

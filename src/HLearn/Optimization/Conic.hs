@@ -1,4 +1,4 @@
-module HLearn.Numeric.Conic
+module HLearn.Optimization.Conic
     where
 
 import Control.DeepSeq
@@ -20,8 +20,8 @@ import qualified Numeric.LinearAlgebra as LA
 import Data.Random.Normal
 
 import HLearn.Algebra
-import qualified HLearn.Numeric.Recipes as Recipe
-import qualified HLearn.Numeric.Recipes.LineMin as LineMin
+import qualified HLearn.Optimization.Common as Recipe
+import qualified HLearn.Optimization.LineMinimization as LineMin
 
 -------------------------------------------------------------------------------
 
@@ -48,8 +48,8 @@ data RandomConicPersuit a = RandomConicPersuit
 --     , _xold :: !a
 --     }
 
--- itr2 :: Int -> (tmp -> a) -> (tmp -> Bool) -> (tmp -> tmp) -> tmp -> a
-itr i result stop step init = trace ("i="++show i++"; fx="++show (_fx init)) $ --trace ("i="++show i++"; init="++show init) $ 
+itr :: Int -> (tmp -> a) -> (tmp -> Bool) -> (tmp -> tmp) -> tmp -> a
+itr i result stop step init = --trace ("i="++show i++"; fx="++show (_fx init)) $ --trace ("i="++show i++"; init="++show init) $ 
   if i==0 || stop init
     then result init
     else itr (i-1) result stop step (step init)
