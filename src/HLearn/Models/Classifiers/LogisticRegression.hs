@@ -7,7 +7,7 @@ import Control.Monad.Random
 import Data.List.Extras
 import Data.Maybe
 import Data.Typeable
--- import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -26,9 +26,11 @@ import Debug.Trace
 import HLearn.Algebra
 import qualified HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Evaluation.CrossValidation
+import HLearn.Metrics.Lebesgue
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 import qualified HLearn.Optimization.GradientDescent as Recipe
+import qualified HLearn.Optimization.NewtonRaphson as Recipe
 import qualified HLearn.Optimization.Common as Recipe
 
 
@@ -65,17 +67,6 @@ instance Monoid (LogisticRegression dp) where
     mempty = undefined
     mappend = undefined
 
-invlogit x = 1 / (1 + exp (-x))
-invlogit' x = tmp*(1+tmp)**2
-    where tmp = exp $ -x
-
-logSumOfExp xs = m + log (sum [ exp $ x-m | x <- xs ] )
-    where
-        m = maximum xs
-
-logSumOfExp2 x1 x2 = m + log ( exp (x1-m) + exp (x2-m) )
-    where
-        m = max x1 x2
 
 -- squaredLoss yhat y = 0.5 * (yhat-y)^2
 
@@ -97,6 +88,8 @@ instance
     , Ord r
     , r ~ Scalar (vec r)
     , InnerProduct (vec r)
+    , vec ~ LA.Vector
+    , LA.Field r
 --     , Container vec r
     , Show (Label dp) 
     , Show (vec r)
@@ -107,6 +100,7 @@ instance
     type Datapoint (LogisticRegression dp) = dp
 
     train = lrtrain2
+--     train = zeroWeights
 --     train = nbtrain 
 
 lrtrain2 :: forall dp vec r container.
@@ -123,7 +117,8 @@ lrtrain2 :: forall dp vec r container.
     , Ord r
     , r ~ Scalar (vec r)
     , InnerProduct (vec r)
---     , Container vec r
+    , vec ~ LA.Vector
+    , LA.Field r
     , Show (Label dp) 
     , Show (vec r)
     , Show r
@@ -139,7 +134,16 @@ lrtrain2 dps = LogisticRegression $ Map.fromList $ go $ Map.assocs $ weights $ z
         go ((l,w0):[]) = [(l, VG.replicate (VG.length w0) 0)]
 
         -- calculate the weights for label l
-        go ((l,w0):xs) = (l, Recipe.traceOptimization $ Recipe.conjugateGradientDescent f f' w0):go xs
+--         go ((l,w0):xs) = (l, Recipe.traceOptimization $ Recipe.conjugateGradientDescent g g' w0):go xs
+        go ((l,w0):xs) = trace ("f''w0="++show f''w0) 
+            $ trace ("eig f''w0="++ show (LA.eigenvalues f''w0))
+            $ trace ("loc="++show loc)
+            $ trace ("loc'="++show loc')
+            $ trace ("loc/loc'="++show (VG.zipWith (/) loc loc'))
+            $ deepseq loc $ deepseq loc' $  (l, loc''):go xs
+--         go ((l,w0):xs) = (l, Recipe.traceOptimization $ Recipe.newtonRaphson g g' g'' loc):go xs
+--         go ((l,w0):xs) = (l, Recipe.traceOptimization $ Recipe.newtonRaphson f f' f'' w0):go xs
+--         go ((l,w0):xs) = (l, Recipe.traceOptimization $ Recipe.conjugateGradientDescent f f' w0):go xs
             where
 
                 f w = sumOver dps $ \dp ->
@@ -148,11 +152,46 @@ lrtrain2 dps = LogisticRegression $ Map.fromList $ go $ Map.assocs $ weights $ z
                 f' w = inverse $ sumOver dps $ \dp ->
                         (y dp*(1-invlogit (y dp*inner w (getAttributes dp)))) .* (getAttributes dp)
                         
+                f'' w = sumOver dps $ \dp ->
+                        LA.outerProduct (getAttributes dp) (getAttributes dp)
+                        /. (1 + exp (- y dp * inner w (getAttributes dp)))
 
                 y dp = bool2num $ getLabel dp==l 
 
+                g w = fw0
+                       + inner (f'w0) (w <> inverse w0)
+                       + 0.5 .* ((w <> inverse w0) `LA.matProduct` (f''w0)) `inner` (w <> inverse w0)
+
+                g' w = f'w0
+                       <> ((w <> inverse w0) `LA.matProduct` (f''w0))
+
+                g'' w = f''w0
+
+                fw0 = f loc
+                f'w0 = f' loc
+                f''w0 = f'' loc
+
+                loc = trace "loc" $ Recipe.traceOptimization $ Recipe.newtonRaphson f f' f'' w0
+                loc' = Recipe.traceOptimization $ Recipe.newtonRaphson g g' g'' loc
+                loc'' = Recipe.traceOptimization $ Recipe.newtonRaphson f f' f'' loc'
+--                 loc'' = Recipe.traceOptimization $ Recipe.conjugateGradientDescent f f' loc'
+
+
+invlogit x = 1 / (1 + exp (-x))
+
+-- | calculates log . sum . map exp in a numerically stable way 
+logSumOfExp xs = m + log (sum [ exp $ x-m | x <- xs ] )
+    where
+        m = maximum xs
+
+-- | calculates log $ exp x1 + exp x2 in a numerically stable way
+logSumOfExp2 x1 x2 = m + log ( exp (x1-m) + exp (x2-m) )
+    where
+        m = max x1 x2
+
 sumOver :: (F.Foldable container, Monoid r) => container x -> (x -> r) -> r
-sumOver xs f = F.foldl' (\r x -> r <> f x) mempty xs
+sumOver xs f = F.foldMap f xs
+
 
 zeroWeights :: forall dp vec r container.
     ( Ord dp
@@ -235,14 +274,12 @@ instance
 -------------------------------------------------------------------------------
 -- test
 
-{-
-
 test = do
     
-    let {filename = "../datasets/uci/haberman.data"; label_index=3}
+--     let {filename = "../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
 --     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
---     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
+    let {filename = "../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
         
     let verbose = True
@@ -274,6 +311,7 @@ test = do
     let ys = VG.map (\x -> MaybeLabeled   
             { label = Just $ x VG.! label_index
             , attr = VG.convert ( 
+--                 VG.map read $ VG.fromList $ take 2 $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
                 VG.map read $ VG.fromList $ (:) "1" $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
 --                 VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
                 :: V.Vector Double
@@ -298,4 +336,3 @@ test = do
     putStrLn $ "var  = "++show (variance res)
 
     putStrLn "done."
--}

@@ -101,8 +101,6 @@ conjugateGradientDescent_ ::
     , Show (Scalar v)
     , Monad m
     , MonadWriter (DList.DList Dynamic) m
---     , ValidMonad m (ConjugateGradientDescent v)
---     , ValidMonad m (DoTrace (ConjugateGradientDescent v))
     ) => StepMethod (Scalar v)
       -> ConjugateMethod
       -> (v -> Scalar v)
@@ -121,7 +119,7 @@ conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = do
     cgd1 <- step_conjugateGradientDescent LineSearch None f f' cgd0
     
     optimize
-        (_stop_itr 1000 <> _stop_tolerance _fx1 1e-6)
+        (_stop_itr 100 <> _stop_tolerance _fx1 1e-6)
         (step_conjugateGradientDescent searchMethod conjugateMethod f f')
         (initTrace cgd1 cgd0)
 
