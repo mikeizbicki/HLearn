@@ -194,7 +194,7 @@ traceOptimization m = trace "traceOptimization" $ runIdentity $ runOptimization 
         proc (x:xs) = do
             tmp <- case fromDynamic x :: Maybe (opt v) of
                 Nothing -> return ()
-                Just opt -> trace ("fx1 opt="++show (fx1 opt)) $ return ()
+                Just opt -> trace (show x++"; fx1 opt="++show (fx1 opt)) $ return ()
             seq tmp $ proc xs 
 
 

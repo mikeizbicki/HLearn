@@ -1,6 +1,13 @@
 module HLearn.Algebra.LinearAlgebra
     ( Vector
     , MVector
+    , outerProduct
+    , matProduct
+    , LA.inv
+    , LA.eig
+    , LA.eigenvalues
+    , LA.Field
+    , LA.Matrix
 
 --     , module Numeric.LinearAlgebra
     ) where
@@ -116,3 +123,49 @@ instance
     ) => InnerProduct (Vector a) 
         where
     inner (Vector a) (Vector b) = VG.sum $ VG.zipWith (*) a b 
+
+-------------------------------------------------------------------------------
+-- matrices
+
+outerProduct :: LA.Field a => Vector a -> Vector a -> LA.Matrix a
+outerProduct (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
+
+matProduct a b = a LA.<> b
+
+instance LA.Mul Vector LA.Matrix Vector where
+    (Vector v) <> m = Vector $ m LA.<> v
+
+instance LA.Mul LA.Matrix Vector Vector where
+    m <> (Vector v) = Vector $ m LA.<> v
+
+instance LA.Field a => Monoid (LA.Matrix a) where
+    mempty = (1 LA.>< 1 $ [0])
+    mappend a b = if a==mempty 
+        then b
+        else if b==mempty
+            then a
+            else a `LA.add` b
+--     mempty = error "LA.Matrix mempty"
+--     mappend a b = a `LA.add` b
+
+instance LA.Field a => Group (LA.Matrix a) where
+    inverse a = LA.scale (-1) a
+
+instance LA.Field a => Abelian (LA.Matrix a)
+
+type instance Scalar (LA.Matrix a) = a
+
+instance LA.Field a => Module (LA.Matrix a) where
+    r .* a = LA.scale r a
+
+instance (Module a, LA.Field a) => VectorSpace (LA.Matrix a) where
+    a /. r = LA.scale (1/r) a
+
+-- newtype Matrix a = Matrix (LA.Matrix a)
+-- 
+-- instance (Num a, LA.Field a) => Monoid (Matrix a) where
+--     mempty = undefined
+--     mappend (Matrix a) (Matrix b) = Matrix $ a + b
+-- 
+-- instance LA.Field a => Group (Matrix a) where
+--     inverse (Matrix a) = Matrix $ negate a
