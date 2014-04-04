@@ -36,13 +36,14 @@ data BFGS a = BFGS
 
 instance Has_x1 BFGS a where x1 = _x1
 instance Has_fx1 BFGS a where fx1 = _fx1
+instance Has_f'x1 BFGS a where f'x1 = _f'x1
 
 quasiNewton' f f' f'' x0 = do
     let qn0 = BFGS x0 (f x0) (f' x0) (f'' x0) 1e-2
     qn1 <- step_quasiNewton f f' qn0
     optimize
         ( _stop_itr 100 
-        <> _stop_tolerance _fx1 1e-6 
+        <> _stop_tolerance _fx1 1e-6
         )
         (step_quasiNewton f f')
         (initTrace qn1 qn0)
@@ -51,7 +52,7 @@ quasiNewton f f' x0 = do
     let qn0 = BFGS x0 (f x0) (f' x0) (LA.eye $ VG.length x0) 1e-2
     qn1 <- step_quasiNewton f f' qn0
     optimize
-        ( _stop_itr 100 
+        ( _stop_itr 500 
         <> _stop_tolerance _fx1 1e-6 
         )
         (step_quasiNewton f f')

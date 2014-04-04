@@ -27,23 +27,25 @@ import qualified HLearn.Optimization.LineMinimization as LineMin
 
 
 data NewtonRaphson a = NewtonRaphson
-    { _x :: !(Tensor 1 a)
-    , _fx :: !(Tensor 0 a)
+    { _x1 :: !(Tensor 1 a)
+    , _fx1 :: !(Tensor 0 a)
+    , _f'x1 :: !(Tensor 1 a)
     }
     deriving (Typeable)
 
-instance (a~Tensor 1 a) => Has_x1 NewtonRaphson a where x1 = _x
-instance (ValidTensor a) => Has_fx1 NewtonRaphson a where fx1 = _fx
+instance (a~Tensor 1 a) => Has_x1 NewtonRaphson a where x1 = _x1
+instance (ValidTensor a) => Has_fx1 NewtonRaphson a where fx1 = _fx1
+instance (a~Tensor 1 a) => Has_f'x1 NewtonRaphson a where f'x1 = _f'x1
 
 deriving instance (Typeable Matrix)
 
 newtonRaphson f f' f'' x0 = do
-    let nr0 = NewtonRaphson x0 (f x0)
+    let nr0 = NewtonRaphson x0 (f x0) (f' x0)
     nr1 <- step_newtonRaphson f f' f'' nr0
     optimize
-        ( _stop_itr 100 
-        <> _stop_tolerance _fx 1e-6 
-        <> [\opt -> _fx (curValue opt) < -1e20]
+        ( _stop_itr 100
+        <> _stop_tolerance _fx1 1e-6
+        <> [\opt -> _fx1 (curValue opt) < -1e20]
         )
         (step_newtonRaphson f f' f'')
         (initTrace nr1 nr0)
@@ -61,15 +63,15 @@ step_newtonRaphson ::
       -> NewtonRaphson v
       -> m (NewtonRaphson v)
 step_newtonRaphson f f' f'' opt = do
-    let x = _x opt
-        f'x = f' x
+    let x = _x1 opt
+        f'x = _f'x1 opt
         f''x = f'' x
         dir = (-1) .* (LA.inv f''x `LA.mul` f'x)
     
     let xtmp = x <> dir
         fxtmp = f xtmp
 
-    (x',fx') <- {-trace ("fxtmp="++show fxtmp++"; _fx opt="++show (_fx opt)) $-} if fxtmp < _fx opt
+    (x',fx') <- {-trace ("fxtmp="++show fxtmp++"; _fx1 opt="++show (_fx1 opt)) $-} if fxtmp < _fx1 opt
         then {-trace "less than" $-} return (xtmp,fxtmp)
         else do
             let g y = f $ x <> y .* dir
@@ -81,6 +83,7 @@ step_newtonRaphson f f' f'' opt = do
             return (x', f x')
 
     report $ NewtonRaphson
-        { _x = x'
-        , _fx = fx'
+        { _x1 = x'
+        , _fx1 = fx'
+        , _f'x1 = f' x'
         }
