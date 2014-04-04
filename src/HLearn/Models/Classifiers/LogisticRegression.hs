@@ -98,19 +98,9 @@ data LogisticRegression dp = LogisticRegression
     { weights :: Map.Map (Label dp) (Scalar dp, Attributes dp, Taylor (Attributes dp))
     , datapoints :: V.Vector dp
     , reg :: Scalar dp
---     { weights :: Map.Map (Label dp) (Attributes dp)
---     , taylor :: Map.Map (Label dp) (Taylor (Attributes dp))
---     , _g :: dp -> Scalar dp
---     , _g' :: dp -> dp
---     , _g'' :: dp -> Matrix (Scalar dp)
     }
 
 data Taylor dp 
---     = Taylor
---         { _g :: dp -> Scalar dp
---         , _g' :: dp -> dp
---         , _g'' :: dp -> Matrix (Scalar dp)
---         }
     = Taylor dp (Matrix (Scalar dp))
     | NoTaylor
 
@@ -121,17 +111,6 @@ instance
     ) => NFData (LogisticRegression dp)
     where
     rnf lr = seq (Map.map (\(n,w,t) -> deepseq w $ seq n$ seq t $ () ) $ weights lr) ()
-     
---     rnf lr = seq (taylor lr)
---            $ seq (taylor lr)
---            $ seq (taylor lr)
---            $ rnf (weights lr)
-
--- class InnerProduct v where
---     inner :: v -> v -> Scalar v
-
--- instance (Storable r, Num r) => InnerProduct (Vector r) where
---     inner v1 v2 = sum $ zipWith (*) (VG.toList v1) (VG.toList v2)
 
 instance 
     ( Show (Label dp)
@@ -153,28 +132,11 @@ instance
     , Monoid (Attributes dp)
     , Num (Scalar dp)
     , Attributes dp ~ LA.Vector (Scalar (Attributes dp))
---     , Attributes dp ~ vec (Scalar (Attributes dp))
     , Typeable (Scalar (Attributes dp))
     , Show (Scalar (Attributes dp))
     ) => Monoid (LogisticRegression dp) where
     mempty = undefined
     mappend = undefined
---     mappend lr1 lr2 = LogisticRegression $ Map.unionWith go (weights lr1) (weights lr2)
---         where
--- --             go (n1,w1,_) (n2,w2,_) = (n1+n2,w,NoTaylor)
--- --                 where
--- --                     w = VG.zipWith (\a b -> (a+b)/2) w1 w2
--- 
---             go :: (LA.Vector (Scalar (Attributes dp)), Taylor (Attributes dp)) ~ a => a -> a -> a
---             go (w1,NoTaylor) (w2,NoTaylor) = (w1,NoTaylor)
---             go (w1,t1) (w2,t2) = (w,Taylor g g' g'')  
---                 where
--- --                     w = trace "monoid" $ Recipe.traceOptimization $ Recipe.steepestDescent g g' w1
--- --                     w = trace "monoid" $ Recipe.traceOptimization $ Recipe.conjugateGradientDescent g g' w1
---                     w = trace "monoid" $ Recipe.traceOptimization $ Recipe.newtonRaphson g g' g'' w1
---                     g   x = _g   t1 x <> _g   t2 x
---                     g'  x = _g'  t1 x <> _g'  t2 x
---                     g'' x = _g'' t1 x <> _g'' t2 x
 
 mappendAverage ::
     ( VG.Vector v t
@@ -241,7 +203,6 @@ instance
     , InnerProduct (vec r)
     , vec ~ LA.Vector
     , LA.Field r
---     , Container vec r
     , Show (Label dp) 
     , Show (vec r)
     , Show r
@@ -251,7 +212,6 @@ instance
     type Datapoint (LogisticRegression dp) = dp
 
     train dps = lrtrain2 0 dps $ zeroWeights dps
---     train = zeroWeights
 --     train = nbtrain 
 
 lrtrain lambda dps = lrtrain2 lambda dps $ zeroWeights dps
@@ -279,7 +239,6 @@ lrtrain2 :: forall dp vec r container.
     , Show dp
     , F.Foldable container
     ) => Scalar dp -> container dp -> Map.Map (Label dp) (Attributes dp) -> LogisticRegression dp
--- lrtrain2 dps = LogisticRegression $ Map.fromList $ go $ Map.assocs $ weights $ nbtrain dps
 lrtrain2 lambda dps weights0 = LogisticRegression 
     { weights = Map.fromList $ go $ Map.assocs weights0
     , datapoints = V.fromList $ F.toList dps
@@ -298,7 +257,6 @@ lrtrain2 lambda dps weights0 = LogisticRegression
             = trace ("f''w1="++show f''w1) 
             $ deepseq w1 
             $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
---             $ (l, (n l, w1, Taylor g g' g'')):go xs
             where
                 reg w = VG.sum $ VG.map (**2) w
                 reg' w = VG.map (*2) w 
@@ -455,7 +413,6 @@ nbtrain dps = LogisticRegression
         n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ F.toList dps
 
         go [] = []
---         go ((l,w0):xs) = trace ("gaussianMap="++show gaussianMap) $ (l,w'):go xs
         go ((l,w0):xs) = (l,(n l, w', NoTaylor)):go xs
             where
                 w' = (VG.convert $ VG.map (\(n,t) -> mean n/(variance t+1e-6)) normV)
