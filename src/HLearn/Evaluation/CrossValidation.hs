@@ -49,6 +49,9 @@ kfold k xs = do
         takeEvery n [] = []
         takeEvery n xs = head xs : (takeEvery n $ drop n xs)
 
+numSamples :: Int -> SamplingMethod -> SamplingMethod
+numSamples n f dps = f $ take n dps
+
 -- | randomly shuffles a list in time O(n log n); see http://www.haskell.org/haskellwiki/Random_shuffle
 shuffle :: RandomGen g => [a] -> Rand g [a]
 shuffle xs = do
@@ -85,6 +88,53 @@ errorRate model dataL = 1 - accuracy model dataL
 
 ---------------------------------------
 
+validate :: 
+    ( HomTrainer model
+    , Classifier model
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([Datapoint model] -> model)
+      -> Rand g (Normal Double Double)
+validate genfolds loss xs _train = do
+    xs' <- genfolds $ F.toList xs
+    return $ train $ do
+        testset <- xs'
+        let trainingset = concat $ filter (/=testset) xs'
+        let model = _train trainingset 
+        return $ loss model testset
+
+validate_monoid :: 
+    ( HomTrainer model
+    , Classifier model
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([Datapoint model] -> model)
+      -> (model -> model -> model)
+      -> Rand g (Normal Double Double)
+validate_monoid genfolds loss xs _train _mappend = do
+    xs' <- genfolds $ F.toList xs
+    let ms = map _train xs' -- :: [model]
+        prefix = Nothing : map Just (init $ scanl1 _mappend ms) -- :: [Maybe model]
+        suffix = map Just (tail $ scanr1 _mappend ms) ++ [Nothing] -- :: [Maybe model]
+
+    let go (dps,Nothing,Just s) = loss s dps
+        go (dps,Just p,Nothing) = loss p dps
+        go (dps,Just p,Just s) = loss (_mappend p s) dps
+        resL = map go (zip3 xs' prefix suffix)
+
+    let res = train resL :: Normal Double Double
+    return res
+
 crossValidate :: 
     ( HomTrainer model
     , Classifier model
@@ -104,6 +154,7 @@ crossValidate genfolds loss xs _model = do
         let trainingset = concat $ filter (/=testset) xs'
         let model = train trainingset `asTypeOf` _model
         return $ loss model testset
+
 
 crossValidate_group :: 
     ( HomTrainer model

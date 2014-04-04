@@ -1,8 +1,16 @@
 module HLearn.Algebra.LinearAlgebra
     ( Vector
     , MVector
+    , eye
     , outerProduct
+    , extractDiagonal
+    , extractBanded
     , matProduct
+    , v2m
+    , v2m'
+    , trans
+    , Mult (..)
+    , ValidTensor (..)
     , LA.inv
     , LA.eig
     , LA.eigenvalues
@@ -22,6 +30,7 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
 
 import qualified Numeric.LinearAlgebra as LA
+import Debug.Trace
 
 import HLearn.Algebra
 
@@ -119,16 +128,108 @@ instance
     ( Storable a
     , VectorSpace a
     , Num a
+    , Floating a
     , a ~ Scalar a
     ) => InnerProduct (Vector a) 
         where
-    inner (Vector a) (Vector b) = VG.sum $ VG.zipWith (*) a b 
+    inner (Vector a) (Vector b) = VG.sum $ VG.zipWith (*) a b
+--     inner (Vector a) (Vector b) = kernel $ VG.sum $ VG.zipWith (*) a b 
+--         where
+--             kernel x = (1+x)**2
+
+            -- 0.44
+
+--     inner (Vector a) (Vector b) = exp $ -gamma*l2
+--         where
+--             gamma = 0.0001
+--             l2 =  VG.sum $ VG.map (**2) $ VG.zipWith (-) a b 
 
 -------------------------------------------------------------------------------
 -- matrices
 
+eye :: LA.Field a => Int -> LA.Matrix a
+eye = LA.ident
+
+-- class TensorProduct a b c | a b -> c
+--     tensorProduct :: a -> b -> c
+
+v2m :: LA.Field a => Vector a -> LA.Matrix a
+v2m (Vector v) = LA.asColumn v
+
+v2m' :: LA.Field a => Vector a -> LA.Matrix a
+v2m' (Vector v) = LA.asRow v
+
+trans :: LA.Matrix a -> LA.Matrix a
+trans = LA.trans
+
+-- data a +> b = (+>) a b
+-- type family Tensor (order::Nat) a
+-- type instance Tensor 0 Double = Double
+-- type instance Tensor 1 Double = Double
+-- type instance Tensor 2 Double = Double
+-- type instance Tensor 0 (Vector r) = r
+-- type instance Tensor 1 (Vector r) = Vector r
+-- type instance Tensor 2 (Vector r) = LA.Matrix r
+
+class Multiply a where
+    mul_inner :: Tensor 1 a -> Tensor 1 a -> Tensor 0 a
+    mul_outer :: Tensor 1 a -> Tensor 1 a -> Tensor 2 a
+    mul_left :: Tensor 1 a -> Tensor 2 a -> Tensor 1 a
+    mul_right :: Tensor 2 a -> Tensor 1 a -> Tensor 1 a
+
+class Mult a b c | a b -> c, a c -> b, b c -> a where
+    mul :: a -> b -> c
+
+class 
+    ( VectorSpace (Tensor 0 a) 
+    , VectorSpace (Tensor 1 a)
+    , VectorSpace (Tensor 2 a)
+    , Mult (Tensor 1 a) (Tensor 2 a) (Tensor 1 a)
+    , Mult (Tensor 2 a) (Tensor 1 a) (Tensor 1 a)
+    , Mult (Tensor 2 a) (Tensor 2 a) (Tensor 2 a)
+    , Tensor 0 a ~ Scalar a
+    , Scalar (Tensor 0 a) ~ Scalar a
+    , Scalar (Tensor 1 a) ~ Scalar a
+    , Scalar (Tensor 2 a) ~ Scalar a
+    , LA.Field (Scalar a)
+    ) => ValidTensor a 
+        where
+    type Tensor (order::nat) a
+    mkTensor :: a -> Tensor 1 a
+
+type IsScalar a = a ~ Scalar a
+
+instance (IsScalar a, LA.Field a, VectorSpace a) => ValidTensor (Vector a) where
+    type Tensor 0 (Vector a) = a
+    type Tensor 1 (Vector a) = Vector a
+    type Tensor 2 (Vector a) = LA.Matrix a
+    mkTensor = id
+
+instance LA.Field a => Mult (Vector a) (LA.Matrix a) (Vector a) where
+    mul (Vector v) m = Vector $ v LA.<> m
+instance LA.Field a => Mult (LA.Matrix a) (Vector a) (Vector a) where
+    mul m (Vector v) = Vector $ m LA.<> v
+instance LA.Field a => Mult (LA.Matrix a) (LA.Matrix a) (LA.Matrix a) where
+    mul = (LA.<>)
+
+class TensorProduct a where
+    tensor :: Tensor 1 a -> Tensor 1 a -> Tensor 2 a
+
+-- instance LA.Field r => TensorProduct (Vector r) where
+--     tensor (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
+
 outerProduct :: LA.Field a => Vector a -> Vector a -> LA.Matrix a
 outerProduct (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
+
+extractDiagonal :: LA.Field a => LA.Matrix a -> LA.Matrix a
+extractDiagonal = extractBanded 0
+
+extractBanded :: LA.Field a => Int -> LA.Matrix a -> LA.Matrix a
+extractBanded b m = LA.buildMatrix (LA.rows m) (LA.cols m) go
+    where
+        go (r,c) = if abs (r-c)-1 < b
+            then m LA.@@> (r,c)
+            else 0
 
 matProduct a b = a LA.<> b
 
