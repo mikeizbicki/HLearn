@@ -41,6 +41,7 @@ data ConjugateGradientDescent a = ConjugateGradientDescent
     { _x1 :: !a
     , _fx1 :: !(Scalar a)
     , _f'x1 :: !a
+    , _alpha :: !(Scalar a)
     , _f'x0 :: !a
     , _s0 :: !a
     }
@@ -51,6 +52,7 @@ data ConjugateGradientDescent a = ConjugateGradientDescent
 
 instance Has_x1 ConjugateGradientDescent v where x1 = _x1
 instance Has_fx1 ConjugateGradientDescent v where fx1 = _fx1
+instance Has_f'x1 ConjugateGradientDescent v where f'x1 = _f'x1
 
 ---------------------------------------
 
@@ -78,7 +80,8 @@ data ConjugateMethod
 --       -> (v -> v)
 --       -> v
 --       -> DoTrace (ConjugateGradientDescent v)
-conjugateGradientDescent f f' = conjugateGradientDescent_ LineSearch PolakRibiere f f'
+conjugateGradientDescent f f' = conjugateGradientDescent_ LineSearch FletcherReeves f f'
+-- conjugateGradientDescent f f' = conjugateGradientDescent_ LineSearch PolakRibiere f f'
 -- conjugateGradientDescent = conjugateGradientDescent_ LineSearch PolakRibiere
 
 -- | The method of steepest descent is much worse in practice than conjugate gradient descent.  It should never be used in practice, and is provided only for comparison purposes.
@@ -112,6 +115,7 @@ conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = do
         { _x1 = x0
         , _fx1 = f x0
         , _f'x1 = f' x0
+        , _alpha = 1e-2
         , _f'x0 = f' x0
         , _s0 = f' x0
         }
@@ -138,7 +142,7 @@ step_conjugateGradientDescent ::
       -> (v -> v)
       -> ConjugateGradientDescent v
       -> m (ConjugateGradientDescent v)
-step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDescent x1 fx1 f'x1 f'x0 s0) = do
+step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDescent x1 fx1 f'x1 alpha1 f'x0 s0) = do
     let beta = max 0 $ case conjMethod of
             None -> 0
             FletcherReeves -> inner f'x1 f'x1 / inner f'x0 f'x0
@@ -153,7 +157,7 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
     alpha <- case stepMethod of
         StepSize x -> return x
         LineSearch -> do
-            bracket <- LineMin.lineBracket g 0 1
+            bracket <- LineMin.lineBracket g (alpha1/2) (alpha1*2)
             brent <- LineMin.brent g $ curValue bracket
             return $ LineMin._x $ curValue $ brent
 --             gss <- LineMin.goldenSectionSearch g $ curValue bracket
@@ -165,6 +169,7 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
         { _x1 = x
         , _fx1 = f x
         , _f'x1 = f' x
+        , _alpha = alpha
         , _f'x0 = f'x1
         , _s0 = s1
         }

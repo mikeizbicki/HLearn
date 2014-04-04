@@ -101,6 +101,11 @@ data LogisticRegression dp = LogisticRegression
     }
 
 data Taylor dp 
+--     = Taylor 
+--         { _g :: dp -> Scalar dp
+--         , _g' :: dp -> dp
+--         , _g'' :: dp -> LA.Matrix (Scalar dp)
+--         }
     = Taylor dp (Matrix (Scalar dp))
     | NoTaylor
 
@@ -164,6 +169,9 @@ mappendTaylor ::
     , v ~ LA.Vector
     , LA.Field t
     , VectorSpace t
+    , Typeable t
+    , Show t
+    , Ord t
     , Ord (Label dp)
     ) => LogisticRegression dp -> LogisticRegression dp -> LogisticRegression dp
 mappendTaylor lr1 lr2 = LogisticRegression 
@@ -175,6 +183,21 @@ mappendTaylor lr1 lr2 = LogisticRegression
         go (n1,w1,NoTaylor) (n2,w2,NoTaylor) = (n1+n2,w1,NoTaylor)
         go (_,_,NoTaylor) a = a
         go a (_,_,NoTaylor) = a
+--         go (n1,w1,t1) (n2,w2,t2) = (n1+n2,w,Taylor g g' g'')  
+--             where
+--                 w = Recipe.traceOptimization 
+--                         [ Recipe.trace_fx1
+--                         , Recipe.trace_f'x1
+--                         ] $ Recipe.newtonRaphson g g' g'' $ VG.map (const 0) w1
+-- 
+--                 g   x = (_g   t1 x <> _g   t2 x)
+--                 g'  x = (_g'  t1 x <> _g'  t2 x)
+--                 g'' x = (_g'' t1 x <> _g'' t2 x) 
+-- 
+--                 g   x = (n1 .* _g   t1 x <> n2 .* _g   t2 x) /. (n1+n2)
+--                 g'  x = (n1 .* _g'  t1 x <> n2 .* _g'  t2 x) /. (n1+n2)
+--                 g'' x = (n1 .* _g'' t1 x <> n2 .* _g'' t2 x) /. (n1+n2)
+
         go (n1,w1,Taylor v1 m1) (n2,w2,Taylor v2 m2) = (n1+n2,w,Taylor v' m')  
             where
                 m' = ((n1.*m1) <> (n2.*m2))/.(n1+n2)
@@ -197,7 +220,7 @@ instance
     , Typeable r
     , Typeable vec
     , r ~ Scalar dp
-    , Ord r
+     , Ord r
     , r ~ Scalar (vec r)
     , VectorSpace r
     , InnerProduct (vec r)
@@ -254,18 +277,20 @@ lrtrain2 lambda dps weights0 = LogisticRegression
 
         -- calculate the weights for label l
         go ((l,w0):xs) 
-            = trace ("f''w1="++show f''w1) 
+            = trace ("w1="++show w1) 
             $ deepseq w1 
+--             $ (l, (n l, w1, Taylor g g' g'')):go xs
+--             $ (l, (n l, w1, Taylor (w1 <> w1 `LA.matProduct` f''w1) f''w1)):go xs
             $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
             where
-                reg w = VG.sum $ VG.map (**2) w
-                reg' w = VG.map (*2) w 
-                reg'' w = 2 .* LA.eye (VG.length w) 
+--                 reg w = VG.sum $ VG.map (**2) w
+--                 reg' w = VG.map (*2) w 
+--                 reg'' w = 2 .* LA.eye (VG.length w) 
 
---                 reg w = VG.sum $ VG.map abs w
---                 reg' w = VG.map (\i -> if i>=0 then 1 else -1) w 
---                 reg'' w = LA.outerProduct z z
---                     where z = VG.replicate (VG.length w) 0
+                reg w = VG.sum $ VG.map abs w
+                reg' w = VG.map (\i -> if i>=0 then 1 else -1) w 
+                reg'' w = LA.outerProduct z z
+                    where z = VG.replicate (VG.length w) 0
 
                 numdp :: Scalar dp
                 numdp = fromIntegral $ length $ F.toList dps
@@ -292,30 +317,18 @@ lrtrain2 lambda dps weights0 = LogisticRegression
 
                 y dp = bool2num $ getLabel dp==l 
 
---                 g w = fw1
---                        + inner (f'w1) (w <> inverse w1)
---                        + 0.5 .* ((w <> inverse w1) `LA.matProduct` (f''w1)) `inner` (w <> inverse w1)
--- 
---                 g' w = f'w1
---                        <> ((w <> inverse w1) `LA.matProduct` (f''w1))
-
-                g w = 0.5 .* ((w <> inverse w1) `LA.matProduct` (f''w1)) `inner` (w <> inverse w1)
-
-                g' w = ((w <> inverse w1) `LA.matProduct` (f''w1))
-
-                g'' w = f''w1
-
                 fw1 = f w1
                 f'w1 = f' w1
                 f''w1 = f'' w1
 
---                 fw0 = f w0
---                 f'w0 = f' w0
---                 f''w0 = f'' w0
-
-                w1 = trace "loc" $ Recipe.traceOptimization $ Recipe.quasiNewton' f f' f'' w0
---                 w1 = trace "loc" $ Recipe.traceOptimization $ Recipe.quasiNewton f f' w0
---                 w1 = trace "loc" $ Recipe.traceOptimization $ Recipe.newtonRaphson f f' f'' w0
+                w1 = trace "loc" $ Recipe.traceOptimization [Recipe.trace_fx1,Recipe.trace_f'x1] $ 
+--                         Recipe.conjugateGradientDescent f f' w0
+                        Recipe.quasiNewton f f' w0
+--                         Recipe.newtonRaphson f f' f'' w0
+--                         Recipe.quasiNewton f f' $ Recipe.traceOptimization [] $ 
+--                         Recipe.newtonRaphson f f' f'' w0
+--                         Recipe.newtonRaphson f f' f'' $ Recipe.traceOptimization [] $ 
+--                         Recipe.quasiNewton f f' w0
 
         go x = error $ "nonexhaustive patters in go; x="++show x
 
@@ -682,8 +695,9 @@ test = do
             (repeatExperiment 1 (kfold 5))
             errorRate
             ys
-            (f (lrtrain 0) :: [DP] -> LogisticRegression DP)
+            (f (lrtrain 1e-6) :: [DP] -> LogisticRegression DP)
             (mappendTaylor)
+--             (mappendAverage)
 
     let tests = 
             [ do 

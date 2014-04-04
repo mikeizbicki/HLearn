@@ -166,6 +166,7 @@ optimize stop step opt = if or $ map ($ opt) stop
 
 class Has_x1 opt v where x1 :: opt v -> v
 class Has_fx1 opt v where fx1 :: opt v -> Scalar v
+class Has_f'x1 opt v where f'x1 :: opt v -> v
 class Has_fx0 opt v where fx0 :: opt v -> Scalar v
 
 runOptimization :: 
@@ -180,13 +181,24 @@ runOptimization proc m = do
     tmp <- proc log
     seq tmp $ return $ x1 . curValue $ opt
              
+---------------------------------------
+
+trace_fx1 :: (Show (Scalar v), Has_fx1 opt v) => opt v -> String 
+trace_fx1 opt = "; fx1="++show (fx1 opt)
+
+trace_f'x1 :: (Show (Scalar v), Has_f'x1 opt v, InnerProduct v, Floating (Scalar v)) => opt v -> String 
+trace_f'x1 opt = "; |f'x1|="++show (innerProductNorm $ f'x1 opt)
+
+-- trace_time :: opt v -> String
+-- trace_time = "; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
+
 traceOptimization :: forall opt v. 
-    ( Has_x1 opt v
-    , Has_fx1 opt v
-    , Typeable (opt v)
-    , Show (Scalar v)
-    ) => Writer (DList.DList OptInfo) (DoTrace (opt v)) -> v
-traceOptimization m = trace "traceOptimization" $ runIdentity $ runOptimization proc m
+    ( Typeable (opt v)
+    , Has_x1 opt v
+    ) => [opt v -> String] 
+      -> Writer (DList.DList OptInfo) (DoTrace (opt v)) 
+      -> v
+traceOptimization msgL m = trace "traceOptimization" $ runIdentity $ runOptimization proc m
     where
         proc [] = return ()
         proc (x:xs) = do
@@ -194,11 +206,34 @@ traceOptimization m = trace "traceOptimization" $ runIdentity $ runOptimization 
                 Nothing -> return ()
                 Just opt -> trace 
                     ( show (dyn x)
-                    ++"; fx1="++show (fx1 opt)
---                     ++"; |f'x1|="++show (f'x1 opt)
-                    ++"; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
+                   ++ concatMap ($opt) msgL
+--                     ++"; fx1="++show (fx1 opt)
+--                     ++"; |f'x1|="++show (innerProductNorm $ f'x1 opt)
+--                     ++"; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
                     ) $ return ()
             seq tmp $ proc xs 
+
+-- traceOptimization :: forall opt v. 
+--     ( Has_x1 opt v
+--     , Has_fx1 opt v
+--     , Has_f'x1 opt v
+--     , InnerProduct v
+--     , Floating (Scalar v)
+--     , Typeable (opt v)
+--     , Show (Scalar v)
+--     ) => Writer (DList.DList OptInfo) (DoTrace (opt v)) -> v
+-- traceOptimization m = trace "traceOptimization" $ runIdentity $ runOptimization proc m
+--     where
+--         proc [] = return ()
+-- 
+--                 Nothing -> return ()
+--                 Just opt -> trace 
+--                     ( show (dyn x)
+--                     ++"; fx1="++show (fx1 opt)
+--                     ++"; |f'x1|="++show (innerProductNorm $ f'x1 opt)
+--                     ++"; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
+--                     ) $ return ()
+--             seq tmp $ proc xs 
 
 
 ---------------------------------------
