@@ -15,6 +15,7 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import Foreign.Storable
 import System.IO
+import System.CPUTime
 
 import Data.Csv
 import Numeric.LinearAlgebra hiding ((<>))
@@ -87,81 +88,94 @@ main = do
             xs
             :: V.Vector (MaybeLabeled String (LA.Vector Double))
 
+    deepseq ys $ hPutStrLn stderr "deepseqing ys"
+
     -----------------------------------
-    -- convert to right types
+    -- run tests
 
---     let m = train ys :: LogisticRegression (MaybeLabeled String (LA.Vector Double))
---     deepseq m $ print $ m
--- 
---     let res = flip evalRand (mkStdGen 100) $ crossValidate
---             (repeatExperiment 1 (kfold 10))
---             errorRate
---             ys
---             (undefined :: LogisticRegression (MaybeLabeled String (LA.Vector Double)))
--- 
---     putStrLn $ "mean = "++show (mean res)
---     putStrLn $ "var  = "++show (variance res)
+    let runtest f = flip evalRand (mkStdGen 100) $ validate_monoid
+            (repeatExperiment 1 (kfold 10))
+            errorRate
+            ys
+            (f (lrtrain 1e-4) :: [DP] -> LogisticRegression DP)
+            (mappendTaylor)
 
---     let testM n f = validate
---             (numSamples n (kfold 10))
---             errorRate
---             ys
---             (f train :: [MaybeLabeled String (LA.Vector Double)] 
---                                -> LogisticRegression (MaybeLabeled String (LA.Vector Double)))
--- 
---     let runtest n f = reduce [flip evalRand (mkStdGen i) $ testM n f | i <- [0..10]]
--- 
---     let tests = 
---             [ do 
---                 putStr $ show n++", "
---                 let res = runtest n id
---                 putStr $ show (mean res)++", "++show (variance res)++", "
---                 let res_taylor = runtest n (withMonoid mappendTaylor 2)
---                 putStr $ show (mean res_taylor)++", "++show (variance res_taylor)++", "
---                 let res_ave = runtest n (withMonoid mappendAverage 2)
---                 putStrLn $ show (mean res_ave)++", "++show (variance res_ave)
---                 hFlush stdout
---             | n <- [100,200,300,400,500]
---             ]
-
-    let repl ',' = ' '
-        repl c = c
-
-    sequence_ 
-        [ do
-            putStr $ show n++" "
-            putStrLn $ map repl $ tail $ init $ show $ map mean $ foldl1 (zipWith (<>)) 
-                [ flip evalRand (mkStdGen seed) $ monoidtest (VG.toList ys) n
-                | seed <- [1..1]
+    let test_nomappend trials k lambda = do
+            (secdist,errdist) <- fmap reduce $ sequence
+                [ timeIO $ do 
+                    hPutStr stderr $ show n++", "
+                    let res = flip evalRand (mkStdGen n) $ validate
+                            (repeatExperiment 1 (kfold k))
+                            errorRate
+                            ys
+                            (lrtrain lambda :: [DP] -> LogisticRegression DP)
+                    hPutStrLn stderr $ show (mean res)++", "++show (variance res)
+                    return (train1dp (mean res) :: Normal Double Double)
+                | n <- [1..1+trials-1]
                 ]
+
+            putStr $ "      " ++ show (mean secdist)
+                  ++ "      " ++ show (variance secdist)
+                  ++ "      " ++ show (mean errdist)
+                  ++ "      " ++ show (variance errdist)
+                  ++ "      " ++ "---"
             hFlush stdout
-        | n <- [5..10]
---         | n <- [1,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,310,320,330,340,350,360,370,380,390,400]
---         | n <- [1,50,100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000]
---         | n <- map (*10) [1..5]
-        ]
 
---     let testM n f = validate
---             (kfold 10)
---             errorRate
---             ys
---             (f train :: [MaybeLabeled String (LA.Vector Double)] 
---                                -> LogisticRegression (MaybeLabeled String (LA.Vector Double)))
--- 
---     let runtest n f = reduce [flip evalRand (mkStdGen i) $ testM n f | i <- [0,1]]
--- 
---     let tests = 
---             [ do 
---                 putStr $ show n++", "
---                 let res_taylor = runtest n (withMonoid mappendTaylor n)
---                 putStr $ show (mean res_taylor)++", "++show (variance res_taylor)++", "
---                 let res_ave = runtest n (withMonoid mappendAverage n)
---                 putStrLn $ show (mean res_ave)++", "++show (variance res_ave)
---                 hFlush stdout
---             | n <- [1..50]
---             ]
--- 
---     sequence_ tests
+    let test_mappend trials k lambda _mappend = do
+            (secdist,errdist) <- fmap reduce $ sequence
+                [ timeIO $ do 
+                    hPutStr stderr $ show n++", "
+                    let res = flip evalRand (mkStdGen n) $ validate_monoid
+                            (repeatExperiment 1 (kfold k))
+                            errorRate
+                            ys
+                            (lrtrain lambda :: [DP] -> LogisticRegression DP)
+                            _mappend
+                    hPutStrLn stderr $ show (mean res)++", "++show (variance res)
+                    return (train1dp (mean res) :: Normal Double Double)
+                | n <- [1..1+trials-1]
+                ]
 
-    putStrLn "done."
+            putStr $ "      " ++ show (mean secdist)
+                  ++ "      " ++ show (variance secdist)
+                  ++ "      " ++ show (mean errdist)
+                  ++ "      " ++ show (variance errdist)
+                  ++ "      " ++ "---"
+            hFlush stdout
+            
 
+    let tests = 
+            [ do
+                putStr $ show k
+                      ++ "      " ++ show lambda
+                      ++ "      " ++ "---"
+                let numtrials=3
+                test_nomappend numtrials k lambda
+                test_mappend numtrials k lambda mappendAverage
+                test_mappend numtrials k lambda (reoptimize mappendAverage)
+                test_mappend numtrials k lambda mappendTaylor
+                test_mappend numtrials k lambda (reoptimize mappendTaylor)
+                putStrLn ""
+--             | k <- [2..20]
+--             | k <- [5,50,100,150,200,250,300,350,400,450,500]
+--             , lambda <- [1e-6]
+            | k <- [10]
+            , lambda <- [1e-6]
+--             , lambda <- [1e5,1e4,1e3,1e2,1e1,1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,0]
+            ]
+
+    ioxs <- sequence tests
+
+--     putStrLn "\n\nResults:"
+--     print $ ioxs
+
+    hPutStrLn stderr "done."
+
+timeIO :: NFData nf => IO nf -> IO (Normal Double Double,nf)
+timeIO ionf = do
+    startTime <- getCPUTime
+    nf <- ionf
+    deepseq nf $ hPutStrLn stderr "timeIO deepseq"
+    stopTime <- getCPUTime
+    let sec= train1dp $ 1e-12 * fromIntegral (stopTime-startTime) :: Normal Double Double
+    return (sec,nf)

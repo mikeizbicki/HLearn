@@ -14,54 +14,71 @@ import Data.Dynamic
 import Data.Typeable
 import Debug.Trace
 
+import System.CPUTime
+import System.IO.Unsafe
+
+import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
 -- import HLearn.Algebra.Structures.Monad
 -- import qualified HLearn.Numeric.Recipes.LineMin as LineMin
 
 -------------------------------------------------------------------------------
 
-type OptMonad m = MonadWriter (DList.DList Dynamic) m
+-- data OptMonad a = OptMonad 
+--     { optHistory :: DList.DList Dynamic
+--     , runOptMonad :: a
+--     }
+-- 
+-- instance Functor OptMonad where
+--     fmap f opt = opt { runOptMonad = f $ runOptMonad opt }
+-- 
+-- instance Applicative OptMonad where
+--     pure = return
+--     (<*>) = ap
+-- 
+-- instance Monad OptMonad where
+--     return a = OptMonad mempty a
+--     opt >>= f = OptMonad (optHistory opt <> optHistory opt') (runOptMonad opt')
+--         where
+--             opt' = f $ runOptMonad opt
 
--- data Identity w a = Identity { runIdentity :: a }
--- 
--- instance Functor (Identity w) where
---     fmap f (Identity a) = Identity $ f a
--- 
--- -- instance Applicative Identity where
--- --     pure a = Identity a
--- --     (Identity f) <*> (Identity a) = Identity $ f a
--- 
--- instance Monad (Identity w) where
---     (Identity a) >>= f = f a
---     return a = Identity a
--- 
--- instance (Show w,Monoid w) => MonadWriter w (Identity w) where
---     tell w = trace ("w="++show w) $ return ()
--- 
--- instance Show (DList.DList Dynamic) where
---     show xs = show $ DList.toList xs
+type OptMonad m = MonadWriter (DList.DList OptInfo) m
 
----------------------------------------
+data OptInfo = OptInfo
+    { dyn :: Dynamic
+    , stoptime :: Integer
+    }
+    deriving (Show)
 
-data TypeableLog a 
-    = Cons 
-        { runTypeableLog :: a
-        , sub :: [TypeableLog Dynamic]
-        , next :: TypeableLog a
+report :: (Typeable t, OptMonad m) => t -> m t
+report x = do
+    let dyn = toDyn x
+    let time = seq x $ unsafePerformIO $ getCPUTime
+    seq time $ tell $ DList.fromList [OptInfo dyn time]
+    return x
+
+-------------------
+
+data OptMon 
+    = OptMon
+        { optstep :: Dynamic
+        , optitr :: Int
+        , subprob :: [OptMon]
+        , nextstep :: OptMon
         }
-    | Nil
+    | OptAnswer
+        { getAnswer :: Dynamic
+        }
 
--- instance Functor TypeableLog where
---     fmap f (Cons a xs) = Cons (f a) xs
---     fmap f Nil = Nil
--- 
--- instance Monad TypeableLog where
---     (Cons a xs) >>= f = Cons a' (xs'++xs) 
---         where 
---             (Cons a' xs') = f a
--- 
---     Nil >>= f = Nil
---     return a = Cons a Nil
+data Trace2 a
+    = TraceCons Dynamic (Trace2 a)
+    | TraceNil a 
+
+instance CK.Functor Trace2 where
+    type FunctorConstraint Trace2 a = Typeable a
+
+    fmap f (TraceNil a) = TraceCons (toDyn a) $ TraceNil (f a)
+    fmap f (TraceNil a) = TraceCons (toDyn a) $ TraceNil (f a)
 
 -------------------------------------------------------------------------------
 --
@@ -133,28 +150,17 @@ type NoTrace a = DoTraceLimit 2 a
 
 type StopCriteria opt = [DoTrace opt -> Bool]
 
--- optimize :: (Monad m) => StopCriteria opt -> (opt -> m opt) -> DoTrace opt -> m (DoTrace opt)
 optimize :: 
---     ( ValidMonad m (DoTrace opt)
---     , ValidMonad m opt
-    ( Monad m
-    , MonadWriter (DList.DList Dynamic) m
+    ( OptMonad m
     ) => StopCriteria opt 
       -> (opt -> m opt) 
       -> DoTrace opt 
       -> m (DoTrace opt)
-optimize stop step opt = do
---   tell ["optimize"]
-  if or $ map ($ opt) stop
+optimize stop step opt = if or $ map ($ opt) stop
     then return opt
     else do
         opt' <- step $ curValue opt
         optimize stop step $ addTrace opt opt'
-
--- optimize :: StopCriteria opt -> (opt -> opt) -> DoTrace opt -> DoTrace opt
--- optimize stop step opt = if or $ map ($ opt) stop
---     then opt
---     else optimize stop step $ addTrace opt $ step $ curValue opt
 
 ---------------------------------------
 
@@ -162,19 +168,11 @@ class Has_x1 opt v where x1 :: opt v -> v
 class Has_fx1 opt v where fx1 :: opt v -> Scalar v
 class Has_fx0 opt v where fx0 :: opt v -> Scalar v
 
--- runOptimization :: Has_x1 opt => Identity (DoTrace (opt v)) -> v
--- runOptimization = x1 . curValue . runIdentity
-
-report :: (Typeable t, MonadWriter (DList.DList Dynamic) m) => t -> m t
-report x = do
-    tell $ DList.fromList [toDyn x]
-    return x
-
 runOptimization :: 
     ( Monad m
     , Has_x1 opt v
-    ) => ([Dynamic] -> m ())
-      -> Writer (DList.DList Dynamic) (DoTrace (opt v)) 
+    ) => ([OptInfo] -> m ())
+      -> Writer (DList.DList OptInfo) (DoTrace (opt v)) 
       -> m v
 runOptimization proc m = do
     let (opt,dynlog) = runWriter m
@@ -187,14 +185,19 @@ traceOptimization :: forall opt v.
     , Has_fx1 opt v
     , Typeable (opt v)
     , Show (Scalar v)
-    ) => Writer (DList.DList Dynamic) (DoTrace (opt v)) -> v
+    ) => Writer (DList.DList OptInfo) (DoTrace (opt v)) -> v
 traceOptimization m = trace "traceOptimization" $ runIdentity $ runOptimization proc m
     where
         proc [] = return ()
         proc (x:xs) = do
-            tmp <- case fromDynamic x :: Maybe (opt v) of
+            tmp <- case fromDynamic (dyn x) :: Maybe (opt v) of
                 Nothing -> return ()
-                Just opt -> trace (show x++"; fx1 opt="++show (fx1 opt)) $ return ()
+                Just opt -> trace 
+                    ( show (dyn x)
+                    ++"; fx1="++show (fx1 opt)
+--                     ++"; |f'x1|="++show (f'x1 opt)
+                    ++"; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
+                    ) $ return ()
             seq tmp $ proc xs 
 
 
@@ -202,6 +205,9 @@ traceOptimization m = trace "traceOptimization" $ runIdentity $ runOptimization 
 
 _stop_itr :: Int -> StopCriteria opt
 _stop_itr n = [\opt -> numitr opt > n]
+
+_stop_toosmall :: (Ord v, v ~ Scalar v, Has_fx1 opt v) => v -> [DoTrace (opt v) -> Bool]
+_stop_toosmall bound = [\opt -> fx1 (curValue opt) > bound]
 
 _stop_tolerance :: 
     ( Fractional num

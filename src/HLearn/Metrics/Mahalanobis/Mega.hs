@@ -114,14 +114,14 @@ mkMega' etaraw eta2 !xs = {-trace ("megamatrix="++show res) $ -}
 --                        $ trace "---------------\nunderscore" $ Recipe.newtonRaphson_constrained f_ f'_ f''_
 --                        $ trace "---------------\nplain" $ Recipe.newtonRaphson_constrained f f'c f''
 --                        $ Recipe.runOptimization (Recipe.conjugateGradientDescent f f')
-                       $ Recipe.newtonRaphson_constrained f f'c f''
+--                        $ Recipe.newtonRaphson_constrained f f'c f''
                        $ x
         
         magicJumble 0 x = x
         magicJumble i x = magicJumble (i-1) x'
             where
                 x_proj = Recipe.conicProjection f
-                       $ Recipe.newtonRaphson_constrained f f'c f''
+--                        $ Recipe.newtonRaphson_constrained f f'c f''
                        $ x
                 
                 fx = f x
@@ -132,9 +132,10 @@ mkMega' etaraw eta2 !xs = {-trace ("megamatrix="++show res) $ -}
                     else x
 
         res = 
-            Recipe.newtonRaphson_constrained f f'c f''
+--             Recipe.newtonRaphson_constrained f f'c f''
 --             $ Recipe.runOptimization (Recipe.conjugateGradientDescent f f')
-            $ x0
+--             $ x0
+            x0
 
         res1 = findzero a b x0
 --         res2 = findzero a b $ Recipe.runOptimization (Recipe.conjugateGradientDescent f f' x0)

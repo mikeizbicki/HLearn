@@ -100,7 +100,7 @@ conjugateGradientDescent_ ::
     , Typeable v
     , Show (Scalar v)
     , Monad m
-    , MonadWriter (DList.DList Dynamic) m
+    , OptMonad m
     ) => StepMethod (Scalar v)
       -> ConjugateMethod
       -> (v -> Scalar v)

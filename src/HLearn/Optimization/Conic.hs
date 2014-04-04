@@ -94,11 +94,11 @@ step_RandomConicPersuit f (RandomConicPersuit stdgen soln fx solnlast) = --trace
 --         y' = asColumn (LA.fromList x') LA.<> asRow (LA.fromList x')
 
         g_alpha alpha = f $ scale alpha y' + soln
-        alpha_hat = LineMin._x $ LineMin.brent g_alpha (LineMin.lineBracket g_alpha 0 1)
+        alpha_hat = error "step_randomConic" -- LineMin._x $ runOptimization $ LineMin.brent g_alpha (LineMin.lineBracket g_alpha 0 1)
 
         alpha_hat_y' = scale alpha_hat y'
         g_beta beta = f $ alpha_hat_y' + scale beta soln
-        beta_hat = LineMin._x $ LineMin.brent g_beta (LineMin.lineBracket g_beta 0 1)
+        beta_hat = error "step_randomConic" -- LineMin._x $ LineMin.brent g_beta (LineMin.lineBracket g_beta 0 1)
 
         soln' = alpha_hat_y' + scale beta_hat soln
 

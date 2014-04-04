@@ -51,6 +51,7 @@ Library
         mtl                 >= 2.1.2,
         
         ghc-prim, 
+        bytestring          >= 0.10.4,
 
         -- tests
         QuickCheck          >= 2.6,
@@ -143,6 +144,7 @@ Library
         HLearn.Optimization.GradientDescent
         HLearn.Optimization.LineMinimization
         HLearn.Optimization.NewtonRaphson
+        HLearn.Optimization.QuasiNewton
         
         HLearn.NPHard.Scheduling
         HLearn.NPHard.BinPacking

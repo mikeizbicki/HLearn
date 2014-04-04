@@ -225,7 +225,7 @@ brent ::
     ( Fractional a
     , Ord a
     , Typeable a
-    , MonadWriter (DList.DList Dynamic) m
+    , OptMonad m
     ) => (a -> a) -> LineBracket a -> m (DoTrace (Brent a))
 brent f (LineBracket ax bx cx fa fb fc) = do
     let init0 = Brent

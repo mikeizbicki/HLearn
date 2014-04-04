@@ -52,9 +52,9 @@ import qualified Data.Vector.Unboxed.Mutable as VUM
 import Test.QuickCheck
 import Debug.Trace
 
-import Diagrams.Prelude hiding (distance,trace,query,connect)
-import Diagrams.Backend.SVG.CmdLine
-import Diagrams.Backend.Postscript.CmdLine
+-- import Diagrams.Prelude hiding (distance,trace,query,connect)
+-- import Diagrams.Backend.SVG.CmdLine
+-- import Diagrams.Backend.Postscript.CmdLine
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
@@ -908,7 +908,7 @@ property_numdp (UnitLift node) = numdp node == sum (map fst $ stToListW node)
 
 ---------------------------------------
 
-
+{-
 
 instance MkCentroid (Double,Double) where
     mkCentroid (a1,a2) (b1,b2) = ((a1+b1)/2,(a2+b2)/2)
@@ -959,11 +959,12 @@ gs' i = take i gs
 
 -- mg3 = train1dp (1,1) `mappend` ( train1dp (1,2) `mappend` train1dp (1,3) ) :: CoverTree (Double,Double)
 
+-}
 
 -------------------------------------------------------------------------------
 -- diagrams
 
-
+{-
 drawT ct1 ct2 = (strutY 2.5 === draw (unUnit ct2))
 --             ||| (text "<>" <> strutX 2.5)
             ||| (strutX 2.5)
@@ -1032,4 +1033,4 @@ instance (IntShow attr,Show label) => IntShow (MaybeLabeled label attr) where
                 Just x -> show x
                 Nothing -> "_"
 
-
+-}

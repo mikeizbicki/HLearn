@@ -1,6 +1,8 @@
 module HLearn.Models.Classifiers.Common
     where
 
+import Control.DeepSeq
+
 import HLearn.Algebra
 import HLearn.Models.Distributions
 
@@ -37,6 +39,9 @@ instance Eq attr => Eq (MaybeLabeled label attr) where
 
 instance Ord attr => Ord (MaybeLabeled label attr) where
     a `compare` b = attr a `compare` attr b
+
+instance (NFData label, NFData attr) => NFData (MaybeLabeled label attr) where
+    rnf (MaybeLabeled label attr) = deepseq label $ rnf attr
 
 noLabel :: attr -> MaybeLabeled label attr
 noLabel attr = MaybeLabeled
