@@ -80,8 +80,8 @@ step_quasiNewton f f' opt = do
         d = inverse $ f''x0 `LA.matProduct` f'x0
         g alpha = f $ x0 <> alpha .* d
 
-    bracket <- LineMin.lineBracket g (alpha0/2) (alpha0*2)
-    brent <- LineMin.brent g $ curValue bracket
+    bracket <- compact $ LineMin.lineBracket g (alpha0/2) (alpha0*2)
+    brent <- compact $ LineMin.brent g $ curValue bracket
     let alpha = LineMin._x $ curValue brent
         x1 = x0 <> alpha .* d
         f'x1 = f' x1

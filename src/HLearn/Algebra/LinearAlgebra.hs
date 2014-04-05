@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Algebra.LinearAlgebra
     ( Vector
     , MVector
@@ -194,7 +196,7 @@ class
     , LA.Field (Scalar a)
     ) => ValidTensor a 
         where
-    type Tensor (order::nat) a
+    type Tensor (order::Nat) a
     mkTensor :: a -> Tensor 1 a
 
 type IsScalar a = a ~ Scalar a
