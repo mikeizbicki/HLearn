@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Optimization.NewtonRaphson
     where
 
@@ -71,11 +73,15 @@ step_newtonRaphson f f' f'' opt = do
     let xtmp = x <> dir
         fxtmp = f xtmp
 
+--     addMessage "no line minimize"
     (x',fx') <- {-trace ("fxtmp="++show fxtmp++"; _fx1 opt="++show (_fx1 opt)) $-} if fxtmp < _fx1 opt
-        then {-trace "less than" $-} return (xtmp,fxtmp)
+        then do
+--             addMessage "no line minimize"
+            return (xtmp,fxtmp)
         else do
+--             addMessage "line minimizing"
             let g y = f $ x <> y .* dir
-            alpha <- {-trace "Newton Raphson: line minimizing" $ -}do
+            alpha <- do
                 bracket <- LineMin.lineBracket g (-1e-6) (-1)
                 brent <- LineMin.brent g $ curValue bracket
                 return $ LineMin._x $ curValue brent

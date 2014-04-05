@@ -44,18 +44,48 @@ import HLearn.Algebra
 
 type OptMonad m = MonadWriter (DList.DList OptInfo) m
 
+-- data OptMonad w a = OptMonad (DList.Dlist w) a
+-- 
+-- instance Functor (OptMonad w) where
+--     fmap f (OptMonad ws a) = OptMonad ws a
+-- 
+-- instance Monad (OptMonad w) where
+--     return 
+
 data OptInfo = OptInfo
     { dyn :: Dynamic
+    , msg :: [String]
     , stoptime :: Integer
     }
-    deriving (Show)
+    deriving (Show,Typeable)
+
+deriving instance Typeable DList.DList 
+-- deriving instance Typeable a => Typeable (DList.DList a)
 
 report :: (Typeable t, OptMonad m) => t -> m t
-report x = do
+report !x = do
     let dyn = toDyn x
-    let time = seq x $ unsafePerformIO $ getCPUTime
-    seq time $ tell $ DList.fromList [OptInfo dyn time]
+        time = unsafePerformIO $ getCPUTime
+        {-# NOINLINE time #-}
+
+    seq time $ tell $ DList.fromList [OptInfo dyn [] time]
     return x
+
+-- compact :: (MonadWriter w m, w~(DList.DList OptInfo)) => m w a -> m w a
+compact :: OptMonad m => m a -> m a
+compact = censor (\ws -> DList.singleton $ OptInfo (toDyn ws) [] 0)
+
+addMessage :: OptMonad m => String -> m ()
+addMessage str = do
+--     trace ("addMessage "++str) $ return ()
+    modifyLog $ \opt -> opt { msg = str:msg opt } 
+
+modifyLog :: MonadWriter (DList.DList w) m => (w -> w) -> m ()
+modifyLog f = censor go $ return ()
+    where
+        go ws = (f $ DList.head ws) `DList.cons` (DList.tail ws)
+-- 
+-- censor :: MonadWriter w m => (w -> w) -> m a -> m a
 
 -------------------
 
@@ -189,6 +219,9 @@ trace_fx1 opt = "; fx1="++show (fx1 opt)
 trace_f'x1 :: (Show (Scalar v), Has_f'x1 opt v, InnerProduct v, Floating (Scalar v)) => opt v -> String 
 trace_f'x1 opt = "; |f'x1|="++show (innerProductNorm $ f'x1 opt)
 
+-- trace_message :: opt v -> String 
+-- trace_message opt = "; |f'x1|="++show (innerProductNorm $ f'x1 opt)
+
 -- trace_time :: opt v -> String
 -- trace_time = "; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
 
@@ -203,13 +236,9 @@ traceOptimization msgL m = trace "traceOptimization" $ runIdentity $ runOptimiza
         proc [] = return ()
         proc (x:xs) = do
             tmp <- case fromDynamic (dyn x) :: Maybe (opt v) of
-                Nothing -> return ()
+                Nothing -> trace ("-- "++show (dyn x)) $ return ()
                 Just opt -> trace 
-                    ( show (dyn x)
-                   ++ concatMap ($opt) msgL
---                     ++"; fx1="++show (fx1 opt)
---                     ++"; |f'x1|="++show (innerProductNorm $ f'x1 opt)
---                     ++"; time="++show (fromIntegral (stoptime x) * 1e-12 :: Double)
+                    ( show (dyn x) ++ concatMap ($opt) msgL ++ "; time="++show (fromIntegral (stoptime x)*1e-12::Double)
                     ) $ return ()
             seq tmp $ proc xs 
 

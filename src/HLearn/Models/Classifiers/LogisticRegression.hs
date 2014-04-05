@@ -280,8 +280,8 @@ lrtrain2 lambda dps weights0 = LogisticRegression
             = trace ("w1="++show w1) 
             $ deepseq w1 
 --             $ (l, (n l, w1, Taylor g g' g'')):go xs
---             $ (l, (n l, w1, Taylor (w1 <> w1 `LA.matProduct` f''w1) f''w1)):go xs
-            $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
+            $ (l, (n l, w1, Taylor (w1 <> w1 `LA.matProduct` f''w1) f''w1)):go xs
+--             $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
             where
 --                 reg w = VG.sum $ VG.map (**2) w
 --                 reg' w = VG.map (*2) w 
