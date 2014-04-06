@@ -34,6 +34,7 @@ import qualified HLearn.Optimization.GradientDescent as Recipe
 import qualified HLearn.Optimization.NewtonRaphson as Recipe
 import qualified HLearn.Optimization.QuasiNewton as Recipe
 import qualified HLearn.Optimization.Common as Recipe
+import qualified HLearn.Optimization.Trace as Recipe
 
 
 -------------------------------------------------------------------------------
@@ -280,8 +281,8 @@ lrtrain2 lambda dps weights0 = LogisticRegression
             = trace ("w1="++show w1) 
             $ deepseq w1 
 --             $ (l, (n l, w1, Taylor g g' g'')):go xs
-            $ (l, (n l, w1, Taylor (w1 <> w1 `LA.matProduct` f''w1) f''w1)):go xs
---             $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
+--             $ (l, (n l, w1, Taylor (w1 <> w1 `LA.matProduct` f''w1) f''w1)):go xs
+            $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
             where
 --                 reg w = VG.sum $ VG.map (**2) w
 --                 reg' w = VG.map (*2) w 
@@ -321,9 +322,14 @@ lrtrain2 lambda dps weights0 = LogisticRegression
                 f'w1 = f' w1
                 f''w1 = f'' w1
 
-                w1 = trace "loc" $ Recipe.traceOptimization [Recipe.trace_fx1,Recipe.trace_f'x1] $ 
+--                 w1 = Recipe.traceOptimization $ Recipe.newtonRaphson f f' f'' w0 
+                w1 = Recipe.traceOptimization $ Recipe.quasiNewton f f' w0 
+                        [Recipe.maxIterations 1000, Recipe.multiplicativeTollerance 1e-6]
+--                         [Recipe.maxIterations 10, Recipe.multiplicativeTollerance 1e-2]
+
+--                 w1 = trace "loc" $ Recipe.traceOptimization [Recipe.trace_fx1,Recipe.trace_f'x1] $ 
 --                         Recipe.conjugateGradientDescent f f' w0
-                        Recipe.quasiNewton f f' w0
+--                         Recipe.quasiNewton f f' w0
 --                         Recipe.newtonRaphson f f' f'' w0
 --                         Recipe.quasiNewton f f' $ Recipe.traceOptimization [] $ 
 --                         Recipe.newtonRaphson f f' f'' w0
@@ -637,9 +643,9 @@ test = do
 --     let {filename = "../datasets/ripley/synth.train.csv"; label_index=2}
 --     let {filename = "../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
---     let {filename = "../datasets/uci/wine.csv"; label_index=0}
+    let {filename = "../datasets/uci/wine.csv"; label_index=0}
 --     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
-    let {filename = "../datasets/uci/sonar.csv"; label_index=60}
+--     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
         
     let verbose = True

@@ -13,11 +13,13 @@ module HLearn.Algebra.LinearAlgebra
     , trans
     , Mult (..)
     , ValidTensor (..)
+    , IsScalar
     , LA.inv
     , LA.eig
     , LA.eigenvalues
     , LA.Field
     , LA.Matrix
+    , LA.rows
 
 --     , module Numeric.LinearAlgebra
     ) where

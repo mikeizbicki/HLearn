@@ -96,22 +96,21 @@ conjugateGradientDescent f f' = conjugateGradientDescent_ LineSearch FletcherRee
 steepestDescent f f' = conjugateGradientDescent_ LineSearch None f f'
 
 -- | A generic method for conjugate gradient descent that gives you more control over the optimization parameters
-conjugateGradientDescent_ ::
-    ( InnerProduct v
-    , Ord (Scalar v)
-    , Typeable (Scalar v)
-    , Typeable v
-    , Show (Scalar v)
-    , Monad m
-    , OptMonad m
-    ) => StepMethod (Scalar v)
-      -> ConjugateMethod
-      -> (v -> Scalar v)
-      -> (v -> v)
-      -> v
-      -> m (DoTrace (ConjugateGradientDescent v))
-conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = do
-    cgd0 <- report $ ConjugateGradientDescent
+-- conjugateGradientDescent_ ::
+--     ( InnerProduct v
+--     , Ord (Scalar v)
+--     , Typeable (Scalar v)
+--     , Typeable v
+--     , Show (Scalar v)
+--     ) => StepMethod (Scalar v)
+--       -> ConjugateMethod
+--       -> (v -> Scalar v)
+--       -> (v -> v)
+--       -> v
+--       -> History (ConjugateGradientDescent v)
+conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = optimize
+    (step_conjugateGradientDescent searchMethod conjugateMethod f f')
+    $ ConjugateGradientDescent
         { _x1 = x0
         , _fx1 = f x0
         , _f'x1 = f' x0
@@ -120,28 +119,20 @@ conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = do
         , _s0 = f' x0
         }
 
-    cgd1 <- step_conjugateGradientDescent LineSearch None f f' cgd0
-    
-    optimize
-        (_stop_itr 100 <> _stop_tolerance _fx1 1e-6)
-        (step_conjugateGradientDescent searchMethod conjugateMethod f f')
-        (initTrace cgd1 cgd0)
-
-
 -- | performs a single iteration of the conjugate gradient descent algorithm
 step_conjugateGradientDescent :: 
     ( InnerProduct v
     , Ord (Scalar v)
     , Show (Scalar v)
     , Typeable (Scalar v)
+    , Scalar (Scalar v) ~ Scalar v
     , Typeable v
-    , OptMonad m
     ) => StepMethod (Scalar v)
       -> ConjugateMethod
       -> (v -> Scalar v)
       -> (v -> v)
       -> ConjugateGradientDescent v
-      -> m (ConjugateGradientDescent v)
+      -> History (ConjugateGradientDescent v)
 step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDescent x1 fx1 f'x1 alpha1 f'x0 s0) = do
     let beta = max 0 $ case conjMethod of
             None -> 0
@@ -158,8 +149,9 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
         StepSize x -> return x
         LineSearch -> do
             bracket <- LineMin.lineBracket g (alpha1/2) (alpha1*2)
-            brent <- LineMin.brent g $ curValue bracket
-            return $ LineMin._x $ curValue $ brent
+            brent <- LineMin.brent g bracket [LineMin.brentTollerance 1e-6]
+--             brent <- LineMin.brent g bracket [maxIterations 100, LineMin.brentTollerance 1e-6]
+            return $ LineMin._x brent
 --             gss <- LineMin.goldenSectionSearch g $ curValue bracket
 --             return $ LineMin.getgss $ curValue $ gss
 
