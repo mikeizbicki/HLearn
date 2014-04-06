@@ -143,6 +143,7 @@ main = do
                   ++ "      " ++ "---"
             hFlush stdout
             
+    let blanktest = putStr "     ---    ---    ---    ---    ---"
 
     let tests = 
             [ do
@@ -152,15 +153,17 @@ main = do
                 let numtrials=3
                 test_nomappend numtrials k lambda
                 test_mappend numtrials k lambda mappendAverage
-                test_mappend numtrials k lambda (reoptimize mappendAverage)
+                blanktest
+--                 test_mappend numtrials k lambda (reoptimize mappendAverage)
                 test_mappend numtrials k lambda mappendTaylor
-                test_mappend numtrials k lambda (reoptimize mappendTaylor)
+                blanktest
+--                 test_mappend numtrials k lambda (reoptimize mappendTaylor)
                 putStrLn ""
---             | k <- [2..20]
+--             | k <- [2..50]
 --             | k <- [5,50,100,150,200,250,300,350,400,450,500]
---             , lambda <- [1e-6]
-            | k <- [20]
-            , lambda <- [1e5,1e4,1e3,1e2,1e1,1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,0]
+--             , lambda <- [0]
+            | k <- [10]
+            , lambda <- [1e5,1e4,1e3,1e2,1e1,1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,0]
             ]
 
     ioxs <- sequence tests
