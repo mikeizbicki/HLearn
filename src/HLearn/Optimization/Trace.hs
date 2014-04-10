@@ -1,9 +1,11 @@
+{-# LANGUAGE RankNTypes #-}
 module HLearn.Optimization.Trace
     where
 
 import Control.DeepSeq
 import qualified Data.DList as DList
 import Data.Dynamic
+import Data.List
 import Data.Typeable
 import Debug.Trace (trace)
 import Numeric
@@ -23,28 +25,46 @@ traceOptimization m = deepseq (map (flip trace ()) $ traceDynamic 0 log) a
         (a,log) = unsafeRunOptimization m
 
         traceDynamic :: Int -> [Event] -> [String]
-        traceDynamic i xs = concatMap (traceEvent i) xs
+        traceDynamic i xs = concatMap (traceEvent [traceBFGS,traceNewtonRaphson,traceBracket,traceBrent] i) xs
 
+traceHistory fs m = deepseq (map (flip trace ()) $ traceDynamic 0 log) a
+    where
+        (a,log) = unsafeRunHistory m
 
-traceEvent :: Int -> Event -> [String]
-traceEvent i x = if i>=maxdepth+1
+        traceDynamic :: Int -> [Event] -> [String]
+        traceDynamic i xs = concatMap (traceEvent fs i) xs
+
+traceEvent :: [Event -> [String]] -> Int -> Event -> [String]
+traceEvent fs i x = if i>=maxdepth+1
     then []
     else case fromDynamic (dyn x) :: Maybe (DList.DList Event) of
-        Nothing -> map (traceSpacer i++) 
-            $ traceBFGS x
-            ++traceNewtonRaphson x
-            ++traceBracket x
-            ++traceBrent x
+        Nothing -> map (traceSpacer i++) $ concatMap ($x) fs
         Just xs -> if i>=maxdepth
             then []
-            else [traceSpacer (i+1) ++ traceDList x]++concatMap (traceEvent (i+2)) (DList.toList xs)
+            else [traceSpacer (i+1) ++ traceDList x]++concatMap (traceEvent fs (i+2)) (DList.toList xs)
     where
-        maxdepth=2
+        maxdepth=6
 
 traceSpacer :: Int -> String
 traceSpacer 0 = ""
 traceSpacer 1 = " . "
 traceSpacer i = traceSpacer (i-1)++" . "
+
+---------------------------------------
+
+printHistory :: [Event->[String]] -> [Event] -> IO ()
+printHistory fs es = mapM_ putStrLn $ history2strings fs es
+
+history2strings :: [Event->[String]] -> [Event] -> [String]
+history2strings = go 0
+    where
+
+        go i fs [] = []
+        go i fs (e:es) = str++go i fs es
+            where
+                str = case fromDynamic (dyn e) :: Maybe (DList.DList Event) of
+                    Nothing -> map (traceSpacer i++) $ concatMap ($e) fs
+                    Just x -> {-traceDList e:-}go (i+1) fs (DList.toList x)
 
 -------------------------------------------------------------------------------
 -- printing specific types
@@ -53,7 +73,6 @@ traceDList :: Event -> String
 traceDList opt = case fromDynamic (dyn opt) :: Maybe (DList.DList Event) of
     Nothing -> ""
     Just x -> show (dyn opt) -- ++" -- "++show (length $ DList.toList x)++" -- "++show (dyn $ DList.head x)
---     Just x -> show (dyn opt)++" -- "++show (length $ DList.toList x)++" -- "++show (dyn $ DList.head x)
 
 ---------------------------------------
 
@@ -65,7 +84,12 @@ traceBracket opt = case fromDynamic (dyn opt) :: Maybe (LineBracket Double) of
 traceBrent :: Event -> [String]
 traceBrent opt = case fromDynamic (dyn opt) :: Maybe (Brent Double) of
     Nothing -> []
-    Just x -> [show (dyn opt)++"; fv="++showDoubleLong (_fv x)++"; fx="++showDoubleLong (_fx x)++"; fw="++showDoubleLong (_fw x)]
+    Just x -> [trace_itr undefined opt++"; "++show (dyn opt)++"; fv="++showDoubleLong (_fv x)++"; fx="++showDoubleLong (_fx x)++"; fw="++showDoubleLong (_fw x)]
+
+traceGSS :: Event -> [String]
+traceGSS opt = case fromDynamic (dyn opt) :: Maybe (GoldenSectionSearch Double) of
+    Nothing -> []
+    Just x -> [trace_itr undefined opt++"; "++show (dyn opt)++"; fx1="++showDoubleLong (fx1 x)++"; x1="++showDoubleLong (x1 x)]
 
 ---------------------------------------
 
@@ -88,16 +112,30 @@ traceFunk :: forall v a.
     ) => v a -> Event -> [String]
 traceFunk _ opt = case fromDynamic (dyn opt) :: Maybe (v a) of
     Nothing -> []
-    Just x -> 
-        [ "itr="++show (count opt)
-        ++"; "++show (dyn opt)
-        ++"; fx1="++showDoubleLong (fx1 x)
-        ++"; |f'x1|="++showDouble (innerProductNorm $ f'x1 x)
-        ++"; step="++showDouble (stepSize x)
---         ++"; step="++showDouble (stepSize x)
---         ++"; sec="++showDouble ((fromIntegral $ stoptime opt)*1e-12)
-        ++"; sec="++showDouble ((fromIntegral $ runtime opt)*1e-12)
-        ]
+    Just x -> [concat $ intersperse "; " $ map (\f -> f x opt) fs]
+    where
+        fs = [trace_itr,trace_eventType,trace_fx1,trace_f'x1,trace_stepSize,trace_sec]
+
+
+-------------------------------------------------------------------------------
+
+trace_itr :: a -> Event -> String
+trace_itr _ e = "itr="++show (count e)
+
+trace_sec :: a -> Event -> String
+trace_sec _ e = "sec="++showEFloat (Just 4) ((fromIntegral $ runtime e)*1e-12) ""
+
+trace_eventType :: a -> Event -> String
+trace_eventType _ e = head $ words $ drop 2 $ show $ dyn e
+
+trace_fx1 :: (RealFloat (Scalar a), Has_fx1 opt a) => opt a -> Event -> String
+trace_fx1 a _ = "fx1="++showEFloat (Just 12) (fx1 a) ""
+
+trace_f'x1 :: (RealFloat (Scalar a), InnerProduct a, Has_f'x1 opt a) => opt a -> Event -> String
+trace_f'x1 a _ = "|f'x1|="++showEFloat (Just 4) (innerProductNorm $ f'x1 a) ""
+
+trace_stepSize :: (RealFloat (Scalar a), Has_stepSize opt a) => opt a -> Event -> String
+trace_stepSize a _ = "step="++showEFloat (Just 4) (stepSize a) ""
 
 -------------------------------------------------------------------------------
 -- pretty printing

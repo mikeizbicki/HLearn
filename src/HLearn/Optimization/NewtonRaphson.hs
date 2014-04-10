@@ -36,6 +36,8 @@ data NewtonRaphson a = NewtonRaphson
     }
     deriving (Typeable)
 
+deriving instance (Show (Tensor 0 a), Show (Tensor 1 a)) => Show (NewtonRaphson a)
+
 instance (a~Tensor 1 a) => Has_x1 NewtonRaphson a where x1 = _x1
 instance (ValidTensor a) => Has_fx1 NewtonRaphson a where fx1 = _fx1
 instance (ValidTensor a) => Has_fx0 NewtonRaphson a where fx0 = _fx0
@@ -58,9 +60,21 @@ newtonRaphson f f' f'' x0 = optimize
         , _alpha1 = 1
         }
 
+projectOrthant opt1 = do
+    mopt0 <- prevValueOfType opt1
+    return $ case mopt0 of
+        Nothing -> opt1
+        Just opt0 -> opt1 { _x1 = VG.zipWith go (x1 opt0) (x1 opt1) }
+    where
+        go a0 a1 = if (a1>=0 && a0>=0) || (a1<=0 && a0<=0)
+            then a1
+            else 0
+
 step_newtonRaphson :: 
     ( ValidTensor v
     , Tensor 2 v ~ LA.Matrix (Scalar v)
+    , Tensor 1 v ~ LA.Vector (Scalar v)
+    , v ~ LA.Vector (Scalar v)
     , Ord (Scalar v)
     , Typeable (Scalar v)
     , Typeable v
@@ -71,6 +85,7 @@ step_newtonRaphson ::
       -> History (NewtonRaphson v)
 step_newtonRaphson f f' f'' opt = do
     let x0 = _x1 opt
+        fx0 = _fx1 opt
         f'x0 = _f'x1 opt
         f''x0 = f'' x0 
         alpha0 = _alpha1 opt
@@ -82,12 +97,16 @@ step_newtonRaphson f f' f'' opt = do
         let g y = f $ x0 <> y .* dir
 
         bracket <- LineMin.lineBracket g (alpha0/2) (alpha0*2)
-        brent <- LineMin.brent g bracket [LineMin.brentTollerance 1e-6] -- [maxIterations 100]
+        brent <- LineMin.brent g bracket
+            [ lowerBound fx0
+            , maxIterations 100
+            ] 
         return $ LineMin._x brent
 
     let x1 = x0 <> alpha .* dir
 
-    report $ NewtonRaphson
+--     return $ NewtonRaphson
+    projectOrthant $ NewtonRaphson
         { _x1 = x1
         , _fx1 = f x1
         , _fx0 = fx1 opt

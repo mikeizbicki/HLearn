@@ -70,17 +70,15 @@ goldenSectionSearch f (LineBracket ax bx cx fa fb fc) stop = do
 
 ----------------------------------------
 
-stop_GoldenSectionSearch :: (Fractional a, Ord a) => ( a,a,a,a,a,a ) -> Bool
-stop_GoldenSectionSearch ( _,_,!x0,!x1,!x2,!x3 ) = abs (x3-x0) <= tol*(abs x1+abs x2)
-    where
-        tol = 1e-6
+stop_GoldenSectionSearch :: (Fractional a, Ord a) => a -> GoldenSectionSearch a -> History Bool
+stop_GoldenSectionSearch tol (GoldenSectionSearch _ _ !x0 !x1 !x2 !x3 ) = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
 
 step_GoldenSectionSearch :: 
     ( Fractional a
     , Ord a
     , Typeable a
     ) => (a -> a) -> GoldenSectionSearch a -> History (GoldenSectionSearch a)
-step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = report $ if f2 < f1
+step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = return $ if f2 < f1
     then let x' = r*x2+c*x3 in GoldenSectionSearch f2 (f x') x1 x2 x' x3
     else let x' = r*x1+c*x0 in GoldenSectionSearch (f x') f1 x0 x' x1 x2
     where
@@ -143,7 +141,7 @@ step_LineBracket ::
     , Ord a
     , Typeable a
     ) => (a -> a) -> LineBracket a -> History (LineBracket a)
-step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = report ret
+step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = return ret
     where
         sign a b = if b>0 then abs a else -(abs a)
         tiny = 1e-20
@@ -230,6 +228,7 @@ data Brent a = Brent
     deriving (Read,Show,Typeable)
 
 instance Has_x1 Brent v where x1 = _x
+instance IsScalar v => Has_fx1 Brent v where fx1 b = (_fv b+_fw b+_fx b)/3
 -- instance IsScalar v => Has_fx1 Brent v where fx1 = _fx
 -- instance (Ord v, IsScalar v) => Has_fx0 Brent v where fx0 b = min (_fv b) (_fw b)
 
@@ -282,8 +281,7 @@ step_Brent ::
     , Fractional a
     , Ord a
     ) => (a -> a) -> Brent a -> History (Brent a)
-step_Brent f brent@(Brent a b d e fv fw fx v w x) = do
-    report brent'
+step_Brent f brent@(Brent a b d e fv fw fx v w x) = return brent'
     where
         cgold = 0.3819660
         zeps = 1e-10

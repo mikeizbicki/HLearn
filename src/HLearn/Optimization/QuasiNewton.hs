@@ -87,7 +87,7 @@ step_quasiNewton f f' opt = do
         g alpha = f $ x0 <> alpha .* d
 
     bracket <- LineMin.lineBracket g (alpha0/2) (alpha0*2)
-    brent <- LineMin.brent g bracket [LineMin.brentTollerance 1e-6]
+    brent <- LineMin.brent g bracket [maxIterations 200,LineMin.brentTollerance 1e-1]
     let alpha = LineMin._x  brent
         x1 = x0 <> alpha .* d
         f'x1 = f' x1
@@ -105,11 +105,24 @@ step_quasiNewton f f' opt = do
                                `LA.matProduct` f''x0) /. tao
              <> (xsi*tao) .* (LA.v2m v `LA.matProduct` LA.v2m' v)
 
-    report $ BFGS
-        { _x1 = x1
-        , _fx1 = f x1
+    let go a1 a0 = if (a1>=0 && a0 >=0) || (a1<=0&&a0<=0)
+            then a1
+            else a1
+        x1mod = VG.zipWith go x1 x0
+
+    return $ BFGS
+        { _x1 = x1mod
+        , _fx1 = f x1mod
         , _fx0 = fx1 opt
-        , _f'x1 = f' x1
+        , _f'x1 = f' x1mod
         , _f''x1 = f''x1
         , _alpha1 = alpha
         }
+--     report $ BFGS
+--         { _x1 = x1
+--         , _fx1 = f x1
+--         , _fx0 = fx1 opt
+--         , _f'x1 = f' x1
+--         , _f''x1 = f''x1
+--         , _alpha1 = alpha
+--         }
