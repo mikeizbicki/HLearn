@@ -2,6 +2,7 @@ module HLearn.Models.Classifiers.Common
     where
 
 import Control.DeepSeq
+import Data.Typeable
 
 import HLearn.Algebra
 import HLearn.Models.Distributions
@@ -32,7 +33,7 @@ data MaybeLabeled label attr = MaybeLabeled
     { label :: Maybe label
     , attr :: attr
     }
-    deriving (Read,Show)
+    deriving (Read,Show,Typeable)
 
 instance Eq attr => Eq (MaybeLabeled label attr) where
     a==b = attr a==attr b

@@ -4,6 +4,7 @@ module HLearn.Algebra.History
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
+import Control.Monad.Random
 import Control.Monad.State
 import Control.Monad.Writer
 import Control.DeepSeq
@@ -42,9 +43,17 @@ push x (StateStack xs) = StateStack (x:xs)
 -------------------------------------------------------------------------------
 -- History monad
 
-newtype History a = History (WriterT (DList.DList Event) (StateT StateStack IO) a)
+-- newtype History a = History (WriterT (DList.DList Event) (StateT StateStack IO) a)
 -- newtype History a = History (WriterT (DList.DList Event) (StateT StateStack Identity) a)
-    deriving (Functor,Applicative,Monad)
+newtype History a = History 
+    (WriterT (DList.DList Event) 
+        (StateT StateStack 
+             (RandT StdGen
+                 Identity
+             )
+        ) 
+    a )
+    deriving (Functor,Applicative,Monad,MonadRandom)
 
 deriving instance Typeable DList.DList 
 
@@ -56,18 +65,19 @@ data Event = Event
     }
     deriving (Show,Typeable)
 
+data StartHistory = StartHistory
 
 runHistory :: History a -> IO (a,[Event])
--- runHistory (History w) = do
---     let ((a,xs),_) = runState (runWriterT w) emptyStack
---     return (a,DList.toList xs)
 runHistory (History w) = do
-    ((a,xs),_) <- runStateT (runWriterT w) emptyStack
+    let ((a,xs),_) = runIdentity $ flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) emptyStack
     return (a,DList.toList xs)
+-- runHistory (History w) = do
+--     ((a,xs),_) <- flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) emptyStack
+--     return (a,DList.toList xs)
 
 unsafeRunHistory :: History a -> (a,[Event])
 -- unsafeRunHistory (History w) = 
---     let ((a,xs),_) = runState (runWriterT w) emptyStack
+--     let ((a,xs),_) = flip evalRand (mkStdGen 0) $ runStateT (runWriterT w) emptyStack
 --     in (a,DList.toList xs)
 unsafeRunHistory h = unsafePerformIO $ runHistory h
 
@@ -91,6 +101,25 @@ prevEvent = do
         [] -> Nothing
         (x:_) -> Just x
 
+prevEventOfType :: TypeRep -> History (Maybe Event)
+prevEventOfType t = do
+    xs <- latestEvents
+    return $ go xs
+    where
+        go [] = Nothing
+        go (x:xs) = if eventType x==t
+            then Just x
+            else go xs
+
+prevValueOfType :: forall a. Typeable a => a -> History (Maybe a)
+prevValueOfType t = do
+    me <- prevEventOfType (typeOf t)
+    return $ case me of
+        Nothing -> Nothing
+        Just e -> case fromDynamic (dyn e) :: Maybe a of
+            Just v -> Just v
+            Nothing -> error "prevValueOfType: this case should never happen"
+
 countEvents :: History Int
 countEvents = do
     event0 <- prevEvent
@@ -108,7 +137,9 @@ event !a = do
     History $ do
         let dyn = toDyn a
 --             time = unsafePerformIO $ getCPUTime
-        time <- liftIO getCPUTime
+        time <- return $ unsafePerformIO $ getCPUTime
+
+--         time <- liftIO getCPUTime
         let runtime = case event0 of
                 Nothing -> 0
                 Just x -> time-stoptime x

@@ -201,7 +201,11 @@ class
     type Tensor (order::Nat) a
     mkTensor :: a -> Tensor 1 a
 
-type IsScalar a = a ~ Scalar a
+type IsScalar a = 
+    ( LA.Field a
+    , a ~ Scalar a
+    , VectorSpace a
+    )
 
 instance (IsScalar a, LA.Field a, VectorSpace a) => ValidTensor (Vector a) where
     type Tensor 0 (Vector a) = a

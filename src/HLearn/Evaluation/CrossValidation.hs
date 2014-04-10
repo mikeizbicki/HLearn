@@ -5,6 +5,7 @@ module HLearn.Evaluation.CrossValidation
 import Control.Monad
 import Control.Monad.Random
 import Control.Monad.ST
+import Control.Monad.Trans
 import Data.Array.ST
 import GHC.Arr
 import qualified Data.Foldable as F
@@ -18,6 +19,7 @@ import Debug.Trace
 import qualified Data.DList as D
 
 import HLearn.Algebra
+import HLearn.Algebra.History
 -- import HLearn.Evaluation.Metrics
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
@@ -26,7 +28,7 @@ import qualified Control.ConstraintKinds as CK
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
-type SamplingMethod = forall dp g. RandomGen g => [dp] -> Rand g [[dp]]
+type SamplingMethod = forall dp r. (MonadRandom r) => [dp] -> r [[dp]]
 
 leaveOneOut :: SamplingMethod 
 leaveOneOut xs = return $ map (\x -> [x]) xs
@@ -53,10 +55,10 @@ numSamples :: Int -> SamplingMethod -> SamplingMethod
 numSamples n f dps = f $ take n dps
 
 -- | randomly shuffles a list in time O(n log n); see http://www.haskell.org/haskellwiki/Random_shuffle
-shuffle :: RandomGen g => [a] -> Rand g [a]
+-- shuffle :: (MonadRandom (m g), RandomGen g) => [a] -> m g [a]
 shuffle xs = do
     let l = length xs
-    rands <- take l `fmap` getRandomRs (0, l-1)
+    rands <- take l `liftM` getRandomRs (0, l-1)
     let ar = runSTArray $ do
             ar <- thawSTArray $ listArray (0, l-1) xs
             forM_ (zip [0..(l-1)] rands) $ \(i, j) -> do
@@ -87,6 +89,54 @@ errorRate :: LossFunction
 errorRate model dataL = 1 - accuracy model dataL
 
 ---------------------------------------
+
+
+validateM :: forall model g container.
+    ( HomTrainer model
+    , Classifier model
+    , RandomGen g
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([Datapoint model] -> History model)
+      -> RandT g History (Normal Double Double)
+validateM genfolds loss xs _train = do
+    xs' <- genfolds $ F.toList xs 
+    lift $ collectEvents $ fmap train $ forM xs' $ \testset -> do
+        let trainingset = concat $ filter (/=testset) xs'
+        model <- _train trainingset
+        return $ loss model testset
+
+validate_monoidM :: 
+    ( HomTrainer model
+    , Classifier model
+    , Eq (Datapoint model)
+    , Eq (Label (Datapoint model))
+    , F.Foldable container
+    ) => SamplingMethod 
+      -> LossFunction 
+      -> container (Datapoint model) 
+      -> ([Datapoint model] -> model)
+      -> (model -> model -> model)
+      -> History (Normal Double Double)
+validate_monoidM genfolds loss xs _train _mappend = do
+    xs' <- genfolds $ F.toList xs
+    let ms = map _train xs' -- :: [model]
+        prefix = Nothing : map Just (init $ scanl1 _mappend ms) -- :: [Maybe model]
+        suffix = map Just (tail $ scanr1 _mappend ms) ++ [Nothing] -- :: [Maybe model]
+
+    let go (dps,Nothing,Just s) = loss s dps
+        go (dps,Just p,Nothing) = loss p dps
+        go (dps,Just p,Just s) = loss (_mappend p s) dps
+        resL = map go (zip3 xs' prefix suffix)
+
+    let res = train resL :: Normal Double Double
+    return res
+
+-------------------
 
 validate :: 
     ( HomTrainer model

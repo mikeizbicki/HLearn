@@ -1,9 +1,11 @@
+{-# LANGUAGE DataKinds #-}
 module HLearn.Models.Classifiers.LogisticRegression
     where
 
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
+import Data.Dynamic
 import Data.List.Extras
 import Data.Maybe
 import Data.Typeable
@@ -14,27 +16,25 @@ import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
-import qualified Data.Vector.Storable as VS
 import Foreign.Storable
 import System.IO
 
 import Data.Csv
-import Numeric.LinearAlgebra hiding ((<>))
--- import qualified Numeric.LinearAlgebra as LA
 
 import Debug.Trace
 
 import HLearn.Algebra
-import qualified HLearn.Algebra.LinearAlgebra as LA
+import HLearn.Algebra.History
+import HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Evaluation.CrossValidation
 import HLearn.Metrics.Lebesgue
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
-import qualified HLearn.Optimization.GradientDescent as Recipe
-import qualified HLearn.Optimization.NewtonRaphson as Recipe
-import qualified HLearn.Optimization.QuasiNewton as Recipe
-import qualified HLearn.Optimization.Common as Recipe
-import qualified HLearn.Optimization.Trace as Recipe
+import HLearn.Optimization.GradientDescent 
+import HLearn.Optimization.NewtonRaphson 
+import HLearn.Optimization.QuasiNewton 
+import HLearn.Optimization.Common 
+import HLearn.Optimization.Trace 
 
 
 -------------------------------------------------------------------------------
@@ -100,15 +100,12 @@ data LogisticRegression dp = LogisticRegression
     , datapoints :: V.Vector dp
     , reg :: Scalar dp
     }
+    deriving (Typeable)
 
 data Taylor dp 
---     = Taylor 
---         { _g :: dp -> Scalar dp
---         , _g' :: dp -> dp
---         , _g'' :: dp -> LA.Matrix (Scalar dp)
---         }
     = Taylor dp (Matrix (Scalar dp))
     | NoTaylor
+    deriving (Typeable)
 
 instance 
     ( NFData (Scalar dp)
@@ -184,21 +181,6 @@ mappendTaylor lr1 lr2 = LogisticRegression
         go (n1,w1,NoTaylor) (n2,w2,NoTaylor) = (n1+n2,w1,NoTaylor)
         go (_,_,NoTaylor) a = a
         go a (_,_,NoTaylor) = a
---         go (n1,w1,t1) (n2,w2,t2) = (n1+n2,w,Taylor g g' g'')  
---             where
---                 w = Recipe.traceOptimization 
---                         [ Recipe.trace_fx1
---                         , Recipe.trace_f'x1
---                         ] $ Recipe.newtonRaphson g g' g'' $ VG.map (const 0) w1
--- 
---                 g   x = (_g   t1 x <> _g   t2 x)
---                 g'  x = (_g'  t1 x <> _g'  t2 x)
---                 g'' x = (_g'' t1 x <> _g'' t2 x) 
--- 
---                 g   x = (n1 .* _g   t1 x <> n2 .* _g   t2 x) /. (n1+n2)
---                 g'  x = (n1 .* _g'  t1 x <> n2 .* _g'  t2 x) /. (n1+n2)
---                 g'' x = (n1 .* _g'' t1 x <> n2 .* _g'' t2 x) /. (n1+n2)
-
         go (n1,w1,Taylor v1 m1) (n2,w2,Taylor v2 m2) = (n1+n2,w,Taylor v' m')  
             where
                 m' = ((n1.*m1) <> (n2.*m2))/.(n1+n2)
@@ -231,6 +213,9 @@ instance
     , Show (vec r)
     , Show r
     , Show dp
+    , Typeable dp
+    , Typeable (Label dp)
+    , Typeable (Attributes dp)
     ) => HomTrainer (LogisticRegression dp) 
         where
     type Datapoint (LogisticRegression dp) = dp
@@ -239,6 +224,7 @@ instance
 --     train = nbtrain 
 
 lrtrain lambda dps = lrtrain2 lambda dps $ zeroWeights dps
+lrtrainMsimple lambda dps = lrtrainM lambda dps $ zeroWeights dps
 
 lrtrain2 :: forall dp vec r container.
     ( Ord dp
@@ -261,35 +247,103 @@ lrtrain2 :: forall dp vec r container.
     , Show (vec r)
     , Show r
     , Show dp
+    , Typeable dp
+    , Typeable (Label dp)
+    , Typeable (Attributes dp)
     , F.Foldable container
     ) => Scalar dp -> container dp -> Map.Map (Label dp) (Attributes dp) -> LogisticRegression dp
-lrtrain2 lambda dps weights0 = LogisticRegression 
-    { weights = Map.fromList $ go $ Map.assocs weights0
-    , datapoints = V.fromList $ F.toList dps
-    , reg= lambda
-    }
+lrtrain2 lambda dps weights0 = traceHistory 
+    [ traceBFGS
+    , traceNewtonRaphson
+    , traceLogisticRegression (undefined::dp)
+    ]
+    $ collectEvents $ lrtrainM lambda dps weights0
+
+traceLogisticRegression :: forall dp. Typeable dp => dp -> Event -> [String]
+traceLogisticRegression _ opt = case fromDynamic (dyn opt) :: Maybe (LogisticRegression dp) of
+    Nothing -> []
+    Just x -> 
+        [ (head $ words $ drop 2 $ init $ init $ show $ dyn opt)
+--         ++"; fx1="++showDoubleLong (fx1 x)
+--         ++"; |f'x1|="++showDouble (innerProductNorm $ f'x1 x)
+--         ++"; step="++showDouble (stepSize x)
+--         ++"; step="++showDouble (stepSize x)
+--         ++"; sec="++showDouble ((fromIntegral $ stoptime opt)*1e-12)
+        ++"; sec="++showDouble ((fromIntegral $ runtime opt)*1e-12)
+        ]
+
+lrtrainM :: forall dp vec r container.
+    ( Ord dp
+    , Ord (Label dp)
+    , Labeled dp
+    , Attributes dp ~ vec r
+    , VG.Vector vec r
+    , Floating r
+    , Monoid r
+    , Typeable r
+    , Typeable vec
+    , r ~ Scalar dp
+    , Ord r
+    , r ~ Scalar (vec r)
+    , InnerProduct (vec r)
+    , VectorSpace r
+    , vec ~ LA.Vector
+    , LA.Field r
+    , Show (Label dp) 
+    , Show (vec r)
+    , Show r
+    , Show dp
+    , Typeable dp
+    , Typeable (Label dp)
+    , Typeable (Attributes dp)
+    , F.Foldable container
+    ) => Scalar dp 
+--       -> C2Function dp                       -- ^ regularization function
+--       -> (Label dp -> dp -> C2Function dp)   -- ^ loss function
+      -> container dp 
+      -> Map.Map (Label dp) (Attributes dp) 
+      -> History (LogisticRegression dp)
+lrtrainM lambda dps weights0 = do
+    weights' <- collectEvents $ fmap Map.fromList $ go $ Map.assocs weights0
+    report $ LogisticRegression 
+        { weights = weights'
+        , datapoints = V.fromList $ F.toList dps
+        , reg= lambda
+        }
     where
+        n :: Label dp -> Scalar dp
         n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ F.toList dps
 
         -- the weights for the last label are set to zero;
         -- this is equivalent to running the optimization procedure,
         -- but much cheaper
-        go ((l,w0):[]) = [(l, (n l,VG.replicate (VG.length w0) 0, NoTaylor))]
+        go ((l,w0):[]) = report [(l, (n l,VG.replicate (VG.length w0) 0, NoTaylor))]
 
         -- calculate the weights for label l
-        go ((l,w0):xs) 
-            = trace ("w1="++show w1) 
-            $ deepseq w1 
---             $ (l, (n l, w1, Taylor g g' g'')):go xs
---             $ (l, (n l, w1, Taylor (w1 <> w1 `LA.matProduct` f''w1) f''w1)):go xs
-            $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1)):go xs
+        go ((l,w0):xs) = do
+            w1 <- fmap x1 $ newtonRaphson f f' f'' w0 
+--             w1 <- fmap x1 $ quasiNewton f f' w0 
+                [ maxIterations 100
+                , fx1grows
+                , multiplicativeTollerance 1e-2
+                ]
+
+            let fw1 = f w1
+                f'w1 = f' w1
+                f''w1 = f'' w1
+
+            res <- report 
+                $ trace ("w1="++show w1)
+                $ deepseq w1 
+                $ (l, (n l, w1, Taylor (w1 `LA.matProduct` f''w1) f''w1))
+            fmap (res:) $ go xs
             where
 --                 reg w = VG.sum $ VG.map (**2) w
 --                 reg' w = VG.map (*2) w 
 --                 reg'' w = 2 .* LA.eye (VG.length w) 
 
                 reg w = VG.sum $ VG.map abs w
-                reg' w = VG.map (\i -> if i>=0 then 1 else -1) w 
+                reg' w = VG.map (\i -> if i==0 then 0 else if i>0 then 1 else -1) w 
                 reg'' w = LA.outerProduct z z
                     where z = VG.replicate (VG.length w) 0
 
@@ -300,6 +354,8 @@ lrtrain2 lambda dps weights0 = LogisticRegression
                 loss' dp w = (-y dp*(1-invlogit (y dp * inner w (getAttributes dp)))) .* getAttributes dp
                 loss'' dp w = LA.outerProduct (getAttributes dp) (getAttributes dp) 
                             /. (1+exp(-y dp*inner w (getAttributes dp)))
+
+                y dp = bool2num $ getLabel dp==l 
 
 --                 loss dp w = max 0 $ 1 - y dp * inner (getAttributes dp) w
 --                 loss' dp w = if inner (getAttributes dp) w > 1
@@ -316,27 +372,65 @@ lrtrain2 lambda dps weights0 = LogisticRegression
                 f'' w = ((numdp*lambda) .* reg'' w)
                      <> (sumOver dps $ \dp -> loss'' dp w)
 
-                y dp = bool2num $ getLabel dp==l 
+-------------------------------------------------------------------------------
 
-                fw1 = f w1
-                f'w1 = f' w1
-                f''w1 = f'' w1
+type C2Function x = Tensor 1 x -> (Tensor 0 x, Tensor 1 x, Tensor 2 x)
 
---                 w1 = Recipe.traceOptimization $ Recipe.newtonRaphson f f' f'' w0 
-                w1 = Recipe.traceOptimization $ Recipe.quasiNewton f f' w0 
-                        [Recipe.maxIterations 1000, Recipe.multiplicativeTollerance 1e-6]
---                         [Recipe.maxIterations 10, Recipe.multiplicativeTollerance 1e-2]
+-------------------
 
---                 w1 = trace "loc" $ Recipe.traceOptimization [Recipe.trace_fx1,Recipe.trace_f'x1] $ 
---                         Recipe.conjugateGradientDescent f f' w0
---                         Recipe.quasiNewton f f' w0
---                         Recipe.newtonRaphson f f' f'' w0
---                         Recipe.quasiNewton f f' $ Recipe.traceOptimization [] $ 
---                         Recipe.newtonRaphson f f' f'' w0
---                         Recipe.newtonRaphson f f' f'' $ Recipe.traceOptimization [] $ 
---                         Recipe.quasiNewton f f' w0
+l1reg :: (Ord r, IsScalar r) => C2Function (LA.Vector r)
+l1reg w = 
+    ( VG.sum $ VG.map abs w
+    , VG.map (\i -> if i>=0 then 1 else -1) w 
+    , let z = VG.replicate (VG.length w) 0 
+      in LA.outerProduct z z
+    )
 
-        go x = error $ "nonexhaustive patters in go; x="++show x
+l2reg :: IsScalar r => C2Function (LA.Vector r)
+l2reg w =
+    ( VG.sum $ VG.map (**2) w
+    , VG.map (*2) w 
+    , 2 .* LA.eye (VG.length w) 
+    )
+
+-------------------
+
+logloss :: 
+    ( Attributes dp ~ LA.Vector r
+    , IsScalar r
+    , Ord r
+    , Labeled dp
+    , Eq (Label dp)
+    ) => Label dp -> dp -> C2Function (Attributes dp)
+logloss label dp w =
+    ( logSumOfExp2 0 $ -y dp * inner w (getAttributes dp)
+    , (-y dp*(1-invlogit (y dp * inner w (getAttributes dp)))) .* getAttributes dp
+    , LA.outerProduct (getAttributes dp) (getAttributes dp) 
+      /. (1+exp(-y dp*inner w (getAttributes dp)))
+    )
+    where
+        y dp = bool2num $ getLabel dp==label
+
+hingeloss ::
+    ( Attributes dp ~ LA.Vector r
+    , LA.Field r
+    , IsScalar r
+    , Ord r
+    , VectorSpace r
+    , Labeled dp
+    , Eq (Label dp)
+    ) => Label dp -> dp -> C2Function (Attributes dp)
+hingeloss label dp w =
+    ( max 0 $ 1 - y dp * inner (getAttributes dp) w
+    , if inner (getAttributes dp) w > 1
+        then VG.map (const 0) w
+        else (-y dp) .* getAttributes dp
+    , LA.outerProduct (VG.map (const 0) w) (VG.map (const 0) w)
+    )
+    where
+        y dp = bool2num $ getLabel dp==label
+
+-------------------------------------------------------------------------------
 
 invlogit x = 1 / (1 + exp (-x))
 
@@ -488,6 +582,9 @@ runtest ::
     , Attributes dp ~ LA.Vector Double
     , Show (Label dp)
     , Show dp
+    , Typeable dp
+    , Typeable (Label dp)
+    , Typeable (Attributes dp)
     , Ord dp
     ) => [[dp]] -> [dp] -> [Scalar dp]
 runtest dpsL testset = 
@@ -643,9 +740,9 @@ test = do
 --     let {filename = "../datasets/ripley/synth.train.csv"; label_index=2}
 --     let {filename = "../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
-    let {filename = "../datasets/uci/wine.csv"; label_index=0}
+--     let {filename = "../datasets/uci/wine.csv"; label_index=0}
 --     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
---     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
+    let {filename = "../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
         
     let verbose = True
@@ -692,30 +789,46 @@ test = do
 
 
 --     let runtest f = flip evalRand (mkStdGen 100) $ validate
---             (repeatExperiment 1 (kfold 20))
+--             (repeatExperiment 1 (kfold 5))
 --             errorRate
 --             ys
---             (f (lrtrain 1e-4) :: [DP] -> LogisticRegression DP)
+--             (f (lrtrain 1e-2) :: [DP] -> LogisticRegression DP)
 
-    let runtest f = flip evalRand (mkStdGen 100) $ validate_monoid
-            (repeatExperiment 1 (kfold 5))
-            errorRate
-            ys
-            (f (lrtrain 1e-6) :: [DP] -> LogisticRegression DP)
-            (mappendTaylor)
+--     let runtest f = flip evalRand (mkStdGen 100) $ validate_monoid
+--             (repeatExperiment 1 (kfold 5))
+--             errorRate
+--             ys
+--             (f (lrtrain 1e-2) :: [DP] -> LogisticRegression DP)
+--             (mappendTaylor)
 --             (mappendAverage)
 
-    let tests = 
-            [ do 
-                putStr $ show n++", "
-                let res = runtest id
-                putStrLn $ show (mean res)++", "++show (variance res)
-            | n <- [100]
-            ]
-
-    sequence_ tests
-
+--     let tests = 
+--             [ do 
+--                 putStr $ show n++", "
+--                 let res = runtest id
+--                 putStrLn $ show (mean res)++", "++show (variance res)
+--             | n <- [100]
+--             ]
+--     sequence_ tests
 --     print $ runtest (partition 10 $ VG.toList ys) (VG.toList ys)
+
+    let (res,hist) = unsafeRunHistory $ flip evalRandT (mkStdGen 100) $ validateM
+            (kfold 5)
+            errorRate
+            ys
+            (lrtrainMsimple 1e-2) 
+
+--     printHistory [traceBFGS,traceNewtonRaphson,traceBrent] hist
+    printHistory 
+        [ traceLogisticRegression (undefined::DP)
+        , traceBFGS
+        , traceNewtonRaphson
+--         , traceBracket
+--         , traceBrent
+--         , traceGSS
+        ] hist
+    putStrLn $ show (mean res)++","++show (variance res)
+
 
     putStrLn "done."
 
