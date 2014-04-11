@@ -5,6 +5,7 @@ module HLearn.Algebra.LinearAlgebra
     , MVector
     , eye
     , outerProduct
+    , outerProductV
     , extractDiagonal
     , extractBanded
     , matProduct
@@ -185,9 +186,10 @@ class Mult a b c | a b -> c, a c -> b, b c -> a where
     mul :: a -> b -> c
 
 class 
-    ( VectorSpace (Tensor 0 a) 
-    , VectorSpace (Tensor 1 a)
-    , VectorSpace (Tensor 2 a)
+    ( InnerProduct (Tensor 0 a) 
+    , InnerProduct (Tensor 1 a)
+    , InnerProduct (Tensor 2 a)
+    , OuterProduct (Tensor 1 a) (Tensor 2 a)
     , Mult (Tensor 1 a) (Tensor 2 a) (Tensor 1 a)
     , Mult (Tensor 2 a) (Tensor 1 a) (Tensor 1 a)
     , Mult (Tensor 2 a) (Tensor 2 a) (Tensor 2 a)
@@ -201,17 +203,47 @@ class
     type Tensor (order::Nat) a
     mkTensor :: a -> Tensor 1 a
 
+class OuterProduct t1 t2 | t1 -> t2, t2 -> t1 where
+    outerProduct :: t1 -> t1 -> t2
+
+outerProductV :: LA.Field r => Vector r -> Vector r -> LA.Matrix r
+outerProductV (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
+
 type IsScalar a = 
     ( LA.Field a
     , a ~ Scalar a
+    , a ~ Tensor 1 a
     , VectorSpace a
+    , ValidTensor a
     )
+
+---------------------------------------
+
+instance ValidTensor Double where
+    type Tensor 0 Double = Double
+    type Tensor 1 Double = Double
+    type Tensor 2 Double = Double
+    mkTensor = id
+
+instance OuterProduct Double Double where
+    outerProduct = (*)
+
+instance Mult Double Double Double where
+    mul a b = a*b
+
+---------------------------------------
 
 instance (IsScalar a, LA.Field a, VectorSpace a) => ValidTensor (Vector a) where
     type Tensor 0 (Vector a) = a
     type Tensor 1 (Vector a) = Vector a
     type Tensor 2 (Vector a) = LA.Matrix a
     mkTensor = id
+
+instance LA.Field a => OuterProduct (Vector a) (LA.Matrix a) where
+    outerProduct (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
+
+instance IsScalar a => InnerProduct (LA.Matrix a) where
+    inner = undefined
 
 instance LA.Field a => Mult (Vector a) (LA.Matrix a) (Vector a) where
     mul (Vector v) m = Vector $ v LA.<> m
@@ -220,14 +252,16 @@ instance LA.Field a => Mult (LA.Matrix a) (Vector a) (Vector a) where
 instance LA.Field a => Mult (LA.Matrix a) (LA.Matrix a) (LA.Matrix a) where
     mul = (LA.<>)
 
+-------------------------------------------------------------------------------
+
 class TensorProduct a where
     tensor :: Tensor 1 a -> Tensor 1 a -> Tensor 2 a
 
 -- instance LA.Field r => TensorProduct (Vector r) where
 --     tensor (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
 
-outerProduct :: LA.Field a => Vector a -> Vector a -> LA.Matrix a
-outerProduct (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
+-- outerProduct :: LA.Field a => Vector a -> Vector a -> LA.Matrix a
+-- outerProduct (Vector v1) (Vector v2) = LA.asColumn v1 LA.<> LA.asRow v2
 
 extractDiagonal :: LA.Field a => LA.Matrix a -> LA.Matrix a
 extractDiagonal = extractBanded 0

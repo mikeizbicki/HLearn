@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module HLearn.Optimization.Common
     ( optimize
     , runOptimization
@@ -19,21 +20,30 @@ module HLearn.Optimization.Common
     )
     where
 
+import Control.Lens
 import Data.Dynamic
 import Data.Typeable
 import Debug.Trace
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
+import HLearn.Algebra.LinearAlgebra
 import HLearn.Algebra.History
 
 -------------------------------------------------------------------------------
 
-class Has_x1 opt v where x1 :: opt v -> v
-class Has_fx1 opt v where fx1 :: opt v -> Scalar v
-class Has_fx0 opt v where fx0 :: opt v -> Scalar v
-class Has_f'x1 opt v where f'x1 :: opt v -> v
-class Has_stepSize opt v where stepSize :: opt v -> Scalar v
+class ValidTensor v => Has_x1 opt v          where x1        :: Lens' (opt v) (Tensor 1 v)
+class ValidTensor v => Has_fx1 opt v         where fx1       :: Lens' (opt v) (Tensor 0 v)
+class ValidTensor v => Has_fx0 opt v         where fx0       :: Lens' (opt v) (Tensor 0 v)
+class ValidTensor v => Has_f'x1 opt v        where f'x1      :: Lens' (opt v) (Tensor 1 v)
+class ValidTensor v => Has_stepSize opt v    where stepSize  :: Lens' (opt v) (Tensor 0 v)
+
+-- class Has_x1 opt v where x1 :: opt v -> v
+-- class Has_x1L opt v where x1L :: Lens' opt v
+-- class Has_fx1 opt v where fx1 :: opt v -> Scalar v
+-- class Has_fx0 opt v where fx0 :: opt v -> Scalar v
+-- class Has_f'x1 opt v where f'x1 :: opt v -> v
+-- class Has_stepSize opt v where stepSize :: opt v -> Scalar v
 
 ---------------------------------------
 
@@ -47,7 +57,7 @@ lowerBound ::
     ( Has_fx1 opt v
     , Ord (Scalar v)
     )  => Scalar v -> opt v -> History Bool
-lowerBound threshold opt = return $ fx1 opt < threshold
+lowerBound threshold opt = return $ opt^.fx1 < threshold
 
 fx1grows :: 
     ( Has_fx1 opt v
@@ -60,7 +70,7 @@ fx1grows opt1 = do
     mfx0 <- get_fx0 opt1
     return $ case mfx0 of
         Nothing -> False
-        Just fx0 -> fx0 < fx1 opt1
+        Just fx0 -> fx0 < opt1^.fx1
  
 get_fx0 :: forall opt v.
     ( Has_fx1 opt v
@@ -72,7 +82,7 @@ get_fx0 opt1 = do
     return $ case me of
         Nothing -> Nothing
         Just e -> case fromDynamic (dyn e) :: Maybe (opt v) of
-            Just opt0 -> Just $ fx1 opt0
+            Just opt0 -> Just $ opt0^.fx1
             Nothing -> error "get_fx0: this should never happen"
     
 
@@ -86,8 +96,8 @@ multiplicativeTollerance ::
     ) => Scalar v -> opt v -> History Bool
 multiplicativeTollerance tol opt = return $ left <= right
     where
-        left = 2*abs (fx1 opt - fx0 opt)
-        right = tol*(abs (fx1 opt) + abs (fx0 opt) + 1e-18)
+        left = 2*abs (opt^.fx1 - opt^.fx0)
+        right = tol*(abs (opt^.fx1) + abs (opt^.fx0) + 1e-18)
 
 -------------------------------------------------------------------------------
 
@@ -114,12 +124,18 @@ optimize step opt0 stop = collectEvents $ do
 
 ---------------------------------------
 
-runOptimization :: (Has_x1 opt v) => History (opt v) -> IO (v, [Event])
+runOptimization :: 
+    ( Has_x1 opt v
+    , v ~ Tensor 1 v
+    ) => History (opt v) -> IO (v, [Event])
 runOptimization m = do
     (a,log) <- runHistory m
-    return (x1 a, log)
+    return (a^.x1, log)
 
-unsafeRunOptimization :: Has_x1 opt v => History (opt v) -> (v, [Event])
-unsafeRunOptimization m = (x1 a, log)
+unsafeRunOptimization :: 
+    ( Has_x1 opt v 
+    , v ~ Tensor 1 v
+    ) => History (opt v) -> (v, [Event])
+unsafeRunOptimization m = (a^.x1, log)
     where
         (a,log) = unsafeRunHistory m

@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell,DataKinds #-}
 module HLearn.Optimization.QuasiNewton
     where
 
@@ -5,6 +6,7 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
 import Control.Monad.ST
+import Control.Lens
 import Data.List
 import Data.List.Extras
 import Data.Typeable
@@ -25,43 +27,57 @@ import qualified HLearn.Optimization.LineMinimization as LineMin
 
 
 data BFGS a = BFGS
-    { _x1 :: !a
-    , _fx1 :: !(Scalar a)
-    , _fx0 :: !(Scalar a)
-    , _f'x1 :: !a
-    , _f''x1 :: !(LA.Matrix (Scalar a))
-    , _alpha1 :: !(Scalar a)
+    { __x1      :: !(Tensor 1 a)
+    , __fx1     :: !(Tensor 0 a)
+    , __fx0     :: !(Tensor 0 a)
+    , __f'x1    :: !(Tensor 1 a)
+    , __f''x1   :: !(Tensor 2 a)
+    , __alpha1  :: !(Tensor 0 a)
     }
+--     { __x1 :: !a
+--     , __fx1 :: !(Scalar a)
+--     , __fx0 :: !(Scalar a)
+--     , __f'x1 :: !a
+--     , __f''x1 :: !(LA.Matrix (Scalar a))
+--     , __alpha1 :: !(Scalar a)
+--     }
     deriving (Typeable)
+makeLenses ''BFGS
 
-deriving instance (Show a, Show (Scalar a), Show (LA.Matrix (Scalar a))) => Show (BFGS a)
+-- deriving instance (Show a, Show (Scalar a), Show (LA.Matrix (Scalar a))) => Show (BFGS a)
 
-instance Has_x1 BFGS a where x1 = _x1
-instance Has_fx1 BFGS a where fx1 = _fx1
-instance Has_fx0 BFGS a where fx0 = _fx0
-instance Has_f'x1 BFGS a where f'x1 = _f'x1
-instance Has_stepSize BFGS a where stepSize = _alpha1
+instance (ValidTensor a) => Has_x1 BFGS a where x1 = _x1
+instance (ValidTensor a) => Has_fx1 BFGS a where fx1 = _fx1
+instance (ValidTensor a) => Has_fx0 BFGS a where fx0 = _fx0
+instance (ValidTensor a) => Has_f'x1 BFGS a where f'x1 = _f'x1
+instance (ValidTensor a) => Has_stepSize BFGS a where stepSize = _alpha1
+
+-- instance Has_x1 BFGS a where x1 = _x1
+-- instance Has_fx1 BFGS a where fx1 = _fx1
+-- instance Has_fx0 BFGS a where fx0 = _fx0
+-- instance Has_f'x1 BFGS a where f'x1 = _f'x1
+-- instance Has_stepSize BFGS a where stepSize = _alpha1
 
 quasiNewton' f f' f'' x0 = optimize
     (step_quasiNewton f f')
     $ BFGS 
-        { _x1 = x0 
-        , _fx1 = f x0
-        , _fx0 = infinity
-        , _f'x1 = f' x0
-        , _f''x1 = f'' x0
-        , _alpha1 = 1e-2
+        { __x1 = x0 
+        , __fx1 = f x0
+        , __fx0 = infinity
+        , __f'x1 = f' x0
+        , __f''x1 = f'' x0
+        , __alpha1 = 1e-2
         }
 
 quasiNewton f f' x0 = optimize
     ( step_quasiNewton f f' )
     ( BFGS 
-        { _x1 = x0 
-        , _fx1 = f x0
-        , _fx0 = infinity
-        , _f'x1 = f' x0
-        , _f''x1 = LA.eye (VG.length x0)
-        , _alpha1 = 1e-2
+        { __x1 = x0 
+        , __fx1 = f x0
+        , __fx0 = infinity
+        , __f'x1 = f' x0
+        , __f''x1 = LA.eye (VG.length x0)
+        , __alpha1 = 1e-2
         }
     )
 
@@ -74,15 +90,16 @@ step_quasiNewton ::
     , Ord r
     , Typeable r
     , Show r
+    , IsScalar r
     ) => (vec -> r)
       -> (vec -> vec)
       -> BFGS vec
       -> History (BFGS vec)
 step_quasiNewton f f' opt = do
-    let x0 = _x1 opt
-        f'x0 = _f'x1 opt
-        f''x0 = _f''x1 opt
-        alpha0 = _alpha1 opt
+    let x0 = opt^.x1
+        f'x0 = opt^.f'x1
+        f''x0 = opt^._f''x1
+        alpha0 = opt^.stepSize
         d = inverse $ f''x0 `LA.matProduct` f'x0
         g alpha = f $ x0 <> alpha .* d
 
@@ -111,12 +128,12 @@ step_quasiNewton f f' opt = do
         x1mod = VG.zipWith go x1 x0
 
     return $ BFGS
-        { _x1 = x1mod
-        , _fx1 = f x1mod
-        , _fx0 = fx1 opt
-        , _f'x1 = f' x1mod
-        , _f''x1 = f''x1
-        , _alpha1 = alpha
+        { __x1 = x1mod
+        , __fx1 = f x1mod
+        , __fx0 = opt^.fx1
+        , __f'x1 = f' x1mod
+        , __f''x1 = f''x1
+        , __alpha1 = alpha
         }
 --     report $ BFGS
 --         { _x1 = x1
