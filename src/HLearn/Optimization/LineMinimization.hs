@@ -1,6 +1,8 @@
+{-# LANGUAGE TemplateHaskell #-}
 module HLearn.Optimization.LineMinimization
     where
 
+import Control.Lens
 import Control.Monad
 import Control.Monad.Writer
 import Data.Dynamic
@@ -26,13 +28,13 @@ data GoldenSectionSearch a = GoldenSectionSearch
 
 getgss = _gss_xc
 
-instance (Ord a, a ~ Scalar a) => Has_fx1 GoldenSectionSearch a where
-    fx1 gss = min (_gss_fxb gss) (_gss_fxc gss)
-
-instance (Ord a, a ~ Scalar a) => Has_x1 GoldenSectionSearch a where
-    x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
-        then _gss_xb gss
-        else _gss_xc gss
+-- instance (Ord a, a ~ Scalar a) => Has_fx1 GoldenSectionSearch a where
+--     fx1 gss = min (_gss_fxb gss) (_gss_fxc gss)
+-- 
+-- instance (Ord a, a ~ Scalar a) => Has_x1 GoldenSectionSearch a where
+--     x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
+--         then _gss_xb gss
+--         else _gss_xc gss
 
 -- instance Has_x1 GoldenSectionSearch where
 --     x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
@@ -226,9 +228,19 @@ data Brent a = Brent
     , _x :: !a 
     }
     deriving (Read,Show,Typeable)
+makeLenses ''Brent
 
-instance Has_x1 Brent v where x1 = _x
-instance IsScalar v => Has_fx1 Brent v where fx1 b = (_fv b+_fw b+_fx b)/3
+instance IsScalar v => Has_x1 Brent v where 
+    x1 = x
+
+instance IsScalar v => Has_fx1 Brent v where
+    fx1 = lens getter setter 
+        where
+            getter s = (s^.fv + s^.fw + s^.fx)/3
+            setter = error "Brent.fx1 undefined"
+
+-- instance Has_x1 Brent v where x1 = _x
+-- instance IsScalar v => Has_fx1 Brent v where fx1 b = (_fv b+_fw b+_fx b)/3
 -- instance IsScalar v => Has_fx1 Brent v where fx1 = _fx
 -- instance (Ord v, IsScalar v) => Has_fx0 Brent v where fx0 b = min (_fv b) (_fw b)
 

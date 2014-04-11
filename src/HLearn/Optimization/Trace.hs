@@ -3,6 +3,7 @@ module HLearn.Optimization.Trace
     where
 
 import Control.DeepSeq
+import Control.Lens
 import qualified Data.DList as DList
 import Data.Dynamic
 import Data.List
@@ -86,10 +87,11 @@ traceBrent opt = case fromDynamic (dyn opt) :: Maybe (Brent Double) of
     Nothing -> []
     Just x -> [trace_itr undefined opt++"; "++show (dyn opt)++"; fv="++showDoubleLong (_fv x)++"; fx="++showDoubleLong (_fx x)++"; fw="++showDoubleLong (_fw x)]
 
-traceGSS :: Event -> [String]
-traceGSS opt = case fromDynamic (dyn opt) :: Maybe (GoldenSectionSearch Double) of
-    Nothing -> []
-    Just x -> [trace_itr undefined opt++"; "++show (dyn opt)++"; fx1="++showDoubleLong (fx1 x)++"; x1="++showDoubleLong (x1 x)]
+-- traceGSS :: Event -> [String]
+-- traceGSS opt = case fromDynamic (dyn opt) :: Maybe (GoldenSectionSearch Double) of
+--     Nothing -> []
+--     Just x -> 
+--         [ trace_itr undefined opt++"; "++show (dyn opt)++"; fx1="++showDoubleLong (x^.fx1)++"; x1="++showDoubleLong (x^.x1)]
 
 ---------------------------------------
 
@@ -129,13 +131,14 @@ trace_eventType :: a -> Event -> String
 trace_eventType _ e = head $ words $ drop 2 $ show $ dyn e
 
 trace_fx1 :: (RealFloat (Scalar a), Has_fx1 opt a) => opt a -> Event -> String
-trace_fx1 a _ = "fx1="++showEFloat (Just 12) (fx1 a) ""
+trace_fx1 a _ = "fx1="++showEFloat (Just 12) (a^.fx1) ""
 
-trace_f'x1 :: (RealFloat (Scalar a), InnerProduct a, Has_f'x1 opt a) => opt a -> Event -> String
-trace_f'x1 a _ = "|f'x1|="++showEFloat (Just 4) (innerProductNorm $ f'x1 a) ""
+trace_f'x1 :: (RealFloat (Scalar a), ValidTensor a, Has_f'x1 opt a) => opt a -> Event -> String
+-- trace_f'x1 :: (RealFloat (Scalar a), InnerProduct (Tensor 1 a), Has_f'x1 opt a) => opt a -> Event -> String
+trace_f'x1 a _ = "|f'x1|="++showEFloat (Just 4) (innerProductNorm $ a^.f'x1) ""
 
 trace_stepSize :: (RealFloat (Scalar a), Has_stepSize opt a) => opt a -> Event -> String
-trace_stepSize a _ = "step="++showEFloat (Just 4) (stepSize a) ""
+trace_stepSize a _ = "step="++showEFloat (Just 4) (a^.stepSize) ""
 
 -------------------------------------------------------------------------------
 -- pretty printing

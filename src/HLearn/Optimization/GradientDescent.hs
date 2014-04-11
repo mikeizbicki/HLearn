@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
--- {-# LANGUAGE DeriveDataTypeable, NoImplicitPrelude, RebindableSyntax #-}
+{-# LANGUAGE DeriveDataTypeable,TemplateHaskell,DataKinds #-}
 module HLearn.Optimization.GradientDescent
     ( conjugateGradientDescent
     , steepestDescent
@@ -11,6 +10,7 @@ module HLearn.Optimization.GradientDescent
     where
 
 import Control.DeepSeq
+import Control.Lens
 import Control.Monad
 import Control.Monad.Writer
 import Data.Dynamic
@@ -30,6 +30,7 @@ import Numeric.LinearAlgebra hiding ((<>))
 import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
+import HLearn.Algebra.LinearAlgebra
 -- import HLearn.Algebra.Structures.Monad
 import HLearn.Optimization.Common
 import qualified HLearn.Optimization.LineMinimization as LineMin
@@ -38,21 +39,22 @@ import qualified HLearn.Optimization.LineMinimization as LineMin
 -- data types
 
 data ConjugateGradientDescent a = ConjugateGradientDescent 
-    { _x1 :: !a
-    , _fx1 :: !(Scalar a)
-    , _f'x1 :: !a
-    , _alpha :: !(Scalar a)
-    , _f'x0 :: !a
-    , _s0 :: !a
+    { __x1      :: !(Tensor 1 a)
+    , __fx1     :: !(Tensor 0 a)
+    , __f'x1    :: !(Tensor 1 a)
+    , __alpha   :: !(Tensor 0 a)
+    , __f'x0    :: !(Tensor 1 a)
+    , __s0      :: !(Tensor 1 a)
     }
     deriving (Typeable)
+makeLenses ''ConjugateGradientDescent
 
 -- deriving instance (Read a, Read (Scalar a)) => Read (ConjugateGradientDescent a)
 -- deriving instance (Show a, Show (Scalar a)) => Show (ConjugateGradientDescent a)
 
-instance Has_x1 ConjugateGradientDescent v where x1 = _x1
-instance Has_fx1 ConjugateGradientDescent v where fx1 = _fx1
-instance Has_f'x1 ConjugateGradientDescent v where f'x1 = _f'x1
+instance ValidTensor v => Has_x1 ConjugateGradientDescent v where x1 = _x1
+instance ValidTensor v => Has_fx1 ConjugateGradientDescent v where fx1 = _fx1
+instance ValidTensor v => Has_f'x1 ConjugateGradientDescent v where f'x1 = _f'x1
 
 ---------------------------------------
 
@@ -111,12 +113,12 @@ steepestDescent f f' = conjugateGradientDescent_ LineSearch None f f'
 conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = optimize
     (step_conjugateGradientDescent searchMethod conjugateMethod f f')
     $ ConjugateGradientDescent
-        { _x1 = x0
-        , _fx1 = f x0
-        , _f'x1 = f' x0
-        , _alpha = 1e-2
-        , _f'x0 = f' x0
-        , _s0 = f' x0
+        { __x1 = x0
+        , __fx1 = f x0
+        , __f'x1 = f' x0
+        , __alpha = 1e-2
+        , __f'x0 = f' x0
+        , __s0 = f' x0
         }
 
 -- | performs a single iteration of the conjugate gradient descent algorithm
@@ -127,6 +129,8 @@ step_conjugateGradientDescent ::
     , Typeable (Scalar v)
     , Scalar (Scalar v) ~ Scalar v
     , Typeable v
+    , v ~ Tensor 1 v
+    , ValidTensor v
     ) => StepMethod (Scalar v)
       -> ConjugateMethod
       -> (v -> Scalar v)
@@ -158,12 +162,12 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
     let x = x1 <> alpha .* s1
 
     report $ ConjugateGradientDescent
-        { _x1 = x
-        , _fx1 = f x
-        , _f'x1 = f' x
-        , _alpha = alpha
-        , _f'x0 = f'x1
-        , _s0 = s1
+        { __x1 = x
+        , __fx1 = f x
+        , __f'x1 = f' x
+        , __alpha = alpha
+        , __f'x0 = f'x1
+        , __s0 = s1
         }
 
 

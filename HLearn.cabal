@@ -20,6 +20,7 @@ Library
         containers          >= 0.5,
         vector              >= 0.10,
         array               >= 0.4,
+        lens                >= 4.0,
         
         erf                 >= 2.0,
         gamma               >= 0.9,
@@ -107,7 +108,7 @@ Library
         
         HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
-        HLearn.Models.Classifiers.LogisticRegression
+        HLearn.Models.Classifiers.LinearClassifier
         HLearn.Models.Classifiers.NearestNeighbor
         HLearn.Models.Classifiers.NaiveNN
         HLearn.Models.Classifiers.Perceptron

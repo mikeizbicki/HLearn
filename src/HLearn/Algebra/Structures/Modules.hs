@@ -18,11 +18,11 @@ type instance Scalar Rational = Rational
 
 -- | Bug: The module classes have the constraint that r be of type Num.  Technically, this should be a Ring.  But creating a Ring class would be awkward because it would conflict with the Num class and require importing a different Prelude.
 class (Abelian m, Group m) => Module m where    
-    infix 7 .*
+    infixl 7 .*
     (.*) :: Scalar m -> m -> m
     
     {-# INLINE (*.) #-}
-    infix 7 *.
+    infixl 7 *.
     (*.) :: m -> Scalar m -> m
     m *. r = r .* m
 
@@ -34,7 +34,7 @@ class
     , Module (Scalar m)
     , Fractional (Scalar m)
     ) => VectorSpace m where
-    infix 7 /.
+    infixl 7 /.
     {-# INLINE (/.) #-}
     (/.) :: m -> Scalar m -> m
     m /. r = m *. (1/r)
