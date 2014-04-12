@@ -5,13 +5,19 @@ import Control.DeepSeq
 import Data.Typeable
 
 import HLearn.Algebra
+import HLearn.Algebra.LinearAlgebra
 import HLearn.Models.Distributions
 
 -------------------------------------------------------------------------------
 -- Labeled datapoints
 
 
-class Labeled dp where
+class 
+    ( Scalar (Attributes dp) ~ Scalar dp
+    , IsScalar (Scalar dp)
+    ) => Labeled dp 
+        where
+
     type Label dp
     type Attributes dp
     
@@ -20,12 +26,12 @@ class Labeled dp where
 
 ---------------------------------------
 
-instance Labeled (label,attr) where
-    type Label (label,attr) = label
-    type Attributes (label,attr) = attr
-    
-    getLabel = fst
-    getAttributes = snd
+-- instance Labeled (label,attr) where
+--     type Label (label,attr) = label
+--     type Attributes (label,attr) = attr
+--     
+--     getLabel = fst
+--     getAttributes = snd
 
 ---------------------------------------
 
@@ -50,9 +56,14 @@ noLabel attr = MaybeLabeled
     , attr = attr
     }
 
-instance Labeled (MaybeLabeled label attr) where
+instance 
+    ( IsScalar (Scalar attr)
+    ) => Labeled (MaybeLabeled label attr) 
+        where
+
     type Label (MaybeLabeled label attr) = Maybe label
     type Attributes (MaybeLabeled label attr) = attr
+
     getLabel = label
     getAttributes = attr
 

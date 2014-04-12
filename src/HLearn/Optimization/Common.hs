@@ -32,11 +32,11 @@ import HLearn.Algebra.History
 
 -------------------------------------------------------------------------------
 
-class ValidTensor v => Has_x1 opt v          where x1        :: Lens' (opt v) (Tensor 1 v)
-class ValidTensor v => Has_fx1 opt v         where fx1       :: Lens' (opt v) (Tensor 0 v)
-class ValidTensor v => Has_fx0 opt v         where fx0       :: Lens' (opt v) (Tensor 0 v)
-class ValidTensor v => Has_f'x1 opt v        where f'x1      :: Lens' (opt v) (Tensor 1 v)
-class ValidTensor v => Has_stepSize opt v    where stepSize  :: Lens' (opt v) (Tensor 0 v)
+class ValidTensor1 v => Has_x1 opt v          where x1        :: Lens' (opt v) (Tensor 1 v)
+class ValidTensor1 v => Has_fx1 opt v         where fx1       :: Lens' (opt v) (Tensor 0 v)
+class ValidTensor1 v => Has_fx0 opt v         where fx0       :: Lens' (opt v) (Tensor 0 v)
+class ValidTensor1 v => Has_f'x1 opt v        where f'x1      :: Lens' (opt v) (Tensor 1 v)
+class ValidTensor1 v => Has_stepSize opt v    where stepSize  :: Lens' (opt v) (Tensor 0 v)
 
 -- class Has_x1 opt v where x1 :: opt v -> v
 -- class Has_x1L opt v where x1L :: Lens' opt v
@@ -64,7 +64,6 @@ fx1grows ::
     , Ord (Scalar v)
     , Typeable opt
     , Typeable v
-    , Show (Scalar v)
     ) => opt v -> History Bool
 fx1grows opt1 = do
     mfx0 <- get_fx0 opt1
@@ -85,19 +84,34 @@ get_fx0 opt1 = do
             Just opt0 -> Just $ opt0^.fx1
             Nothing -> error "get_fx0: this should never happen"
     
-
 multiplicativeTollerance :: 
     ( Has_fx1 opt v
-    , Has_fx0 opt v
     , Ord (Scalar v)
     , Fractional (Scalar v)
     , Typeable opt 
     , Typeable v
     ) => Scalar v -> opt v -> History Bool
-multiplicativeTollerance tol opt = return $ left <= right
-    where
-        left = 2*abs (opt^.fx1 - opt^.fx0)
-        right = tol*(abs (opt^.fx1) + abs (opt^.fx0) + 1e-18)
+multiplicativeTollerance tol opt1 = do
+    mfx0 <- get_fx0 opt1
+    return $ case mfx0 of
+        Nothing -> False
+        Just fx0 -> fx0 /= infinity && left <= right
+            where
+                left = 2*abs (opt1^.fx1 - fx0)
+                right = tol*(abs (opt1^.fx1) + abs fx0 + 1e-18)
+
+-- multiplicativeTollerance :: 
+--     ( Has_fx1 opt v
+--     , Has_fx0 opt v
+--     , Ord (Scalar v)
+--     , Fractional (Scalar v)
+--     , Typeable opt 
+--     , Typeable v
+--     ) => Scalar v -> opt v -> History Bool
+-- multiplicativeTollerance tol opt = return $ left <= right
+--     where
+--         left = 2*abs (opt^.fx1 - opt^.fx0)
+--         right = tol*(abs (opt^.fx1) + abs (opt^.fx0) + 1e-18)
 
 -------------------------------------------------------------------------------
 
@@ -108,9 +122,9 @@ optimize :: forall opt.
       -> [opt -> History Bool]      -- ^ stopping conditions
       -> History opt
 optimize step opt0 stop = collectEvents $ do
-    report opt0
-    opt1 <- step opt0
-    go opt1
+--     report opt0
+--     opt1 <- step opt0
+    go opt0
     where
         go :: opt -> History opt
         go opt = do

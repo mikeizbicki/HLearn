@@ -37,62 +37,6 @@ import HLearn.Optimization.QuasiNewton
 import HLearn.Optimization.Common 
 import HLearn.Optimization.Trace 
 
-
--------------------------------------------------------------------------------
--- kernels
-{-
-newtype Kernel v a = Kernel (v a)
-    deriving (Read,Show,Eq,Ord,Monoid,Abelian,Group)
-
-type instance Scalar (Kernel v a) = Scalar (v a)
-
-deriving instance (Module (Scalar (v a)), Module (v a)) => Module (Kernel v a)
-deriving instance (Module (Scalar (v a)), VectorSpace (v a)) => VectorSpace (Kernel v a)
-
-instance InnerProduct (v a) => InnerProduct (Kernel v a) where
-    inner (Kernel v1) (Kernel v2) = kernel $ inner v1 v2
-        where
-            kernel x = (1+x)^^3 
-
--------------------
-
-instance VG.Vector v a => VG.Vector (Kernel v) a where
-    {-# INLINE basicUnsafeFreeze #-}
-    {-# INLINE basicUnsafeThaw #-}
-    {-# INLINE basicLength #-}
-    {-# INLINE basicUnsafeSlice #-}
-    {-# INLINE basicUnsafeIndexM #-}
-    {-# INLINE basicUnsafeCopy #-}
-    {-# INLINE elemseq #-}
-    basicUnsafeFreeze (KernelM v) = liftM Kernel $ VG.basicUnsafeFreeze v
-    basicUnsafeThaw (Kernel v) = liftM KernelM $ VG.basicUnsafeThaw v
-    basicLength (Kernel v) = VG.basicLength v
-    basicUnsafeSlice s t (Kernel v) = Kernel $ VG.basicUnsafeSlice s t v
-    basicUnsafeIndexM (Kernel v) i = VG.basicUnsafeIndexM v i
-    basicUnsafeCopy (KernelM vm) (Kernel v) = VG.basicUnsafeCopy vm v
-    elemseq (Kernel v) a b = VG.elemseq v a b
-
-newtype KernelM v s a = KernelM { unKernelM :: v s a } 
-
-instance VGM.MVector v a => VGM.MVector (KernelM v) a where
-    {-# INLINE basicLength #-}
-    {-# INLINE basicUnsafeSlice #-}
-    {-# INLINE basicOverlaps #-}
-    {-# INLINE basicUnsafeNew #-}
-    {-# INLINE basicUnsafeReplicate #-}
-    {-# INLINE basicUnsafeRead #-}
-    {-# INLINE basicUnsafeWrite #-}
-    basicLength (KernelM v) = VGM.basicLength v
-    basicUnsafeSlice s t (KernelM v) = KernelM $ VGM.basicUnsafeSlice s t v
-    basicOverlaps (KernelM v1) (KernelM v2) = VGM.basicOverlaps v1 v2
-    basicUnsafeNew n = liftM KernelM $ VGM.basicUnsafeNew n
-    basicUnsafeReplicate i a = liftM KernelM $ VGM.basicUnsafeReplicate i a
-    basicUnsafeRead (KernelM v) i = VGM.basicUnsafeRead v i
-    basicUnsafeWrite (KernelM v) i a = VGM.basicUnsafeWrite v i a
-
-type instance VG.Mutable (Kernel v) = KernelM (VG.Mutable v)
--}
-
 -------------------------------------------------------------------------------
 -- data types
 
@@ -317,11 +261,6 @@ lrtrainM lambda dps weights0 = do
         n :: Label dp -> Scalar dp
         n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ F.toList dps
 
---         go :: 
---             (
---             ( IsScalar r
---             , dp ~ LA.Vector r 
---             ) => [(Label dp,Attributes dp)] -> History [(Label dp,(Scalar dp,Attributes dp,Taylor (Attributes dp)))]
         -- the weights for the last label are set to zero;
         -- this is equivalent to running the optimization procedure,
         -- but much cheaper
@@ -329,10 +268,12 @@ lrtrainM lambda dps weights0 = do
 
         -- calculate the weights for label l
         go ((l,w0):xs) = do
-            opt <- newtonRaphson f f' f'' w0
-                [ maxIterations 100
+--             opt <- newtonRaphson f f' f'' w0
+            opt <- conjugateGradientDescent f f' w0
+--             opt <- quasiNewton f f' w0
+                [ maxIterations 200
                 , fx1grows
-                , multiplicativeTollerance 1e-1
+--                 , multiplicativeTollerance 1e-6
                 ]
 
             let w1 = opt^.x1
@@ -744,8 +685,8 @@ test = do
 --     let {filename = "../datasets/ripley/synth.train.csv"; label_index=2}
 --     let {filename = "../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
-    let {filename = "../datasets/uci/wine.csv"; label_index=0}
---     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
+--     let {filename = "../datasets/uci/wine.csv"; label_index=0}
+    let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
 --     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
         
@@ -827,6 +768,8 @@ test = do
         [ traceLinearClassifier (undefined::DP)
         , traceBFGS
         , traceNewtonRaphson
+        , traceConjugateGradientDescent
+        , traceBacktracking (undefined :: Attributes DP)
 --         , traceBracket
 --         , traceBrent
 --         , traceGSS

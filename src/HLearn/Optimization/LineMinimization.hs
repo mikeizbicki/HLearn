@@ -1,5 +1,26 @@
 {-# LANGUAGE TemplateHaskell #-}
 module HLearn.Optimization.LineMinimization
+    (
+    -- * Safe line minimization
+    
+    LineBracket (..)
+    , lineBracket 
+
+    , GoldenSectionSearch (..)
+    , goldenSectionSearch 
+
+    , Brent (..)
+    , brent
+    , brentTollerance
+
+    -- * Unsafe line minimization
+    , Backtracking (..)
+    , backtracking
+    , stop_wolfe
+    , stop_amijo
+    , stop_weakCurvature
+    , stop_strongCurvature
+    )
     where
 
 import Control.Lens
@@ -15,79 +36,7 @@ import HLearn.Algebra.LinearAlgebra
 import HLearn.Optimization.Common
 
 -------------------------------------------------------------------------------
-
-data GoldenSectionSearch a = GoldenSectionSearch
-    { _gss_fxb :: !a
-    , _gss_fxc :: !a
-    , _gss_xa :: !a
-    , _gss_xb :: !a
-    , _gss_xc :: !a
-    , _gss_xd :: !a
-    }
-    deriving (Typeable)
-
-getgss = _gss_xc
-
--- instance (Ord a, a ~ Scalar a) => Has_fx1 GoldenSectionSearch a where
---     fx1 gss = min (_gss_fxb gss) (_gss_fxc gss)
--- 
--- instance (Ord a, a ~ Scalar a) => Has_x1 GoldenSectionSearch a where
---     x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
---         then _gss_xb gss
---         else _gss_xc gss
-
--- instance Has_x1 GoldenSectionSearch where
---     x1 gss = if (_gss_fxb gss) < (_gss_fxc gss)
---         then _gss_bx gss
---         else _gss_cx gss
-
-goldenSectionSearch f (LineBracket ax bx cx fa fb fc) stop = do
-    let r = 0.61803399
-        c = 1-r
-
-    let xb = if abs (cx-bx) > abs (bx-ax)
-            then bx
-            else bx-c*(bx-ax)
-
-    let xc = if abs (cx-bx) > abs (bx-ax)
-            then bx+c*(cx-bx)
-            else bx
-
-    let gss0 = GoldenSectionSearch
-            { _gss_fxb = f xb
-            , _gss_fxc = f xc
-            , _gss_xa = ax
-            , _gss_xb = xb
-            , _gss_xc = xc
-            , _gss_xd = cx
-            }
-
---     gss1 <- step_GoldenSectionSearch f gss0
-    
-    optimize
-        (step_GoldenSectionSearch f) 
-        gss0
-        stop
---         (initTrace gss0 gss1)
-
-----------------------------------------
-
-stop_GoldenSectionSearch :: (Fractional a, Ord a) => a -> GoldenSectionSearch a -> History Bool
-stop_GoldenSectionSearch tol (GoldenSectionSearch _ _ !x0 !x1 !x2 !x3 ) = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
-
-step_GoldenSectionSearch :: 
-    ( Fractional a
-    , Ord a
-    , Typeable a
-    ) => (a -> a) -> GoldenSectionSearch a -> History (GoldenSectionSearch a)
-step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = return $ if f2 < f1
-    then let x' = r*x2+c*x3 in GoldenSectionSearch f2 (f x') x1 x2 x' x3
-    else let x' = r*x1+c*x0 in GoldenSectionSearch (f x') f1 x0 x' x1 x2
-    where
-        r = 0.61803399
-        c = 1-r
-    
--------------------------------------------------------------------------------
+-- line bracketing
 
 data LineBracket a = LineBracket 
     { _ax :: !a
@@ -127,16 +76,6 @@ lineBracket !f !pt1 !pt2 = do
 
 stop_LineBracket :: (Fractional a, Ord a) => LineBracket a -> History Bool
 stop_LineBracket lb = return $ _fb lb <= _fc lb
-
--- stop_LineBracket :: (Fractional a, Ord a) => History (LineBracket a) -> Bool
--- stop_LineBracket h = _fb lb <= _fc lb
---     where
---         lb = execHistory h
-
--- stop_LineBracket :: (Fractional a, Ord a) => [DoTrace (LineBracket a) -> Bool]
--- stop_LineBracket = [go]
---     where
---         go lb =  _fb (curValue lb) <= _fc (curValue lb)
 
 step_LineBracket :: 
     ( Fractional a
@@ -214,6 +153,83 @@ step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = return ret
                         }
 
 -------------------------------------------------------------------------------
+-- golden section search
+
+data GoldenSectionSearch a = GoldenSectionSearch
+    { _gss_fxb :: !a
+    , _gss_fxc :: !a
+    , _gss_xa :: !a
+    , _gss_xb :: !a
+    , _gss_xc :: !a
+    , _gss_xd :: !a
+    }
+    deriving (Typeable)
+
+instance (Ord a, IsScalar a) => Has_fx1 GoldenSectionSearch a where
+    fx1 = lens getter setter
+        where
+            getter gss = min (_gss_fxb gss) (_gss_fxc gss)
+            setter = error "GoldenSectionSearch fx1 setter"
+
+instance (Ord a, IsScalar a) => Has_x1 GoldenSectionSearch a where
+    x1 = lens getter setter
+        where
+            getter gss = if _gss_fxb gss < _gss_fxc gss
+                then _gss_xb gss
+                else _gss_xc gss
+            setter = error "GoldenSectionSearch x1 setter"
+
+---------------------------------------
+
+-- | Finds the minimum of a "poorly behaved" function; usually brent's
+-- method is much better. 
+-- This is a transliteration of the gss routine from the \"Numerical
+-- Recipes\" series
+goldenSectionSearch f (LineBracket ax bx cx fa fb fc) stop = do
+    let r = 0.61803399
+        c = 1-r
+
+    let xb = if abs (cx-bx) > abs (bx-ax)
+            then bx
+            else bx-c*(bx-ax)
+
+    let xc = if abs (cx-bx) > abs (bx-ax)
+            then bx+c*(cx-bx)
+            else bx
+
+    let gss0 = GoldenSectionSearch
+            { _gss_fxb = f xb
+            , _gss_fxc = f xc
+            , _gss_xa = ax
+            , _gss_xb = xb
+            , _gss_xc = xc
+            , _gss_xd = cx
+            }
+
+    optimize
+        (step_GoldenSectionSearch f) 
+        gss0
+        stop
+
+----------------------------------------
+
+stop_GoldenSectionSearch :: (Fractional a, Ord a) => a -> GoldenSectionSearch a -> History Bool
+stop_GoldenSectionSearch tol (GoldenSectionSearch _ _ !x0 !x1 !x2 !x3 ) = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
+
+step_GoldenSectionSearch :: 
+    ( Fractional a
+    , Ord a
+    , Typeable a
+    ) => (a -> a) -> GoldenSectionSearch a -> History (GoldenSectionSearch a)
+step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = return $ if f2 < f1
+    then let x' = r*x2+c*x3 in GoldenSectionSearch f2 (f x') x1 x2 x' x3
+    else let x' = r*x1+c*x0 in GoldenSectionSearch (f x') f1 x0 x' x1 x2
+    where
+        r = 0.61803399
+        c = 1-r
+    
+-------------------------------------------------------------------------------
+-- Brent's methos
 
 data Brent a = Brent 
     { _a :: !a
@@ -239,18 +255,16 @@ instance IsScalar v => Has_fx1 Brent v where
             getter s = (s^.fv + s^.fw + s^.fx)/3
             setter = error "Brent.fx1 undefined"
 
--- instance Has_x1 Brent v where x1 = _x
--- instance IsScalar v => Has_fx1 Brent v where fx1 b = (_fv b+_fw b+_fx b)/3
--- instance IsScalar v => Has_fx1 Brent v where fx1 = _fx
--- instance (Ord v, IsScalar v) => Has_fx0 Brent v where fx0 b = min (_fv b) (_fw b)
-
 -- | Brent's method uses parabolic interpolation.  
 -- This function is a transliteration of the method found in numerical recipes.
--- brent :: 
---     ( Fractional a
---     , Ord a
---     , Typeable a
---     ) => (a -> a) -> LineBracket a -> History (DoTrace (Brent a))
+brent :: 
+    ( Fractional a
+    , Ord a
+    , Typeable a
+    ) => (a -> a) 
+      -> LineBracket a 
+      -> [Brent a -> History Bool]
+      -> History (Brent a)
 brent f (LineBracket ax bx cx fa fb fc) = optimize
     (step_Brent f) 
     $ Brent
@@ -274,19 +288,6 @@ brentTollerance tol opt = return $ abs (x-xm) <= tol2'-0.5*(b-a)
         tol1' = tol*(abs x)+zeps
         tol2' = 2*tol1'
         zeps = 1e-10
-
--- brentTollerance :: (Fractional a, Ord a) => a -> (History (Brent a) -> Bool)
--- brentTollerance tol = go 
---     where
---         go h = abs (x-xm) <= tol2'-0.5*(b-a)
---             where
---                 opt = execHistory h
--- 
---                 (Brent a b d e fv fw fx v w x) = opt
---                 xm = 0.5*(a+b)
---                 tol1' = tol*(abs x)+zeps
---                 tol2' = 2*tol1'
---                 zeps = 1e-10
 
 step_Brent :: 
     ( Typeable a
@@ -315,7 +316,6 @@ step_Brent f brent@(Brent a b d e fv fw fx v w x) = return brent'
                 etemp' = e
                 in if abs p'' >= abs (0.5*q'''*etemp') || p'' <= q'''*(a-x) || p'' >= q'''*(b-x)
                     then let e'' = if x>=xm then a-x else b-x in (cgold*e'',e'')
---                     else trace "a" $ let e'' = if x>=xm then a-x else b-x in (cgold*e'',e'')
                     else let d''=p''/q'''; u''=x+d'' in
                         if u''-a < tol2' || b-u'' < tol2'
                             then (sign tol1' (xm-x),d)
@@ -352,4 +352,76 @@ step_Brent f brent@(Brent a b d e fv fw fx v w x) = return brent'
                 }
 
 -------------------------------------------------------------------------------
+-- backtracking
 
+data Backtracking v = Backtracking
+    { _bt_x  :: !(Tensor 0 v)
+    , _bt_fx :: !(Tensor 0 v)
+    , _bt_f'x :: !(Tensor 1 v)
+
+    , _init_dir :: !(Tensor 1 v)
+    , _init_f'x :: !(Tensor 1 v)
+    , _init_fx  :: !(Tensor 0 v)
+    , _init_x   :: !(Tensor 1 v)
+    }
+    deriving (Typeable)
+makeLenses ''Backtracking
+
+-- instance (IsScalar (Scalar v), ValidTensor1 v) => Has_x1 Backtracking v where x1 = bt_x
+-- instance (IsScalar (Scalar v), ValidTensor1 v) => Has_fx1 Backtracking v where fx1 = bt_fx
+
+-- | Backtracking linesearch is NOT guaranteed to converge.
+-- It is frequently used as the linesearch for multidimensional problems.
+-- In this case, the overall minimization problem can converge significantly  
+-- faster than if one of the safer methods is used.
+backtracking ::
+    ( IsScalar (Scalar v)
+    , ValidTensor1 v
+    , v ~ Tensor 1 v
+    , Typeable v
+    ) => Tensor 0 v
+      -> (v -> Tensor 0 v)
+      -> (v -> Tensor 1 v)
+      -> Backtracking v
+      -> [Backtracking v -> History Bool]
+      -> History (Backtracking v)
+backtracking tao f f' = optimize
+    (step_backtracking tao f f')
+--     $ Backtracking
+--         { _bt_x = x0
+--         , _bt_fx = f x0
+--         }
+
+step_backtracking :: 
+    ( IsScalar (Scalar v) 
+    , v ~ Tensor 1 v
+    , ValidTensor1 v
+    ) => Tensor 0 v 
+      -> (v -> Tensor 0 v) 
+      -> (v -> Tensor 1 v)
+      -> Backtracking v 
+      -> History (Backtracking v)
+step_backtracking tao f f' bt = do
+    let x1 = tao * _bt_x bt
+    return $ bt
+        { _bt_x = x1
+        , _bt_fx = g x1
+        , _bt_f'x = g' x1
+        }
+    where
+        g alpha = f $ _init_x bt <> alpha .* _init_dir bt
+        g' alpha = alpha .* f' (_init_x bt <> alpha .* _init_dir bt)
+
+stop_wolfe c1 c2 bt = do
+    a <- stop_amijo c1 bt 
+    b <- stop_strongCurvature c2 bt
+    return $ a && b
+
+stop_amijo c1 bt = return $ 
+    _bt_fx bt <= _init_fx bt + c1 * (_bt_x bt) * (inner (_init_f'x bt) (_init_dir bt))
+
+stop_weakCurvature c2 bt = return $ 
+    inner (_init_dir bt) (_bt_f'x bt) >= c2 * inner (_init_dir bt) (_init_f'x bt)
+
+stop_strongCurvature c2 bt = return $ 
+    abs (inner (_init_dir bt) (_bt_f'x bt)) <= c2 * abs (inner (_init_dir bt) (_init_f'x bt))

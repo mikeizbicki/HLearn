@@ -48,4 +48,7 @@ class VectorSpace v => InnerProduct v where
     inner :: v -> v -> Scalar v
 
 innerProductNorm :: (InnerProduct v, Floating (Scalar v)) => v -> Scalar v
-innerProductNorm v = sqrt $ inner v v
+innerProductNorm = sqrt . squaredInnerProductNorm
+
+squaredInnerProductNorm :: (InnerProduct v, Floating (Scalar v)) => v -> Scalar v
+squaredInnerProductNorm v = inner v v
