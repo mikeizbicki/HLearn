@@ -12,6 +12,7 @@ import Data.Maybe
 import Debug.Trace
 
 import HLearn.Algebra
+import HLearn.Algebra.LinearAlgebra
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Models.Distributions
@@ -58,6 +59,7 @@ instance Probabilistic (KNearestNeighbor tree k dp) where
 
 instance
     ( dp ~ MaybeLabeled label attr
+    , IsScalar (Scalar dp)
     , SpaceTree tree dp
     , KnownNat k
     , Eq dp

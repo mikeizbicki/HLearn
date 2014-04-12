@@ -23,7 +23,7 @@ import Numeric.LinearAlgebra hiding ((<>))
 import HLearn.Algebra
 import HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Optimization.Common
-import qualified HLearn.Optimization.LineMinimization as LineMin
+import HLearn.Optimization.LineMinimization as LineMin
 
 
 data BFGS a = BFGS
@@ -77,7 +77,7 @@ quasiNewton f f' x0 = optimize
         , __fx0 = infinity
         , __f'x1 = f' x0
         , __f''x1 = LA.eye (VG.length x0)
-        , __alpha1 = 1e-2
+        , __alpha1 = 1e-10
         }
     )
 
@@ -97,16 +97,32 @@ step_quasiNewton ::
       -> History (BFGS vec)
 step_quasiNewton f f' opt = do
     let x0 = opt^.x1
+        fx0 = opt^.fx1
         f'x0 = opt^.f'x1
         f''x0 = opt^._f''x1
         alpha0 = opt^.stepSize
         d = inverse $ f''x0 `LA.matProduct` f'x0
         g alpha = f $ x0 <> alpha .* d
 
+--     alpha <- fmap _bt_x $ backtracking (0.75) f f' 
+--         (Backtracking
+--             { _bt_x = 1 
+--             , _bt_fx = g 1
+--             , _bt_f'x = f' $ x0 <> d
+--             , _init_dir = d
+--             , _init_x = x0
+--             , _init_fx = fx0
+--             , _init_f'x = f'x0
+--             })
+--         [ stop_wolfe 1e-4 0.9
+--         , maxIterations 100
+--         ]
+
     bracket <- LineMin.lineBracket g (alpha0/2) (alpha0*2)
-    brent <- LineMin.brent g bracket [maxIterations 200,LineMin.brentTollerance 1e-1]
+    brent <- LineMin.brent g bracket [maxIterations 200,LineMin.brentTollerance 1e-6]
     let alpha = LineMin._x  brent
-        x1 = x0 <> alpha .* d
+
+    let x1 = x0 <> alpha .* d
         f'x1 = f' x1
 
     let p=x1 <> inverse x0

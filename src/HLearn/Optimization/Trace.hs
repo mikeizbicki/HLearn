@@ -17,6 +17,7 @@ import HLearn.Optimization.Common
 import HLearn.Optimization.LineMinimization
 import HLearn.Optimization.QuasiNewton
 import HLearn.Optimization.NewtonRaphson
+import HLearn.Optimization.GradientDescent
 
 -------------------------------------------------------------------------------
 -- main functions
@@ -63,6 +64,7 @@ history2strings = go 0
         go i fs [] = []
         go i fs (e:es) = str++go i fs es
             where
+                name = [show (dyn e)]
                 str = case fromDynamic (dyn e) :: Maybe (DList.DList Event) of
                     Nothing -> map (traceSpacer i++) $ concatMap ($e) fs
                     Just x -> {-traceDList e:-}go (i+1) fs (DList.toList x)
@@ -80,12 +82,43 @@ traceDList opt = case fromDynamic (dyn opt) :: Maybe (DList.DList Event) of
 traceBracket :: Event -> [String]
 traceBracket opt = case fromDynamic (dyn opt) :: Maybe (LineBracket Double) of
     Nothing -> []
-    Just x -> [show (dyn opt)++"; fa="++showDouble (_fa x)++"; fb="++showDouble (_fb x)++"; fc="++showDouble (_fc x)]
+    Just x -> 
+        [ show (dyn opt)
+        ++"; fa="++showDouble (_fa x)
+        ++"; fb="++showDouble (_fb x)
+        ++"; fc="++showDouble (_fc x)
+--         ++"; ax="++showDouble (_ax x)
+--         ++"; bx="++showDouble (_bx x)
+--         ++"; cx="++showDouble (_cx x)
+        ]
 
 traceBrent :: Event -> [String]
 traceBrent opt = case fromDynamic (dyn opt) :: Maybe (Brent Double) of
     Nothing -> []
-    Just x -> [trace_itr undefined opt++"; "++show (dyn opt)++"; fv="++showDoubleLong (_fv x)++"; fx="++showDoubleLong (_fx x)++"; fw="++showDoubleLong (_fw x)]
+    Just x -> 
+        [ trace_itr undefined opt++"; "++show (dyn opt)
+        ++"; fv="++showDouble (_fv x)
+        ++"; fx="++showDouble (_fx x)
+        ++"; fw="++showDouble (_fw x)
+--         ++"; v="++showDouble (_v x)
+--         ++"; x="++showDouble (_x x)
+--         ++"; w="++showDouble (_w x)
+        ]
+
+traceBacktracking :: forall v. (Tensor 0 v ~ Double, Typeable v) => v -> Event -> [String]
+traceBacktracking _ opt = case fromDynamic (dyn opt) :: Maybe (Backtracking v) of
+    Nothing -> []
+    Just x -> 
+        [ trace_itr undefined opt++"; "++show (dyn opt)
+        ++"; x="++showDouble (_bt_x x)
+        ++"; fx="++showDouble (_bt_fx x)
+--         ++"; fv="++showDouble (_fv x)
+--         ++"; fx="++showDouble (_fx x)
+--         ++"; fw="++showDouble (_fw x)
+--         ++"; v="++showDouble (_v x)
+--         ++"; x="++showDouble (_x x)
+--         ++"; w="++showDouble (_w x)
+        ]
 
 -- traceGSS :: Event -> [String]
 -- traceGSS opt = case fromDynamic (dyn opt) :: Maybe (GoldenSectionSearch Double) of
@@ -100,6 +133,10 @@ traceBFGS = traceFunk (undefined :: BFGS (Vector Double))
 
 traceNewtonRaphson :: Event -> [String]
 traceNewtonRaphson = traceFunk (undefined :: NewtonRaphson (Vector Double))
+
+traceConjugateGradientDescent :: Event -> [String]
+traceConjugateGradientDescent = traceFunk (undefined :: ConjugateGradientDescent (Vector Double))
+-- traceConjugateGradientDescent _ = traceFunk (undefined :: ConjugateGradientDescent dp)
 
 traceFunk :: forall v a. 
     ( Typeable v
@@ -128,12 +165,12 @@ trace_sec :: a -> Event -> String
 trace_sec _ e = "sec="++showEFloat (Just 4) ((fromIntegral $ runtime e)*1e-12) ""
 
 trace_eventType :: a -> Event -> String
-trace_eventType _ e = head $ words $ drop 2 $ show $ dyn e
+trace_eventType _ e = take 10 $ head $ words $ drop 2 $ show $ dyn e
 
 trace_fx1 :: (RealFloat (Scalar a), Has_fx1 opt a) => opt a -> Event -> String
 trace_fx1 a _ = "fx1="++showEFloat (Just 12) (a^.fx1) ""
 
-trace_f'x1 :: (RealFloat (Scalar a), ValidTensor a, Has_f'x1 opt a) => opt a -> Event -> String
+trace_f'x1 :: (RealFloat (Scalar a), ValidTensor1 a, Has_f'x1 opt a) => opt a -> Event -> String
 -- trace_f'x1 :: (RealFloat (Scalar a), InnerProduct (Tensor 1 a), Has_f'x1 opt a) => opt a -> Event -> String
 trace_f'x1 a _ = "|f'x1|="++showEFloat (Just 4) (innerProductNorm $ a^.f'x1) ""
 
