@@ -15,6 +15,7 @@ module HLearn.Algebra.LinearAlgebra
     , Mult (..)
     , ValidTensor1 (..)
     , ValidTensor (..)
+    , ValidTensor_ (..)
     , IsScalar
     , LA.inv
     , LA.eig
@@ -181,11 +182,27 @@ class Mult a b c | a b -> c, a c -> b, b c -> a where
     mul :: a -> b -> c
 
 class 
+    ( ValidTensor a
+    , IsScalar (Scalar a)
+    , ValidTensor (Tensor 1 a)
+    , Tensor 1 a ~ (Tensor 1 (Tensor 1 a))
+    ) => ValidTensor_ a
+
+instance 
+    ( ValidTensor a
+    , IsScalar (Scalar a)
+    , ValidTensor (Tensor 1 a)
+    , Tensor 1 a ~ (Tensor 1 (Tensor 1 a))
+    ) => ValidTensor_ a
+
+class 
     ( InnerProduct (Tensor 0 a) 
     , InnerProduct (Tensor 1 a)
     , Tensor 0 a ~ Scalar a
     , Scalar (Tensor 0 a) ~ Scalar a
     , Scalar (Tensor 1 a) ~ Scalar a
+--     , Tensor 1 (Tensor 1 a) ~ Tensor 1 a
+--     , ValidTensor1 (Tensor 1 a)
     , LA.Field (Scalar a)
     ) => ValidTensor1 a 
         where

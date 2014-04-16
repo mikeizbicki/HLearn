@@ -769,7 +769,7 @@ test = do
         , traceBFGS
         , traceNewtonRaphson
         , traceConjugateGradientDescent
-        , traceBacktracking (undefined :: Attributes DP)
+--         , traceBacktracking (undefined :: Attributes DP)
 --         , traceBracket
 --         , traceBrent
 --         , traceGSS

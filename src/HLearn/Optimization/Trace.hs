@@ -17,7 +17,7 @@ import HLearn.Optimization.Common
 import HLearn.Optimization.LineMinimization
 import HLearn.Optimization.QuasiNewton
 import HLearn.Optimization.NewtonRaphson
-import HLearn.Optimization.GradientDescent
+-- import HLearn.Optimization.GradientDescent
 
 -------------------------------------------------------------------------------
 -- main functions
@@ -133,10 +133,6 @@ traceBFGS = traceFunk (undefined :: BFGS (Vector Double))
 
 traceNewtonRaphson :: Event -> [String]
 traceNewtonRaphson = traceFunk (undefined :: NewtonRaphson (Vector Double))
-
-traceConjugateGradientDescent :: Event -> [String]
-traceConjugateGradientDescent = traceFunk (undefined :: ConjugateGradientDescent (Vector Double))
--- traceConjugateGradientDescent _ = traceFunk (undefined :: ConjugateGradientDescent dp)
 
 traceFunk :: forall v a. 
     ( Typeable v
