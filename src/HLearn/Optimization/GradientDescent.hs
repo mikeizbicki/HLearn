@@ -6,6 +6,8 @@ module HLearn.Optimization.GradientDescent
     , ConjugateGradientDescent (..)
     , StepMethod (..)
     , ConjugateMethod (..)
+    , traceConjugateGradientDescent
+    , linsolvesd
     )
     where
 
@@ -26,13 +28,16 @@ import qualified Data.Vector.Storable.Mutable as VSM
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Algorithms.Intro as Intro
-import Numeric.LinearAlgebra hiding ((<>))
+-- import Numeric.LinearAlgebra hiding ((<>))
 import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
 import HLearn.Algebra.LinearAlgebra
 -- import HLearn.Algebra.Structures.Monad
 import HLearn.Optimization.Common
+import HLearn.Optimization.Trace
+import HLearn.Optimization.QuasiNewton hiding (__x1,__fx1,__f'x1,_x1,_fx1,_f'x1) 
+import HLearn.Optimization.NewtonRaphson hiding (__x1,__fx1,__f'x1,_x1,_fx1,_f'x1) 
 import HLearn.Optimization.LineMinimization as LineMin
 
 -------------------------------------------------------------------------------
@@ -48,9 +53,6 @@ data ConjugateGradientDescent a = ConjugateGradientDescent
     }
     deriving (Typeable)
 makeLenses ''ConjugateGradientDescent
-
--- deriving instance (Read a, Read (Scalar a)) => Read (ConjugateGradientDescent a)
--- deriving instance (Show a, Show (Scalar a)) => Show (ConjugateGradientDescent a)
 
 instance ValidTensor1 v => Has_x1 ConjugateGradientDescent v where x1 = _x1
 instance ValidTensor1 v => Has_fx1 ConjugateGradientDescent v where fx1 = _fx1
@@ -113,16 +115,18 @@ steepestDescent f f' = conjugateGradientDescent_ LineSearch None f f'
 --       -> (v -> v)
 --       -> v
 --       -> History (ConjugateGradientDescent v)
-conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = optimize
-    (step_conjugateGradientDescent searchMethod conjugateMethod f f')
-    $ ConjugateGradientDescent
-        { __x1 = x0
-        , __fx1 = infinity -- f x0
-        , __f'x1 = f' x0
-        , __alpha = 1e-5
-        , __f'x0 = 2 .* f' x0
-        , __s0 = f' x0
-        }
+conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = do
+    optimize
+        (step_conjugateGradientDescent searchMethod conjugateMethod f f')
+        $ ConjugateGradientDescent
+            { __x1 = x0
+            , __fx1 = f x0
+    --         , __fx1 = infinity -- f x0
+            , __f'x1 = f' x0
+            , __alpha = 1e-2
+            , __f'x0 = 2 .* f' x0
+            , __s0 = f' x0
+            }
 
 -- | performs a single iteration of the conjugate gradient descent algorithm
 step_conjugateGradientDescent :: 
@@ -132,8 +136,6 @@ step_conjugateGradientDescent ::
     , Ord (Scalar v)
     , Typeable (Scalar v)
     , Typeable v
-    , Show v
-    , Show (Scalar v)
     ) => StepMethod (Scalar v)
       -> ConjugateMethod
       -> (v -> Scalar v)
@@ -156,7 +158,8 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
             then 0
             else max 0 $ rawbeta
 
-    let s1 = (inverse f'x1) <> 0.1*beta .* f'x1
+--     let s1 = (inverse f'x1) <> beta .* f'x1
+    let s1 = (inverse f'x1) <> beta .* s0
 
     let g y = f $ x1 <> y .* s1
 
@@ -180,7 +183,8 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
 --         LineSearch -> do
 --             bracket <- LineMin.lineBracket g (alpha1/2) (alpha1*2)
 --             brent <- LineMin.brent g bracket 
---                 [ LineMin.brentTollerance 1e-1
+--                 [ LineMin.brentTollerance 1e-3
+--                 , maxIterations 100
 -- --                 , lowerBound fx1
 --                 ]
 --             return $ LineMin._x brent
@@ -196,4 +200,60 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
         , __s0 = s1
         }
 
+-------------------------------------------------------------------------------
+-- trace
 
+traceConjugateGradientDescent :: Event -> [String]
+traceConjugateGradientDescent = traceFunk (undefined :: ConjugateGradientDescent (Vector Double))
+-- traceConjugateGradientDescent _ = traceFunk (undefined :: ConjugateGradientDescent dp)
+
+-------------------------------------------------------------------------------
+-- tests
+
+numdim :: Double
+numdim = 25
+
+mat :: LA.Matrix Double
+-- mat = eye $ floor numdim
+mat = foldl1 (<>) [go i | i <- [1..numdim] ]
+    where
+        go i = outerProductV x x
+            where
+                x = VG.fromList $ map ( (*i) . indicator . (==i)) $ [1..numdim]
+--                 x = VG.map sqrt $ VG.fromList [i..numdim+i-1]
+
+vec :: Vector Double
+vec = VG.fromList [i**2 | i <- [1..numdim]]
+
+linsolvesd :: forall v. 
+    ( ValidTensor_ v
+    , Ord (Scalar v)
+    , Typeable (Scalar v)
+    , Typeable v
+    , Typeable (Tensor 1 v)
+    ) => Tensor 2 v
+      -> v
+      -> History (Tensor 1 v)
+linsolvesd a b' = fmap (^.x1) $ conjugateGradientDescent_ LineSearch FletcherReeves f f' zero 
+    [ multiplicativeTollerance 1e-6
+    , maxIterations 20
+    ]
+    where
+        b = mkTensor b'
+        zero = b <> inverse b -- mempty -- VG.map (const 0) b
+        f   x = (1/2) .* (inner x (mul a' x)) <> inverse (inner x b)
+        f'  x = mul a' x <> inverse b
+        f'' x = a'
+
+        a' = a -- <> eye (rows a)
+
+test :: IO (Vector Double)
+test = do
+    let (res,hist) = unsafeRunHistory $ linsolvesd mat vec
+    printHistory 
+        [ traceConjugateGradientDescent
+        , traceBFGS
+        , traceNewtonRaphson
+        ]
+        hist
+    return $ mul mat res <> inverse vec

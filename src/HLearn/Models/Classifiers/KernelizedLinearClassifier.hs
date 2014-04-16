@@ -173,8 +173,8 @@ klrtrainM lambda dps weights0 = do
                     .* (train1dp $ getAttributes dp :: FreeVectorSpace (Scalar dp) (Attributes dp))
 
                 f :: FreeVectorSpace (Scalar (Attributes dp)) (Attributes dp) -> Scalar (Attributes dp)
-                f   w = trace "f" $  (numdp*lambda .* reg   w) <> (sumOver dps $ \dp -> loss   dp w)
-                f'  w = trace "f'" $ (numdp*lambda .* reg'  w) <> (sumOver dps $ \dp -> loss'  dp w)
+                f   w = (numdp*lambda .* reg   w) <> (sumOver dps $ \dp -> loss   dp w)
+                f'  w = (numdp*lambda .* reg'  w) <> (sumOver dps $ \dp -> loss'  dp w)
 
                 numdp :: Scalar dp
                 numdp = fromIntegral $ length $ F.toList dps
@@ -238,11 +238,11 @@ traceKernelizedLinearClassifier _ opt = case fromDynamic (dyn opt) :: Maybe (Ker
 
 test = do
     
-    let {filename = "../datasets/ida/banana_data.csv"; label_index=0}
+--     let {filename = "../datasets/ida/banana_data.csv"; label_index=0}
 --     let {filename = "../datasets/ripley/synth.train.csv"; label_index=2}
 --     let {filename = "../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
---     let {filename = "../datasets/uci/wine.csv"; label_index=0}
+    let {filename = "../datasets/uci/wine.csv"; label_index=0}
 --     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
 --     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
