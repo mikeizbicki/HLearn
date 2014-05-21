@@ -7,7 +7,7 @@ module HLearn.Optimization.GradientDescent
     , StepMethod (..)
     , ConjugateMethod (..)
     , traceConjugateGradientDescent
-    , linsolvesd
+    , linsolvepsd
     )
     where
 
@@ -183,7 +183,7 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
 --         LineSearch -> do
 --             bracket <- LineMin.lineBracket g (alpha1/2) (alpha1*2)
 --             brent <- LineMin.brent g bracket 
---                 [ LineMin.brentTollerance 1e-3
+--                 [ LineMin.brentTollerance 1e-12
 --                 , maxIterations 100
 -- --                 , lowerBound fx1
 --                 ]
@@ -211,21 +211,23 @@ traceConjugateGradientDescent = traceFunk (undefined :: ConjugateGradientDescent
 -- tests
 
 numdim :: Double
-numdim = 25
+numdim = 2
 
 mat :: LA.Matrix Double
+mat = (2 LA.>< 2) [1,1.5,1.5,2]
 -- mat = eye $ floor numdim
-mat = foldl1 (<>) [go i | i <- [1..numdim] ]
-    where
-        go i = outerProductV x x
-            where
-                x = VG.fromList $ map ( (*i) . indicator . (==i)) $ [1..numdim]
+-- mat = foldl1 (<>) [go i | i <- [1..numdim] ]
+--     where
+--         go i = outerProductV x x
+--             where
+--                 x = VG.fromList $ map ( (*i) . indicator . (==i)) $ [1..numdim]
 --                 x = VG.map sqrt $ VG.fromList [i..numdim+i-1]
 
 vec :: Vector Double
-vec = VG.fromList [i**2 | i <- [1..numdim]]
+vec = VG.fromList [i | i <- [1..numdim]]
+-- vec = VG.fromList [i**2 | i <- [1..numdim]]
 
-linsolvesd :: forall v. 
+linsolvepsd :: forall v. 
     ( ValidTensor_ v
     , Ord (Scalar v)
     , Typeable (Scalar v)
@@ -234,7 +236,8 @@ linsolvesd :: forall v.
     ) => Tensor 2 v
       -> v
       -> History (Tensor 1 v)
-linsolvesd a b' = fmap (^.x1) $ conjugateGradientDescent_ LineSearch FletcherReeves f f' zero 
+linsolvepsd a b' = fmap (^.x1) $ conjugateGradientDescent_ LineSearch FletcherReeves f f' zero 
+-- linsolvesd a b' = fmap (^.x1) $ conjugateGradientDescent_ LineSearch None f f' zero 
     [ multiplicativeTollerance 1e-6
     , maxIterations 20
     ]
@@ -249,11 +252,22 @@ linsolvesd a b' = fmap (^.x1) $ conjugateGradientDescent_ LineSearch FletcherRee
 
 test :: IO (Vector Double)
 test = do
-    let (res,hist) = unsafeRunHistory $ linsolvesd mat vec
+    let (res,hist) = unsafeRunHistory $ linsolvepsd mat vec
     printHistory 
-        [ traceConjugateGradientDescent
-        , traceBFGS
-        , traceNewtonRaphson
+        [ traceType (Proxy::Proxy (ConjugateGradientDescent (Vector Double))) 
+            [ shortName, numItr, show_fx1, show_f'x1, showSeconds
+            ]
+        , traceType (Proxy::Proxy (Backtracking (Vector Double)))
+            [ shortName, numItr, show_fx1, showSeconds ] 
         ]
+--         [ traceConjugateGradientDescent
+--         , traceBFGS
+--         , traceNewtonRaphson
+--         , traceBracket
+--         , traceBrent
+--         , traceBacktracking (undefined :: Vector Double)
+--         ]
         hist
-    return $ mul mat res <> inverse vec
+    print "minimum"
+    print $ mul mat res <> inverse vec
+    return res

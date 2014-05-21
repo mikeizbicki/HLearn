@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes,ImpredicativeTypes,DataKinds #-}
 module HLearn.Optimization.Trace
     where
 
@@ -56,6 +56,12 @@ traceSpacer i = traceSpacer (i-1)++" . "
 
 printHistory :: [Event->[String]] -> [Event] -> IO ()
 printHistory fs es = mapM_ putStrLn $ history2strings fs es
+-- printHistory fs [] = putStrLn "done."
+-- printHistory fs (e:es) = do
+--     putStrLn $ concat $ event2string fs e
+--     printHistory fs es
+
+event2string fs e = history2strings fs [e]
 
 history2strings :: [Event->[String]] -> [Event] -> [String]
 history2strings = go 0
@@ -67,7 +73,7 @@ history2strings = go 0
                 name = [show (dyn e)]
                 str = case fromDynamic (dyn e) :: Maybe (DList.DList Event) of
                     Nothing -> map (traceSpacer i++) $ concatMap ($e) fs
-                    Just x -> {-traceDList e:-}go (i+1) fs (DList.toList x)
+                    Just x -> (traceSpacer (i+1)++traceDList e):go (i+2) fs (DList.toList x)
 
 -------------------------------------------------------------------------------
 -- printing specific types
@@ -154,11 +160,51 @@ traceFunk _ opt = case fromDynamic (dyn opt) :: Maybe (v a) of
 
 -------------------------------------------------------------------------------
 
+traceType :: forall a. Typeable a => Proxy a -> [TraceResult a] -> Event -> [String]
+traceType _ fs e = case fromDynamic (dyn e) :: Maybe a of
+    Nothing -> []
+    Just opt -> [concat $ intersperse "; " $ map (\f -> disp $ f opt e) fs]
+    where
+        disp (name,val) = if longForm name
+            then name++"="++val
+            else val
+
+        longForm "shortName" = False
+        longForm "longName" = False
+        longForm _ = True
+
+-------------------
+
+type TraceResult a = a -> Event -> (String,String)
+
+numItr :: TraceResult a
+numItr _ e = ("itr",show (count e))
+
+shortName :: TraceResult a
+shortName _ e = ("shortName",head $ words $ drop 2 $ show $ dyn e)
+
+longName :: TraceResult a
+longName _ e = ("longName", init $ init $ drop 2 $ show $ dyn e)
+
+showSeconds :: TraceResult a
+showSeconds _ e = ("sec",showEFloat (Just 4) ((fromIntegral $ runtime e)*1e-12 :: Double) "")
+
+show_fx1 :: (Has_fx1 opt a, RealFloat (Scalar a)) => TraceResult (opt a)
+show_fx1 a _ = ("fx1",showEFloat (Just 12) (a^.fx1) "")
+
+show_f'x1 :: (Has_f'x1 opt a, RealFloat (Scalar a)) => TraceResult (opt a)
+show_f'x1 a _ = ("|f'x1|",showEFloat (Just 4) (innerProductNorm $ a^.f'x1) "")
+
+-------------------
+
 trace_itr :: a -> Event -> String
 trace_itr _ e = "itr="++show (count e)
 
 trace_sec :: a -> Event -> String
-trace_sec _ e = "sec="++showEFloat (Just 4) ((fromIntegral $ runtime e)*1e-12) ""
+trace_sec _ e = "sec="++showEFloat (Just 4) ((fromIntegral $ runtime e)*1e-12 :: Double) ""
+
+-- trace_eventType :: a -> Event -> String
+-- trace_eventType _ e = take 10 $ head $ words $ drop 2 $ show $ dyn e
 
 trace_eventType :: a -> Event -> String
 trace_eventType _ e = take 10 $ head $ words $ drop 2 $ show $ dyn e

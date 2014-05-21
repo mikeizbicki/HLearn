@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fllvm -O2 -funbox-strict-fields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Control.DeepSeq
@@ -41,8 +42,8 @@ main = do
 --     let {filename = "../../datasets/uci/iris.data"; label_index=4}
 --     let {filename = "../../datasets/uci/wdbc-mod2.csv"; label_index=0}
 --     let {filename = "../../datasets/uci/wpbc-mod2.csv"; label_index=0}
-    let {filename = "../../datasets/uci/wine.csv"; label_index=0}
---     let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
+--     let {filename = "../../datasets/uci/wine.csv"; label_index=0}
+    let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
 --     let {filename = "../../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../../datasets/uci/magic04.data"; label_index=10}
 --     let {filename = "../../datasets/uci/spambase.data"; label_index=57}
@@ -109,7 +110,7 @@ main = do
                             (repeatExperiment 1 (kfold k))
                             errorRate
                             ys
-                            (klrtrain lambda) --  :: [DP] -> LinearClassifier DP)
+                            (lrtrain lambda) --  :: [DP] -> LinearClassifier DP)
                     hPutStrLn stderr $ show (mean res)++", "++show (variance res)
                     return (train1dp (mean res) :: Normal Double Double)
                 | n <- [1..1+trials-1]
@@ -122,7 +123,29 @@ main = do
                   ++ "      " ++ "---"
             hFlush stdout
 
-    let test_mappend trials k lambda _mappend = do
+    let test_mappend_ub trials k lambda _mappend = do
+            (secdist,errdist) <- fmap reduce $ sequence
+                [ timeIO $ do 
+                    hPutStr stderr $ show n++", "
+                    let res = flip evalRand (mkStdGen n) $ validate_monoid
+                            (repeatExperiment 1 (kfold k))
+                            errorRate
+                            ys
+                            (lrtrainub lambda :: [DP] -> LinearClassifier DP)
+                            _mappend
+                    hPutStrLn stderr $ show (mean res)++", "++show (variance res)
+                    return (train1dp (mean res) :: Normal Double Double)
+                | n <- [1..1+trials-1]
+                ]
+
+            putStr $ "      " ++ show (mean secdist)
+                  ++ "      " ++ show (variance secdist)
+                  ++ "      " ++ show (mean errdist)
+                  ++ "      " ++ show (variance errdist)
+                  ++ "      " ++ "---"
+            hFlush stdout
+            
+    let test_mappend_Taylor trials k lambda _mappend = do
             (secdist,errdist) <- fmap reduce $ sequence
                 [ timeIO $ do 
                     hPutStr stderr $ show n++", "
@@ -151,21 +174,23 @@ main = do
                 putStr $ show k
                       ++ "      " ++ show lambda
                       ++ "      " ++ "---"
-                let numtrials=1
+                let numtrials=3
                 test_nomappend numtrials k lambda
---                 test_mappend numtrials k lambda mappendAverage
---                 blanktest
+                blanktest
+                test_mappend_Taylor numtrials k lambda mappendAverage
+                test_mappend_Taylor numtrials k lambda mappendTaylor
+                test_mappend_ub numtrials k lambda mappendTaylor
+                blanktest
+                test_mappend_ub numtrials k lambda (reoptimize mappendTaylor)
 --                 test_mappend numtrials k lambda (reoptimize mappendAverage)
---                 test_mappend numtrials k lambda mappendTaylor
---                 blanktest
---                 test_mappend numtrials k lambda (reoptimize mappendTaylor)
+--                 test_mappend_Taylor numtrials k lambda (reoptimize mappendTaylor)
+--                 test_mappend_ub numtrials k lambda (reoptimize mappendTaylor)
                 putStrLn ""
---             | k <- [2..50]
+            | k <- [2..50]
 --             | k <- [5,50,100,150,200,250,300,350,400,450,500]
 --             , lambda <- [0]
-            | k <- [10]
 --             , lambda <- [1e5,1e4,1e3,1e2,1e1,1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,0]
-            , lambda <- [1e-3]
+            , lambda <- [1e-4]
             ]
 
     ioxs <- sequence tests
