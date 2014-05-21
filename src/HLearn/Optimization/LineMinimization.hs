@@ -1,11 +1,13 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell,DataKinds #-}
 module HLearn.Optimization.LineMinimization
     (
     -- * Safe line minimization
     
+    -- ** bracket
     LineBracket (..)
     , lineBracket 
 
+    -- ** minimizers
     , GoldenSectionSearch (..)
     , goldenSectionSearch 
 
@@ -368,7 +370,7 @@ data Backtracking v = Backtracking
 makeLenses ''Backtracking
 
 -- instance (IsScalar (Scalar v), ValidTensor1 v) => Has_x1 Backtracking v where x1 = bt_x
--- instance (IsScalar (Scalar v), ValidTensor1 v) => Has_fx1 Backtracking v where fx1 = bt_fx
+instance (IsScalar (Scalar v), ValidTensor1 v) => Has_fx1 Backtracking v where fx1 = bt_fx
 
 -- | Backtracking linesearch is NOT guaranteed to converge.
 -- It is frequently used as the linesearch for multidimensional problems.

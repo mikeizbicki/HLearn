@@ -50,6 +50,8 @@ newtype History a = History
         (StateT StateStack 
              (RandT StdGen
                  Identity
+--                  IO
+--                  LazyIO
              )
         ) 
     a )
@@ -57,6 +59,26 @@ newtype History a = History
 
 deriving instance Typeable DList.DList 
 
+-------------------
+
+newtype LazyIO a = LazyIO { strictIO :: IO a }
+
+instance Functor LazyIO where
+    fmap f (LazyIO a) = LazyIO $ fmap f a
+
+-- instance Applicative LazyIO where
+    
+instance Monad LazyIO where
+    return a = LazyIO $ return a
+    (LazyIO a) >>= f = LazyIO $ a >>= unsafeInterleaveIO . strictIO . f 
+--     (LazyIO a) >>= f = LazyIO $ a >>= unsafeGetIO . f 
+
+---------
+
+-- unsafeIO2History :: IO a -> History a
+-- unsafeIO2History a = History $ lift $ lift $ lift $ LazyIO a
+
+-------------------
 data Event = Event
     { dyn :: Dynamic
     , stoptime :: Integer
@@ -69,10 +91,13 @@ data StartHistory = StartHistory
 
 runHistory :: History a -> IO (a,[Event])
 runHistory (History w) = do
-    let ((a,xs),_) = runIdentity $ flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) emptyStack
+    let ((a,xs),_) = runIdentity $ flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) $ push [] emptyStack
     return (a,DList.toList xs)
 -- runHistory (History w) = do
---     ((a,xs),_) <- flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) emptyStack
+--     ((a,xs),_) <- flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) $ push [] emptyStack
+--     return (a,DList.toList xs)
+-- runHistory (History w) = do
+--     ((a,xs),_) <- strictIO $ flip evalRandT (mkStdGen 0) $ runStateT (runWriterT w) emptyStack
 --     return (a,DList.toList xs)
 
 unsafeRunHistory :: History a -> (a,[Event])
@@ -134,6 +159,7 @@ event :: Typeable a => a -> History ()
 event !a = do
     numEvents <- countEvents
     event0 <- prevEvent
+--     time <- unsafeIO2History $ getCPUTime
     History $ do
         let dyn = toDyn a
 --             time = unsafePerformIO $ getCPUTime
@@ -151,6 +177,7 @@ report :: Typeable a => a -> History a
 report a = event a >> return a
 
 collectEvents :: History a -> History a
+-- collectEvents = id
 collectEvents (History m) = History $ do
     modify $ push []
     a <- censor (\ws -> DList.singleton $ Event (toDyn ws) 0 0 0) m

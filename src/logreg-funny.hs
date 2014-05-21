@@ -39,9 +39,9 @@ main = do
 --     let {filename = "../../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../../datasets/uci/iris.data"; label_index=4}
 --     let {filename = "../../datasets/uci/wdbc-mod2.csv"; label_index=0}
-    let {filename = "../../datasets/uci/wpbc-mod2.csv"; label_index=0}
+--     let {filename = "../../datasets/uci/wpbc-mod2.csv"; label_index=0}
 --     let {filename = "../../datasets/uci/wine.csv"; label_index=0}
---     let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
+    let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
 --     let {filename = "../../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../../datasets/uci/magic04.data"; label_index=10}
 --     let {filename = "../../datasets/uci/spambase.data"; label_index=57}
@@ -132,14 +132,11 @@ main = do
         [ do
             putStr $ show n++" "
             putStrLn $ map repl $ tail $ init $ show $ map mean $ foldl1 (zipWith (<>)) 
-                [ flip evalRand (mkStdGen seed) $ monoidtest (VG.toList ys) n
+                [ flip evalRand (mkStdGen seed) $ funnytest funny (VG.toList ys) n
                 | seed <- [1..100]
                 ]
             hFlush stdout
-        | n <- [1..200]
---         | n <- [1,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,310,320,330,340,350,360,370,380,390,400]
---         | n <- [1,50,100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000]
---         | n <- map (*10) [1..5]
+        | funny <- [ i/10 | i <- [0..20]]
         ]
 
 --     let testM n f = validate
@@ -165,4 +162,117 @@ main = do
 --     sequence_ tests
 
     putStrLn "done."
+
+-------------------------------------------------------------------------------
+
+funnytest funny dps n = do
+    dps' <- shuffle dps
+    xs' <- kfold 10 dps'
+    return $ foldl1 (zipWith (<>)) $ map (map (train1dp :: Double -> Normal Double Double)) $ do
+        testset <- xs'
+        let trainingset = concat $ filter (/=testset) xs'
+        return $ runtest funny (partition n trainingset) testset
+
+runtest ::
+    ( Scalar dp ~ Double
+    , Labeled dp 
+    , LA.Field (Scalar dp)
+    , VectorSpace (Scalar dp)
+    , Ord (Scalar dp)
+    , Ord (Label dp)
+    , Attributes dp ~ LA.Vector Double
+    , Show (Label dp)
+    , Show dp
+    , Typeable dp
+    , Typeable (Label dp)
+    , Typeable (Attributes dp)
+    , Ord dp
+    ) => Scalar dp -> [[dp]] -> [dp] -> [Scalar dp]
+runtest funny dpsL testset = 
+    [ --     , errorRate lr1 testset
+--     , errorRate lr2 testset
+--     , errorRate lr3 testset
+    , errorRate lr4 testset
+--     , errorRate lr5 testset
+--     , errorRate lr6 testset
+--     , errorRate lr7 testset
+    , 0/1/0
+--     , errorRate funny1 testset
+--     , errorRate funny2 testset
+--     , errorRate funny3 testset
+    , errorRate funny4 testset
+--     , errorRate funny5 testset
+--     , errorRate funny6 testset
+--     , errorRate funny7 testset
+    ++ [0/1/0]
+    ++ [0/1/0]
+    ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights lr1))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights lr2))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights lr3))
+--     ++ [0/1/0]
+    ++ Map.elems (Map.mapWithKey go (weights lr4))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights lr5))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights lr6))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights lr7))
+    ++ [0/1/0]
+    ++ [0/1/0]
+    ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights funny1))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights funny2))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights funny3))
+--     ++ [0/1/0]
+    ++ Map.elems (Map.mapWithKey go (weights funny4))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights funny5))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights funny6))
+--     ++ [0/1/0]
+--     ++ Map.elems (Map.mapWithKey go (weights funny7))
+
+    where
+        lrL1 = map (lrtrain 1e-2) dpsL
+        lrL2 = map (lrtrain 1e-3) dpsL
+        lrL3 = map (lrtrain 1e-4) dpsL
+        lrL4 = map (lrtrain 1e-5) dpsL
+        lrL5 = map (lrtrain 1e-6) dpsL
+        lrL6 = map (lrtrain 1e-7) dpsL
+        lrL7 = map (lrtrain 0) dpsL
+        funnyL1 = map (funnytrain funny 1e-2) dpsL
+        funnyL2 = map (funnytrain funny 1e-3) dpsL
+        funnyL3 = map (funnytrain funny 1e-4) dpsL
+        funnyL4 = map (funnytrain funny 1e-5) dpsL
+        funnyL5 = map (funnytrain funny 1e-6) dpsL
+        funnyL6 = map (funnytrain funny 1e-7) dpsL
+        funnyL7 = map (funnytrain funny 0) dpsL
+        lr1 = head lrL1
+        lr2 = head lrL2
+        lr3 = head lrL3
+        lr4 = head lrL4
+        lr5 = head lrL5
+        lr6 = head lrL6
+        lr7 = head lrL7
+        funny1 = foldl1 mappendAverage lrL1
+        funny2 = foldl1 mappendAverage lrL2
+        funny3 = foldl1 mappendAverage lrL3
+        funny4 = foldl1 mappendAverage lrL4
+        funny5 = foldl1 mappendAverage lrL5
+        funny6 = foldl1 mappendAverage lrL6
+        funny7 = foldl1 mappendAverage lrL7
+
+        dps = concat dpsL
+
+        go l (_,w0,_) = f w0
+            where
+                f w = sumOver dps $ \dp ->
+                        logSumOfExp2 0 $ -(y dp * inner w (getAttributes dp))
+
+                y dp = bool2num $ getLabel dp==l 
 

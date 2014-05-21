@@ -27,7 +27,7 @@ Library
         logfloat            >= 0.12,
 
         -- my packages
-        ConstraintKinds     >= 1.1.0,
+        ConstraintKinds     >= 1.2.0,
 
         -- are these needed?
         statistics          >= 0.10,
