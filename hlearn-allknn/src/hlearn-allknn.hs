@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -O2 -fllvm -funbox-strict-fields #-}
 {-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators,MultiParamTypeClasses #-}
 
 
@@ -33,6 +34,7 @@ import System.Environment
 import System.IO
 import System.Mem
 import Numeric
+import qualified Numeric.LinearAlgebra as LA
 
 import Test.QuickCheck hiding (verbose,sample)
 import Debug.Trace
@@ -95,8 +97,8 @@ main = do
 
     case k params of 
         1 -> runit params (undefined :: Tree) (undefined :: NeighborMap 1 DP)
-        2 -> runit params (undefined :: Tree) (undefined :: NeighborMap 2 DP)
-        3 -> runit params (undefined :: Tree) (undefined :: NeighborMap 3 DP)
+--         2 -> runit params (undefined :: Tree) (undefined :: NeighborMap 2 DP)
+--         3 -> runit params (undefined :: Tree) (undefined :: NeighborMap 3 DP)
 --         4 -> runit params (undefined :: Tree) (undefined :: NeighborMap 4 DP)
 --         5 -> runit params (undefined :: Tree) (undefined :: NeighborMap 5 DP)
 --         6 -> runit params (undefined :: Tree) (undefined :: NeighborMap 6 DP)
@@ -122,12 +124,12 @@ runit :: forall k tree base childContainer nodeVvec dp ring.
     , Ord dp
     , KnownNat k
     , Show dp
-    , Show (Ring dp)
+    , Show (Scalar dp)
     , NFData dp
-    , NFData (Ring dp)
-    , RealFloat (Ring dp)
+    , NFData (Scalar dp)
+    , RealFloat (Scalar dp)
     , FromRecord dp 
-    , VU.Unbox (Ring dp)
+    , VU.Unbox (Scalar dp)
     , dp ~ DP
     ) => Params 
       -> AddUnit (CoverTree' base childContainer nodeVvec) () dp 
@@ -139,8 +141,7 @@ runit params tree knn = do
     let ref = fromJust $ reference_file params
     rs <- loaddata ref 
 
---     let reftree = {-parallel-} train rs :: Tree
-    let reftree = parallel train rs :: Tree
+    let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
     let reftree_prune = packCT $ unUnit reftree
     timeIO "packing reference tree" $ return reftree_prune
@@ -167,33 +168,6 @@ runit params tree knn = do
     -- do knn search
     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindNeighborMap" $ return result
-    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindNeighborMap" $ return result
-
-    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 2 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-
-    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-    let result = parFindEpsilonNeighborMap 4 (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
-    res <- timeIO "computing parFindEpsilonNeighborMap" $ return result
-
---     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parallel findNeighborMap" $ return result
---     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parallel findNeighborMap" $ return result
---     let result = parallel findNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
---     res <- timeIO "computing parallel findNeighborMap" $ return result
---     let result = findRangeMap 0 100 (DualTree (reftree_prune) (unUnit querytree)) :: RangeMap DP
---     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files
     let qs_index = Map.fromList $ zip (VG.toList qs) [0::Int ..]
@@ -242,8 +216,9 @@ loaddata filename = do
     putStrLn ""
 
     let shufflemap = mkShuffleMap rs
-    return $ VG.convert $ VG.map (shuffleVec $ VU.map fst shufflemap) rs
---     return rs
+--     return $ VG.convert $ VG.map (shuffleVec $ VU.map fst shufflemap) rs
+--     return $ VG.convert $ shufflePCA rs
+    return rs
 
 -- | calculate the variance of each column, then sort so that the highest variance is first
 mkShuffleMap :: (VG.Vector v a, Floating a, Ord a, VU.Unbox a) => V.Vector (v a) -> VU.Vector (Int,a)
@@ -265,6 +240,27 @@ shuffleVec vmap v = runST $ do
     forM [0..VG.length v-1] $ \i -> do
         VGM.write ret i $ v VG.! (vmap VG.! i)
     VG.freeze ret
+
+v1 = VS.fromList [1,2,3]
+v2 = VS.fromList [1,3,4]
+v3 = VS.fromList [1,5,6]
+v4 = VS.fromList [0,0,1]
+vs = V.fromList [v1,v2,v3,v4] :: V.Vector (VS.Vector Float)
+
+dist a b = distance (L2 a) (L2 b)
+
+shufflePCA :: 
+    ( VG.Vector container dp
+    , VG.Vector v a
+    , dp ~ v a
+    , Show a
+    , a ~ Float
+    ) => container dp -> container dp
+shufflePCA dps = VG.map (\dp -> VG.convert $ LA.single $ eigm LA.<> LA.double (VG.convert dp :: VS.Vector Float)) dps
+    where
+        (eigv,eigm) = LA.eigSH $ LA.double gramMatrix
+        gramMatrix = foldl1' (+) 
+            [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
 
 -- printTreeStats :: String -> Tree -> IO ()
 printTreeStats str t = do
