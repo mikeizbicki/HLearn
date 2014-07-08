@@ -216,8 +216,7 @@ type instance VG.Mutable (L2' v) = L2'M (VG.Mutable v)
 
 ---------------------------------------
 
-instance Num r => HasRing (L2' v r) where
-    type Ring (L2' v r) = r
+type instance Scalar (L2' v r) = r
 
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
 -- instance MetricSpace (L2' VU.Vector Float) where

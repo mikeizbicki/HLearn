@@ -330,12 +330,12 @@ lrtrainMtaylor taylor lambda dps weights0 = do
                 f'' w = (numdp*lambda .* reg'' w) <> (sumOver dps $ \dp -> loss'' dp w)
 
                 project :: Vector r -> Vector r -> Vector r
-                project dp1 dp2 = (inner dp1 dp2 / innerProductNorm dp2) .* dp2
+                project dp1 dp2 = 0.5 .* (inner dp1 dp2 / innerProductNorm dp2) .* dp2
 
                 ub_a :: Vector r -> Matrix r
                 ub_a w = inverse (sumOver dps $ \dp ->  
                             outerProduct (getAttributes dp) (getAttributes dp) *. (
-                                (numdp*lambda .* reg   w) <>
+                                (lambda .* reg   w) <>
                                 innerProductNorm
                                     ( loss' dp (project w (getAttributes dp))
                                       <> inverse (loss' dp mempty)
@@ -706,7 +706,7 @@ instance
 
 monoidtest dps n = do
     dps' <- shuffle dps
-    xs' <- kfold 10 dps'
+    xs' <- kfold 2 dps'
     return $ foldl1 (zipWith (<>)) $ map (map (train1dp :: Double -> Normal Double Double)) $ do
         testset <- xs'
         let trainingset = concat $ filter (/=testset) xs'

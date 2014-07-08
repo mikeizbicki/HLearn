@@ -41,9 +41,9 @@ main = do
 --     let {filename = "../../datasets/uci/haberman.data"; label_index=3}
 --     let {filename = "../../datasets/uci/iris.data"; label_index=4}
 --     let {filename = "../../datasets/uci/wdbc-mod2.csv"; label_index=0}
---     let {filename = "../../datasets/uci/wpbc-mod2.csv"; label_index=0}
+    let {filename = "../../datasets/uci/wpbc-mod2.csv"; label_index=0}
 --     let {filename = "../../datasets/uci/wine.csv"; label_index=0}
-    let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
+--     let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
 --     let {filename = "../../datasets/uci/sonar.csv"; label_index=60}
 --     let {filename = "../../datasets/uci/magic04.data"; label_index=10}
 --     let {filename = "../../datasets/uci/spambase.data"; label_index=57}
