@@ -1,48 +1,47 @@
-{-# OPTIONS_GHC -O2 -fllvm -funbox-strict-fields #-}
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators,MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-
-import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
-import Control.Monad.ST
 import Data.Csv
 import Data.List
 import Data.Maybe
-import Data.Traversable (traverse)
-import qualified Data.Foldable as F
 import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified Data.Strict.Maybe as Strict
+import qualified Data.Params as P
+import Data.Params.Vector
+import Data.Params.PseudoPrim
+import qualified Data.Params.Vector.Unboxed as VPU
 import qualified Data.Vector as V
-import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Mutable as VM
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
-import Data.Vector.Unboxed.Deriving
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Vector.Algorithms.Intro as Intro
-import Data.Proxy
-import Data.Reflection
-import Data.Time.Clock
-import System.Console.CmdArgs.Implicit
-import System.CPUTime
-import System.Environment
-import System.IO
-import System.Mem
 import Numeric
-import qualified Numeric.LinearAlgebra as LA
+import System.Console.CmdArgs.Implicit
+import System.IO
 
 import Test.QuickCheck hiding (verbose,sample)
-import Debug.Trace
-
 import Control.Parallel.Strategies
+
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra
-import HLearn.DataStructures.StrictVector
 import HLearn.DataStructures.CoverTree
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
@@ -55,42 +54,123 @@ import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
+import Paths_HLearn
+import Data.Version
+
+import LoadData
+import Timing 
 import UnsafeVector
 
 type DP = L2 VU.Vector Float
--- type DP = DP2 
--- type Tree = AddUnit (CoverTree' (13/10) Strict.List V.Vector) () DP
--- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
--- type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
--- type Tree = AddUnit (CoverTree' (13/10) Strict.List VU.Vector) () DP
 type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
 
+-- type DP = L2' (VPU.Vector P.Automatic) Float
+-- type Tree = AddUnit (CoverTree' (13/10) V.Vector (VPU.Vector P.RunTime)) () DP
+-- 
+-- instance FromRecord (VPU.Vector P.Automatic Float) where
+--     parseRecord r = fmap VG.convert (parseRecord r :: Parser (V.Vector Float))
+-- 
+-- instance PseudoPrim (v a) => PseudoPrim (L2' v a) where
+-- 
+-- instance CK.Functor (VPU.Vector r) where
+--     type FunctorConstraint (VPU.Vector r) a = VG.Vector (VPU.Vector r) a
+--     fmap = VG.map
+-- 
+-- instance CK.Foldable (VPU.Vector r) where
+--     type FoldableConstraint (VPU.Vector r) a = VG.Vector (VPU.Vector r) a
+--     foldl' = VG.foldl'
+--     foldr' = VG.foldr'
+-- 
+-- instance VG.Vector (VPU.Vector r) a => FromList (VPU.Vector r) a where
+--     fromList = VG.fromList
+--     toList = VG.toList
+-- 
+-- instance 
+--     ( Param_len (VPU.Vector P.RunTime a)
+--     , PseudoPrim a
+--     ) => Monoid (VPU.Vector P.RunTime a) where
+--     mempty = VG.empty
+--     mappend a b = a -- VG.convert $ (VG.convert a :: V.Vector a) `mappend` (VG.convert b)
+
+-------------------------------------------------------------------------------
+-- command line parameters
+
 data Params = Params
-    { k :: Int
-    , reference_file :: Maybe String 
-    , query_file :: Maybe String
-    , distances_file :: String
-    , neighbors_file :: String 
-    , verbose :: Bool
-    , debug :: Bool
+    { k                 :: Int
+    , reference_file    :: Maybe String 
+    , query_file        :: Maybe String
+    , distances_file    :: String
+    , neighbors_file    :: String 
+
+    , pca_data          :: Bool
+    , varshift_data     :: Bool
+
+    , packMethod        :: PackMethod
+
+    , verbose           :: Bool
+    , debug             :: Bool
     } 
     deriving (Show, Data, Typeable)
 
-sample = Params 
-    { k              = 1 &= help "Number of nearest neighbors to find" 
-    , reference_file = def &= help "Reference data set in CSV format" &= typFile
-    , query_file     = def &= help "Query data set in CSV format" &= typFile -- &= opt (Nothing :: Maybe String)
-    , distances_file = "distances_hlearn.csv" &= help "File to output distances into" &= typFile
-    , neighbors_file = "neighbors_hlearn.csv" &= help "File to output the neighbors into" &= typFile
-    , verbose        = False &= help "print tree statistics (takes some extra time)" &= typFile 
-    , debug          = False &= help "test created trees for validity (takes lots of time)" &= typFile 
-    }
-    &= summary "HLearn k-nearest neighbor, version 1.0"
+data PackMethod
+    = NoPack
+    | PackCT
+    | PackCT2
+    | PackCT3
+    deriving (Eq,Read,Show,Data,Typeable)
 
+allknnParams = Params 
+    { k              = 1 
+                    &= help "Number of nearest neighbors to find" 
+
+    , reference_file = def 
+                    &= help "Reference data set in CSV format" 
+                    &= typFile
+
+    , query_file     = def 
+                    &= help "Query data set in CSV format" 
+                    &= typFile 
+
+    , distances_file = "distances_hlearn.csv" 
+                    &= help "File to output distances into" 
+                    &= typFile
+
+    , neighbors_file = "neighbors_hlearn.csv" 
+                    &= help "File to output the neighbors into" 
+                    &= typFile
+
+    , packMethod     = PackCT
+                    &= help "Specifies which method to use for cache layout of the covertree"
+                    &= groupname "Cache Options"
+
+    , pca_data       = False 
+                    &= groupname "Data Preprocessing" 
+                    &= help "Rotate the data points using the PCA transform.  Speeds up nearest neighbor searches, but computing the PCA can be expensive in many dimensions."
+                    &= name "pca"
+                    &= explicit
+
+    , varshift_data  = False 
+                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive in higher dimensions." 
+                    &= name "varshift"
+                    &= explicit
+
+    , verbose        = False 
+                    &= help "Print tree statistics (takes some extra time)" 
+                    &= groupname "Debugging"
+
+    , debug          = False 
+                    &= help "Test created trees for validity (takes lots of time)" 
+                    &= name "runtests"
+                    &= explicit
+    }
+    &= summary ("HLearn k-nearest neighbor, version " ++ showVersion version)
+
+-------------------------------------------------------------------------------
+-- main
 
 main = do
     -- cmd line args
-    params <- cmdArgs sample
+    params <- cmdArgs allknnParams
 
     let checkfail x t = if x then error t else return ()
     checkfail (reference_file params == Nothing) "must specify a reference file"
@@ -130,6 +210,7 @@ runit :: forall k tree base childContainer nodeVvec dp ring.
     , RealFloat (Scalar dp)
     , FromRecord dp 
     , VU.Unbox (Scalar dp)
+--     , Param_len (VPU.Vector P.RunTime (L2' (VPU.Vector P.Automatic) Float))
     , dp ~ DP
     ) => Params 
       -> AddUnit (CoverTree' base childContainer nodeVvec) () dp 
@@ -138,12 +219,21 @@ runit :: forall k tree base childContainer nodeVvec dp ring.
 runit params tree knn = do
     
     -- build reference tree
-    let ref = fromJust $ reference_file params
-    rs <- loaddata ref 
+    let dataparams = DataParams
+            { datafile = fromJust $ reference_file params
+            , pca      = pca_data params
+            , varshift = varshift_data params
+            }
+    rs <- loaddata dataparams
 
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
-    let reftree_prune = packCT $ unUnit reftree
+
+    let reftree_prune = case packMethod params of
+            NoPack -> unUnit reftree
+            PackCT -> packCT $ unUnit reftree
+            PackCT2 -> packCT2 20 $ unUnit reftree
+            PackCT3 -> packCT3 $ unUnit reftree
     timeIO "packing reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -158,7 +248,7 @@ runit params tree knn = do
     (querytree,qs) <- case query_file params of
         Nothing -> return $ (reftree_prune,rs)
         Just qfile -> do
-            qs <- loaddata qfile
+            qs <- loaddata $ dataparams { datafile = qfile }
             let qtree = train qs :: Tree
             timeIO "building query tree" $ return qtree
             let qtree_prune = packCT $ unUnit qtree
@@ -197,71 +287,6 @@ runit params tree knn = do
     -- end
     putStrLn "end"
 
-
-loaddata :: String -> IO (V.Vector DP)
-loaddata filename = do
-    rse :: Either String (V.Vector DP) <- timeIO "loading reference dataset" $ fmap (decode NoHeader) $ BS.readFile filename
-    rs <- case rse of 
-        Right rs -> return rs
-        Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
-
-    setptsize $ VG.length $ VG.head rs
-
---     let rs' = VG.convert rs
---     return $ rnf rs'
-
-    putStrLn "  dataset info:"
-    putStrLn $ "    num dp:  " ++ show (VG.length rs)
-    putStrLn $ "    num dim: " ++ show (VG.length $ rs V.! 0)
-    putStrLn ""
-
-    let shufflemap = mkShuffleMap rs
---     return $ VG.convert $ VG.map (shuffleVec $ VU.map fst shufflemap) rs
---     return $ VG.convert $ shufflePCA rs
-    return rs
-
--- | calculate the variance of each column, then sort so that the highest variance is first
-mkShuffleMap :: (VG.Vector v a, Floating a, Ord a, VU.Unbox a) => V.Vector (v a) -> VU.Vector (Int,a)
-mkShuffleMap v = runST $ do
-    let numdim = VG.length (v V.! 0)
-    varV :: VUM.MVector s (Int, a) <- VGM.new numdim 
-    forM [0..numdim-1] $ \i -> do
-        let xs   = fmap (VG.! i) v
-            dist = train xs :: Normal a a
-            var  = variance dist
-        VGM.write varV i (i,var)
-    Intro.sortBy (\(_,v2) (_,v1) -> compare v2 v1) varV
-    VG.freeze varV
-
--- | apply the shufflemap to the data set to get a better ordering of the data
-shuffleVec :: VG.Vector v a => VU.Vector Int -> v a -> v a
-shuffleVec vmap v = runST $ do
-    ret <- VGM.new (VG.length v)
-    forM [0..VG.length v-1] $ \i -> do
-        VGM.write ret i $ v VG.! (vmap VG.! i)
-    VG.freeze ret
-
-v1 = VS.fromList [1,2,3]
-v2 = VS.fromList [1,3,4]
-v3 = VS.fromList [1,5,6]
-v4 = VS.fromList [0,0,1]
-vs = V.fromList [v1,v2,v3,v4] :: V.Vector (VS.Vector Float)
-
-dist a b = distance (L2 a) (L2 b)
-
-shufflePCA :: 
-    ( VG.Vector container dp
-    , VG.Vector v a
-    , dp ~ v a
-    , Show a
-    , a ~ Float
-    ) => container dp -> container dp
-shufflePCA dps = VG.map (\dp -> VG.convert $ LA.single $ eigm LA.<> LA.double (VG.convert dp :: VS.Vector Float)) dps
-    where
-        (eigv,eigm) = LA.eigSH $ LA.double gramMatrix
-        gramMatrix = foldl1' (+) 
-            [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
-
 -- printTreeStats :: String -> Tree -> IO ()
 printTreeStats str t = do
     putStrLn (str++" stats:")
@@ -286,24 +311,3 @@ printTreeStats str t = do
     putStr (str++"  maxDescendentDistance..") >> hFlush stdout >> putStrLn (show $ property_maxDescendentDistance $ UnitLift t) 
 
     putStrLn ""
-
-time :: NFData a => a -> IO a
-time a = timeIO "timing function" $ return a
-
-timeIO :: NFData a => String -> IO a -> IO a
-timeIO str f = do 
-    performGC
-    putStr $ str ++ replicate (45-length str) '.'
-    hFlush stdout
-    cputime1 <- getCPUTime
-    realtime1 <- getCurrentTime >>= return . utctDayTime
-    ret <- f
---     deepseq ret $ return ()
-    seq ret $ return ()
-    cputime2 <- getCPUTime
-    realtime2 <- getCurrentTime >>= return . utctDayTime
-    
-    putStrLn $ "done"
-        ++ ". real time=" ++ show (realtime2-realtime1) 
-        ++ "; cpu time=" ++ showFFloat (Just 6) ((fromIntegral $ cputime2-cputime1)/1e12 :: Double) "" ++ "s"
-    return ret

@@ -12,6 +12,8 @@ module HLearn.DataStructures.CoverTree
 --     , recover
 --     , trainct_insert
     , packCT
+    , packCT2
+    , packCT3
 
     -- * drawing
 --     , draw
@@ -266,9 +268,10 @@ setNodeV n ct = if stNumNodes ct > n
 
 packCT3 :: 
     ( ValidCT base childContainer nodeContainer tag dp
-    , nodeContainer ~ VU.Vector
-    , VU.Unbox dp
-    ) => CoverTree' base childContainer nodeContainer tag dp -> CoverTree' base childContainer nodeContainer tag dp
+    , VG.Vector nodeContainer dp
+    , VUM.Unbox dp
+    ) => CoverTree' base childContainer nodeContainer tag dp 
+      -> CoverTree' base childContainer nodeContainer tag dp
 packCT3 ct = snd $ go 0 ct
     where
         go i t = (i',t
@@ -295,13 +298,15 @@ packCT3 ct = snd $ go 0 ct
 
 packCT2 :: 
     ( ValidCT base childContainer nodeContainer tag dp
-    , nodeContainer ~ VU.Vector
-    , VU.Unbox dp
-    ) => Int -> CoverTree' base childContainer nodeContainer tag dp -> CoverTree' base childContainer nodeContainer tag dp
+    , VG.Vector nodeContainer dp
+    , VUM.Unbox dp
+    ) => Int 
+      -> CoverTree' base childContainer nodeContainer tag dp 
+      -> CoverTree' base childContainer nodeContainer tag dp
 packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
     where
         go i t = (i',t
-            { nodeV = VU.slice i (VG.length $ nodeV t) v
+            { nodeV = VG.slice i (VG.length $ nodeV t) v
             , children = fromList children'
             })
             where

@@ -3,7 +3,7 @@
 K=1
 
 #time ./hlearn-allknn -k $K -r $1 -v +RTS -K1000M
-time ./hlearn-allknn -k $K -r $1 -v -n "tmp/neighbors_hlearn.csv" --distances-file="tmp/distances_hlearn.csv" +RTS -K1000M -N4
+time ./hlearn-allknn -k $K -r $1 --verbose -n "tmp/neighbors_hlearn.csv" --distances-file="tmp/distances_hlearn.csv" +RTS -K1000M -N4
 #time ./hlearn-allknn-mapAccumL -k $K -r $1 -v +RTS -K1000M -N4
 
 #time range_search --max 100 -r $1 -n neighbors_mlpack.csv -d distances_mlpack.csv -v 
