@@ -19,6 +19,7 @@ import qualified Data.Strict.Maybe as Strict
 
 import Data.Csv
 
+import Data.SIMD.SIMD4
 import HLearn.Algebra
 import HLearn.Metrics.Lebesgue
 
@@ -165,6 +166,7 @@ instance
 -------------------------------------------------------------------------------
 -- L2'
 
+
 newtype L2' v a = L2' { unL2' :: v a }
     deriving (Read,Show,Eq,Ord,FromRecord,NFData)
 
@@ -221,41 +223,45 @@ type instance Scalar (L2' v r) = r
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
 -- instance MetricSpace (L2' VU.Vector Float) where
 
+--     {-# INLINE distance #-}
+--     distance (L2' v1) (L2' v2) = sqrt $ plusHorizontalX4 $ go 0 (VG.length v1'-1)
+--         where
+--             v1' = unsafeVectorizeUnboxedX4 v1
+--             v2' = unsafeVectorizeUnboxedX4 v2
+--             
+--             go tot (-1) = tot
+--             go tot i = go tot' (i-1)
+--                 where
+--                     tot' = tot+diff*diff
+--                     diff = v1' `VG.unsafeIndex` i - v2' `VG.unsafeIndex` i
+
     {-# INLINE distance #-}
-    distance !(L2' v1) !(L2' v2) = {-# SCC distance #-} sqrt $ go 0 (ptsize-1)
+    distance !(L2' v1) !(L2' v2) = {-# SCC distance #-} sqrt $ go 0 (VG.length v1-1)
         where
             go !tot (-1) = tot
             go !tot !i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
                                 *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
     {-# INLINE isFartherThanWithDistanceCanError #-}
-    isFartherThanWithDistanceCanError !(L2' v1) !(L2' v2) !dist = {-# SCC isFartherThanWithDistanceMonoCanError #-} 
-        go 0 0
+    isFartherThanWithDistanceCanError (L2' v1) (L2' v2) !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
+        sqrt $ go 0 0
+--         sqrt $ plusHorizontalX4 $ go 0 0
         where
+--             v1' = unsafeVectorizeUnboxedX4 v1
+--             v2' = unsafeVectorizeUnboxedX4 v2
+--             
+--             go tot (-1) = tot
+--             go tot i = go tot' (i-1)
+--                 where
+--                     tot' = tot+diff*diff
+--                     diff = v1' `VG.unsafeIndex` i - v2' `VG.unsafeIndex` i
+
             dist2=dist*dist
 
-            ptsize=20
---             ptsize=VG.length v1
-
-            {-# INLINE goEach #-}
-            goEach !tot !i = if i>= ptsize 
-                then tot
+            go !tot !i = if i>VG.length v1-8
+                then goEach tot i
                 else if tot'>dist2
                     then errorVal
-                    else goEach tot' (i+1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-
---             go !tot !i = if tot'>dist2
---                     then errorVal
---                     else if i>=ptsize-8
---                         then goEach tot i
---                         else go tot' (i+8)
-            go !tot !i = if tot'>dist2
-                then errorVal
-                else if i>=ptsize-8
-                    then sqrt $ goEach tot' (i+8) 
                     else go tot' (i+8)
                 where
                     tot' = tot
@@ -275,138 +281,13 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2' v r) where
                         *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
                         +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
                         *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
---
---                         +(v1 `VG.unsafeIndex` (i+8)-v2 `VG.unsafeIndex` (i+8))
---                         *(v1 `VG.unsafeIndex` (i+8)-v2 `VG.unsafeIndex` (i+8))
---                         +(v1 `VG.unsafeIndex` (i+9)-v2 `VG.unsafeIndex` (i+9))
---                         *(v1 `VG.unsafeIndex` (i+9)-v2 `VG.unsafeIndex` (i+9))
---                         +(v1 `VG.unsafeIndex` (i+10)-v2 `VG.unsafeIndex` (i+10))
---                         *(v1 `VG.unsafeIndex` (i+10)-v2 `VG.unsafeIndex` (i+10))
---                         +(v1 `VG.unsafeIndex` (i+11)-v2 `VG.unsafeIndex` (i+11))
---                         *(v1 `VG.unsafeIndex` (i+11)-v2 `VG.unsafeIndex` (i+11))
---                         +(v1 `VG.unsafeIndex` (i+12)-v2 `VG.unsafeIndex` (i+12))
---                         *(v1 `VG.unsafeIndex` (i+12)-v2 `VG.unsafeIndex` (i+12))
---                         +(v1 `VG.unsafeIndex` (i+13)-v2 `VG.unsafeIndex` (i+13))
---                         *(v1 `VG.unsafeIndex` (i+13)-v2 `VG.unsafeIndex` (i+13))
---                         +(v1 `VG.unsafeIndex` (i+14)-v2 `VG.unsafeIndex` (i+14))
---                         *(v1 `VG.unsafeIndex` (i+14)-v2 `VG.unsafeIndex` (i+14))
---                         +(v1 `VG.unsafeIndex` (i+15)-v2 `VG.unsafeIndex` (i+15))
---                         *(v1 `VG.unsafeIndex` (i+15)-v2 `VG.unsafeIndex` (i+15))
---                         +(v1 `VG.unsafeIndex` (i+16)-v2 `VG.unsafeIndex` (i+16))
---                         *(v1 `VG.unsafeIndex` (i+16)-v2 `VG.unsafeIndex` (i+16))
---                         +(v1 `VG.unsafeIndex` (i+17)-v2 `VG.unsafeIndex` (i+17))
---                         *(v1 `VG.unsafeIndex` (i+17)-v2 `VG.unsafeIndex` (i+17))
---                         +(v1 `VG.unsafeIndex` (i+18)-v2 `VG.unsafeIndex` (i+18))
---                         *(v1 `VG.unsafeIndex` (i+18)-v2 `VG.unsafeIndex` (i+18))
---                         +(v1 `VG.unsafeIndex` (i+19)-v2 `VG.unsafeIndex` (i+19))
---                         *(v1 `VG.unsafeIndex` (i+19)-v2 `VG.unsafeIndex` (i+19))
 
-            {-# INLINE goSmall #-}
-            goSmall !tot !i = goEach tot i
---             goSmall !tot !i = if diff <5
---                 then if diff <3
---                     then if diff == 1
---                         then go1 tot i
---                         else go2 tot i
---                     else if diff == 3
---                         then go3 tot i
---                         else go4 tot i 
---                 else if diff < 7
---                     then if diff == 5
---                         then go5 tot i
---                         else go6 tot i
---                     else if diff == 7
---                         then go7 tot i
---                         else go8 tot i
---                 where
---                     diff = VG.length v1-i
-
-            {-# INLINE go1 #-}
-            {-# INLINE go2 #-}
-            {-# INLINE go3 #-}
-            {-# INLINE go4 #-}
-            {-# INLINE go5 #-}
-            {-# INLINE go6 #-}
-            {-# INLINE go7 #-}
-            {-# INLINE go8 #-}
-            go1 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-            go2 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-            go3 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-            go4 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-            go5 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-            go6 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
-                *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
-            go7 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
-                *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
-                +(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
-                *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
-            go8 !tot !i = tot
-                +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
-                +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
-                *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
-                +(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
-                *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
-                +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
-                *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
-                              
+            {-# INLINE goEach #-}
+            goEach !tot !i = if i>= VG.length v1
+                then tot
+                else if tot'>dist2
+                    then errorVal
+                    else goEach tot' (i+1)
+                where
+                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)

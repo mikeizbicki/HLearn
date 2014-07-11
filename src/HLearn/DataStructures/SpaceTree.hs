@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds,MagicHash #-}
 
 module HLearn.DataStructures.SpaceTree
     ( 
@@ -65,6 +65,9 @@ import qualified Data.Strict.Tuple as Strict
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
+
+import Unsafe.Coerce
+import GHC.Prim
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra hiding ((<>))
@@ -395,7 +398,8 @@ prunefoldB_CanError !f1 !f2 !b !t = go b t
     where
         go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
             then {-# SCC prunefoldB_CanError_Nothing #-} b
-            else {-# SCC prunefoldB_CanError_Just #-} CK.foldl' go b'' (stChildren t)
+            else {-# SCC prunefoldB_CanError_Just #-} 
+                CK.foldl' go b'' (stChildren t)
 --             else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren t)
                 where
                     res = f2 t b
