@@ -26,11 +26,13 @@ instance CanError (Strict.Maybe a) where
 instance CanError Float where
     {-# INLINE isError #-}
     {-# INLINE errorVal #-}
-    isError a = a /= a 
+    isError = isNaN
+--     isError a = a /= a 
     errorVal = 0/0
 
 instance CanError Double where
     {-# INLINE isError #-}
     {-# INLINE errorVal #-}
-    isError a = a /= a 
+    isError = isNaN
+--     isError a = a /= a 
     errorVal = 0/0

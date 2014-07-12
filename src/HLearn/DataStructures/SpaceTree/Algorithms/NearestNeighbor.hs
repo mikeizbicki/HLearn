@@ -93,7 +93,6 @@ instance (NFData dp, NFData (Scalar dp)) => NFData (Neighbor dp) where
 newtype NeighborList (k::Nat) dp = NeighborList { getknn :: Strict.List (Neighbor dp) }
 
 mkNeighborList :: Num (Scalar dp) => dp -> Scalar dp -> NeighborList k dp
--- mkNeighborList dp dist = NeighborList $ Neighbor dp 1 dist :. Strict.Nil
 mkNeighborList dp dist = NeighborList $ Neighbor dp dist :. Strict.Nil
 
 getknnL :: NeighborList k dp -> [Neighbor dp]
@@ -189,31 +188,34 @@ findEpsilonNeighborListWith ::
     , Floating (Scalar dp)
     , CanError (Scalar dp)
     ) => NeighborList k dp -> Scalar dp -> t dp -> dp -> NeighborList k dp
-findEpsilonNeighborListWith !knn !epsilon !t !query = prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
+findEpsilonNeighborListWith !knn !epsilon !t !query = 
+    {-# SCC findEpsilonNeighborListWith #-} prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
     where
-        smudge = 1/(1+epsilon)
+        !smudge = 1/(1+epsilon)
 
 {-# INLINABLE findNeighborList_batch #-}
 -- findNeighborList_batch :: (KnownNat k, SpaceTree t dp, Eq dp, CanError (Scalar dp)) => V.Vector dp -> t dp -> V.Vector (NeighborList k dp)
 findNeighborList_batch v st = fmap (findNeighborList st) v
 
-{-# INLINABLE knn_catadp #-}
+-- {-# INLINABLE knn_catadp #-}
+{-# INLINE knn_catadp #-}
 knn_catadp :: forall k dp.
     ( KnownNat k
     , MetricSpace dp
     , Eq dp
     , CanError (Scalar dp)
     ) => Scalar dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
-knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp2 #-}
+knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
     if isError dist 
         then knn
         else if dp==query 
             then knn
             else knn <> (NeighborList $ (Neighbor dp dist):.Strict.Nil)
     where
-        dist = isFartherThanWithDistanceCanError dp query (nl_maxdist knn * smudge)
+        !dist = isFartherThanWithDistanceCanError dp query (nl_maxdist knn * smudge)
 
-{-# INLINABLE knn_cata #-}
+-- {-# INLINABLE knn_cata #-}
+{-# INLINE knn_cata #-}
 knn_cata :: forall k t dp. 
     ( KnownNat k
     , SpaceTree t dp
@@ -238,7 +240,7 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 --             then knn
 --             else knn <> (NeighborList $ (Neighbor (stNode t) dist):.Strict.Nil)
     where
-        dist = stIsMinDistanceDpFartherThanWithDistanceCanError t query (nl_maxdist knn * smudge)
+        !dist = stIsMinDistanceDpFartherThanWithDistanceCanError t query (nl_maxdist knn * smudge)
 
 -- {-# INLINABLE knn_catadp #-}
 -- knn_catadp :: forall k dp.

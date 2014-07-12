@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies, FlexibleInstances, MultiParamTypeClasses, BangPatterns, StandaloneDeriving, GeneralizedNewtypeDeriving,FlexibleContexts #-}
 module UnsafeVector
---     ( setptsize 
---     )
+    ( setptsize 
+    )
     where
 
 import Control.DeepSeq
