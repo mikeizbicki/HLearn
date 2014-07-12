@@ -37,6 +37,7 @@ import Data.List hiding (insert)
 import Data.Maybe
 import Data.Monoid hiding ((<>))
 import Data.Semigroup
+import Data.Primitive
 import Data.Proxy
 import qualified Data.Foldable as F
 import qualified Data.Set as Set
@@ -50,6 +51,8 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import qualified Data.Vector.Primitive as VP
+import qualified Data.Vector.Primitive.Mutable as VPM
 
 import Test.QuickCheck
 import Debug.Trace
@@ -78,25 +81,26 @@ type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector V.Vector) () dp
 
 data CoverTree' (base::Frac) childContainer nodeContainer tag dp = Node 
     { nodedp                :: !dp
-    , level                 :: !Int
-    , weight                :: !(Scalar dp)
-    , numdp                 :: !(Scalar dp)
-    , maxDescendentDistance :: !(Scalar dp)
-    , children              :: !(childContainer (CoverTree' base childContainer nodeContainer tag dp))
-    , nodeV                 :: !(nodeContainer dp)
+    , level                 :: {-#UNPACK#-}!Int
+    , weight                :: {-#UNPACK#-}!Float
+    , numdp                 :: {-#UNPACK#-}!Float
+    , maxDescendentDistance :: {-#UNPACK#-}!Float
+    , children              :: !(childContainer (CoverTree' base childContainer VU.Vector tag dp))
+    , nodeV                 :: !(VU.Vector dp)
     , tag                   :: !tag
     }
 
 ---------------------------------------
 -- standard instances
 
-deriving instance 
-    ( Read (Scalar dp)
-    , Read (childContainer (CoverTree' base childContainer nodeContainer tag dp))
-    , Read (nodeContainer dp)
-    , Read tag
-    , Read dp
-    ) => Read (CoverTree' base childContainer nodeContainer tag dp)
+-- deriving instance 
+--     ( Read (Scalar dp)
+--     , Read (childContainer (CoverTree' base childContainer nodeContainer tag dp))
+--     , Read (nodeContainer dp)
+--     , Read tag
+--     , Read dp
+--     , ValidCT base childContainer nodeContainer tag dp
+--     ) => Read (CoverTree' base childContainer nodeContainer tag dp)
 
 deriving instance 
     ( Show (Scalar dp)
@@ -104,12 +108,14 @@ deriving instance
     , Show (nodeContainer dp)
     , Show tag
     , Show dp
+    , ValidCT base childContainer nodeContainer tag dp
     ) => Show (CoverTree' base childContainer nodeContainer tag dp)
 
 instance 
     ( NFData dp
     , NFData (Scalar dp)
     , NFData tag
+    , ValidCT base childContainer nodeContainer tag dp
     ) => NFData (CoverTree' base childContainer nodeContainer tag dp) 
         where
     rnf ct = deepseq (numdp ct) 
@@ -136,6 +142,13 @@ class
     , Show (Scalar dp)
     , Show dp
     , Ord dp
+    , VU.Unbox dp
+    , nodeContainer ~ VU.Vector
+--     , Prim dp
+--     , nodeContainer ~ VP.Vector
+    , VG.Vector nodeContainer dp
+    , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
+    , Scalar dp ~ Float
     ) => ValidCT base childContainer nodeContainer tag dp
 
 instance 
@@ -154,7 +167,16 @@ instance
     , Show (Scalar dp)
     , Show dp
     , Ord dp
+    , VU.Unbox dp
+    , nodeContainer ~ VU.Vector
+--     , Prim dp
+--     , nodeContainer ~ VP.Vector
+    , VG.Vector nodeContainer dp
+    , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
+    , Scalar dp ~ Float
     ) => ValidCT base childContainer nodeContainer tag dp
+
+type instance Scalar (CoverTree' base childContainer nodeContainer tag dp) = Scalar dp
 
 instance 
     ( ValidCT base childContainer nodeContainer tag dp
@@ -172,11 +194,6 @@ instance
     {-# INLINABLE stMaxDistanceDpFromDistance #-}
     {-# INLINABLE stIsMinDistanceDpFartherThanWithDistance #-}
     {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
-    {-# INLINABLE stChildren #-}
-    {-# INLINABLE stNode #-}
-    {-# INLINABLE stNodeV #-}
-    {-# INLINABLE stHasNode #-}
-    {-# INLINABLE stIsLeaf #-}
 
     stMinDistanceWithDistance !ct1 !ct2 = 
         dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2) Strict.:!: dist
@@ -209,6 +226,11 @@ instance
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
+    {-# INLINE stChildren #-}
+    {-# INLINE stNode #-}
+    {-# INLINE stNodeV #-}
+    {-# INLINE stHasNode #-}
+    {-# INLINE stIsLeaf #-}
     stChildren  = children
     stNodeV     = nodeV
     stNode      = nodedp
@@ -794,7 +816,9 @@ extractLeaf ct = if stIsLeaf ct
 -------------------------------------------------------------------------------
 -- training
 
-instance NumDP (CoverTree' base childContainer nodeContainer tag dp) where
+instance 
+    ( ValidCT base childContainer nodeContainer tag dp 
+    ) => NumDP (CoverTree' base childContainer nodeContainer tag dp) where
     numdp = numdp
 
 instance 

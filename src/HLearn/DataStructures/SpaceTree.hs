@@ -93,22 +93,33 @@ class Taggable t dp where
 
 
 class 
-    ( CK.Functor xs
-    , CK.FunctorConstraint xs x
-    , CK.Foldable xs
-    , CK.FoldableConstraint xs x
-    ) => FromList xs x 
+    ( CK.Functor f
+    , CK.FunctorConstraint f a
+    , CK.Foldable f
+    , CK.FoldableConstraint f a
+    ) => FromList f a 
         where
-    fromList :: [x] -> xs x
-    toList :: xs x -> [x]
+--     ckfmap :: (a -> b) -> f a -> f b
+    ckfoldl' :: (b -> a -> b) -> b -> f a -> b
+    fromList :: [a] -> f a
+    toList :: f a -> [a]
 
 instance FromList V.Vector a where
+--     {-# INLINE ckfmap #-}
+    {-# INLINE ckfoldl' #-}
+--     ckfmap = V.map
+    ckfoldl' = V.foldl'
     {-# INLINE fromList #-}
     {-# INLINE toList #-}
     fromList = VG.fromList
     toList = VG.toList
 
+
 instance VU.Unbox a => FromList VU.Vector a where
+--     {-# INLINE ckfmap #-}
+    {-# INLINE ckfoldl' #-}
+--     ckfmap = VU.map
+    ckfoldl' = VU.foldl'
     {-# INLINE fromList #-}
     {-# INLINE toList #-}
     fromList = VG.fromList
@@ -121,29 +132,33 @@ instance VU.Unbox a => FromList VU.Vector a where
 --     toList = VG.toList
 
 instance FromList [] a where
+--     {-# INLINE ckfmap #-}
+    {-# INLINE ckfoldl' #-}
+--     ckfmap = map
+    ckfoldl' = foldl'
     {-# INLINE fromList #-}
     {-# INLINE toList #-}
     fromList = id
     toList = id
 
-instance CK.Functor Strict.List where
-    fmap = fmap
-
-instance CK.Foldable Strict.List where
-    foldl = F.foldl
-    foldl' = F.foldl'
-    foldl1 = F.foldl1
-    foldr = F.foldr
-    foldr' = F.foldr'
-    foldr1 = F.foldr1
-
-instance FromList Strict.List a where
-    {-# INLINE fromList #-}
-    {-# INLINE toList #-}
-    fromList [] = Strict.Nil
-    fromList (x:xs) = x Strict.:. fromList xs
-
-    toList = Strict.strictlist2list
+-- instance CK.Functor Strict.List where
+--     fmap = fmap
+-- 
+-- instance CK.Foldable Strict.List where
+--     foldl = F.foldl
+--     foldl' = F.foldl'
+--     foldl1 = F.foldl1
+--     foldr = F.foldr
+--     foldr' = F.foldr'
+--     foldr1 = F.foldr1
+-- 
+-- instance FromList Strict.List a where
+--     {-# INLINE fromList #-}
+--     {-# INLINE toList #-}
+--     fromList [] = Strict.Nil
+--     fromList (x:xs) = x Strict.:. fromList xs
+-- 
+--     toList = Strict.strictlist2list
 
 -- class (Functor a, F.Foldable a, FromList a) => Container a
 -- instance (Functor a, F.Foldable a, FromList a) => Container a
@@ -156,6 +171,8 @@ class
     , FromList (ChildContainer t) dp
     , FromList (ChildContainer t) (t dp)
     , Monoid (NodeContainer t dp)
+    , VG.Vector (ChildContainer t) (t dp)
+    , VG.Vector (NodeContainer t) dp
     ) => SpaceTree t dp 
         where
     type NodeContainer t :: * -> *
@@ -391,25 +408,56 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
         where
             b'' = {-# SCC b'' #-} CK.foldr' f1 b' (stNodeV t)
 
+-- {-# INLINABLE prunefoldB_CanError #-}
+-- prunefoldB_CanError :: (SpaceTree t a, CanError b) => 
+--     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
+-- prunefoldB_CanError !f1 !f2 !b !t = go b t
+--     where
+--         go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
+--             then {-# SCC prunefoldB_CanError_Nothing #-} b
+--             else {-# SCC prunefoldB_CanError_Just #-} 
+--                 ckfoldl' go b'' (stChildren t)
+--                 where
+--                     ckfoldl' a = {-# SCC ckfoldl #-} CK.foldl' a
+--                     !res = f2 t b
+--                     !b'' = {-# SCC b'' #-} ckfoldl' (flip f1) res (stNodeV t)
+
 {-# INLINABLE prunefoldB_CanError #-}
-prunefoldB_CanError :: (SpaceTree t a, CanError b) => 
+prunefoldB_CanError :: (VG.Vector (ChildContainer t) (t a), VG.Vector (NodeContainer t) a, SpaceTree t a, CanError b) =>
     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
-prunefoldB_CanError !f1 !f2 !b !t = go b t
+prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
     where
-        go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
+        go !t !b = {-# SCC prunefoldB_CanError_if #-} if isError res
             then {-# SCC prunefoldB_CanError_Nothing #-} b
             else {-# SCC prunefoldB_CanError_Just #-} 
-                CK.foldl' go b'' (stChildren t)
---             else {-# SCC prunefoldB_CanError_Just #-} VG.foldl' (prunefoldB_CanError f1 f2) b'' (stChildren t)
+                vecfold go b'' (stChildren t)
                 where
-                    res = f2 t b
-                    b'' = {-# SCC b'' #-} CK.foldl' (flip f1) res (stNodeV t)
+--                     ckfoldl1' !f !tot !v = {-# SCC ckfoldl #-} ckgo (VG.length v-1) tot
+--                         where
+--                             ckgo (-1) !tot = tot
+--                             ckgo !i !tot = ckgo (i-1) $ f (VG.unsafeIndex v i) tot
+-- 
+--                     ckfoldl2' !f !tot !v = {-# SCC ckfoldl #-} ckgo (VG.length v-1) tot
+--                         where
+--                             ckgo (-1) !tot = tot
+--                             ckgo !i !tot = ckgo (i-1) $ f (VG.unsafeIndex v i) tot
+
+                    !res = f2 t b
+                    !b'' = {-# SCC b'' #-} vecfold f1 res (stNodeV t)
+
+{-# INLINE vecfold #-}
+-- vecfold :: VG.Vector v a => (a -> b -> a) -> b -> v a -> b
+vecfold !f !tot !v = {-# SCC vecfold #-} go 0 tot
+    where
+        go !i !tot = if i>=VG.length v
+            then tot
+            else go (i+1) $ f (v `VG.unsafeIndex` i) tot
 
 {-# INLINABLE prunefoldC #-}
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
 prunefoldC !f1 !f2 !b !t = case f2 t b of
     Strict.Left b' -> b'
-    Strict.Right b' -> CK.foldl' (prunefoldC f1 f2) b'' (stChildren t)
+    Strict.Right b' -> ckfoldl' (prunefoldC f1 f2) b'' (stChildren t)
         where
             b'' = CK.foldr' f1 b' (stNodeV t)
 

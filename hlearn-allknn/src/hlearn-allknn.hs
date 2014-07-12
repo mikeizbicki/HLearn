@@ -29,6 +29,8 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import qualified Data.Vector.Primitive as VP
+import qualified Data.Vector.Primitive.Mutable as VPM
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
 import qualified Data.ByteString.Lazy.Char8 as BS

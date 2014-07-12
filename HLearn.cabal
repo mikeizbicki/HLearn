@@ -71,13 +71,14 @@ Library
         src
 
     ghc-options:        
-        -rtsopts 
-        -threaded
+--         -rtsopts 
+--         -threaded
         -fllvm
-        -O2
+        -O
         -funbox-strict-fields
-        -auto-all 
-        -caf-all 
+--         -auto-all 
+--         -caf-all 
+
 
     Exposed-modules:
         HLearn.Algebra
@@ -192,6 +193,16 @@ executable hlearn-allknn
         -funfolding-keeness-factor1000 
         -fllvm 
         -optlo-O3
+
+        -ddump-to-file
+        -ddump-simpl
+        -dsuppress-module-prefixes 
+        -dsuppress-uniques 
+        -dsuppress-idinfo 
+        -dsuppress-coercions 
+        -dsuppress-type-applications
+
+--         -prof
 
     build-depends:       
         
