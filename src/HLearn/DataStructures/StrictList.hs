@@ -22,7 +22,6 @@ import Prelude hiding
 -- data types
 
 data List a = (:.) !a !(List a) | Nil
--- data List a = (:.) !a !(List a) | Nil
     deriving (Read,Show,Eq,Ord)
 
 infixr 5 :.
