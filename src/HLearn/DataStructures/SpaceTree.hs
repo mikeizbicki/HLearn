@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds,MagicHash #-}
+{-# LANGUAGE DataKinds,MagicHash,UnboxedTuples #-}
 
 module HLearn.DataStructures.SpaceTree
     ( 
@@ -61,7 +61,6 @@ import Data.Traversable
 import qualified Data.Foldable as F
 import qualified Data.Strict.Either as Strict
 import qualified Data.Strict.Maybe as Strict
-import qualified Data.Strict.Tuple as Strict
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -71,6 +70,7 @@ import GHC.Prim
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra hiding ((<>))
+import HLearn.Algebra.Prim
 import HLearn.Models.Distributions
 import qualified HLearn.DataStructures.StrictList as Strict
 import HLearn.DataStructures.StrictVector as Strict
@@ -184,19 +184,19 @@ class
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}
     stMinDistance :: t dp -> t dp -> Scalar dp
-    stMinDistance t1 t2 = Strict.fst $ stMinDistanceWithDistance t1 t2
+    stMinDistance t1 t2 = fst# (stMinDistanceWithDistance t1 t2)
     stMaxDistance :: t dp -> t dp -> Scalar dp
-    stMaxDistance t1 t2 = Strict.fst $ stMaxDistanceWithDistance t1 t2
+    stMaxDistance t1 t2 = fst# (stMaxDistanceWithDistance t1 t2)
     
-    stMinDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Scalar dp) (Scalar dp)
-    stMaxDistanceWithDistance :: t dp -> t dp -> Strict.Pair (Scalar dp) (Scalar dp)
+    stMinDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
+    stMaxDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
 
     {-# INLINE stMinDistanceDp #-}
     {-# INLINE stMaxDistanceDp #-}
     stMinDistanceDp :: t dp -> dp -> Scalar dp
-    stMinDistanceDp t dp = Strict.fst $ stMinDistanceDpWithDistance t dp
+    stMinDistanceDp t dp = fst# (stMinDistanceDpWithDistance t dp)
     stMaxDistanceDp :: t dp -> dp -> Scalar dp
-    stMaxDistanceDp t dp = Strict.fst $ stMaxDistanceDpWithDistance t dp
+    stMaxDistanceDp t dp = fst# (stMaxDistanceDpWithDistance t dp)
 
     stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Strict.Maybe (Scalar dp)
     stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Strict.Maybe (Scalar dp)
@@ -204,8 +204,8 @@ class
     stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
     stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
 
-    stMinDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Scalar dp) (Scalar dp)
-    stMaxDistanceDpWithDistance :: t dp -> dp -> Strict.Pair (Scalar dp) (Scalar dp)
+    stMinDistanceDpWithDistance :: t dp -> dp -> (# Scalar dp, Scalar dp #)
+    stMaxDistanceDpWithDistance :: t dp -> dp -> (# Scalar dp, Scalar dp #)
 
     stMinDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
     stMaxDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
@@ -430,19 +430,9 @@ prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
         go !t !b = {-# SCC prunefoldB_CanError_if #-} if isError res
             then {-# SCC prunefoldB_CanError_Nothing #-} b
             else {-# SCC prunefoldB_CanError_Just #-} 
-                vecfold go b'' (stChildren t)
+                vecfold go b'' ({-# SCC prunefoldB_CanError_stChildren #-} stChildren t)
                 where
---                     ckfoldl1' !f !tot !v = {-# SCC ckfoldl #-} ckgo (VG.length v-1) tot
---                         where
---                             ckgo (-1) !tot = tot
---                             ckgo !i !tot = ckgo (i-1) $ f (VG.unsafeIndex v i) tot
--- 
---                     ckfoldl2' !f !tot !v = {-# SCC ckfoldl #-} ckgo (VG.length v-1) tot
---                         where
---                             ckgo (-1) !tot = tot
---                             ckgo !i !tot = ckgo (i-1) $ f (VG.unsafeIndex v i) tot
-
-                    !res = f2 t b
+                    !res = {-# SCC res #-} f2 t b
                     !b'' = {-# SCC b'' #-} vecfold f1 res (stNodeV t)
 
 {-# INLINE vecfold #-}
@@ -647,9 +637,9 @@ instance
     stMaxDistanceDp Unit dp = infinity
     stMaxDistanceDp (UnitLift x) dp = stMaxDistanceDp x dp
 
-    stMinDistanceDpWithDistance Unit dp = 0 Strict.:!: 0
+    stMinDistanceDpWithDistance Unit dp = (# 0, 0 #)
     stMinDistanceDpWithDistance (UnitLift x) dp = stMinDistanceDpWithDistance x dp
-    stMaxDistanceDpWithDistance Unit dp = infinity Strict.:!: infinity
+    stMaxDistanceDpWithDistance Unit dp = (# infinity, infinity #)
     stMaxDistanceDpWithDistance (UnitLift x) dp = stMaxDistanceDpWithDistance x dp
 
     stIsMinDistanceDpFartherThanWithDistance (UnitLift x) dp b = stIsMinDistanceDpFartherThanWithDistance x dp b

@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction,DataKinds,PolyKinds #-}
+{-# LANGUAGE NoMonomorphismRestriction,DataKinds,PolyKinds,MagicHash,UnboxedTuples #-}
 
 module HLearn.DataStructures.CoverTree
     ({- CoverTree
@@ -62,7 +62,7 @@ import Debug.Trace
 -- import Diagrams.Backend.Postscript.CmdLine
 
 import qualified Control.ConstraintKinds as CK
-import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
+import HLearn.Algebra hiding ((<>),(|>),numdp)
 import qualified HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
@@ -196,15 +196,17 @@ instance
     {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
 
     stMinDistanceWithDistance !ct1 !ct2 = 
-        dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2) Strict.:!: dist
+        (# dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2) 
     stMaxDistanceWithDistance !ct1 !ct2 = 
-        dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2) Strict.:!: dist
+        (# dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2) 
 
-    stMinDistanceDpWithDistance !ct !dp = dist - maxDescendentDistance ct Strict.:!: dist
+    stMinDistanceDpWithDistance !ct !dp = 
+        (# dist - maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
-    stMaxDistanceDpWithDistance !ct !dp = dist + maxDescendentDistance ct Strict.:!: dist
+    stMaxDistanceDpWithDistance !ct !dp = 
+        (# dist + maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
 
     stIsMinDistanceDpFartherThanWithDistance !ct !dp !b = 
