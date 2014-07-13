@@ -224,7 +224,7 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
             then knn
             else knn <> nlSingleton (Neighbor dp dist)
     where
-        !dist = isFartherThanWithDistanceCanError dp query (nl_maxdist knn * smudge)
+        !dist = isFartherThanWithDistanceCanError dp query $! nl_maxdist knn * smudge
 
 {-# INLINABLE knn_cata #-}
 -- {-# INLINE knn_cata #-}
@@ -243,16 +243,8 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
         else if isError dist 
             then errorVal
             else knn <> nlSingleton (Neighbor (stNode t) dist)
---     if isError dist 
---         then errorVal
---         else if stNode t==query 
---             then if isError knn
---                 then NeighborList $ (Neighbor (stNode t) infinity):.Strict.Nil
---                 else knn
---             then knn
---             else knn <> (NeighborList $ (Neighbor (stNode t) dist):.Strict.Nil)
     where
-        !dist = stIsMinDistanceDpFartherThanWithDistanceCanError t query (nl_maxdist knn * smudge)
+        !dist = stIsMinDistanceDpFartherThanWithDistanceCanError t query $! nl_maxdist knn * smudge
 
 ---------------------------------------
 

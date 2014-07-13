@@ -79,16 +79,22 @@ import HLearn.Metrics.Lebesgue
 
 type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector V.Vector) () dp
 
-data CoverTree' (base::Frac) childContainer nodeContainer tag dp = Node 
-    { nodedp                :: !dp
-    , level                 :: {-#UNPACK#-}!Int
-    , weight                :: {-#UNPACK#-}!Float
-    , numdp                 :: {-#UNPACK#-}!Float
-    , maxDescendentDistance :: {-#UNPACK#-}!Float
-    , children              :: !(childContainer (CoverTree' base childContainer VU.Vector tag dp))
-    , nodeV                 :: !(VU.Vector dp)
-    , tag                   :: !tag
-    }
+data CoverTree' 
+        ( base                  :: Frac ) 
+        ( childContainer        :: * -> * ) 
+        ( nodeContainer         :: * -> * ) 
+        ( tag                   :: * )
+        ( dp                    :: * )
+    = Node 
+        { nodedp                :: {-#UNPACK#-}!(L2 VU.Vector Float)
+        , level                 :: {-#UNPACK#-}!Int
+        , weight                :: {-#UNPACK#-}!Float
+        , numdp                 :: {-#UNPACK#-}!Float
+        , maxDescendentDistance :: {-#UNPACK#-}!Float
+        , children              :: {-#UNPACK#-}!(V.Vector (CoverTree' base childContainer VU.Vector tag dp))
+        , nodeV                 :: !(VU.Vector dp)
+        , tag                   :: !tag
+        }
 
 ---------------------------------------
 -- standard instances
@@ -146,8 +152,10 @@ class
     , nodeContainer ~ VU.Vector
 --     , Prim dp
 --     , nodeContainer ~ VP.Vector
+    , childContainer ~ V.Vector
     , VG.Vector nodeContainer dp
     , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
+    , dp ~ L2 VU.Vector Float
     , Scalar dp ~ Float
     ) => ValidCT base childContainer nodeContainer tag dp
 
@@ -171,8 +179,10 @@ instance
     , nodeContainer ~ VU.Vector
 --     , Prim dp
 --     , nodeContainer ~ VP.Vector
+    , childContainer ~ V.Vector
     , VG.Vector nodeContainer dp
     , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
+    , dp ~ L2 VU.Vector Float
     , Scalar dp ~ Float
     ) => ValidCT base childContainer nodeContainer tag dp
 
@@ -589,6 +599,11 @@ ctmerge' ct1 ct2 =
 -------------------------------------------------------------------------------
 -- misc helper functions
 
+growct :: forall base childContainer nodeContainer tag dp.
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => CoverTree' base childContainer nodeContainer tag dp 
+      -> Int 
+      -> CoverTree' base childContainer nodeContainer tag dp
 growct = growct_unsafe
 
 growct_safe :: forall base childContainer nodeContainer tag dp.
@@ -621,7 +636,6 @@ growct_unsafe :: forall base childContainer nodeContainer tag dp.
     ) => CoverTree' base childContainer nodeContainer tag dp 
       -> Int 
       -> CoverTree' base childContainer nodeContainer tag dp
-
 growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
     then ct { level=d }
     else if d <= level ct
@@ -635,6 +649,12 @@ growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
     where
         (newleaf,newct) = rmleaf ct
 
+rmleaf :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => CoverTree' base childContainer nodeContainer tag dp 
+      -> ( CoverTree' base childContainer nodeContainer tag dp
+         , CoverTree' base childContainer nodeContainer tag dp
+         )
 rmleaf ct = if stIsLeaf (head childL)
     then (head childL, ct
         { numdp = numdp ct-1
@@ -847,6 +867,7 @@ instance
 -------------------------------------------------------------------------------
 -- tests
 
+{-
 instance 
     ( ValidCT base childContainer nodeContainer tag (Double,Double)
     ) => Arbitrary (AddUnit (CoverTree' base childContainer nodeContainer) tag (Double,Double)) 
@@ -863,8 +884,11 @@ instance
 --         return $ unUnit $ train xs 
         return $ train xs 
 
+-}
 
--- property_all :: CoverTree (Double,Double) -> Bool
+property_all :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
 property_all ct = and $ map (\x -> x ct)
     [ property_covering
     , property_leveled
@@ -872,14 +896,18 @@ property_all ct = and $ map (\x -> x ct)
     , property_maxDescendentDistance
     ]
 
--- property_covering :: (MetricSpace dp) => CoverTree dp -> Bool
+property_covering :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
 property_covering Unit = True
 property_covering (UnitLift node) = if not $ stIsLeaf node
     then VG.maximum (fmap (distance (nodedp node) . nodedp) $ children node) < coverDist node 
       && VG.and (fmap (property_covering . UnitLift) $ children node)
     else True
 
--- property_leveled  :: MetricSpace dp => CoverTree dp -> Bool
+property_leveled :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
 property_leveled (Unit) = True
 property_leveled (UnitLift node)
     = VG.all (== VG.head xs) xs
@@ -887,14 +915,15 @@ property_leveled (UnitLift node)
     where
         xs = fmap level $ children node
 
--- property_separating  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
+property_separating :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
 property_separating Unit = True
 property_separating (UnitLift node) = if length (VG.toList $ children node) > 1 
     then VG.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
       && VG.and (fmap (property_separating . UnitLift) $ children node)
     else True
     where
---         mapFactorial :: Container v =>(a -> a -> b) -> v a -> v b
         mapFactorial :: (VG.Vector v a, VG.Vector v b) =>(a -> a -> b) -> v a -> v b
         mapFactorial f = VG.fromList . mapFactorial' f . VG.toList
         mapFactorial' :: (a -> a -> b) -> [a] -> [b]
@@ -902,22 +931,21 @@ property_separating (UnitLift node) = if length (VG.toList $ children node) > 1
             where
                 go [] ys = ys
                 go (x:xs) ys = go xs (map (f x) xs `mappend` ys)
---         mapFactorial f = VG.fromList . Strict.strictlist2list . mapFactorial' f . Strict.list2strictlist . VG.toList
---         mapFactorial f = VG.fromList . mapFactorial' f . VG.toList
---         mapFactorial' :: (a -> a -> b) -> List a -> List b
---         mapFactorial' f xs = go xs Nil
---             where
---                 go Nil ys = ys
---                 go (x:.xs) ys = go xs (fmap (f x) xs `mappend` ys)
 
--- property_maxDescendentDistance  :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
+property_maxDescendentDistance :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
 property_maxDescendentDistance Unit = True
 property_maxDescendentDistance (UnitLift node) 
     = and (map (property_maxDescendentDistance . UnitLift) $ stChildrenList node)
    && and (map (\dp -> distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
 
--- property_validmerge :: 
---     (CoverTree (Double,Double) -> Bool) -> CoverTree (Double,Double) -> CoverTree (Double,Double) -> Bool
+property_validmerge :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => ( AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool )
+      -> AddUnit (CoverTree' base childContainer nodeContainer) tag dp 
+      -> AddUnit (CoverTree' base childContainer nodeContainer) tag dp 
+      -> Bool
 property_validmerge prop (UnitLift ct1) (UnitLift ct2) = prop . UnitLift $ ct1 <> ct2
 
 -- property_lossless :: [(Double,Double)] ->  Bool
@@ -932,7 +960,9 @@ property_validmerge prop (UnitLift ct1) (UnitLift ct2) = prop . UnitLift $ ct1 <
 --                 dpList :: CoverTree' base V.Vector V.Vector tag dp -> [dp]
 --                 dpList node = nodedp node:(concat . fmap dpList . V.toList $ children node)
 
--- property_numdp :: (Ord dp, MetricSpace dp) => CoverTree dp -> Bool
+property_numdp :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
 property_numdp Unit = True
 property_numdp (UnitLift node) = numdp node == sum (map fst $ stToListW node)
 

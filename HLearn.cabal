@@ -202,7 +202,7 @@ executable hlearn-allknn
         -dsuppress-coercions 
         -dsuppress-type-applications
 
-        -prof
+--         -prof
 
     build-depends:       
         
