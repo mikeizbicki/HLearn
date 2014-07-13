@@ -8,7 +8,6 @@ import Control.DeepSeq
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Strict.Maybe as Strict
-import qualified Data.Strict.Tuple as Strict
 import GHC.TypeLits
 import HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
