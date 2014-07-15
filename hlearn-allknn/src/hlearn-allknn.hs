@@ -65,7 +65,7 @@ import UnsafeVector
 
 type DP = L2 VU.Vector Float
 type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
-
+ 
 -- type DP = L2' (VPU.Vector P.Automatic) Float
 -- type Tree = AddUnit (CoverTree' (13/10) V.Vector (VPU.Vector P.RunTime)) () DP
 -- 
