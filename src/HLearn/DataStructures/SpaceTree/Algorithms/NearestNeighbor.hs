@@ -24,7 +24,7 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 
     , parFindNeighborMap
 --     , parFindNeighborMapWith
---     , parFindEpsilonNeighborMap
+    , parFindEpsilonNeighborMap
     , parFindEpsilonNeighborMapWith
     , findNeighborList
 --     , findNeighborListWith 
@@ -115,7 +115,7 @@ instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborList k dp) where
 nlSingleton :: 
     ( ValidNeighbor dp
     ) => Neighbor dp -> NeighborList k dp
-nlSingleton n = NL_Cons n NL_Nil
+nlSingleton !n = NL_Cons n NL_Nil
 
 {-# INLINE mkNeighborList #-}
 mkNeighborList :: 
@@ -136,11 +136,23 @@ nlMaxDist :: forall k dp.
     , ValidNeighbor dp
     , Fractional (Scalar dp)
     ) => NeighborList k dp -> Scalar dp
-nlMaxDist nl = go nl
+nlMaxDist !nl = go nl
     where
         go NL_Nil = infinity
         go (NL_Cons n NL_Nil) = neighborDistance n
         go (NL_Cons n ns) = go ns
+
+{-# INLINE nlAddNeighbor #-}
+nlAddNeighbor :: forall k dp.
+    ( KnownNat k
+    , ValidNeighbor dp
+    ) => NeighborList k dp -> Neighbor dp -> NeighborList k dp
+nlAddNeighbor !nl !n = go nl
+    where
+        go (NL_Cons n' _) = if neighborDistance n < neighborDistance n'
+            then NL_Cons n NL_Nil
+            else NL_Cons n' NL_Nil
+        go NL_Nil = NL_Cons n NL_Nil
 
 instance CanError (NeighborList k dp) where
     {-# INLINE errorVal #-}
@@ -254,11 +266,12 @@ knn_catadp :: forall k dp.
     , ValidNeighbor dp
     ) => Scalar dp -> dp -> dp -> NeighborList k dp -> NeighborList k dp
 knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
-    if isError dist 
+    if dp==query 
         then knn
-        else if dp==query 
+        else if isError dist 
             then knn
-            else knn <> nlSingleton (Neighbor dp dist)
+            else nlAddNeighbor knn $ Neighbor dp dist
+--             else knn <> nlSingleton (Neighbor dp dist)
     where
         !dist = isFartherThanWithDistanceCanError dp query $! nlMaxDist knn * smudge
 
@@ -279,7 +292,8 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
             else knn
         else if isError dist 
             then errorVal
-            else knn <> nlSingleton (Neighbor (stNode t) dist)
+            else nlAddNeighbor knn $ Neighbor (stNode t) dist
+--             else knn <> nlSingleton (Neighbor (stNode t) dist)
     where
         !dist = stIsMinDistanceDpFartherThanWithDistanceCanError t query $! nlMaxDist knn * smudge
 
@@ -321,7 +335,6 @@ findNeighborVecM dual = runST $ do
 
     go 0
     VG.unsafeFreeze ret 
-
 
 {-# INLINABLE findNeighborVec' #-}
 findNeighborVec' :: 
@@ -377,9 +390,19 @@ parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $
 --     map 
 --         (\dp -> NeighborMap $ Map.singleton dp $ findNeighborListWith (Map.findWithDefault mempty dp nm) (reference dual) dp) 
 --         (stToList $ query dual)
--- 
--- {-# INLINABLE parFindEpsilonNeighborMap #-}
--- parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith mempty e d
+
+{-# INLINABLE parFindEpsilonNeighborMap #-}
+parFindEpsilonNeighborMap ::
+    ( KnownNat k
+    , SpaceTree t dp
+    , Ord dp
+    , NFData (Scalar dp)
+    , NFData dp
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
+    , ValidNeighbor dp
+    ) => Scalar dp -> DualTree (t dp) -> NeighborMap k dp
+parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith mempty e d
 
 {-# INLINABLE parFindEpsilonNeighborMapWith #-}
 parFindEpsilonNeighborMapWith ::

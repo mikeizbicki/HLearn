@@ -204,27 +204,28 @@ instance
 
     {-# INLINABLE stMinDistance #-}
     {-# INLINABLE stMaxDistance #-}
-    {-# INLINABLE stMinDistanceDpWithDistance #-}
-    {-# INLINABLE stMaxDistanceDpWithDistance #-}
-    {-# INLINABLE stMinDistanceDpFromDistance #-}
-    {-# INLINABLE stMaxDistanceDpFromDistance #-}
-    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistance #-}
-    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
-
+    
     stMinDistanceWithDistance !ct1 !ct2 = 
         (# dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2) 
+    
     stMaxDistanceWithDistance !ct1 !ct2 = 
         (# dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2) 
 
+    {-# INLINABLE stMinDistanceDpWithDistance #-}
+    {-# INLINABLE stMaxDistanceDpWithDistance #-}
+
     stMinDistanceDpWithDistance !ct !dp = 
         (# dist - maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
+    
     stMaxDistanceDpWithDistance !ct !dp = 
         (# dist + maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
 
+    {-# INLINABLE stMinDistanceDpFromDistance #-}
+    {-# INLINABLE stMaxDistanceDpFromDistance #-}
     stIsMinDistanceDpFartherThanWithDistance !ct !dp !b = 
         case isFartherThanWithDistance (nodedp ct) dp (b+maxDescendentDistance ct) of
             Strict.Nothing -> Strict.Nothing
@@ -234,12 +235,16 @@ instance
         isFartherThanWithDistance (nodedp ct) dp (b-maxDescendentDistance ct)
 
     {-# INLINABLE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
+
     stIsMinDistanceDpFartherThanWithDistanceCanError !ct !dp !b = 
         isFartherThanWithDistanceCanError (nodedp ct) dp (b+maxDescendentDistance ct)
 
-    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
     stIsMaxDistanceDpFartherThanWithDistanceCanError !ct !dp !b = 
         isFartherThanWithDistanceCanError (nodedp ct) dp (b-maxDescendentDistance ct)
+
+    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistance #-}
+    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistance #-}
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
@@ -256,7 +261,10 @@ instance
     stHasNode _ = True
     stIsLeaf ct = null $ toList $ children ct
 
+    {-# INLINE ro #-}
     ro _ = 0
+
+    {-# INLINE lambda #-}
     lambda !ct = maxDescendentDistance ct 
 
 -------------------------------------------------------------------------------
@@ -369,12 +377,12 @@ packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
 safeInsert :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
     ) => CoverTree' base childContainer nodeContainer tag dp 
-      -> Weighted dp 
+      -> Weighted# dp 
       -> CoverTree' base childContainer nodeContainer tag dp
-safeInsert node (0,_) = node
-safeInsert node (w,dp) = case insert node (w,dp) of
-    Just x -> x
-    Nothing -> Node
+safeInsert node (# 0,_  #) = node
+safeInsert node (# w,dp #) = case insert node (# w,dp #) of
+    Strict.Just x -> x
+    Strict.Nothing -> Node
         { nodedp    = dp
         , level     = dist2level_up (Proxy::Proxy base) dist
 --         , weight    = w
@@ -392,11 +400,11 @@ safeInsert node (w,dp) = case insert node (w,dp) of
 insert :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
     ) => CoverTree' base childContainer nodeContainer tag dp 
-      -> Weighted dp 
-      -> Maybe (CoverTree' base childContainer nodeContainer tag dp)
-insert node (w,dp) = if isFartherThan dp (nodedp node) (sepdist node)
-    then Nothing
-    else Just $ Node
+      -> Weighted# dp 
+      -> Strict.Maybe (CoverTree' base childContainer nodeContainer tag dp)
+insert node (# w,dp #) = if isFartherThan dp (nodedp node) (sepdist node)
+    then Strict.Nothing
+    else Strict.Just $ Node
         { nodedp    = nodedp node
         , level     = level node
 --         , weight    = weight node
@@ -433,8 +441,8 @@ insert node (w,dp) = if isFartherThan dp (nodedp node) (sepdist node)
                 ]
         go (x:xs) = if isFartherThan (nodedp x) dp (sepdist x)
             then x:go xs
-            else case insert x (w,dp) of
-                Just x' -> x':xs
+            else case insert x (# w,dp #) of
+                Strict.Just x' -> x':xs
 
 insertBatch :: forall base childContainer nodeContainer tag dp.
     ( ValidCT base childContainer nodeContainer tag dp
@@ -452,7 +460,7 @@ insertBatch (dp:dps) = go dps $ Node
     }
     where
         go [] tree = tree
-        go (x:xs) tree = go xs $ safeInsert tree (1,x)
+        go (x:xs) tree = go xs $ safeInsert tree (# 1,x #)
 
 -------------------------------------------------------------------------------
 -- algebra
@@ -548,19 +556,20 @@ ctmerge' :: forall base childContainer nodeContainer tag dp.
             , [CoverTree' base childContainer nodeContainer tag dp]
             )
 ctmerge' ct1 ct2 = 
-  if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
-    then Strict.Nothing
-    else Strict.Just 
-        ( 
-          flip safeInsert (stNodeW ct2) $ 
-          ct1
-            { children = children'
-            , numdp = sum $ map numdp $ toList children'
-            , maxDescendentDistance 
-                = maximum $ map (distance (nodedp ct1)) $ (stToList ct2++stToList ct1)
-            }
-        , invalidchildren++invalid_newleftovers
-        )
+    if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
+        then Strict.Nothing
+        else Strict.Just 
+            ( safeInsert 
+                ( ct1
+                    { children = children'
+                    , numdp = sum $ map numdp $ toList children'
+                    , maxDescendentDistance 
+                        = maximum $ map (distance (nodedp ct1)) $ (stToList ct2++stToList ct1)
+                    }
+                )
+                ( stNodeW ct2 )
+            , invalidchildren++invalid_newleftovers
+            )
     where
 --         children' = fromList $ Strict.strictlist2list $ Strict.list2strictlist $ Map.elems childrenMap' 
         children' = fromList $ Map.elems childrenMap' 
