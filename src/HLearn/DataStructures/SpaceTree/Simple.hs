@@ -41,10 +41,11 @@ simple_knn ::
     , VG.Vector v dp
     , KnownNat k
     , Eq dp
+    , ValidNeighbor dp
     ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
 simple_knn query knn (Simple v) = VG.foldl' cata knn v
     where
-        cata knn dp = case isFartherThanWithDistance query dp (nl_maxdist knn) of
+        cata knn dp = case isFartherThanWithDistance query dp (nlMaxDist knn) of
             Strict.Nothing -> knn
             Strict.Just dist -> mkNeighborList dp dist <> knn
 

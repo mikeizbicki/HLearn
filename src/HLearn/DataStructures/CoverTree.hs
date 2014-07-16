@@ -71,6 +71,7 @@ import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 import qualified HLearn.DataStructures.StrictList as Strict
 import HLearn.DataStructures.StrictList (List (..))
 
+import HLearn.UnsafeVector
 import HLearn.Models.Classifiers.Common
 import HLearn.Metrics.Lebesgue
 
@@ -88,13 +89,17 @@ data CoverTree'
     = Node 
         { nodedp                :: {-#UNPACK#-}!(L2 VU.Vector Float)
         , level                 :: {-#UNPACK#-}!Int
-        , weight                :: {-#UNPACK#-}!Float
+--         , weight                :: {-#UNPACK#-}!Float
         , numdp                 :: {-#UNPACK#-}!Float
         , maxDescendentDistance :: {-#UNPACK#-}!Float
         , children              :: {-#UNPACK#-}!(V.Vector (CoverTree' base childContainer VU.Vector tag dp))
-        , nodeV                 :: !(VU.Vector dp)
-        , tag                   :: !tag
+        , nodeV                 :: {-#UNPACK#-}!(VU.Vector (L2 VU.Vector Float))
+--         , tag                   :: !tag
         }
+
+{-# INLINE weight #-}
+weight :: CoverTree' base childContainer nodeContainer tag dp -> Float
+weight _ = 1
 
 ---------------------------------------
 -- standard instances
@@ -124,10 +129,11 @@ instance
     , ValidCT base childContainer nodeContainer tag dp
     ) => NFData (CoverTree' base childContainer nodeContainer tag dp) 
         where
-    rnf ct = deepseq (numdp ct) 
-           $ deepseq (maxDescendentDistance ct)
-           $ seq ct
-           $ ()
+    rnf ct = rnf $ children ct
+--     rnf ct = deepseq (numdp ct) 
+--            $ deepseq (maxDescendentDistance ct)
+--            $ seq ct
+--            $ ()
 
 ---------------------------------------
 -- non-standard instances
@@ -371,14 +377,14 @@ safeInsert node (w,dp) = case insert node (w,dp) of
     Nothing -> Node
         { nodedp    = dp
         , level     = dist2level_up (Proxy::Proxy base) dist
-        , weight    = w
+--         , weight    = w
         , numdp     = numdp node+1
-        , tag       = mempty
         , children  = if stIsLeaf node
             then fromList [node { level = dist2level_down (Proxy::Proxy base) dist } ]
             else fromList [node]
         , nodeV     = mempty
         , maxDescendentDistance = maximum $ map (distance dp) $ stToList node
+--         , tag       = mempty
         }
         where
             dist = distance (nodedp node) dp
@@ -393,14 +399,14 @@ insert node (w,dp) = if isFartherThan dp (nodedp node) (sepdist node)
     else Just $ Node
         { nodedp    = nodedp node
         , level     = level node
-        , weight    = weight node
+--         , weight    = weight node
         , numdp     = weight node + sum (map numdp children')
-        , tag       = tag node
         , children  = fromList $ sortBy sortgo children'
         , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
             (distance (nodedp node) dp)
+--         , tag       = tag node
         }
 
     where 
@@ -417,12 +423,12 @@ insert node (w,dp) = if isFartherThan dp (nodedp node) (sepdist node)
         go [] = [ Node 
                     { nodedp   = dp
                     , level    = level node-1
-                    , weight   = w
+--                     , weight   = w
                     , numdp    = w
                     , children = mempty
                     , nodeV    = mempty
-                    , tag      = mempty
                     , maxDescendentDistance = 0
+--                     , tag      = mempty
                     }
                 ]
         go (x:xs) = if isFartherThan (nodedp x) dp (sepdist x)
@@ -437,12 +443,12 @@ insertBatch :: forall base childContainer nodeContainer tag dp.
 insertBatch (dp:dps) = go dps $ Node 
     { nodedp    = dp
     , level     = minBound
-    , weight    = 1
+--     , weight    = 1
     , numdp     = 1
-    , tag       = mempty
     , children  = mempty
     , nodeV     = mempty
     , maxDescendentDistance = 0
+--     , tag       = mempty
     }
     where
         go [] tree = tree
@@ -478,8 +484,8 @@ takeFromTo :: forall base childContainer nodeContainer tag dp.
       -> CoverTree' base childContainer nodeContainer tag dp
 takeFromTo from len ct = 
      ct
-        { weight = nodeweight
-        , nodeV = nodeV'
+--         { weight = nodeweight
+        { nodeV = nodeV'
         , children = children'
         }
     where
@@ -617,13 +623,12 @@ growct_safe ct d = if sepdist ct==0 || stIsLeaf ct
         then growct (Node
             { nodedp    = nodedp ct
             , level     = level ct+1
-            , weight    = 0 -- weight ct
+--             , weight    = 0 -- weight ct
             , numdp     = numdp ct
-            , tag       = mempty
---             , children  = fromList $ Strict.strictlist2list $ ct:.Strict.Nil
             , children  = fromList [ct]
             , nodeV     = mempty
             , maxDescendentDistance = maxDescendentDistance ct
+--             , tag       = mempty
             }
             ) d
         else ct
@@ -853,12 +858,12 @@ instance
     train1dp dp = UnitLift $ Node 
         { nodedp    = dp
         , level     = minBound
-        , weight    = 1
+--         , weight    = 1
         , numdp     = 1
-        , tag       = mempty
         , children  = mempty
         , nodeV     = mempty
         , maxDescendentDistance = 0
+--         , tag       = mempty
         }
 
     {-# INLINABLE train #-}

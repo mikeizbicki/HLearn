@@ -21,6 +21,7 @@ Library
 
         -- control
         containers          >= 0.5,
+        unordered-containers>=0.2.4, 
         vector              >= 0.10,
         array               >= 0.4,
         lens                >= 4.0,
@@ -80,7 +81,18 @@ Library
 --         -caf-all 
 
 
+        -ddump-to-file
+--         -ddump-cmm
+        -ddump-simpl
+        -dsuppress-module-prefixes 
+        -dsuppress-uniques 
+        -dsuppress-idinfo 
+        -dsuppress-coercions 
+        -dsuppress-type-applications
+
     Exposed-modules:
+        HLearn.UnsafeVector
+
         HLearn.Algebra
         HLearn.Algebra.Common
         HLearn.Algebra.History
@@ -191,10 +203,16 @@ executable hlearn-allknn
         -fno-liberate-case 
         -funfolding-use-threshold1000 
         -funfolding-keeness-factor1000 
+
         -fllvm 
         -optlo-O3
+        -optlo-enable-fp-mad
+        -optlo-enable-no-infs-fp-math
+        -optlo-enable-no-nans-fp-math
+        -optlo-enable-unsafe-fp-math
 
         -ddump-to-file
+--         -ddump-cmm
         -ddump-simpl
         -dsuppress-module-prefixes 
         -dsuppress-uniques 
@@ -202,7 +220,7 @@ executable hlearn-allknn
         -dsuppress-coercions 
         -dsuppress-type-applications
 
---         -prof
+        -prof
 
     build-depends:       
         
@@ -215,6 +233,7 @@ executable hlearn-allknn
         deepseq >=1.3, 
         cassava >=0.3, 
         containers >=0.5, 
+        unordered-containers >=0.2.4, 
         vector >=0.10, 
         bytestring >=0.10, 
         tagged >=0.7, 
