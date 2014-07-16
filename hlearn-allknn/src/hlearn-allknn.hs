@@ -18,8 +18,8 @@ import Control.Monad
 import Data.Csv
 import Data.List
 import Data.Maybe
--- import qualified Data.Map as Map
-import qualified Data.HashMap.Strict as Map
+import qualified Data.Map.Strict as Map
+-- import qualified Data.HashMap.Strict as Map
 import qualified Data.Params as P
 import Data.Params.Vector
 import Data.Params.PseudoPrim
@@ -284,7 +284,7 @@ runit params tree knn = do
             map (hPutStrLn hNeighbors . init . tail . show)
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
---             . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
+            . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
             . Map.map (map neighbor . getknnL) 
 --             $ Map.fromList $ V.toList $ V.imap (\i x -> (stNodeV querytree VG.! i,x)) res 
 --             $ Map.fromList $ zip (stToList querytree) (Strict.strictlist2list res)

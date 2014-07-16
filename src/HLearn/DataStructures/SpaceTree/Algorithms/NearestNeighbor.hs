@@ -55,9 +55,7 @@ import qualified Data.Strict.Maybe as Strict
 import Data.Monoid
 import Data.Proxy
 import qualified Data.Foldable as F
-import Data.Hashable
-import qualified Data.HashMap.Strict as HashMap
--- import qualified Data.Map.Strict as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -182,25 +180,24 @@ instance (KnownNat k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
 
 newtype NeighborMap (k::Nat) dp = NeighborMap 
 --     { nm2map :: Map.Map dp (NeighborList k dp)
-    { nm2map :: HashMap.HashMap dp (NeighborList k dp)
+    { nm2map :: Map.Map dp (NeighborList k dp)
     }
 
--- deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
-deriving instance (Show dp, Show (Scalar dp), Hashable dp, Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
+deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
+deriving instance (Show dp, Show (Scalar dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
 deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborMap k dp)
 
 {-# INLINE nm2list #-}
 nm2list :: NeighborMap k dp -> [(dp,NeighborList k dp)]
-nm2list (NeighborMap nm) = HashMap.toList nm
--- nm2list (NeighborMap nm) = Map.assocs nm
+nm2list (NeighborMap nm) = Map.assocs nm
 
-instance (KnownNat k, MetricSpace dp, Ord dp, Hashable dp) => Monoid (NeighborMap k dp) where
+instance (KnownNat k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
     {-# INLINE mempty #-}
     mempty = NeighborMap mempty
 
     {-# INLINE mappend #-}
     mappend (NeighborMap x) (NeighborMap y) = 
-        {-# SCC mappend_NeighborMap #-} NeighborMap $ HashMap.unionWith (<>) x y
+        {-# SCC mappend_NeighborMap #-} NeighborMap $ Map.unionWith (<>) x y
 
 -------------------------------------------------------------------------------
 -- single tree
@@ -350,7 +347,7 @@ findNeighborMap ::
     , ValidNeighbor dp
     ) => DualTree (t dp) -> NeighborMap k dp
 findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $ 
-    map (\dp -> NeighborMap $ HashMap.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
+    map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
 
 {-# INLINABLE parFindNeighborMap #-}
 parFindNeighborMap :: 
@@ -364,7 +361,7 @@ parFindNeighborMap ::
     , ValidNeighbor dp
     ) => DualTree (t dp) -> NeighborMap k dp
 parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $ 
-    map (\dp -> NeighborMap $ HashMap.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
+    map (\dp -> NeighborMap $ Map.singleton dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
 
 -- {-# INLINABLE parFindNeighborMapWith #-}
 -- parFindNeighborMapWith ::
@@ -378,7 +375,7 @@ parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $
 --     ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
 -- parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
 --     map 
---         (\dp -> NeighborMap $ HashMap.singleton dp $ findNeighborListWith (HashMap.findWithDefault mempty dp nm) (reference dual) dp) 
+--         (\dp -> NeighborMap $ Map.singleton dp $ findNeighborListWith (Map.findWithDefault mempty dp nm) (reference dual) dp) 
 --         (stToList $ query dual)
 -- 
 -- {-# INLINABLE parFindEpsilonNeighborMap #-}
@@ -397,6 +394,6 @@ parFindEpsilonNeighborMapWith ::
     ) => NeighborMap k dp -> Scalar dp -> DualTree (t dp) -> NeighborMap k dp
 parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = (parallel reduce) $
     map 
-        (\dp -> NeighborMap $ HashMap.singleton dp $ findEpsilonNeighborListWith (HashMap.lookupDefault mempty dp nm) epsilon (reference dual) dp) 
+        (\dp -> NeighborMap $ Map.singleton dp $ findEpsilonNeighborListWith (Map.findWithDefault mempty dp nm) epsilon (reference dual) dp) 
         (stToList $ query dual)
 
