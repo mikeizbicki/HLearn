@@ -110,6 +110,7 @@ data Params = Params
     , searchEpsilon     :: Float
 
     , packMethod        :: PackMethod
+    , sortMethod        :: SortMethod
 
     , verbose           :: Bool
     , debug             :: Bool
@@ -121,6 +122,14 @@ data PackMethod
     | PackCT
     | PackCT2
     | PackCT3
+    deriving (Eq,Read,Show,Data,Typeable)
+
+data SortMethod
+    = NoSort
+    | NumDP_Distance
+    | NumDP_Distance'
+    | Distance_NumDP
+    | Distance_NumDP'
     deriving (Eq,Read,Show,Data,Typeable)
 
 allknnParams = Params 
@@ -149,7 +158,10 @@ allknnParams = Params
 
     , packMethod     = PackCT
                     &= help "Specifies which method to use for cache layout of the covertree"
-                    &= groupname "Cache Options"
+                    &= groupname "Tree structure optimizations"
+
+    , sortMethod     = NumDP_Distance
+                    &= help "What order should the children be sorted in?"
 
     , pca_data       = False 
                     &= groupname "Data Preprocessing" 
@@ -238,11 +250,19 @@ runit params tree knn = do
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
 
+    let reftree_sort = case sortMethod params of
+            NoSort -> unUnit reftree
+            NumDP_Distance -> sortChildren cmp_numdp_distance $ unUnit reftree 
+            NumDP_Distance' -> sortChildren cmp_numdp_distance' $ unUnit reftree 
+            Distance_NumDP -> sortChildren cmp_distance_numdp $ unUnit reftree 
+            Distance_NumDP' -> sortChildren cmp_distance_numdp' $ unUnit reftree 
+    timeIO "sorting children" $ return reftree_sort
+
     let reftree_prune = case packMethod params of
-            NoPack -> unUnit reftree
-            PackCT -> packCT $ unUnit reftree
-            PackCT2 -> packCT2 20 $ unUnit reftree
-            PackCT3 -> packCT3 $ unUnit reftree
+            NoPack -> reftree_sort
+            PackCT -> packCT $ reftree_sort
+            PackCT2 -> packCT2 20 $ reftree_sort
+            PackCT3 -> packCT3 $ reftree_sort
     timeIO "packing reference tree" $ return reftree_prune
 
     -- verbose prints tree stats
@@ -317,6 +337,8 @@ printTreeStats str t = do
     putStr (str++"  stNumGhostLeaves.....") >> hFlush stdout >> putStrLn (show $ stNumGhostLeaves t) 
     putStr (str++"  stNumGhostSelfparent.") >> hFlush stdout >> putStrLn (show $ stNumGhostSelfparent t) 
     putStr (str++"  stAveGhostChildren...") >> hFlush stdout >> putStrLn (show $ mean $ stAveGhostChildren t) 
+    putStr (str++"  stMaxNodeV...........") >> hFlush stdout >> putStrLn (show $ stMaxNodeV t) 
+    putStr (str++"  stAveNodeV...........") >> hFlush stdout >> putStrLn (show $ mean $ stAveNodeV t) 
     putStr (str++"  stMaxChildren........") >> hFlush stdout >> putStrLn (show $ stMaxChildren t) 
     putStr (str++"  stAveChildren........") >> hFlush stdout >> putStrLn (show $ mean $ stAveChildren t) 
     putStr (str++"  stMaxDepth...........") >> hFlush stdout >> putStrLn (show $ stMaxDepth t) 

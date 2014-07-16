@@ -25,6 +25,8 @@ module HLearn.DataStructures.SpaceTree
     , stNumGhostSingletons
     , stNumGhostLeaves
     , stNumGhostSelfparent
+    , stMaxNodeV
+    , stAveNodeV
     , stMaxChildren
     , stAveChildren
     , stMaxDepth
@@ -226,7 +228,7 @@ class
     {-# INLINE stNodeV #-}
     stNodeV :: t dp -> (NodeContainer t) dp
     stNodeV t = mempty
-    
+
     {-# INLINE stNodeW #-}
     stNodeW :: t dp -> Weighted# dp
     stNodeW t = (# stWeight t, stNode t #)
@@ -303,6 +305,14 @@ stAveGhostChildren t = (if stWeight t == 0 then train1dp . fromIntegral . length
     `mappend` if stIsLeaf t
         then mempty
         else (reduce . map stAveGhostChildren $ stChildrenList t)
+
+{-# INLINABLE stMaxNodeV #-}
+stMaxNodeV :: SpaceTree t dp => t dp -> Int
+stMaxNodeV t = maximum $ (length $ toList $ stNodeV t):(map stMaxNodeV $ stChildrenList t)
+
+{-# INLINABLE stAveNodeV #-}
+stAveNodeV :: SpaceTree t dp => t dp -> Normal Double Double
+stAveNodeV t = (train1dp . fromIntegral . length . toList $ stNodeV t) `mappend` (reduce . map stAveNodeV $ stChildrenList t)
 
 {-# INLINABLE stMaxChildren #-}
 stMaxChildren :: SpaceTree t dp => t dp -> Int
@@ -441,16 +451,12 @@ prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
 {-# INLINE vecfold #-}
 -- vecfold :: VG.Vector v a => (a -> b -> a) -> b -> v a -> b
 vecfold !f !tot !v = {-# SCC vecfold #-} if VG.length v > 0
-    then go 0 tot
+    then goEach 0 tot
     else tot
     where
-        go !i !tot = if i>=VG.length v
+        goEach !i !tot = if i>=VG.length v
             then tot
-            else {-# SCC vecfold_else #-} go (i+1) $! {-# SCC vecfold_fbang #-} f (v `VG.unsafeIndex` i) tot
---                     !fbang = {-# SCC vecfold_fbang #-} f (v `VG.unsafeIndex` i) tot 
---                     !fbang = {-# SCC vecfold_fbang #-} f (v VG.! i) tot 
-        
-         
+            else goEach (i+1) $! f (v `VG.unsafeIndex` i) tot
 
 {-# INLINABLE prunefoldC #-}
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b

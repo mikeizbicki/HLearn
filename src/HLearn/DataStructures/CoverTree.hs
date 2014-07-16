@@ -11,6 +11,12 @@ module HLearn.DataStructures.CoverTree
 --     , unsafeMap
 --     , recover
 --     , trainct_insert
+    , sortChildren
+    , cmp_numdp_distance
+    , cmp_numdp_distance'
+    , cmp_distance_numdp
+    , cmp_distance_numdp'
+
     , packCT
     , packCT2
     , packCT3
@@ -270,6 +276,54 @@ instance
 -------------------------------------------------------------------------------
 -- 
 
+sortChildren :: 
+    ( ValidCT base childContainer nodeContainer tag dp
+    ) => ( CoverTree' base childContainer nodeContainer tag dp
+        -> CoverTree' base childContainer nodeContainer tag dp
+        -> CoverTree' base childContainer nodeContainer tag dp
+        -> Ordering
+         )
+      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' base childContainer nodeContainer tag dp
+sortChildren cmp ct = ct
+    { children = fromList $ sortBy (cmp ct) $ map (sortChildren cmp) $ toList $ children ct
+    }
+
+cmp_numdp_distance ct a b
+    = compare 
+        (numdp a) 
+        (numdp b)
+   <> compare 
+        (distance (nodedp ct) (nodedp a)) 
+        (distance (nodedp ct) (nodedp b))
+
+cmp_numdp_distance' ct b a
+    = compare 
+        (numdp a) 
+        (numdp b)
+   <> compare 
+        (distance (nodedp ct) (nodedp a)) 
+        (distance (nodedp ct) (nodedp b))
+
+cmp_distance_numdp ct a b
+    = compare 
+        (distance (nodedp ct) (nodedp a)) 
+        (distance (nodedp ct) (nodedp b))
+   <> compare 
+        (numdp a) 
+        (numdp b)
+
+cmp_distance_numdp' ct b a
+    = compare 
+        (distance (nodedp ct) (nodedp a)) 
+        (distance (nodedp ct) (nodedp b))
+   <> compare 
+        (numdp a) 
+        (numdp b)
+
+-------------------------------------------------------------------------------
+-- 
+--
 packCT :: 
     ( ValidCT base childContainer nodeContainer tag dp
     , VG.Vector nodeContainer dp
@@ -286,17 +340,21 @@ packCT ct = snd $ go 0 ct'
                 (i',children') = mapAccumL 
                     go 
                     (i+1+length (toList $ nodeV t)) 
-                    (sortBy sortgo $ toList $ children t)
+                    ({-sortBy sortgo $-} toList $ children t)
 
         ct' =  setNodeV 0 ct
         v = fromList $ mkNodeList ct'
 
-        sortgo a b = compare (numdp a) (numdp b)
-                  <> compare (distance (nodedp ct) (nodedp a)) (distance (nodedp ct) (nodedp b))
+--         sortgo a b = compare 
+--                         (numdp a) 
+--                         (numdp b)
+--                   <> compare 
+--                         (distance (nodedp ct) (nodedp a)) 
+--                         (distance (nodedp ct) (nodedp b))
 
         mkNodeList ct = [nodedp ct] 
                      ++ (toList $ nodeV ct) 
-                     ++ (concatMap mkNodeList $ sortBy sortgo $ toList $ children ct)
+                     ++ (concatMap mkNodeList $ {-sortBy sortgo $-} toList $ children ct)
 
 
 setNodeV :: 
