@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, MultiParamTypeClasses, BangPatterns, StandaloneDeriving, GeneralizedNewtypeDeriving,FlexibleContexts #-}
-module UnsafeVector
+{-# LANGUAGE TypeFamilies, FlexibleInstances, MultiParamTypeClasses, BangPatterns, StandaloneDeriving, GeneralizedNewtypeDeriving,FlexibleContexts,MagicHash #-}
+module HLearn.UnsafeVector
     ( setptsize 
     )
     where
@@ -19,9 +19,28 @@ import qualified Data.Strict.Maybe as Strict
 
 import Data.Csv
 
-import Data.SIMD.SIMD4
+import Unsafe.Coerce
+import Data.Hashable
+import Data.Primitive.ByteArray
+import GHC.Prim
+import GHC.Int
+import GHC.Types
+
+-- import Data.SIMD.SIMD4
 import HLearn.Algebra
 import HLearn.Metrics.Lebesgue
+
+-------------------
+
+data UVector = UVector {-#UNPACK#-}!Int {-#UNPACK#-}!Int {-#UNPACK#-}!ByteArray
+
+instance Hashable (L2 VU.Vector Float) where
+    hash (L2 v) = addr+off
+        where   
+            addr = addrToInt $ byteArrayContents arr
+            UVector size off arr = unsafeCoerce v
+
+addrToInt (Addr addr#) = I# (addr2Int# addr#)
 
 -------------------------------------------------------------------------------
 -- unsafe globals

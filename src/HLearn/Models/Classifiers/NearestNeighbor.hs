@@ -57,6 +57,7 @@ instance
 instance Probabilistic (KNearestNeighbor tree k dp) where
     type Probability (KNearestNeighbor tree k dp) = Scalar (KNearestNeighbor tree k dp)
 
+{-
 instance
     ( dp ~ MaybeLabeled label attr
     , IsScalar (Scalar dp)
@@ -89,6 +90,7 @@ instance
     ) => Classifier (KNearestNeighbor tree k dp)
         where
     classify model dp = {-trace "KNN-classify" $-}  mean $ probabilityClassify model dp
+  -}
     
 -------------------------------------------------------------------------------
 -- test
