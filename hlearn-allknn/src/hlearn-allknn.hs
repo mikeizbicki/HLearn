@@ -107,6 +107,7 @@ data Params = Params
 
     , pca_data          :: Bool
     , varshift_data     :: Bool
+    , searchEpsilon     :: Float
 
     , packMethod        :: PackMethod
 
@@ -141,6 +142,10 @@ allknnParams = Params
     , neighbors_file = "neighbors_hlearn.csv" 
                     &= help "File to output the neighbors into" 
                     &= typFile
+
+    , searchEpsilon   = 0
+                    &= help ""
+                    &= groupname "Approximations"
 
     , packMethod     = PackCT
                     &= help "Specifies which method to use for cache layout of the covertree"
@@ -177,6 +182,7 @@ main = do
 
     let checkfail x t = if x then error t else return ()
     checkfail (reference_file params == Nothing) "must specify a reference file"
+    checkfail (searchEpsilon params < 0) "search epsilon must be >= 0"
 
     case k params of 
         1 -> runit params (undefined :: Tree) (undefined :: NeighborMap 1 DP)
@@ -261,7 +267,14 @@ runit params tree knn = do
     -- do knn search
 --     let result = findNeighborVec (DualTree (reftree_prune) (querytree)) :: V.Vector (NeighborList k DP)
 --     let result = findNeighborSL (DualTree (reftree_prune) (querytree)) :: Strict.List (NeighborList k DP)
-    let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+    let result = parFindEpsilonNeighborMap 
+            ( searchEpsilon params ) 
+            ( DualTree 
+                ( reftree_prune ) 
+                ( querytree )
+            ) 
+            :: NeighborMap k DP
+
     res <- timeIO "computing parFindNeighborMap" $ return result
 
     -- output to files

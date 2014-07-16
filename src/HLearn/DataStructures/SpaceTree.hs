@@ -6,6 +6,7 @@ module HLearn.DataStructures.SpaceTree
     SpaceTree (..)
     , Taggable (..)
 
+    , Weighted# 
     , AddUnit (..)
     , DualTree (..)
 
@@ -163,6 +164,8 @@ instance FromList [] a where
 -- class (Functor a, F.Foldable a, FromList a) => Container a
 -- instance (Functor a, F.Foldable a, FromList a) => Container a
 
+type Weighted# dp = (# Scalar dp, dp #)
+
 class 
     ( MetricSpace dp
     , Scalar dp ~ Scalar (t dp)
@@ -225,8 +228,8 @@ class
     stNodeV t = mempty
     
     {-# INLINE stNodeW #-}
-    stNodeW :: t dp -> Weighted dp
-    stNodeW t = (stWeight t, stNode t)
+    stNodeW :: t dp -> Weighted# dp
+    stNodeW t = (# stWeight t, stNode t #)
 
     ro :: t dp -> Scalar dp
     lambda :: t dp -> Scalar dp
@@ -385,7 +388,7 @@ prunefold prune f b t = if prune b t
         b' = f (stNode t) b
 
 {-# INLINABLE prunefoldW #-}
-prunefoldW :: SpaceTree t a => (b -> t a -> Bool) -> (Weighted a -> b -> b) -> b -> t a -> b
+prunefoldW :: SpaceTree t a => (b -> t a -> Bool) -> (Weighted# a -> b -> b) -> b -> t a -> b
 prunefoldW prune f b t = if prune b t
     then b
     else if stIsLeaf t
@@ -430,18 +433,24 @@ prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
         go !t !b = {-# SCC prunefoldB_CanError_if #-} if isError res
             then {-# SCC prunefoldB_CanError_Nothing #-} b
             else {-# SCC prunefoldB_CanError_Just #-} 
-                vecfold go b'' ({-# SCC prunefoldB_CanError_stChildren #-} stChildren t)
+                vecfold go b'' $ {-# SCC prunefoldB_CanError_stChildren #-} stChildren t
                 where
                     !res = {-# SCC res #-} f2 t b
                     !b'' = {-# SCC b'' #-} vecfold f1 res (stNodeV t)
 
 {-# INLINE vecfold #-}
 -- vecfold :: VG.Vector v a => (a -> b -> a) -> b -> v a -> b
-vecfold !f !tot !v = {-# SCC vecfold #-} go 0 tot
+vecfold !f !tot !v = {-# SCC vecfold #-} if VG.length v > 0
+    then go 0 tot
+    else tot
     where
         go !i !tot = if i>=VG.length v
             then tot
-            else go (i+1) $ f (v `VG.unsafeIndex` i) tot
+            else {-# SCC vecfold_else #-} go (i+1) $! {-# SCC vecfold_fbang #-} f (v `VG.unsafeIndex` i) tot
+--                     !fbang = {-# SCC vecfold_fbang #-} f (v `VG.unsafeIndex` i) tot 
+--                     !fbang = {-# SCC vecfold_fbang #-} f (v VG.! i) tot 
+        
+         
 
 {-# INLINABLE prunefoldC #-}
 prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
