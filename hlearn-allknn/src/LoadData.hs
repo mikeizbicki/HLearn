@@ -43,7 +43,7 @@ import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
 import Timing
-import UnsafeVector
+import HLearn.UnsafeVector
 
 -------------------------------------------------------------------------------
 

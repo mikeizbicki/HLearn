@@ -18,7 +18,8 @@ import Control.Monad
 import Data.Csv
 import Data.List
 import Data.Maybe
-import qualified Data.Map as Map
+-- import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as Map
 import qualified Data.Params as P
 import Data.Params.Vector
 import Data.Params.PseudoPrim
@@ -61,7 +62,7 @@ import Data.Version
 
 import LoadData
 import Timing 
-import UnsafeVector
+import HLearn.UnsafeVector
 
 type DP = L2 VU.Vector Float
 type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
@@ -258,6 +259,8 @@ runit params tree knn = do
             return (qtree_prune,qs)
 
     -- do knn search
+--     let result = findNeighborVec (DualTree (reftree_prune) (querytree)) :: V.Vector (NeighborList k DP)
+--     let result = findNeighborSL (DualTree (reftree_prune) (querytree)) :: Strict.List (NeighborList k DP)
     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
 
@@ -265,27 +268,28 @@ runit params tree knn = do
     let qs_index = Map.fromList $ zip (VG.toList qs) [0::Int ..]
         rs_index = Map.fromList $ zip (VG.toList rs) [0::Int ..]
 
-    timeIO "outputing distance" $ do
-        hDistances <- openFile (distances_file params) WriteMode
-        sequence_ $ 
-            map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
-            . Map.elems 
-            . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
-            . Map.map (map neighborDistance . getknnL) 
-            $ nm2map res 
-        hClose hDistances
-
+--     timeIO "outputing distance" $ do
+--         hDistances <- openFile (distances_file params) WriteMode
+--         sequence_ $ 
+--             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
+--             . Map.elems 
+--             . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
+--             . Map.map (map neighborDistance . getknnL) 
+--             $ nm2map res 
+--         hClose hDistances
+  
     timeIO "outputing neighbors" $ do
         hNeighbors <- openFile (neighbors_file params) WriteMode
         sequence_ $ 
             map (hPutStrLn hNeighbors . init . tail . show)
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
-            . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
+--             . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
             . Map.map (map neighbor . getknnL) 
+--             $ Map.fromList $ V.toList $ V.imap (\i x -> (stNodeV querytree VG.! i,x)) res 
+--             $ Map.fromList $ zip (stToList querytree) (Strict.strictlist2list res)
             $ nm2map res 
         hClose hNeighbors
-  
     -- end
     putStrLn "end"
 
