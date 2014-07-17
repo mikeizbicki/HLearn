@@ -258,7 +258,7 @@ runit params tree knn = do
             }
     rs <- loaddata dataparams
 
-    let reftree = {-parallel-} train rs :: Tree
+    let reftree = parallel train rs :: Tree
     timeIO "building reference tree" $ return reftree
 
     let reftree_sort = case sortMethod params of
