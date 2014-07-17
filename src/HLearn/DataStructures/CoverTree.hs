@@ -424,8 +424,8 @@ safeInsert :: forall expansionRatio childContainer nodeContainer tag dp.
     ) => CoverTree' expansionRatio childContainer nodeContainer tag dp 
       -> Weighted# dp 
       -> CoverTree' expansionRatio childContainer nodeContainer tag dp
-safeInsert node (# 0,_  #) = node
-safeInsert node (# w,dp #) = case insert node (# w,dp #) of
+safeInsert node (# 0,_  #) = {-# SCC safeInsert0 #-} node
+safeInsert node (# w,dp #) = {-# SCC safeInsertw #-} case insert node (# w,dp #) of
     Strict.Just x -> x
     Strict.Nothing -> Node
         { nodedp    = dp
@@ -447,14 +447,14 @@ insert :: forall expansionRatio childContainer nodeContainer tag dp.
     ) => CoverTree' expansionRatio childContainer nodeContainer tag dp 
       -> Weighted# dp 
       -> Strict.Maybe (CoverTree' expansionRatio childContainer nodeContainer tag dp)
-insert node (# w,dp #) = if isFartherThan dp (nodedp node) (sepdist node)
+insert node (# w,dp #) = {-# SCC insert #-} if isFartherThan dp (nodedp node) (sepdist node)
     then Strict.Nothing
     else Strict.Just $ Node
         { nodedp    = nodedp node
         , level     = level node
 --         , weight    = weight node
         , numdp     = weight node + sum (map numdp children')
-        , children  = fromList $ sortBy sortgo children'
+        , children  = fromList $ {-sortBy sortgo-} children'
         , nodeV     = mempty
         , maxDescendentDistance = max
             (maxDescendentDistance node)
@@ -463,17 +463,17 @@ insert node (# w,dp #) = if isFartherThan dp (nodedp node) (sepdist node)
         }
 
     where 
-        sortgo ct1 ct2 = compare 
-            (distance dp (nodedp ct1)) 
-            (distance dp (nodedp ct2))
+--         sortgo ct1 ct2 = compare 
+--             (distance dp (nodedp ct1)) 
+--             (distance dp (nodedp ct2))
 --         sortgo ct1 ct2 = compare 
 --             (distance (nodedp node) (nodedp ct2)) 
 --             (distance (nodedp node) (nodedp ct1))
 
 --         children' = go $ sortBy sortgo $ toList $ children node
-        children' = go $ toList $ children node
+        children' = {-# SCC children' #-} go $ toList $ children node
 
-        go [] = [ Node 
+        go [] = {-# SCC go_base #-}[ Node 
                     { nodedp   = dp
                     , level    = level node-1
 --                     , weight   = w
@@ -484,7 +484,7 @@ insert node (# w,dp #) = if isFartherThan dp (nodedp node) (sepdist node)
 --                     , tag      = mempty
                     }
                 ]
-        go (x:xs) = if isFartherThan (nodedp x) dp (sepdist x)
+        go (x:xs) = {-# SCC go_rec #-}if isFartherThan (nodedp x) dp (sepdist x)
             then x:go xs
             else case insert x (# w,dp #) of
                 Strict.Just x' -> x':xs
@@ -493,7 +493,7 @@ insertBatch :: forall expansionRatio childContainer nodeContainer tag dp.
     ( ValidCT expansionRatio childContainer nodeContainer tag dp
     ) => [dp] 
       -> CoverTree' expansionRatio childContainer nodeContainer tag dp
-insertBatch (dp:dps) = go dps $ Node 
+insertBatch (dp:dps) = {-# SCC insertBatch #-} go dps $ Node 
     { nodedp    = dp
     , level     = minBound
 --     , weight    = 1
