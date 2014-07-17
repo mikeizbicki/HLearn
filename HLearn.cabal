@@ -35,6 +35,7 @@ Library
 
         -- my packages
         ConstraintKinds     >= 1.2.0,
+        typeparams          >= 0.0.5,
         
         -- math dependencies
         erf                 >= 2.0,

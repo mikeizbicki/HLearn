@@ -252,9 +252,9 @@ runit params tree knn = do
 
     let reftree_sort = case sortMethod params of
             NoSort -> unUnit reftree
-            NumDP_Distance -> sortChildren cmp_numdp_distance $ unUnit reftree 
+            NumDP_Distance  -> sortChildren cmp_numdp_distance  $ unUnit reftree 
             NumDP_Distance' -> sortChildren cmp_numdp_distance' $ unUnit reftree 
-            Distance_NumDP -> sortChildren cmp_distance_numdp $ unUnit reftree 
+            Distance_NumDP  -> sortChildren cmp_distance_numdp  $ unUnit reftree 
             Distance_NumDP' -> sortChildren cmp_distance_numdp' $ unUnit reftree 
     timeIO "sorting children" $ return reftree_sort
 

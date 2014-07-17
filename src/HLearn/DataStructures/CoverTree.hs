@@ -68,7 +68,7 @@ import Debug.Trace
 -- import Diagrams.Backend.Postscript.CmdLine
 
 import qualified Control.ConstraintKinds as CK
-import HLearn.Algebra hiding ((<>),(|>),numdp)
+import HLearn.Algebra hiding ((<>),(|>),numdp, Frac(..), fracVal, KnownFrac )
 import qualified HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
@@ -81,13 +81,15 @@ import HLearn.UnsafeVector
 import HLearn.Models.Classifiers.Common
 import HLearn.Metrics.Lebesgue
 
+import Data.Params
+
 -------------------------------------------------------------------------------
 -- data types
 
 type CoverTree dp = AddUnit (CoverTree' (2/1) V.Vector V.Vector) () dp
 
 data CoverTree' 
-        ( base                  :: Frac ) 
+        ( expansionRation       :: Frac ) 
         ( childContainer        :: * -> * ) 
         ( nodeContainer         :: * -> * ) 
         ( tag                   :: * )
@@ -98,13 +100,13 @@ data CoverTree'
 --         , weight                :: {-#UNPACK#-}!Float
         , numdp                 :: {-#UNPACK#-}!Float
         , maxDescendentDistance :: {-#UNPACK#-}!Float
-        , children              :: {-#UNPACK#-}!(V.Vector (CoverTree' base childContainer VU.Vector tag dp))
+        , children              :: {-#UNPACK#-}!(V.Vector (CoverTree' expansionRation childContainer VU.Vector tag dp))
         , nodeV                 :: {-#UNPACK#-}!(VU.Vector (L2 VU.Vector Float))
 --         , tag                   :: !tag
         }
 
 {-# INLINE weight #-}
-weight :: CoverTree' base childContainer nodeContainer tag dp -> Float
+weight :: CoverTree' expansionRation childContainer nodeContainer tag dp -> Float
 weight _ = 1
 
 ---------------------------------------
@@ -112,28 +114,28 @@ weight _ = 1
 
 -- deriving instance 
 --     ( Read (Scalar dp)
---     , Read (childContainer (CoverTree' base childContainer nodeContainer tag dp))
+--     , Read (childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp))
 --     , Read (nodeContainer dp)
 --     , Read tag
 --     , Read dp
---     , ValidCT base childContainer nodeContainer tag dp
---     ) => Read (CoverTree' base childContainer nodeContainer tag dp)
+--     , ValidCT expansionRation childContainer nodeContainer tag dp
+--     ) => Read (CoverTree' expansionRation childContainer nodeContainer tag dp)
 
 deriving instance 
     ( Show (Scalar dp)
-    , Show (childContainer (CoverTree' base childContainer nodeContainer tag dp))
+    , Show (childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp))
     , Show (nodeContainer dp)
     , Show tag
     , Show dp
-    , ValidCT base childContainer nodeContainer tag dp
-    ) => Show (CoverTree' base childContainer nodeContainer tag dp)
+    , ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => Show (CoverTree' expansionRation childContainer nodeContainer tag dp)
 
 instance 
     ( NFData dp
     , NFData (Scalar dp)
     , NFData tag
-    , ValidCT base childContainer nodeContainer tag dp
-    ) => NFData (CoverTree' base childContainer nodeContainer tag dp) 
+    , ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => NFData (CoverTree' expansionRation childContainer nodeContainer tag dp) 
         where
     rnf ct = rnf $ children ct
 --     rnf ct = deepseq (numdp ct) 
@@ -151,12 +153,12 @@ class
     , Monoid tag
     , Monoid (nodeContainer dp)
     , Monoid (childContainer dp)
-    , Monoid (childContainer (CoverTree' base childContainer nodeContainer tag dp))
+    , Monoid (childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp))
     , FromList nodeContainer dp
     , FromList childContainer dp
     , FromList childContainer (Scalar dp)
-    , FromList childContainer (CoverTree' base childContainer nodeContainer tag dp)
-    , KnownFrac base
+    , FromList childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp)
+    , KnownFrac expansionRation
     , Show (Scalar dp)
     , Show dp
     , Ord dp
@@ -166,10 +168,10 @@ class
 --     , nodeContainer ~ VP.Vector
     , childContainer ~ V.Vector
     , VG.Vector nodeContainer dp
-    , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
+    , VG.Vector childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp)
     , dp ~ L2 VU.Vector Float
     , Scalar dp ~ Float
-    ) => ValidCT base childContainer nodeContainer tag dp
+    ) => ValidCT expansionRation childContainer nodeContainer tag dp
 
 instance 
     ( MetricSpace dp
@@ -178,12 +180,12 @@ instance
     , Monoid tag
     , Monoid (nodeContainer dp)
     , Monoid (childContainer dp)
-    , Monoid (childContainer (CoverTree' base childContainer nodeContainer tag dp))
+    , Monoid (childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp))
     , FromList nodeContainer dp
     , FromList childContainer dp
     , FromList childContainer (Scalar dp)
-    , FromList childContainer (CoverTree' base childContainer nodeContainer tag dp)
-    , KnownFrac base
+    , FromList childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp)
+    , KnownFrac expansionRation
     , Show (Scalar dp)
     , Show dp
     , Ord dp
@@ -193,20 +195,20 @@ instance
 --     , nodeContainer ~ VP.Vector
     , childContainer ~ V.Vector
     , VG.Vector nodeContainer dp
-    , VG.Vector childContainer (CoverTree' base childContainer nodeContainer tag dp)
+    , VG.Vector childContainer (CoverTree' expansionRation childContainer nodeContainer tag dp)
     , dp ~ L2 VU.Vector Float
     , Scalar dp ~ Float
-    ) => ValidCT base childContainer nodeContainer tag dp
+    ) => ValidCT expansionRation childContainer nodeContainer tag dp
 
-type instance Scalar (CoverTree' base childContainer nodeContainer tag dp) = Scalar dp
+type instance Scalar (CoverTree' expansionRation childContainer nodeContainer tag dp) = Scalar dp
 
 instance 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => SpaceTree (CoverTree' base childContainer nodeContainer tag) dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => SpaceTree (CoverTree' expansionRation childContainer nodeContainer tag) dp
         where
 
-    type NodeContainer (CoverTree' base childContainer nodeContainer tag) = nodeContainer 
-    type ChildContainer (CoverTree' base childContainer nodeContainer tag) = childContainer
+    type NodeContainer (CoverTree' expansionRation childContainer nodeContainer tag) = nodeContainer 
+    type ChildContainer (CoverTree' expansionRation childContainer nodeContainer tag) = childContainer
 
     {-# INLINABLE stMinDistance #-}
     {-# INLINABLE stMaxDistance #-}
@@ -277,14 +279,14 @@ instance
 -- 
 
 sortChildren :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => ( CoverTree' base childContainer nodeContainer tag dp
-        -> CoverTree' base childContainer nodeContainer tag dp
-        -> CoverTree' base childContainer nodeContainer tag dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => ( CoverTree' expansionRation childContainer nodeContainer tag dp
+        -> CoverTree' expansionRation childContainer nodeContainer tag dp
+        -> CoverTree' expansionRation childContainer nodeContainer tag dp
         -> Ordering
          )
-      -> CoverTree' base childContainer nodeContainer tag dp
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 sortChildren cmp ct = ct
     { children = fromList $ sortBy (cmp ct) $ map (sortChildren cmp) $ toList $ children ct
     }
@@ -322,13 +324,12 @@ cmp_distance_numdp' ct b a
         (numdp b)
 
 -------------------------------------------------------------------------------
--- 
---
+
 packCT :: 
-    ( ValidCT base childContainer nodeContainer tag dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
     , VG.Vector nodeContainer dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
-      -> CoverTree' base childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 packCT ct = snd $ go 0 ct'
     where
         go i t = (i',t
@@ -340,28 +341,21 @@ packCT ct = snd $ go 0 ct'
                 (i',children') = mapAccumL 
                     go 
                     (i+1+length (toList $ nodeV t)) 
-                    ({-sortBy sortgo $-} toList $ children t)
+                    (toList $ children t)
 
-        ct' =  setNodeV 0 ct
+        ct' = setNodeV 0 ct
         v = fromList $ mkNodeList ct'
-
---         sortgo a b = compare 
---                         (numdp a) 
---                         (numdp b)
---                   <> compare 
---                         (distance (nodedp ct) (nodedp a)) 
---                         (distance (nodedp ct) (nodedp b))
 
         mkNodeList ct = [nodedp ct] 
                      ++ (toList $ nodeV ct) 
-                     ++ (concatMap mkNodeList $ {-sortBy sortgo $-} toList $ children ct)
+                     ++ (concatMap mkNodeList $ toList $ children ct)
 
 
 setNodeV :: 
-    ( ValidCT base childContainer nodeContainer tag dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
     ) => Int 
-      -> CoverTree' base childContainer nodeContainer tag dp 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 setNodeV n ct = if stNumNodes ct > n
     then ct
         { children = fromList $ fmap (setNodeV n) $ filter (not . stIsLeaf) $ toList $ children ct
@@ -373,11 +367,11 @@ setNodeV n ct = if stNumNodes ct > n
         }
 
 packCT3 :: 
-    ( ValidCT base childContainer nodeContainer tag dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
     , VG.Vector nodeContainer dp
     , VUM.Unbox dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
-      -> CoverTree' base childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 packCT3 ct = snd $ go 0 ct
     where
         go i t = (i',t
@@ -385,30 +379,20 @@ packCT3 ct = snd $ go 0 ct
             , children = fromList children'
             })
             where
-                (i',children') = mapAccumL go (i+1) (dosort ct $ toList $ children t)
+                (i',children') = mapAccumL go (i+1) (toList $ children t)
 
         v = fromList $ mkNodeList ct
 
         mkNodeList ct = [nodedp ct] 
-                     ++ (concatMap mkNodeList $ dosort ct $ toList $ children ct)
-
-        dosort node xs = sortBy (\ct1 ct2 -> sortchildren ct1 ct2 <> sortdistance node ct1 ct2) xs
-        sortchildren ct1 ct2 = if length (toList $ children ct1) == 0 || length (toList $ children ct2) == 0
-            then if length (toList $ children ct1) == length (toList $ children ct2)
-                then EQ
-                else if length (toList $ children ct1) == 0
-                    then GT
-                    else LT
-            else EQ
-        sortdistance node ct1 ct2 = compare (distance (nodedp node) (nodedp ct2)) (distance (nodedp node) (nodedp ct1))
+                     ++ (concatMap mkNodeList $ toList $ children ct)
 
 packCT2 :: 
-    ( ValidCT base childContainer nodeContainer tag dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
     , VG.Vector nodeContainer dp
     , VUM.Unbox dp
     ) => Int 
-      -> CoverTree' base childContainer nodeContainer tag dp 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
     where
         go i t = (i',t
@@ -432,21 +416,21 @@ packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
 -------------------------------------------------------------------------------
 -- insertion as described in the paper
 
-safeInsert :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
+safeInsert :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
       -> Weighted# dp 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 safeInsert node (# 0,_  #) = node
 safeInsert node (# w,dp #) = case insert node (# w,dp #) of
     Strict.Just x -> x
     Strict.Nothing -> Node
         { nodedp    = dp
-        , level     = dist2level_up (Proxy::Proxy base) dist
+        , level     = dist2level_up (Proxy::Proxy expansionRation) dist
 --         , weight    = w
         , numdp     = numdp node+1
         , children  = if stIsLeaf node
-            then fromList [node { level = dist2level_down (Proxy::Proxy base) dist } ]
+            then fromList [node { level = dist2level_down (Proxy::Proxy expansionRation) dist } ]
             else fromList [node]
         , nodeV     = mempty
         , maxDescendentDistance = maximum $ map (distance dp) $ stToList node
@@ -455,11 +439,11 @@ safeInsert node (# w,dp #) = case insert node (# w,dp #) of
         where
             dist = distance (nodedp node) dp
 
-insert :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
+insert :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
       -> Weighted# dp 
-      -> Strict.Maybe (CoverTree' base childContainer nodeContainer tag dp)
+      -> Strict.Maybe (CoverTree' expansionRation childContainer nodeContainer tag dp)
 insert node (# w,dp #) = if isFartherThan dp (nodedp node) (sepdist node)
     then Strict.Nothing
     else Strict.Just $ Node
@@ -502,10 +486,10 @@ insert node (# w,dp #) = if isFartherThan dp (nodedp node) (sepdist node)
             else case insert x (# w,dp #) of
                 Strict.Just x' -> x':xs
 
-insertBatch :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
+insertBatch :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
     ) => [dp] 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 insertBatch (dp:dps) = go dps $ Node 
     { nodedp    = dp
     , level     = minBound
@@ -523,7 +507,7 @@ insertBatch (dp:dps) = go dps $ Node
 -------------------------------------------------------------------------------
 -- algebra
 
-type instance Scalar (CoverTree' base childContainer nodeContainer tag dp) = Scalar dp
+type instance Scalar (CoverTree' expansionRation childContainer nodeContainer tag dp) = Scalar dp
 
 -- instance VG.Foldable (CoverTree' tag) where
 --     foldr f i ct = if Map.size (childrenMap ct) == 0
@@ -535,19 +519,19 @@ type instance Scalar (CoverTree' base childContainer nodeContainer tag dp) = Sca
 --                 else f (nodedp ct) i
 
 instance 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => Comonoid (CoverTree' base childContainer nodeContainer tag dp) 
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => Comonoid (CoverTree' expansionRation childContainer nodeContainer tag dp) 
         where
     partition n ct = [ takeFromTo (fromIntegral i*splitlen) splitlen ct | i <- [0..n-1] ]  
         where
             splitlen = fromIntegral (ceiling $ toRational (numdp ct) / toRational n::Int)
 
-takeFromTo :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
+takeFromTo :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
     ) => Scalar dp 
       -> Scalar dp 
-      -> CoverTree' base childContainer nodeContainer tag dp 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 takeFromTo from len ct = 
      ct
 --         { weight = nodeweight
@@ -584,8 +568,8 @@ takeFromTo from len ct =
                 
 
 instance
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => Semigroup (CoverTree' base childContainer nodeContainer tag dp) 
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => Semigroup (CoverTree' expansionRation childContainer nodeContainer tag dp) 
         where
     {-# INLINABLE (<>) #-}
     ct1 <> ct2 = case ctmerge' ct1' ct2' of
@@ -594,7 +578,7 @@ instance
         Strict.Nothing -> 
             (growct 
                 ct1' 
-                (dist2level_up (Proxy::Proxy base) $ distance (nodedp ct1') (nodedp ct2'))
+                (dist2level_up (Proxy::Proxy expansionRation) $ distance (nodedp ct1') (nodedp ct2'))
             ) <> ct2'
         where
             ct1' = growct ct1 maxlevel
@@ -602,16 +586,16 @@ instance
             maxlevel = maximum 
                 [ level ct1
                 , level ct2
-                , dist2level_down (Proxy::Proxy base) $ distance (nodedp ct1) (nodedp ct2)
+                , dist2level_down (Proxy::Proxy expansionRation) $ distance (nodedp ct1) (nodedp ct2)
                 ]
 
-ctmerge' :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
-      -> CoverTree' base childContainer nodeContainer tag dp 
+ctmerge' :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp 
       -> Strict.Maybe 
-            ( CoverTree' base childContainer nodeContainer tag dp
-            , [CoverTree' base childContainer nodeContainer tag dp]
+            ( CoverTree' expansionRation childContainer nodeContainer tag dp
+            , [CoverTree' expansionRation childContainer nodeContainer tag dp]
             )
 ctmerge' ct1 ct2 = 
     if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
@@ -666,24 +650,24 @@ ctmerge' ct1 ct2 =
                         maxlevel = maximum 
                             [ level ct1
                             , level ct2
-                            , dist2level_down (Proxy::Proxy base) $ distance (nodedp ct1) (nodedp ct2)
+                            , dist2level_down (Proxy::Proxy expansionRation) $ distance (nodedp ct1) (nodedp ct2)
                             ]
 
 -------------------------------------------------------------------------------
 -- misc helper functions
 
-growct :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
+growct :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
       -> Int 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 growct = growct_unsafe
 
-growct_safe :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
+growct_safe :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
       -> Int 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 growct_safe ct d = if sepdist ct==0 || stIsLeaf ct 
     then ct { level=d }
     else if d > level ct
@@ -700,14 +684,14 @@ growct_safe ct d = if sepdist ct==0 || stIsLeaf ct
             ) d
         else ct
 --     where
---         coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
+--         coverfactor = fromRational $ fracVal (Proxy :: Proxy expansionRation)
 
 -- | this version of growct does not strictly obey the separating property; it never creates ghosts, however, so seems to work better in practice
-growct_unsafe :: forall base childContainer nodeContainer tag dp.
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
+growct_unsafe :: forall expansionRation childContainer nodeContainer tag dp.
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
       -> Int 
-      -> CoverTree' base childContainer nodeContainer tag dp
+      -> CoverTree' expansionRation childContainer nodeContainer tag dp
 growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
     then ct { level=d }
     else if d <= level ct
@@ -722,10 +706,10 @@ growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
         (newleaf,newct) = rmleaf ct
 
 rmleaf :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => CoverTree' base childContainer nodeContainer tag dp 
-      -> ( CoverTree' base childContainer nodeContainer tag dp
-         , CoverTree' base childContainer nodeContainer tag dp
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp 
+      -> ( CoverTree' expansionRation childContainer nodeContainer tag dp
+         , CoverTree' expansionRation childContainer nodeContainer tag dp
          )
 rmleaf ct = if stIsLeaf (head childL)
     then (head childL, ct
@@ -740,53 +724,53 @@ rmleaf ct = if stIsLeaf (head childL)
         (itrleaf,itrtree) = rmleaf $ head childL
         childL = toList $ children ct
 
-level2sepdist :: forall base num. (KnownFrac base, Floating num) =>  Proxy base -> Int -> num
-level2sepdist _ l = (fromRational $ fracVal (Proxy :: Proxy base))**(fromIntegral l)
+level2sepdist :: forall expansionRation num. (KnownFrac expansionRation, Floating num) =>  Proxy expansionRation -> Int -> num
+level2sepdist _ l = (fromRational $ fracVal (Proxy :: Proxy expansionRation))**(fromIntegral l)
 
-dist2level_down :: forall base num. (KnownFrac base, RealFrac num, Floating num) => Proxy base -> num -> Int
-dist2level_down _ d = floor $ log d / log (fromRational $ fracVal (Proxy::Proxy base))
+dist2level_down :: forall expansionRation num. (KnownFrac expansionRation, RealFrac num, Floating num) => Proxy expansionRation -> num -> Int
+dist2level_down _ d = floor $ log d / log (fromRational $ fracVal (Proxy::Proxy expansionRation))
 
-dist2level_up :: forall base num. (KnownFrac base, RealFrac num, Floating num) => Proxy base -> num -> Int
-dist2level_up _ d = ceiling $ log d / log (fromRational $ fracVal (Proxy::Proxy base))
+dist2level_up :: forall expansionRation num. (KnownFrac expansionRation, RealFrac num, Floating num) => Proxy expansionRation -> num -> Int
+dist2level_up _ d = ceiling $ log d / log (fromRational $ fracVal (Proxy::Proxy expansionRation))
 
-sepdist :: forall base childContainer nodeContainer tag dp. (KnownFrac base, Floating (Scalar dp)) => 
-    CoverTree' base childContainer nodeContainer tag dp -> Scalar dp
-sepdist ct = level2sepdist (Proxy::Proxy base) (level ct)
+sepdist :: forall expansionRation childContainer nodeContainer tag dp. (KnownFrac expansionRation, Floating (Scalar dp)) => 
+    CoverTree' expansionRation childContainer nodeContainer tag dp -> Scalar dp
+sepdist ct = level2sepdist (Proxy::Proxy expansionRation) (level ct)
 
 {-# INLINE coverDist #-}
-coverDist :: forall base childContainer nodeContainer tag dp.
+coverDist :: forall expansionRation childContainer nodeContainer tag dp.
     ( Floating (Scalar dp)
-    , KnownFrac base
-    ) => CoverTree' base childContainer nodeContainer tag dp -> Scalar dp
+    , KnownFrac expansionRation
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp -> Scalar dp
 coverDist node = sepdist node*coverfactor 
     where
-        coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
+        coverfactor = fromRational $ fracVal (Proxy :: Proxy expansionRation)
 
 {-# INLINE sepdist_child #-}
-sepdist_child :: forall base childContainer nodeContainer tag dp. (KnownFrac base, MetricSpace dp, Floating (Scalar dp)) => 
-    CoverTree' base childContainer nodeContainer tag dp -> Scalar dp
-sepdist_child ct = next -- rounddown (sing::Sing base) $ next --next/10
-    where next = sepdist ct/(fromRational $ fracVal (Proxy :: Proxy base)) 
+sepdist_child :: forall expansionRation childContainer nodeContainer tag dp. (KnownFrac expansionRation, MetricSpace dp, Floating (Scalar dp)) => 
+    CoverTree' expansionRation childContainer nodeContainer tag dp -> Scalar dp
+sepdist_child ct = next -- rounddown (sing::Sing expansionRation) $ next --next/10
+    where next = sepdist ct/(fromRational $ fracVal (Proxy :: Proxy expansionRation)) 
 
 {-# INLINE roundup #-}
-roundup :: forall base d. 
+roundup :: forall expansionRation d. 
     ( Floating d
     , RealFrac d
-    , KnownFrac base
-    ) => Proxy (base::Frac) -> d -> d
+    , KnownFrac expansionRation
+    ) => Proxy (expansionRation::Frac) -> d -> d
 roundup s d = rounddown s $ d * coverfactor
     where
-        coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
+        coverfactor = fromRational $ fracVal (Proxy :: Proxy expansionRation)
 
 {-# INLINE rounddown #-}
-rounddown :: forall base d. 
+rounddown :: forall expansionRation d. 
     ( Floating d
     , RealFrac d
-    , KnownFrac base
-    ) => Proxy (base::Frac) -> d -> d
+    , KnownFrac expansionRation
+    ) => Proxy (expansionRation::Frac) -> d -> d
 rounddown _ d = coverfactor^^(floor $ log d / log coverfactor :: Int)
     where
-        coverfactor = fromRational $ fracVal (Proxy :: Proxy base)
+        coverfactor = fromRational $ fracVal (Proxy :: Proxy expansionRation)
 
 ---------------------------------------
 
@@ -795,11 +779,11 @@ recover ct = foldl' safeInsert ct' xs
     where
         (ct', xs) = recover' ct
 
-recover' :: forall base childContainer nodeContainer tag dp.
+recover' :: forall expansionRation childContainer nodeContainer tag dp.
     ( MetricSpace dp
     
-    , KnownFrac base
-    ) => CoverTree' base childContainer nodeContainer tag dp -> (CoverTree' base childContainer nodeContainer tag dp, [Weighted dp])
+    , KnownFrac expansionRation
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp -> (CoverTree' expansionRation childContainer nodeContainer tag dp, [Weighted dp])
 recover' ct = (ct', failed)
     where
         ct' = ct
@@ -814,21 +798,21 @@ recover' ct = (ct', failed)
 
         failed = concatMap stToListW $ Map.elems fail 
 
--- unsafeMap :: forall base childContainer nodeContainer tag dp1 dp2.
+-- unsafeMap :: forall expansionRation childContainer nodeContainer tag dp1 dp2.
 --     ( MetricSpace dp2
 --     , Scalar dp1 ~ Scalar dp2
 --     2
---     , KnownFrac base
---     ) => (dp1 -> dp2) -> AddUnit (CoverTree' base) tag dp1 -> AddUnit (CoverTree' base) tag dp2
+--     , KnownFrac expansionRation
+--     ) => (dp1 -> dp2) -> AddUnit (CoverTree' expansionRation) tag dp1 -> AddUnit (CoverTree' expansionRation) tag dp2
 unsafeMap f Unit = Unit
 unsafeMap f (UnitLift ct) = UnitLift $ unsafeMap' f ct
 
-unsafeMap' :: forall base childContainer nodeContainer tag dp1 dp2.
+unsafeMap' :: forall expansionRation childContainer nodeContainer tag dp1 dp2.
     ( MetricSpace dp2
     , Scalar dp1 ~ Scalar dp2
     2
-    , KnownFrac base
-    ) => (dp1 -> dp2) -> CoverTree' base childContainer nodeContainer tag dp1 -> CoverTree' base childContainer nodeContainer tag dp2
+    , KnownFrac expansionRation
+    ) => (dp1 -> dp2) -> CoverTree' expansionRation childContainer nodeContainer tag dp1 -> CoverTree' expansionRation childContainer nodeContainer tag dp2
 unsafeMap' f ct = Node
     { nodedp = nodedp'
     , weight = weight ct
@@ -848,14 +832,14 @@ unsafeMap' f ct = Node
 ctmap f Unit = Unit
 ctmap f (UnitLift ct) = UnitLift $ ctmap' f ct
 
-ctmap' :: forall base childContainer nodeContainer tag dp1 dp2.
+ctmap' :: forall expansionRation childContainer nodeContainer tag dp1 dp2.
     ( MetricSpace dp2
     , Scalar dp1 ~ Scalar dp2
     , Floating (Scalar dp1)
     2
     , Monoid tag
-    , KnownFrac base
-    ) => (dp1 -> dp2) -> CoverTree' base childContainer nodeContainer tag dp1 -> CoverTree' base childContainer nodeContainer tag dp2
+    , KnownFrac expansionRation
+    ) => (dp1 -> dp2) -> CoverTree' expansionRation childContainer nodeContainer tag dp1 -> CoverTree' expansionRation childContainer nodeContainer tag dp2
 ctmap' f ct = recover $ unsafeMap' f ct
  
 
@@ -870,11 +854,11 @@ implicitChildrenMap ct = Map.union (childrenMap ct) (Map.singleton (nodedp ct) $
     , maxDescendentDistance = 0
     })
 
-extractLeaf :: forall base childContainer nodeContainer tag dp.
+extractLeaf :: forall expansionRation childContainer nodeContainer tag dp.
     ( MetricSpace dp 
     
-    , KnownFrac base
-    ) => CoverTree' base childContainer nodeContainer tag dp -> (Weighted dp, Maybe (CoverTree' base childContainer nodeContainer tag dp))
+    , KnownFrac expansionRation
+    ) => CoverTree' expansionRation childContainer nodeContainer tag dp -> (Weighted dp, Maybe (CoverTree' expansionRation childContainer nodeContainer tag dp))
 extractLeaf ct = if stIsLeaf ct
     then (stNodeW ct, Nothing)
     else (leaf, Just $ ct
@@ -890,12 +874,12 @@ extractLeaf ct = if stIsLeaf ct
                 Just c' -> Map.fromList $ (nodedp c', c'):(tail $ Map.toList $ childrenMap ct)
 -}
 
--- setLeafSize :: (MetricSpace dp, KnownFrac base) => Int -> CoverTree' base childContainer nodeContainer tag dp -> CoverTree' base childContainer nodeContainer tag dp
+-- setLeafSize :: (MetricSpace dp, KnownFrac expansionRation) => Int -> CoverTree' expansionRation childContainer nodeContainer tag dp -> CoverTree' expansionRation childContainer nodeContainer tag dp
 -- setLeafSize n ct = if stNumNodes ct < n
 --     then ct { children = fmap singleton $ Strict.list2strictlist $ stToListW ct } 
 --     else ct { children = fmap (setLeafSize n) $ children ct }
 --     where
--- --         singleton :: Weighted dp -> CoverTree' base childContainer nodeContainer tag dp
+-- --         singleton :: Weighted dp -> CoverTree' expansionRation childContainer nodeContainer tag dp
 --         singleton (w,dp) = Node
 --             { nodedp = dp
 --             , weight = w
@@ -911,15 +895,15 @@ extractLeaf ct = if stIsLeaf ct
 -- training
 
 instance 
-    ( ValidCT base childContainer nodeContainer tag dp 
-    ) => NumDP (CoverTree' base childContainer nodeContainer tag dp) where
+    ( ValidCT expansionRation childContainer nodeContainer tag dp 
+    ) => NumDP (CoverTree' expansionRation childContainer nodeContainer tag dp) where
     numdp = numdp
 
 instance 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => HomTrainer (AddUnit (CoverTree' base childContainer nodeContainer) tag dp) 
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => HomTrainer (AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp) 
         where
-    type Datapoint (AddUnit (CoverTree' base childContainer nodeContainer) tag dp) = dp
+    type Datapoint (AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp) = dp
 
     {-# INLINE train1dp #-}
     train1dp dp = UnitLift $ Node 
@@ -941,8 +925,8 @@ instance
 
 {-
 instance 
-    ( ValidCT base childContainer nodeContainer tag (Double,Double)
-    ) => Arbitrary (AddUnit (CoverTree' base childContainer nodeContainer) tag (Double,Double)) 
+    ( ValidCT expansionRation childContainer nodeContainer tag (Double,Double)
+    ) => Arbitrary (AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag (Double,Double)) 
         where
     arbitrary = do
         num :: Int <- choose (1,100)
@@ -959,8 +943,8 @@ instance
 -}
 
 property_all :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool
 property_all ct = and $ map (\x -> x ct)
     [ property_covering
     , property_leveled
@@ -969,8 +953,8 @@ property_all ct = and $ map (\x -> x ct)
     ]
 
 property_covering :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool
 property_covering Unit = True
 property_covering (UnitLift node) = if not $ stIsLeaf node
     then VG.maximum (fmap (distance (nodedp node) . nodedp) $ children node) < coverDist node 
@@ -978,8 +962,8 @@ property_covering (UnitLift node) = if not $ stIsLeaf node
     else True
 
 property_leveled :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool
 property_leveled (Unit) = True
 property_leveled (UnitLift node)
     = VG.all (== VG.head xs) xs
@@ -988,8 +972,8 @@ property_leveled (UnitLift node)
         xs = fmap level $ children node
 
 property_separating :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool
 property_separating Unit = True
 property_separating (UnitLift node) = if length (VG.toList $ children node) > 1 
     then VG.foldl1 min ((mapFactorial stMaxDistance) $ children node) > sepdist_child node
@@ -1005,18 +989,18 @@ property_separating (UnitLift node) = if length (VG.toList $ children node) > 1
                 go (x:xs) ys = go xs (map (f x) xs `mappend` ys)
 
 property_maxDescendentDistance :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool
 property_maxDescendentDistance Unit = True
 property_maxDescendentDistance (UnitLift node) 
     = and (map (property_maxDescendentDistance . UnitLift) $ stChildrenList node)
    && and (map (\dp -> distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
 
 property_validmerge :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => ( AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool )
-      -> AddUnit (CoverTree' base childContainer nodeContainer) tag dp 
-      -> AddUnit (CoverTree' base childContainer nodeContainer) tag dp 
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => ( AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool )
+      -> AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp 
+      -> AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp 
       -> Bool
 property_validmerge prop (UnitLift ct1) (UnitLift ct2) = prop . UnitLift $ ct1 <> ct2
 
@@ -1026,15 +1010,15 @@ property_validmerge prop (UnitLift ct1) (UnitLift ct2) = prop . UnitLift $ ct1 <
 --     where
 --         UnitLift ct = train xs :: AddUnit (CoverTree' (2/1) V.Vector V.Vector) () (Double,Double)
 -- 
---         dpSet :: (Ord dp) => CoverTree' base V.Vector V.Vector tag dp -> Set.Set dp
+--         dpSet :: (Ord dp) => CoverTree' expansionRation V.Vector V.Vector tag dp -> Set.Set dp
 --         dpSet = Set.fromList . dpList
 --             where
---                 dpList :: CoverTree' base V.Vector V.Vector tag dp -> [dp]
+--                 dpList :: CoverTree' expansionRation V.Vector V.Vector tag dp -> [dp]
 --                 dpList node = nodedp node:(concat . fmap dpList . V.toList $ children node)
 
 property_numdp :: 
-    ( ValidCT base childContainer nodeContainer tag dp
-    ) => AddUnit (CoverTree' base childContainer nodeContainer) tag dp -> Bool
+    ( ValidCT expansionRation childContainer nodeContainer tag dp
+    ) => AddUnit (CoverTree' expansionRation childContainer nodeContainer) tag dp -> Bool
 property_numdp Unit = True
 property_numdp (UnitLift node) = numdp node == sum (map fst $ stToListW node)
 
