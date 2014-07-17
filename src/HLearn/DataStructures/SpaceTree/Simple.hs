@@ -12,6 +12,8 @@ import HLearn.Algebra
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
 
+import Data.Params
+
 -------------------------------------------------------------------------------
 -- data types
 
@@ -36,18 +38,19 @@ instance VG.Vector v dp => HomTrainer (Simple v dp) where
 -------------------------------------------------------------------------------
 -- nn
 
-simple_knn :: 
-    ( MetricSpace dp
-    , VG.Vector v dp
-    , KnownNat k
-    , Eq dp
-    , ValidNeighbor dp
-    ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
-simple_knn query knn (Simple v) = VG.foldl' cata knn v
-    where
-        cata knn dp = case isFartherThanWithDistance query dp (nlMaxDist knn) of
-            Strict.Nothing -> knn
-            Strict.Just dist -> mkNeighborList dp dist <> knn
+-- simple_knn :: 
+--     ( MetricSpace dp
+--     , VG.Vector v dp
+-- --     , KnownNat k
+--     , ViewParam Param_k (NeighborList k dp)
+--     , Eq dp
+--     , ValidNeighbor dp
+--     ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
+-- simple_knn query knn (Simple v) = VG.foldl' cata knn v
+--     where
+--         cata knn dp = case isFartherThanWithDistance query dp (nlMaxDist knn) of
+--             Strict.Nothing -> knn
+--             Strict.Just dist -> nlSingleton dp dist <> knn
 
 -- instance SpaceTree (Simple v) where
 --     type NodeContainer = v

@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds,UnboxedTuples,MagicHash #-}
+{-# LANGUAGE DataKinds,UnboxedTuples,MagicHash,TemplateHaskell,RankNTypes #-}
 
 module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     ( 
@@ -8,12 +8,15 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     , ValidNeighbor (..)
     
     , NeighborList (..)
-    , mkNeighborList
+    , nlSingleton
     , getknnL
     , nlMaxDist
 
     , NeighborMap (..)
     , nm2list
+
+    , Param_k
+    , _k
 
 --     , NeighborList (..)
 
@@ -71,6 +74,8 @@ import qualified HLearn.DataStructures.StrictList as Strict
 import HLearn.DataStructures.StrictList (List (..),strictlist2list)
 import HLearn.Metrics.Lebesgue
 
+import Data.Params
+
 -------------------------------------------------------------------------------
 
 data Neighbor dp = Neighbor
@@ -92,17 +97,19 @@ deriving instance (Show dp, Show (Scalar dp)) => Show (Neighbor dp)
 instance Eq (Scalar dp) => Eq (Neighbor dp) where
     a == b = neighborDistance a == neighborDistance b
 
-instance Ord (Scalar dp) => Ord (Neighbor dp) where
-    compare a b = compare (neighborDistance a) (neighborDistance b)
+-- instance Ord (Scalar dp) => Ord (Neighbor dp) where
+--     compare a b = compare (neighborDistance a) (neighborDistance b)
 
 instance (NFData dp, NFData (Scalar dp)) => NFData (Neighbor dp) where
     rnf n = deepseq (neighbor n) $ rnf (neighborDistance n)
 
 ------------------------------------------------------------------------------
 
-data NeighborList (k::Nat) dp 
+data NeighborList (k :: Config Nat) dp 
     = NL_Nil
     | NL_Cons {-#UNPACK#-}!(Neighbor dp) !(NeighborList k dp)
+
+mkParams ''NeighborList
 
 deriving instance (Read dp, Read (Scalar dp)) => Read (NeighborList k dp)
 deriving instance (Show dp, Show (Scalar dp)) => Show (NeighborList k dp)
@@ -111,17 +118,24 @@ instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborList k dp) where
     rnf NL_Nil = ()
     rnf (NL_Cons n ns) = deepseq n $ rnf ns
 
+property_orderedNeighborList :: NeighborList k dp -> Bool
+property_orderedNeighborList NL_Nil = True
+property_orderedNeighborList (NL_Cons n NL_Nil) = True
+property_orderedNeighborList (NL_Cons n (NL_Cons n2 ns)) = if neighborDistance n < neighborDistance n2
+    then property_orderedNeighborList (NL_Cons n2 ns)
+    else False
+
 {-# INLINE nlSingleton #-}
 nlSingleton :: 
     ( ValidNeighbor dp
     ) => Neighbor dp -> NeighborList k dp
 nlSingleton !n = NL_Cons n NL_Nil
 
-{-# INLINE mkNeighborList #-}
-mkNeighborList :: 
-    ( ValidNeighbor dp
-    ) => dp -> Scalar dp -> NeighborList k dp
-mkNeighborList !dp !dist = NL_Cons (Neighbor dp dist) NL_Nil
+-- {-# INLINE mkNeighborList #-}
+-- mkNeighborList :: 
+--     ( ValidNeighbor dp
+--     ) => dp -> Scalar dp -> NeighborList k dp
+-- mkNeighborList !dp !dist = NL_Cons (Neighbor dp dist) NL_Nil
 
 {-# INLINE getknnL #-}
 getknnL :: 
@@ -131,9 +145,8 @@ getknnL NL_Nil = []
 getknnL (NL_Cons n ns) = n:getknnL ns
 
 {-# INLINE nlMaxDist #-}
-nlMaxDist :: forall k dp. 
-    ( KnownNat k
-    , ValidNeighbor dp
+nlMaxDist :: 
+    ( ValidNeighbor dp
     , Fractional (Scalar dp)
     ) => NeighborList k dp -> Scalar dp
 nlMaxDist !nl = go nl
@@ -144,15 +157,16 @@ nlMaxDist !nl = go nl
 
 {-# INLINE nlAddNeighbor #-}
 nlAddNeighbor :: forall k dp.
-    ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , ValidNeighbor dp
     ) => NeighborList k dp -> Neighbor dp -> NeighborList k dp
-nlAddNeighbor !nl !n = go nl
-    where
-        go (NL_Cons n' _) = if neighborDistance n < neighborDistance n'
-            then NL_Cons n NL_Nil
-            else NL_Cons n' NL_Nil
-        go NL_Nil = NL_Cons n NL_Nil
+nlAddNeighbor nl n = nl <> NL_Cons n NL_Nil
+-- nlAddNeighbor !nl !n = go nl
+--     where
+--         go (NL_Cons n' _) = if neighborDistance n < neighborDistance n'
+--             then NL_Cons n NL_Nil
+--             else NL_Cons n' NL_Nil
+--         go NL_Nil = NL_Cons n NL_Nil
 
 instance CanError (NeighborList k dp) where
     {-# INLINE errorVal #-}
@@ -162,16 +176,40 @@ instance CanError (NeighborList k dp) where
     isError NL_Nil = True
     isError _ = False
 
-instance (KnownNat k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
+instance 
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
+    , MetricSpace dp
+    , Eq dp
+    , ValidNeighbor dp
+    ) => Monoid (NeighborList k dp) 
+        where
+
     {-# INLINE mempty #-}
     mempty = NL_Nil
 
     {-# INLINE mappend #-}
     mappend nl1 NL_Nil = nl1
     mappend NL_Nil nl2 = nl2
-    mappend (NL_Cons n1 ns1) (NL_Cons n2 ns2) = if neighborDistance n1 > neighborDistance n2
-        then NL_Cons n2 ns2 
-        else NL_Cons n1 ns1
+--     mappend (NL_Cons n1 ns1) (NL_Cons n2 ns2) = if neighborDistance n1 > neighborDistance n2
+--         then NL_Cons n2 ns2 
+--         else NL_Cons n1 ns1
+
+    mappend nl1 nl2 = {-if property_orderedNeighborList nl1
+                      && property_orderedNeighborList nl2
+                      && not (property_orderedNeighborList ret)
+                        then error $ "mappend broken: nl1="++show nl1++"; nl2="++show nl2++"ret="++show ret
+                        else -} ret
+        where
+            ret = go nl1 nl2 (viewParam _k nl1) 
+
+            go _ _ 0 = NL_Nil
+            go (NL_Cons n1 ns1) (NL_Cons n2 ns2) k = if neighborDistance n1 > neighborDistance n2
+                then NL_Cons n2 $ go (NL_Cons n1 ns1) ns2 (k-1)
+                else NL_Cons n1 $ go ns1 (NL_Cons n2 ns2) (k-1)
+            go NL_Nil (NL_Cons n2 ns2) k = NL_Cons n2 $ go NL_Nil ns2 (k-1)
+            go (NL_Cons n1 ns1) NL_Nil k = NL_Cons n1 $ go ns1 NL_Nil (k-1)
+            go NL_Nil NL_Nil k = NL_Nil
 
 --     mappend (NeighborList (x:.xs)  ) (NeighborList (y:.ys)  ) = {-# SCC mappend_NeighborList #-} case k of
 --         1 -> if x < y then NeighborList (x:.Strict.Nil) else NeighborList (y:.Strict.Nil)
@@ -190,10 +228,10 @@ instance (KnownNat k, MetricSpace dp, Eq dp) => Monoid (NeighborList k dp) where
 
 -------------------------------------------------------------------------------
 
-newtype NeighborMap (k::Nat) dp = NeighborMap 
---     { nm2map :: Map.Map dp (NeighborList k dp)
+newtype NeighborMap (k :: Config Nat) dp = NeighborMap 
     { nm2map :: Map.Map dp (NeighborList k dp)
     }
+mkParams ''NeighborMap
 
 deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
 deriving instance (Show dp, Show (Scalar dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
@@ -203,7 +241,14 @@ deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborMap k dp)
 nm2list :: NeighborMap k dp -> [(dp,NeighborList k dp)]
 nm2list (NeighborMap nm) = Map.assocs nm
 
-instance (KnownNat k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
+instance 
+    ( ViewParam Param_k (NeighborList k dp)
+    , MetricSpace dp
+    , Ord dp
+    , ValidNeighbor dp
+    ) => Monoid (NeighborMap k dp) 
+        where
+
     {-# INLINE mempty #-}
     mempty = NeighborMap mempty
 
@@ -216,7 +261,8 @@ instance (KnownNat k, MetricSpace dp, Ord dp) => Monoid (NeighborMap k dp) where
 
 {-# INLINE findNeighborList  #-}
 findNeighborList :: 
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Eq dp
     , Floating (Scalar dp)
@@ -227,7 +273,8 @@ findNeighborList !t !query = findNeighborListWith mempty t query
 
 {-# INLINE findNeighborListWith #-}
 findNeighborListWith :: 
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Eq dp
     , Floating (Scalar dp)
@@ -241,7 +288,8 @@ findNeighborListWith !nl !t !q = findEpsilonNeighborListWith nl 0 t q
 
 {-# INLINE findEpsilonNeighborListWith #-}
 findEpsilonNeighborListWith :: 
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Eq dp
     , Floating (Scalar dp)
@@ -259,7 +307,8 @@ findEpsilonNeighborListWith !knn !epsilon !t !query =
 -- {-# INLINABLE knn_catadp #-}
 {-# INLINE knn_catadp #-}
 knn_catadp :: forall k dp.
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , MetricSpace dp
     , Eq dp
     , CanError (Scalar dp)
@@ -278,7 +327,8 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
 -- {-# INLINABLE knn_cata #-}
 {-# INLINE knn_cata #-}
 knn_cata :: forall k t dp. 
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Floating (Scalar dp)
     , Eq dp
@@ -302,7 +352,8 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
 {-# INLINABLE findNeighborVec #-}
 findNeighborVec :: 
     ( SpaceTree t dp 
-    , KnownNat k
+--     , KnownNat k
+    , ViewParam Param_k (NeighborList k dp)
     , ValidNeighbor dp
     ) => DualTree (t dp) -> V.Vector (NeighborList k dp)
 findNeighborVec dual = VG.fromList $ map (findNeighborList $ reference dual) $ stToList $ query dual 
@@ -310,7 +361,8 @@ findNeighborVec dual = VG.fromList $ map (findNeighborList $ reference dual) $ s
 {-# INLINABLE findNeighborSL #-}
 findNeighborSL :: 
     ( SpaceTree t dp 
-    , KnownNat k
+--     , KnownNat k
+    , ViewParam Param_k (NeighborList k dp)
     , ValidNeighbor dp
     ) => DualTree (t dp) -> Strict.List (NeighborList k dp)
 findNeighborSL dual = Strict.list2strictlist $ map (findNeighborList $ reference dual) $ stToList $ query dual 
@@ -318,7 +370,8 @@ findNeighborSL dual = Strict.list2strictlist $ map (findNeighborList $ reference
 {-# INLINABLE findNeighborVecM #-}
 findNeighborVecM :: 
     ( SpaceTree t dp 
-    , KnownNat k
+--     , KnownNat k
+    , ViewParam Param_k (NeighborList k dp)
     , ValidNeighbor dp
     ) => DualTree (t dp) -> V.Vector (NeighborList k dp)
 findNeighborVecM dual = runST $ do
@@ -339,7 +392,8 @@ findNeighborVecM dual = runST $ do
 {-# INLINABLE findNeighborVec' #-}
 findNeighborVec' :: 
     ( SpaceTree t dp 
-    , KnownNat k
+--     , KnownNat k
+    , ViewParam Param_k (NeighborList k dp)
     , ValidNeighbor dp
     ) => DualTree (t dp) -> V.Vector (NeighborList k dp)
 findNeighborVec' dual = V.generate (VG.length qvec) go
@@ -352,7 +406,8 @@ findNeighborVec' dual = V.generate (VG.length qvec) go
 
 {-# INLINABLE findNeighborMap #-}
 findNeighborMap :: 
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Ord dp
     , Floating (Scalar dp)
@@ -364,7 +419,8 @@ findNeighborMap dual = {-# SCC knn2_single_parallel #-} reduce $
 
 {-# INLINABLE parFindNeighborMap #-}
 parFindNeighborMap :: 
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Ord dp
     , NFData (Scalar dp)
@@ -393,7 +449,8 @@ parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} (parallel reduce) $
 
 {-# INLINABLE parFindEpsilonNeighborMap #-}
 parFindEpsilonNeighborMap ::
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Ord dp
     , NFData (Scalar dp)
@@ -406,7 +463,8 @@ parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith mempty e d
 
 {-# INLINABLE parFindEpsilonNeighborMapWith #-}
 parFindEpsilonNeighborMapWith ::
-    ( KnownNat k
+--     ( KnownNat k
+    ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Ord dp
     , NFData (Scalar dp)

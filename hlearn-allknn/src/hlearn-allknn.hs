@@ -44,7 +44,7 @@ import Test.QuickCheck hiding (verbose,sample)
 import Control.Parallel.Strategies
 
 import qualified Control.ConstraintKinds as CK
-import HLearn.Algebra
+import HLearn.Algebra hiding (Frac (..))
 import HLearn.DataStructures.CoverTree
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
@@ -56,6 +56,8 @@ import HLearn.Metrics.Lebesgue
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
+
+import Data.Params
 
 import Paths_HLearn
 import Data.Version
@@ -100,6 +102,8 @@ type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
 
 data Params = Params
     { k                 :: Int
+    , kForceSlow        :: Bool
+
     , reference_file    :: Maybe String 
     , query_file        :: Maybe String
     , distances_file    :: String
@@ -163,6 +167,9 @@ allknnParams = Params
     , sortMethod     = NumDP_Distance
                     &= help "What order should the children be sorted in?"
 
+    , kForceSlow     = False
+                    &= help "Don't use precompiled k function; use the generic one"
+
     , pca_data       = False 
                     &= groupname "Data Preprocessing" 
                     &= help "Rotate the data points using the PCA transform.  Speeds up nearest neighbor searches, but computing the PCA can be expensive in many dimensions."
@@ -196,34 +203,38 @@ main = do
     checkfail (reference_file params == Nothing) "must specify a reference file"
     checkfail (searchEpsilon params < 0) "search epsilon must be >= 0"
 
-    case k params of 
-        1 -> runit params (undefined :: Tree) (undefined :: NeighborMap 1 DP)
---         2 -> runit params (undefined :: Tree) (undefined :: NeighborMap 2 DP)
---         3 -> runit params (undefined :: Tree) (undefined :: NeighborMap 3 DP)
---         4 -> runit params (undefined :: Tree) (undefined :: NeighborMap 4 DP)
---         5 -> runit params (undefined :: Tree) (undefined :: NeighborMap 5 DP)
---         6 -> runit params (undefined :: Tree) (undefined :: NeighborMap 6 DP)
---         7 -> runit params (undefined :: Tree) (undefined :: NeighborMap 7 DP)
---         8 -> runit params (undefined :: Tree) (undefined :: NeighborMap 8 DP)
---         9 -> runit params (undefined :: Tree) (undefined :: NeighborMap 9 DP)
---         10 -> runit params (undefined :: Tree) (undefined :: NeighborMap 10 DP)
-        otherwise -> error "specified k value not supported"
+    if kForceSlow params || k params > 3
+        then do
+            putStrLn "WARNING: using slow version of k"
+            apWith1Param' 
+                (undefined :: NeighborList RunTime DP)
+                _k
+                (k params) 
+                (runit params (undefined::Tree))
+                (undefined :: NeighborList RunTime DP)
+        else case k params of 
+            1 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 1) DP)
+            2 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 2) DP)
+            3 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 3) DP)
+            4 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 4) DP)
+            5 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 5) DP)
+            100 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 100) DP)
 
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 1 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 2 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 3 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 4 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 5 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 6 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 7 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 8 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 9 DP -> IO ()#-}
--- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 10 DP -> IO ()#-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 1) DP -> IO () #-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 2) DP -> IO () #-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 3) DP -> IO () #-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 4) DP -> IO () #-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 5) DP -> IO () #-}
+{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 100) DP -> IO () #-}
 
+{-# SPECIALIZE runit :: Param_k (NeighborList RunTime DP) => Params -> Tree -> NeighborList RunTime DP -> IO ()#-}
+
+-- {-# INLINE runit #-}
 runit :: forall k tree base childContainer nodeVvec dp ring. 
     ( MetricSpace dp
     , Ord dp
-    , KnownNat k
+--     , KnownNat k
+    , ViewParam Param_k (NeighborList k dp)
     , Show dp
     , Show (Scalar dp)
     , NFData dp
@@ -235,7 +246,7 @@ runit :: forall k tree base childContainer nodeVvec dp ring.
     , dp ~ DP
     ) => Params 
       -> AddUnit (CoverTree' base childContainer nodeVvec) () dp 
-      -> NeighborMap k dp 
+      -> NeighborList k dp 
       -> IO ()
 runit params tree knn = do
     
@@ -301,15 +312,15 @@ runit params tree knn = do
     let qs_index = Map.fromList $ zip (VG.toList qs) [0::Int ..]
         rs_index = Map.fromList $ zip (VG.toList rs) [0::Int ..]
 
---     timeIO "outputing distance" $ do
---         hDistances <- openFile (distances_file params) WriteMode
---         sequence_ $ 
---             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
---             . Map.elems 
---             . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
---             . Map.map (map neighborDistance . getknnL) 
---             $ nm2map res 
---         hClose hDistances
+    timeIO "outputing distance" $ do
+        hDistances <- openFile (distances_file params) WriteMode
+        sequence_ $ 
+            map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
+            . Map.elems 
+            . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
+            . Map.map (map neighborDistance . getknnL) 
+            $ nm2map res 
+        hClose hDistances
   
     timeIO "outputing neighbors" $ do
         hNeighbors <- openFile (neighbors_file params) WriteMode
