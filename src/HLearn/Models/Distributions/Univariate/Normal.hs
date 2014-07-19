@@ -2,6 +2,7 @@
 
 module HLearn.Models.Distributions.Univariate.Normal
     ( Normal (..)
+    , trainNormal
     )
     where
 
@@ -35,6 +36,9 @@ addNoise f dp = mkNormal dp (f dp)
 
 -------------------------------------------------------------------------------
 -- training
+
+{-# INLINE trainNormal #-}
+trainNormal dps = Normal $ train dps
 
 instance (Num prob) => HomTrainer (Normal prob prob) where
     type Datapoint (Normal prob prob) = prob

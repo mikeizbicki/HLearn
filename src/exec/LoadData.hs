@@ -10,6 +10,7 @@ import Data.Csv
 import Data.List
 import Data.Maybe
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Mutable as VM
@@ -25,10 +26,11 @@ import System.Mem
 import System.IO
 import qualified Numeric.LinearAlgebra as LA
 
-import Test.QuickCheck hiding (verbose,sample)
-import Control.Parallel.Strategies
+-- import Test.QuickCheck hiding (verbose,sample,label)
+-- import Control.Parallel.Strategies
 
 import HLearn.Algebra
+import HLearn.Models.Classifiers.Common
 -- import HLearn.DataStructures.StrictVector
 -- import HLearn.DataStructures.CoverTree
 -- import HLearn.DataStructures.SpaceTree
@@ -51,6 +53,7 @@ import Debug.Trace
 
 data DataParams = DataParams
     { datafile :: String
+    , labelcol :: Maybe Int
     , pca      :: Bool
     , varshift :: Bool
     }
@@ -87,6 +90,48 @@ loaddata params = do
         else return rs'
 
     return rs''
+
+{-# INLINABLE loadLabeledNumericData #-}
+loadLabeledNumericData :: forall v f.
+    ( VG.Vector v f
+    , NFData (v f)
+    , FromRecord (V.Vector f)
+    , Read f
+    ) => DataParams -> IO (V.Vector (MaybeLabeled String (v f)))
+loadLabeledNumericData params = do
+    let filename = datafile params
+        colindex = fromJust $ labelcol params
+
+    xse :: Either String (V.Vector (V.Vector String))  
+        <- trace "loading dataset" $ fmap (decode HasHeader) $ BS.readFile $ datafile params
+    xs <- case xse of 
+        Right rs -> return rs
+        Left str -> error $ "failed to parse CSV file " ++ datafile params ++ ": " ++ take 1000 str
+
+    let numdp = VG.length xs
+    let numdim = VG.length $ xs VG.! 0
+    let numlabels = Set.size $ Set.fromList $ VG.toList $ VG.map (VG.! colindex) xs
+
+    hPutStrLn stderr "  dataset info:"
+    hPutStrLn stderr $ "    num dp:     " ++ show numdp
+    hPutStrLn stderr $ "    num dim:    " ++ show numdim
+    hPutStrLn stderr $ "    num labels: " ++ show numlabels
+
+    let ys = VG.map (\x -> MaybeLabeled   
+            { label = Just $ x VG.! colindex
+            , attr = VG.convert ( 
+                VG.map read $ VG.fromList $ (:) "1" $ VG.toList $ VG.take (colindex) x <> VG.drop (colindex+1) x
+--                 VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
+                :: V.Vector f
+                )
+            })
+            xs
+--             :: V.Vector (MaybeLabeled String (LA.Vector Double))
+
+    deepseq ys $ return ys
+
+-------------------------------------------------------------------------------
+-- data preprocessing
 
 {-# INLINABLE mkShuffleMap #-}
 -- | calculate the variance of each column, then sort so that the highest variance is first

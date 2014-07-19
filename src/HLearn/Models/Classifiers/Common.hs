@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module HLearn.Models.Classifiers.Common
     where
 
@@ -68,6 +70,12 @@ instance
     getAttributes = attr
 
 type instance Scalar (MaybeLabeled label attr) = Scalar attr
+
+
+instance ValidTensor1 dp => ValidTensor1 (MaybeLabeled l dp) where
+    type Tensor 0 (MaybeLabeled l dp) = Tensor 0 dp
+    type Tensor 1 (MaybeLabeled l dp) = Tensor 1 dp
+    type Tensor 2 (MaybeLabeled l dp) = Tensor 2 dp
 
 instance MetricSpace attr => MetricSpace (MaybeLabeled label attr) where
     distance (MaybeLabeled _ a1) (MaybeLabeled _ a2) = distance a1 a2

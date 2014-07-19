@@ -253,6 +253,7 @@ runit params tree knn = do
     -- build reference tree
     let dataparams = DataParams
             { datafile = fromJust $ reference_file params
+            , labelcol = Nothing
             , pca      = pca_data params
             , varshift = varshift_data params
             }
