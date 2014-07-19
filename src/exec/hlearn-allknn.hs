@@ -112,6 +112,7 @@ data Params = Params
     , pca_data          :: Bool
     , varshift_data     :: Bool
     , searchEpsilon     :: Float
+--     , searchEpsilon     :: Float
 
     , packMethod        :: PackMethod
     , sortMethod        :: SortMethod
@@ -221,13 +222,12 @@ main = do
             100 -> runit params (undefined :: Tree) (undefined :: NeighborList (Static 100) DP)
 
 {-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 1) DP -> IO () #-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 2) DP -> IO () #-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 3) DP -> IO () #-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 4) DP -> IO () #-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 5) DP -> IO () #-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 100) DP -> IO () #-}
-
-{-# SPECIALIZE runit :: Param_k (NeighborList RunTime DP) => Params -> Tree -> NeighborList RunTime DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 2) DP -> IO () #-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 3) DP -> IO () #-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 4) DP -> IO () #-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 5) DP -> IO () #-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborList (Static 100) DP -> IO () #-}
+-- {-# SPECIALIZE runit :: Param_k (NeighborList RunTime DP) => Params -> Tree -> NeighborList RunTime DP -> IO ()#-}
 
 -- {-# INLINE runit #-}
 runit :: forall k tree base childContainer nodeVvec dp ring. 
@@ -258,7 +258,7 @@ runit params tree knn = do
             }
     rs <- loaddata dataparams
 
-    let reftree = parallel train rs :: Tree
+    let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
 
     let reftree_sort = case sortMethod params of

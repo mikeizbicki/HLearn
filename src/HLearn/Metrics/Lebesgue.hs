@@ -17,6 +17,7 @@ import System.IO.Unsafe
 
 import Test.QuickCheck
 
+import Data.SIMD
 import HLearn.Algebra
 
 -------------------------------------------------------------------------------
@@ -145,43 +146,30 @@ type instance VG.Mutable (L2 v) = L2M (VG.Mutable v)
 
 type instance Scalar (L2 v r) = r
 
-distance_L2 :: L2 VU.Vector Float -> L2 VU.Vector Float -> Float
-distance_L2 !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ go 0 0
-        where
-            go !tot !i = {-# SCC distance_go #-} if i>VG.length v1-4
-                then goEach tot i
-                else go tot' (i+4)
-                where
-                    tot' = tot
-                        +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                        *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                        +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                        *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                        +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                        *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                        +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                        *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
---                         +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
---                         *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
---                         +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
---                         *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
---                         +(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
---                         *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
---                         +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
---                         *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
-
-            goEach !tot !i = if i>= VG.length v1
-                then tot
-                else goEach tot' (i+1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
 -- instance MetricSpace (L2 VU.Vector Float) where
 
+--     {-# INLINE distance #-}
+--     distance (L2 v1) (L2 v2) = sqrt $ plusHorizontalX4 $ go 0 (VG.length v1'-1)
+--         where
+--             v1' = unsafeVectorizeUnboxedX4 v1
+--             v2' = unsafeVectorizeUnboxedX4 v2
+--             
+--             go tot (-1) = tot
+--             go tot i = go tot' (i-1)
+--                 where
+--                     tot' = tot+diff*diff
+--                     diff = v1' `VG.unsafeIndex` i - v2' `VG.unsafeIndex` i
+-- 
+--             goEach !tot !i = if i>= VG.length v1
+--                 then tot
+--                 else goEach tot' (i+1)
+--                 where
+--                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+--                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+
     {-# INLINE distance #-}
-    distance !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ go 0 0
+    distance !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ goEach 0 0
         where
             go !tot !i = {-# SCC distance_go #-} if i>VG.length v1-4
                 then goEach tot i

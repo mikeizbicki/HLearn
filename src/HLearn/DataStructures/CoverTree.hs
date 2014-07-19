@@ -173,7 +173,6 @@ class
     , VG.Vector nodeContainer dp
     , VG.Vector childContainer (CoverTree' expansionRatio childContainer nodeContainer tag dp)
     , dp ~ L2 VU.Vector Float
-    , Scalar dp ~ Float
     ) => ValidCT expansionRatio childContainer nodeContainer tag dp
 
 instance 
@@ -200,7 +199,6 @@ instance
     , VG.Vector nodeContainer dp
     , VG.Vector childContainer (CoverTree' expansionRatio childContainer nodeContainer tag dp)
     , dp ~ L2 VU.Vector Float
-    , Scalar dp ~ Float
     ) => ValidCT expansionRatio childContainer nodeContainer tag dp
 
 type instance Scalar (CoverTree' expansionRatio childContainer nodeContainer tag dp) = Scalar dp
