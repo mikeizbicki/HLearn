@@ -1,7 +1,8 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds, RankNTypes #-}
 module HLearn.Models.Classifiers.LinearClassifier
     where
 
+import Data.Data
 import Control.DeepSeq
 import Control.Lens
 import Control.Monad
@@ -73,20 +74,6 @@ instance
 -------------------------------------------------------------------------------
 -- training
 
-instance 
-    ( Ord (Label dp)
-    , Ord (Scalar (Attributes dp))
-    , LA.Field (Scalar (Attributes dp))
-    , VectorSpace (Scalar (Attributes dp))
-    , Monoid (Attributes dp)
-    , Num (Scalar dp)
-    , Attributes dp ~ LA.Vector (Scalar (Attributes dp))
-    , Typeable (Scalar (Attributes dp))
-    , Show (Scalar (Attributes dp))
-    ) => Monoid (LinearClassifier dp) where
-    mempty = undefined
-    mappend = undefined
-
 mappendAverage ::
     ( VG.Vector v t
     , Attributes dp ~ v t
@@ -132,98 +119,23 @@ mappendTaylor lr1 lr2 = LinearClassifier
                 m' = ((n1.*m1) <> (n2.*m2))/.(n1+n2)
                 v' = ((n1.*v1) <> (n2.*v2))/.(n1+n2)
                 w = LA.inv m' `LA.matProduct` v'
-reoptimize
-  :: (Labeled dp, Typeable (Label dp), Typeable (Scalar dp),
-      Typeable dp, Show (Label dp), Show (Scalar dp), Show dp,
-      Ord (Label dp), Ord (Scalar dp), Ord dp,
-      Attributes dp1 ~ Vector (Scalar dp),
-      Attributes dp ~ Vector (Scalar dp), Label dp1 ~ Label dp,
-      Tensor 1 (Scalar dp) ~ Scalar dp,
-      Scalar (Scalar dp) ~ Scalar dp) =>
-     (LinearClassifier dp
-      -> LinearClassifier dp -> LinearClassifier dp1)
-     -> LinearClassifier dp
-     -> LinearClassifier dp
-     -> LinearClassifier dp
--- reoptimize f lr1 lr2 = trace ("length dps'="++show (VG.length dps')) $ lrtrain2 (reg lr1) dps' $ zeroWeights (dps')
+-- reoptimize
+--   :: (Labeled dp, Typeable (Label dp), Typeable (Scalar dp),
+--       Typeable dp, Show (Label dp), Show (Scalar dp), Show dp,
+--       Ord (Label dp), Ord (Scalar dp), Ord dp,
+--       Attributes dp1 ~ Vector (Scalar dp),
+--       Attributes dp ~ Vector (Scalar dp), Label dp1 ~ Label dp,
+--       Tensor 1 (Scalar dp) ~ Scalar dp,
+--       Scalar (Scalar dp) ~ Scalar dp) =>
+--      (LinearClassifier dp
+--       -> LinearClassifier dp -> LinearClassifier dp1)
+--      -> LinearClassifier dp
+--      -> LinearClassifier dp
+--      -> LinearClassifier dp
+-- reoptimize f lr1 lr2 = lrtrain2 (reg lr1) dps' $ Map.map go $ weights $ f lr1 lr2
 --     where
 --         dps' = V.fromList $ V.toList (datapoints lr1) ++ V.toList (datapoints lr2)
-reoptimize f lr1 lr2 = lrtrain2 (reg lr1) dps' $ Map.map go $ weights $ f lr1 lr2
-    where
-        dps' = V.fromList $ V.toList (datapoints lr1) ++ V.toList (datapoints lr2)
-        go (_,w,_) = w
-
-instance 
-    ( Ord dp
-    , Ord (Label dp)
-    , Labeled dp
-    , Attributes dp ~ vec r
-    , VG.Vector vec r
-    , Floating r
-    , Monoid r
-    , Typeable r
-    , Typeable vec
-    , r ~ Scalar dp
-     , Ord r
-    , r ~ Scalar (vec r)
-    , IsScalar r
-    , InnerProduct (vec r)
-    , vec ~ LA.Vector
-    , LA.Field r
-    , Show (Label dp) 
-    , Show (vec r)
-    , Show r
-    , Show dp
-    , Typeable dp
-    , Typeable (Label dp)
-    , Typeable (Attributes dp)
-    ) => HomTrainer (LinearClassifier dp) 
-        where
-    type Datapoint (LinearClassifier dp) = dp
-
-    train dps = lrtrain2 0 dps $ zeroWeights dps
---     train = nbtrain 
-
--- lrtrain lambda dps = lrtrain2 lambda dps $ zeroWeights dps
-lrtrain lambda dps = lrtrain2taylor True lambda dps $ zeroWeights dps
-lrtrainub lambda dps = lrtrain2taylor False lambda dps $ zeroWeights dps
-lrtrainMsimple lambda dps = lrtrainM lambda dps $ zeroWeights dps
-lrtrain2 lambda dps w0 = lrtrain2taylor True lambda dps w0
-
-funnytrain funny lambda dps = funnytrain2 funny lambda dps $ zeroWeights dps
-
-lrtrain2taylor :: forall dp vec r container.
-    ( Ord dp
-    , Ord (Label dp)
-    , Labeled dp
-    , Attributes dp ~ vec r
-    , VG.Vector vec r
-    , Floating r
-    , Monoid r
-    , Typeable r
-    , Typeable vec
-    , r ~ Scalar dp
-    , Ord r
-    , r ~ Scalar (vec r)
-    , InnerProduct (vec r)
-    , IsScalar r
-    , vec ~ LA.Vector
-    , LA.Field r
-    , Show (Label dp) 
-    , Show (vec r)
-    , Show r
-    , Show dp
-    , Typeable dp
-    , Typeable (Label dp)
-    , Typeable (Attributes dp)
-    , F.Foldable container
-    ) => Bool -> Scalar dp -> container dp -> Map.Map (Label dp) (Attributes dp) -> LinearClassifier dp
-lrtrain2taylor taylor lambda dps weights0 = traceHistory 
-    [ traceBFGS
-    , traceNewtonRaphson
-    , traceLinearClassifier (undefined::dp)
-    ]
-    $ collectEvents $ lrtrainMtaylor taylor lambda dps weights0
+--         go (_,w,_) = w
 
 traceLinearClassifier :: forall dp. Typeable dp => dp -> Event -> [String]
 traceLinearClassifier _ opt = case fromDynamic (dyn opt) :: Maybe (LinearClassifier dp) of
@@ -238,22 +150,31 @@ traceLinearClassifier _ opt = case fromDynamic (dyn opt) :: Maybe (LinearClassif
         ++"; sec="++showDouble ((fromIntegral $ runtime opt)*1e-12)
         ]
 
-lrtrainM = lrtrainMtaylor True
+data MonoidType
+    = MappendAverage
+    | MappendTaylor
+    | MappendUpperBound
+    | MappendUpperBoundCenter
+    deriving (Read, Show, Eq, Data, Typeable)
 
-lrtrainMtaylor :: forall dp vec r container.
+trainLogisticRegression monoidtype lambda c2reg c2loss dps 
+    = trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps $ zeroWeights dps
+
+trainLogisticRegressionWarmStart :: forall dp vec r container.
     ( Ord dp
     , Ord (Label dp)
     , Labeled dp
     , Attributes dp ~ vec r
+    , Tensor 1 (Attributes dp) ~ Attributes dp
     , VG.Vector vec r
     , Floating r
     , Monoid r
     , Typeable r
     , Typeable vec
     , r ~ Scalar dp
+    , r ~ Tensor 0 dp
     , Ord r
     , r ~ Scalar (vec r)
-    , r ~ Tensor 1 r
     , InnerProduct (vec r)
     , VectorSpace r
     , vec ~ LA.Vector
@@ -267,14 +188,15 @@ lrtrainMtaylor :: forall dp vec r container.
     , Typeable (Attributes dp)
     , F.Foldable container
     , ValidTensor r
-    ) => Bool
+    , IsScalar r
+    ) => MonoidType
       -> Scalar dp 
---       -> C2Function dp                       -- ^ regularization function
---       -> (Label dp -> dp -> C2Function dp)   -- ^ loss function
+      -> C2Function (Attributes dp)          -- ^ regularization function
+      -> (Label dp -> dp -> C2Function (Attributes dp))   -- ^ loss function
       -> container dp 
       -> Map.Map (Label dp) (Attributes dp) 
       -> History (LinearClassifier dp)
-lrtrainMtaylor taylor lambda dps weights0 = do
+trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = do
     weights' <- collectEvents $ fmap Map.fromList $ go $ Map.assocs weights0
     report $ LinearClassifier 
         { weights = weights'
@@ -315,15 +237,19 @@ lrtrainMtaylor taylor lambda dps weights0 = do
                 $ deepseq w1 
                 $ (l, (n l, w1, Taylor (ub_b w1) (ub_a w1) ))
 
-            fmap ((if taylor then resTaylor else resUpper):) $ go xs
+--             fmap ((if taylor then resTaylor else resUpper):) $ go xs
+            fmap ((:) $ case monoidtype of
+                    MappendTaylor -> resTaylor
+                    MappendUpperBound -> resUpper
+                ) $ go xs
             where
-                reg   w = (l2reg w)^._1
-                reg'  w = (l2reg w)^._2
-                reg'' w = (l2reg w)^._3
+                reg   w = (c2reg w)^._1
+                reg'  w = (c2reg w)^._2
+                reg'' w = (c2reg w)^._3
 
-                loss   dp w = (logloss l dp w)^._1
-                loss'  dp w = (logloss l dp w)^._2
-                loss'' dp w = (logloss l dp w)^._3
+                loss   dp w = (c2loss l dp w)^._1
+                loss'  dp w = (c2loss l dp w)^._2
+                loss'' dp w = (c2loss l dp w)^._3
 
                 f   w = (numdp*lambda .* reg   w) <> (sumOver dps $ \dp -> loss   dp w)
                 f'  w = (numdp*lambda .* reg'  w) <> (sumOver dps $ \dp -> loss'  dp w)
@@ -344,156 +270,6 @@ lrtrainMtaylor taylor lambda dps weights0 = do
                             )
                 ub_b w = (numdp*lambda .* reg'  w) <>
                        (sumOver dps $ \dp -> loss' dp mempty)
-
-                numdp :: Scalar dp
-                numdp = fromIntegral $ length $ F.toList dps
-
-funnytrain2 :: forall dp vec r container.
-    ( Ord dp
-    , Ord (Label dp)
-    , Labeled dp
-    , Attributes dp ~ vec r
-    , VG.Vector vec r
-    , Floating r
-    , Monoid r
-    , Typeable r
-    , Typeable vec
-    , r ~ Scalar dp
-    , Ord r
-    , r ~ Scalar (vec r)
-    , InnerProduct (vec r)
-    , IsScalar r
-    , vec ~ LA.Vector
-    , LA.Field r
-    , Show (Label dp) 
-    , Show (vec r)
-    , Show r
-    , Show dp
-    , Typeable dp
-    , Typeable (Label dp)
-    , Typeable (Attributes dp)
-    , F.Foldable container
-    ) => Scalar dp -> Scalar dp -> container dp -> Map.Map (Label dp) (Attributes dp) -> LinearClassifier dp
-funnytrain2 funny lambda dps weights0 = traceHistory 
-    [ traceBFGS
-    , traceNewtonRaphson
-    , traceLinearClassifier (undefined::dp)
-    ]
-    $ collectEvents $ funnytrainM funny lambda dps weights0
-
-funnytrainM :: forall dp vec r container.
-    ( Ord dp
-    , Ord (Label dp)
-    , Labeled dp
-    , Attributes dp ~ vec r
-    , VG.Vector vec r
-    , Floating r
-    , Monoid r
-    , Typeable r
-    , Typeable vec
-    , r ~ Scalar dp
-    , Ord r
-    , r ~ Scalar (vec r)
-    , r ~ Tensor 1 r
-    , InnerProduct (vec r)
-    , VectorSpace r
-    , vec ~ LA.Vector
-    , LA.Field r
-    , Show (Label dp) 
-    , Show (vec r)
-    , Show r
-    , Show dp
-    , Typeable dp
-    , Typeable (Label dp)
-    , Typeable (Attributes dp)
-    , F.Foldable container
-    , ValidTensor r
-    ) => Scalar dp 
-      -> Scalar dp
-      -> container dp 
-      -> Map.Map (Label dp) (Attributes dp) 
-      -> History (LinearClassifier dp)
-funnytrainM funny lambda dps weights0 = do
-    weights' <- collectEvents $ fmap Map.fromList $ go $ Map.assocs weights0
-    report $ LinearClassifier 
-        { weights = weights'
-        , datapoints = V.fromList $ F.toList dps
-        , reg= lambda
-        }
-    where
-        n :: Label dp -> Scalar dp
-        n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ F.toList dps
-
-        -- the weights for the last label are set to zero;
-        -- this is equivalent to running the optimization procedure,
-        -- but much cheaper
-        go ((l,w0):[]) = report [(l, (n l,VG.replicate (VG.length w0) 0, NoTaylor))]
-
-        -- calculate the weights for label l
-        go ((l,w0):xs) = do
-            let w1 = LA.inv ub_a `LA.matProduct` ub_b
-
-            resUpper <- report 
-                $ trace ("w1="++show w1)
-                $ deepseq w1 
-                $ (l, (n l, w1, Taylor ub_b ub_a))
-
-            fmap (resUpper:) $ go xs
-            where
-                reg   w = (l2reg w)^._1
-                reg'  w = (l2reg w)^._2
-                reg'' w = (l2reg w)^._3
-
---                 loss   dp w = (logloss l dp w)^._1
-                loss'  dp w = (logloss l dp w)^._2
---                 loss'' dp w = (logloss l dp w)^._3
-
---                 f   w = (numdp*lambda .* reg   w) <> (sumOver dps $ \dp -> loss   dp w)
---                 f'  w = (numdp*lambda .* reg'  w) <> (sumOver dps $ \dp -> loss'  dp w)
---                 f'' w = (numdp*lambda .* reg'' w) <> (sumOver dps $ \dp -> loss'' dp w)
-
-                project :: Vector r -> Vector r -> Vector r
-                project dp1 dp2 = (inner dp1 dp2 / innerProductNorm dp2) .* dp2
-
-                ub_a :: Matrix r
---                 ub_a = inverse (sumOver dps $ \dp -> ub_a_dp dp 1)
-                ub_a = inverse (sumOver dps $ \dp -> 
-                    outerProduct (getAttributes dp) (getAttributes dp)
-                    *. (ub_f_dp dp $ funny*(fromJust $ Map.lookup dp ub_map))
-                    )
-
-                ub_b :: Vector r
-                ub_b = sumOver dps $ \dp -> ub_b_dp dp $ funny*(fromJust $ Map.lookup dp ub_map)
-                
-                ub_b_dp dp dplen = (numdp*lambda .* reg' (getAttributes dp *. dplen)) 
-                                <> loss' dp mempty
-
-                ub_f_dp dp x 
-                    = (numdp*lambda .* reg (getAttributes dp *. x))
-                   <> innerProductNorm 
-                        ( loss' dp (getAttributes dp *. x)
-                       <> inverse (loss' dp mempty)
-                        )
-                        /. (2*x)
-
-                ub_f'_dp dp x
-                    = innerProductNorm $ project 
-                        ( (numdp*lambda .* reg' (getAttributes dp *. x)) 
-                         <> loss' dp mempty
-                        )
-                        (getAttributes dp)
-
-                ub_map :: Map.Map (dp) (Scalar dp)
-                ub_map = Map.fromList 
-                    [ (dp, execHistory (optgo $ dp)) | dp <- F.toList dps ]
-                    where
-                        optgo dp = do
-                            bracket <- LineMin.lineBracket (ub_f_dp dp) 1 1e5
-                            res <- LineMin.brent (ub_f_dp dp) bracket
-                                [ LineMin.brentTollerance 1e-6
-                                , maxIterations 100
-                                ]
-                            return $ LineMin._x res
 
                 numdp :: Scalar dp
                 numdp = fromIntegral $ length $ F.toList dps
@@ -687,6 +463,16 @@ nbtrain dps = LinearClassifier
 -------------------------------------------------------------------------------
 -- classification
 
+instance Monoid (LinearClassifier dp) where
+    mappend = undefined
+    mempty = undefined
+
+type instance Scalar (LinearClassifier dp) = Scalar dp
+
+instance HomTrainer (LinearClassifier dp) where
+    type Datapoint (LinearClassifier dp) = dp
+    train = undefined
+
 instance
     ( Labeled dp
     , Scalar (Attributes dp) ~ Scalar dp
@@ -703,319 +489,4 @@ instance
 
 -------------------------------------------------------------------------------
 -- test
-
-monoidtest dps n = do
-    dps' <- shuffle dps
-    xs' <- kfold 2 dps'
-    return $ foldl1 (zipWith (<>)) $ map (map (train1dp :: Double -> Normal Double Double)) $ do
-        testset <- xs'
-        let trainingset = concat $ filter (/=testset) xs'
-        return $ runtest (partition n trainingset) testset
-
-runtest ::
-    ( Scalar dp ~ Double
-    , Labeled dp 
-    , LA.Field (Scalar dp)
-    , VectorSpace (Scalar dp)
-    , Ord (Scalar dp)
-    , Ord (Label dp)
-    , Attributes dp ~ LA.Vector Double
-    , Show (Label dp)
-    , Show dp
-    , Typeable dp
-    , Typeable (Label dp)
-    , Typeable (Attributes dp)
-    , Ord dp
-    ) => [[dp]] -> [dp] -> [Scalar dp]
-runtest dpsL testset = 
-    [ errorRate zero testset
-    , errorRate centroid testset
-    , errorRate nb testset
-    , 0/1/0
---     , errorRate lr1 testset
---     , errorRate lr2 testset
---     , errorRate lr3 testset
-    , errorRate lr4 testset
---     , errorRate lr5 testset
---     , errorRate lr6 testset
---     , errorRate lr7 testset
-    , 0/1/0
---     , errorRate lrAve1 testset
---     , errorRate lrAve2 testset
---     , errorRate lrAve3 testset
-    , errorRate lrAve4 testset
---     , errorRate lrAve5 testset
---     , errorRate lrAve6 testset
---     , errorRate lrAve7 testset
-    , 0/1/0
---     , errorRate lrTaylor1 testset
---     , errorRate lrTaylor2 testset
---     , errorRate lrTaylor3 testset
-    , errorRate lrTaylor4 testset
---     , errorRate lrTaylor5 testset
---     , errorRate lrTaylor6 testset
---     , errorRate lrTaylor7 testset
-    , 0/1/0
-    , 0/1/0
-    , 0/1/0
---     , errorRate lrUpper1 testset
---     , errorRate lrUpper2 testset
---     , errorRate lrUpper3 testset
-    , errorRate lrUpper4 testset
---     , errorRate lrUpper5 testset
---     , errorRate lrUpper6 testset
---     , errorRate lrUpper7 testset
-    , 0/1/0
-    , 0/1/0
-    , 0/1/0
-    ]
-    ++ Map.elems (Map.mapWithKey go (weights zero))
-    ++ [0/1/0]
-    ++ Map.elems (Map.mapWithKey go (weights centroid))
-    ++ [0/1/0]
-    ++ Map.elems (Map.mapWithKey go (weights nb))
-    ++ [0/1/0]
-    ++ [0/1/0]
-    ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lr1))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lr2))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lr3))
---     ++ [0/1/0]
-    ++ Map.elems (Map.mapWithKey go (weights lr4))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lr5))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lr6))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lr7))
-    ++ [0/1/0]
-    ++ [0/1/0]
-    ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrAve1))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrAve2))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrAve3))
---     ++ [0/1/0]
-    ++ Map.elems (Map.mapWithKey go (weights lrAve4))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrAve5))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrAve6))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrAve7))
-    ++ [0/1/0]
-    ++ [0/1/0]
-    ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrTaylor1))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrTaylor2))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrTaylor3))
---     ++ [0/1/0]
-    ++ Map.elems (Map.mapWithKey go (weights lrTaylor4))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrTaylor5))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrTaylor6))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrTaylor7))
-    ++ [0/1/0]
-    ++ [0/1/0]
-    ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrUpper1))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrUpper2))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrUpper3))
---     ++ [0/1/0]
-    ++ Map.elems (Map.mapWithKey go (weights lrUpper4))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrUpper5))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrUpper6))
---     ++ [0/1/0]
---     ++ Map.elems (Map.mapWithKey go (weights lrUpper7))
---     ++ [0/1/0]
---     ++ [0/1/0]
---     ++ [0/1/0]
---     ++ [0/1/0]
---     ++ [0/1/0]
---     ++ [0/1/0]
---     ++ VG.toList (head $ Map.elems $ Map.map (\(_,w,_) -> w) $ weights lr5)
---     ++ [0/1/0]
---     ++ VG.toList (head $ Map.elems $ Map.map (\(_,w,_) -> w) $ weights lrAve5)
---     ++ [0/1/0]
---     ++ VG.toList (head $ Map.elems $ Map.map (\(_,w,_) -> w) $ weights lrTaylor5)
---     ++ [0/1/0]
-
-    where
-        zero = LinearClassifier 
-            { weights = Map.map (\w -> (0,w,NoTaylor)) $ zeroWeights $ head dpsL
-            , datapoints = V.fromList $ F.toList $ head dpsL
-            , reg=0
-            }
-        nb = nbtrain $ head dpsL
-        centroid = centroidtrain $ head dpsL
-        lrL1 = map (lrtrain 1e-2) dpsL
-        lrL2 = map (lrtrain 1e-3) dpsL
-        lrL3 = map (lrtrain 1e-4) dpsL
-        lrL4 = map (lrtrain 1e-5) dpsL
-        lrL5 = map (lrtrain 1e-6) dpsL
-        lrL6 = map (lrtrain 1e-7) dpsL
-        lrL7 = map (lrtrain 0) dpsL
-        lrL1ub = map (lrtrainub 1e-2) dpsL
-        lrL2ub = map (lrtrainub 1e-3) dpsL
-        lrL3ub = map (lrtrainub 1e-4) dpsL
-        lrL4ub = map (lrtrainub 1e-5) dpsL
-        lrL5ub = map (lrtrainub 1e-6) dpsL
-        lrL6ub = map (lrtrainub 1e-7) dpsL
-        lrL7ub = map (lrtrainub 0) dpsL
-        lr1 = head lrL1
-        lr2 = head lrL2
-        lr3 = head lrL3
-        lr4 = head lrL4
-        lr5 = head lrL5
-        lr6 = head lrL6
-        lr7 = head lrL7
-        lrAve1 = foldl1 mappendAverage lrL1
-        lrAve2 = foldl1 mappendAverage lrL2
-        lrAve3 = foldl1 mappendAverage lrL3
-        lrAve4 = foldl1 mappendAverage lrL4
-        lrAve5 = foldl1 mappendAverage lrL5
-        lrAve6 = foldl1 mappendAverage lrL6
-        lrAve7 = foldl1 mappendAverage lrL7
-        lrTaylor1 = foldl1 mappendTaylor lrL1
-        lrTaylor2 = foldl1 mappendTaylor lrL2
-        lrTaylor3 = foldl1 mappendTaylor lrL3
-        lrTaylor4 = foldl1 mappendTaylor lrL4
-        lrTaylor5 = foldl1 mappendTaylor lrL5
-        lrTaylor6 = foldl1 mappendTaylor lrL6
-        lrTaylor7 = foldl1 mappendTaylor lrL7
-        lrUpper1 = foldl1 mappendTaylor lrL1ub
-        lrUpper2 = foldl1 mappendTaylor lrL2ub
-        lrUpper3 = foldl1 mappendTaylor lrL3ub
-        lrUpper4 = foldl1 mappendTaylor lrL4ub
-        lrUpper5 = foldl1 mappendTaylor lrL5ub
-        lrUpper6 = foldl1 mappendTaylor lrL6ub
-        lrUpper7 = foldl1 mappendTaylor lrL7ub
-
-        dps = concat dpsL
-
-        go l (_,w0,_) = f w0
-            where
-                f w = sumOver dps $ \dp ->
-                        logSumOfExp2 0 $ -(y dp * inner w (getAttributes dp))
-
-                y dp = bool2num $ getLabel dp==l 
-
-
-type DP = MaybeLabeled String (LA.Vector Double)
-
-test = do
-    
---     let {filename = "../datasets/ida/banana_data.csv"; label_index=0}
---     let {filename = "../datasets/ripley/synth.train.csv"; label_index=2}
---     let {filename = "../datasets/uci/haberman.data"; label_index=3}
---     let {filename = "../datasets/uci/pima-indians-diabetes.data"; label_index=8}
-    let {filename = "../datasets/uci/wine.csv"; label_index=0}
---     let {filename = "../datasets/uci/ionosphere.csv"; label_index=34}
---     let {filename = "../datasets/uci/sonar.csv"; label_index=60}
---     let {filename = "../datasets/uci/optdigits.train.data"; label_index=64}
-        
-    let verbose = True
-
-    -----------------------------------
-    -- load data
-
-    xse :: Either String (V.Vector (V.Vector String))  
-        <- trace "loading reference dataset" $ fmap (decode HasHeader) $ BS.readFile filename
-    xs <- case xse of 
-        Right rs -> return rs
-        Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
-
-    let numdp = VG.length xs
-    let numdim = VG.length $ xs VG.! 0
-    let numlabels = Set.size $ Set.fromList $ VG.toList $ VG.map (VG.! label_index) xs
-
-    if verbose 
-        then do 
-            hPutStrLn stderr "  dataset info:"
-            hPutStrLn stderr $ "    num dp:     " ++ show numdp
-            hPutStrLn stderr $ "    num dim:    " ++ show numdim
-            hPutStrLn stderr $ "    num labels: " ++ show numlabels
-        else return ()
-
-    -----------------------------------
-    -- convert to right types
-
-    let ys = VG.map (\x -> MaybeLabeled   
-            { label = Just $ x VG.! label_index
-            , attr = VG.convert ( 
-                VG.map read $ VG.fromList $ (:) "1" $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
-                :: V.Vector Double
-                )
-            })
-            xs
-            :: V.Vector DP -- (MaybeLabeled String (LA.Vector Double))
-
-    -----------------------------------
-    -- convert to right types
-
-    let m = lrtrain2 1e-4 ys (zeroWeights ys) :: LinearClassifier (MaybeLabeled String (LA.Vector Double))
-    deepseq m $ print $ m
-
-    let m1 = lrtrain2 1e-4 (VG.take 100 ys) (zeroWeights ys)
-        m2 = lrtrain2 1e-4 (VG.drop 100 ys) (zeroWeights ys)
-        m3 = reoptimize mappendTaylor m1 m2
-    deepseq m1 $ deepseq m2 $ deepseq m3 $ print m3
-
-
---     let runtest f = flip evalRand (mkStdGen 100) $ validate
---             (repeatExperiment 1 (kfold 5))
---             errorRate
---             ys
---             (f (lrtrain 1e-2) :: [DP] -> LinearClassifier DP)
-
---     let runtest f = flip evalRand (mkStdGen 100) $ validate_monoid
---             (repeatExperiment 1 (kfold 5))
---             errorRate
---             ys
---             (f (lrtrain 1e-2) :: [DP] -> LinearClassifier DP)
---             (mappendTaylor)
---             (mappendAverage)
-
---     let tests = 
---             [ do 
---                 putStr $ show n++", "
---                 let res = runtest id
---                 putStrLn $ show (mean res)++", "++show (variance res)
---             | n <- [100]
---             ]
---     sequence_ tests
---     print $ runtest (partition 10 $ VG.toList ys) (VG.toList ys)
-
-    let (res,hist) = unsafeRunHistory $ flip evalRandT (mkStdGen 100) $ validateM
-            (kfold 5)
-            errorRate
-            ys
-            (lrtrainMsimple 1e-3) 
-
---     printHistory [traceBFGS,traceNewtonRaphson,traceBrent] hist
-    printHistory 
-        [ traceLinearClassifier (undefined::DP)
-        , traceBFGS
-        , traceNewtonRaphson
-        , traceConjugateGradientDescent
---         , traceBacktracking (undefined :: Attributes DP)
---         , traceBracket
---         , traceBrent
---         , traceGSS
-        ] hist
-    putStrLn $ show (mean res)++","++show (variance res)
-
-
-    putStrLn "done."
 

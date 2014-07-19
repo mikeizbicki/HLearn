@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
+import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.Random
@@ -18,9 +20,12 @@ import System.IO
 
 import Data.Csv
 import Numeric.LinearAlgebra hiding ((<>))
--- import qualified Numeric.LinearAlgebra as LA
+import System.Console.CmdArgs.Implicit
 
 import Debug.Trace
+
+import Data.Version
+import Paths_HLearn
 
 import HLearn.Algebra
 import qualified HLearn.Algebra.LinearAlgebra as LA
@@ -30,82 +35,177 @@ import HLearn.Models.Classifiers.Common
 import HLearn.Models.Classifiers.LinearClassifier
 import qualified HLearn.Optimization.GradientDescent as Recipe
 import qualified HLearn.Optimization.Common as Recipe
+import HLearn.Optimization.Trace
 
-withMonoid f n _train dps = F.foldl1 f $ map _train $ partition n dps
+import Timing
+import LoadData
+
+-------------------------------------------------------------------------------
+-- command line parameters
+
+data Params = Params
+    { data_file         :: Maybe String 
+    , label_col         :: Int
+
+    , paramCVFolds      :: Int
+    , paramCVReps       :: Int
+
+    , monoidType        :: MonoidType
+    , monoidSplits      :: Int
+
+    , regType           :: String
+    , regAmount         :: Double
+
+    , pca_data          :: Bool
+    , varshift_data     :: Bool
+
+    , paramSeed         :: Maybe Int
+    , verbose           :: Bool
+    , debug             :: Bool
+    } 
+    deriving (Show, Data, Typeable)
+
+usage = Params 
+    { data_file      = Nothing
+                    &= help "file to perform classification on"
+
+    , label_col      = 0
+                    &= help "label column"
+
+    , paramCVFolds   = 10
+                    &= help "number of folds for cross validation"
+                    &= name "cvfolds"
+                    &= explicit
+                    &= groupname "Test Configuration"
+
+    , paramCVReps    = 1
+                    &= help "number of times to repeat cross validation"
+                    &= name "cvreps"
+                    &= explicit
+
+    , monoidSplits   = 1
+                    &= help "when training the classifier, first split the dataset into this many subsets; then combine using the specified monoidType"
+
+    , monoidType     = MappendAverage
+                    &= help "see monoid splts"
+
+    , regType        = "L2"
+                    &= help "valid values are: L1, L2, ElasticNet"
+
+    , regAmount      = 0.1
+                    &= help "regularization parameter lambda"
+
+    , pca_data       = False 
+                    &= groupname "Data Preprocessing" 
+                    &= help "Rotate the data points using the PCA transform.  Speeds up nearest neighbor searches, but computing the PCA can be expensive in many dimensions."
+                    &= name "pca"
+                    &= explicit
+
+    , varshift_data  = False 
+                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive in higher dimensions." 
+                    &= name "varshift"
+                    &= explicit
+
+    , paramSeed      = Nothing
+                    &= help "specify the seed to the random number generator (default is seeded by current time)"
+                    &= groupname "Debugging"
+    
+    , verbose        = False 
+                    &= help "Print tree statistics (takes some extra time)" 
+
+    , debug          = False 
+                    &= help "Test created trees for validity (takes lots of time)" 
+                    &= name "debug"
+                    &= explicit
+    }
+    &= summary ("HLearn linear classifiers, version " ++ showVersion version)
+
+-------------------------------------------------------------------------------
+-- main
 
 main = do
     
---     let {filename = "../../datasets/uci/haberman.data"; label_index=3}
---     let {filename = "../../datasets/uci/iris.data"; label_index=4}
---     let {filename = "../../datasets/uci/wdbc-mod2.csv"; label_index=0}
-    let {filename = "../../datasets/uci/wpbc-mod2.csv"; label_index=0}
---     let {filename = "../../datasets/uci/wine.csv"; label_index=0}
---     let {filename = "../../datasets/uci/pima-indians-diabetes.data"; label_index=8}
---     let {filename = "../../datasets/uci/sonar.csv"; label_index=60}
---     let {filename = "../../datasets/uci/magic04.data"; label_index=10}
---     let {filename = "../../datasets/uci/spambase.data"; label_index=57}
---     let {filename = "../../datasets/uci/ionosphere.csv"; label_index=34}
---     let {filename = "../../datasets/uci/yeast-mod2.csv"; label_index=8}
---     let {filename = "../../datasets/uci/pendigits.train.data"; label_index=16}
---     let {filename = "../../datasets/uci/optdigits.train.data"; label_index=64}
---     let {filename = "../../datasets/uci/winequality-white.csv"; label_index=11}
+    -----------------------------------
+    -- proccess command line
+
+    params <- cmdArgs usage
+
+    when (data_file params == Nothing) $ error "must specify a data file"
+
+    seed <- case paramSeed params of
+            Nothing -> randomIO
+            Just x -> return x
+
+    let filename = fromJust $ data_file params
+        label_index = label_col params
         
     let verbose = True
 
     -----------------------------------
     -- load data
 
-    xse :: Either String (V.Vector (V.Vector String))  
-        <- trace "loading reference dataset" $ fmap (decode HasHeader) $ BS.readFile filename
-    xs <- case xse of 
-        Right rs -> return rs
-        Left str -> error $ "failed to parse CSV file " ++ filename ++ ": " ++ take 1000 str
-
-    let numdp = VG.length xs
-    let numdim = VG.length $ xs VG.! 0
-    let numlabels = Set.size $ Set.fromList $ VG.toList $ VG.map (VG.! label_index) xs
-
-    if verbose 
-        then do 
-            hPutStrLn stderr "  dataset info:"
-            hPutStrLn stderr $ "    num dp:     " ++ show numdp
-            hPutStrLn stderr $ "    num dim:    " ++ show numdim
-            hPutStrLn stderr $ "    num labels: " ++ show numlabels
-        else return ()
+    dps :: V.Vector (MaybeLabeled String (LA.Vector Double))
+        <- timeIO "loading dataset" $ loadLabeledNumericData $ DataParams
+        { datafile  = fromJust $ data_file params
+        , labelcol  = Just $ label_col params
+        , pca       = False
+        , varshift  = False
+        }
 
     -----------------------------------
-    -- convert to right types
+    -- run test
 
-    let ys = VG.map (\x -> MaybeLabeled   
-            { label = Just $ x VG.! label_index
-            , attr = VG.convert ( 
-                VG.map read $ VG.fromList $ (:) "1" $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
---                 VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
-                :: V.Vector Double
-                )
-            })
-            xs
-            :: V.Vector (MaybeLabeled String (LA.Vector Double))
+    let traceEvents =
+            [ traceBFGS
+            , traceNewtonRaphson
+            , traceLinearClassifier (undefined::MaybeLabeled String (LA.Vector Double))
+            ]
+
+    let withMonoid :: ( Monad m )
+                   => ( model -> model -> model )
+                   -> Int
+                   -> ( [dp] -> m model )
+                   -> ( [dp] -> m model )
+        withMonoid f n _train dps = liftM (F.foldl1 f) $ mapM _train $ partition n dps
+
+    let reg = case regType params of
+            "L1" -> l1reg
+            "L2" -> l2reg
+            "ElasticNet" -> elasticNet
+
+    let res = traceHistory traceEvents $ flip evalRandT (mkStdGen seed) $ validateM
+            ( repeatExperiment 
+                ( paramCVReps params ) 
+                ( kfold $ paramCVFolds params) 
+            )
+            errorRate
+            dps
+            ( withMonoid mappendAverage (monoidSplits params) 
+                $ trainLogisticRegression 
+                    MappendTaylor 
+                    ( regAmount params )
+                    reg
+                    logloss
+            )
+
+    putStrLn $ "mean = "++show (mean res)
+    putStrLn $ "var  = "++show (variance res)
+
 
     -----------------------------------
-    -- convert to right types
+    -- temporarily needed for type checking
+--     putStrLn $ show $ map mean $ foldl1 (zipWith (<>)) 
+--         [ flip evalRand (mkStdGen seed') $ monoidtest (VG.toList dps) 1
+--         | seed' <- [seed..seed+paramReps params-1]
+--         ]
 
---     let m = train ys :: LogisticRegression (MaybeLabeled String (LA.Vector Double))
+--     let m = train dps :: LogisticRegression (MaybeLabeled String (LA.Vector Double))
 --     deepseq m $ print $ m
--- 
---     let res = flip evalRand (mkStdGen 100) $ crossValidate
---             (repeatExperiment 1 (kfold 10))
---             errorRate
---             ys
---             (undefined :: LogisticRegression (MaybeLabeled String (LA.Vector Double)))
--- 
---     putStrLn $ "mean = "++show (mean res)
---     putStrLn $ "var  = "++show (variance res)
 
 --     let testM n f = validate
 --             (numSamples n (kfold 10))
 --             errorRate
---             ys
+--             dps
 --             (f train :: [MaybeLabeled String (LA.Vector Double)] 
 --                                -> LogisticRegression (MaybeLabeled String (LA.Vector Double)))
 -- 
@@ -124,27 +224,27 @@ main = do
 --             | n <- [100,200,300,400,500]
 --             ]
 
-    let repl ',' = ' '
-        repl c = c
-
-    sequence_ 
-        [ do
-            putStr $ show n++" "
-            putStrLn $ map repl $ tail $ init $ show $ map mean $ foldl1 (zipWith (<>)) 
-                [ flip evalRand (mkStdGen seed) $ monoidtest (VG.toList ys) n
-                | seed <- [1..100]
-                ]
-            hFlush stdout
-        | n <- [28..50]
+--     let repl ',' = ' '
+--         repl c = c
+-- 
+--     sequence_ 
+--         [ do
+--             putStr $ show n++" "
+--             putStrLn $ map repl $ tail $ init $ show $ map mean $ foldl1 (zipWith (<>)) 
+--                 [ flip evalRand (mkStdGen seed) $ monoidtest (VG.toList dps) n
+--                 | seed <- [1..100]
+--                 ]
+--             hFlush stdout
+--         | n <- [28..50]
 --         | n <- [1,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,310,320,330,340,350,360,370,380,390,400]
 --         | n <- [1,50,100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000]
 --         | n <- map (*10) [1..5]
-        ]
+--         ]
 
 --     let testM n f = validate
 --             (kfold 10)
 --             errorRate
---             ys
+--             dps
 --             (f train :: [MaybeLabeled String (LA.Vector Double)] 
 --                                -> LogisticRegression (MaybeLabeled String (LA.Vector Double)))
 -- 
