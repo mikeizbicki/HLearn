@@ -17,7 +17,7 @@ import System.IO.Unsafe
 
 import Test.QuickCheck
 
-import Data.SIMD
+-- import Data.SIMD
 import HLearn.Algebra
 
 -------------------------------------------------------------------------------

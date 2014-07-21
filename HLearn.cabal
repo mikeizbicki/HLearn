@@ -36,13 +36,13 @@ Library
         -- my packages
         ConstraintKinds     >= 1.2.0,
         typeparams          >= 0.0.5,
-        simd                >= 0.1.0.1,
+--         simd                >= 0.1.0.1,
         
         -- math dependencies
         erf                 >= 2.0,
         gamma               >= 0.9,
         logfloat            >= 0.12,
-        hmatrix             >= 0.15.0.1,
+        hmatrix             == 0.15.2.0,
         MonadRandom         >= 0.1,
 
         -- are these needed?
@@ -207,7 +207,7 @@ executable hlearn-linear
         HLearn              >= 2.0,
 
         vector              >= 0.10.11,
-        hmatrix             >= 0.15.2,
+        hmatrix             == 0.15.2.0,
         containers          >= 0.5.5.1,
     
         cmdargs             >= 0.10.7,
@@ -264,7 +264,7 @@ executable hlearn-allknn
         base            >=4.7, 
         HLearn          >=2.0, 
         ConstraintKinds >=1.3,
-        simd            >=0.1,
+--         simd            >=0.1,
         typeparams      >=0.0.5,
 
         deepseq >=1.3, 
@@ -285,7 +285,7 @@ executable hlearn-allknn
         vector-th-unbox >= 0.2,
         primitive >= 0.5,
         deepseq >= 1.3,
-        hmatrix
+        hmatrix             == 0.15.2.0
 
 test-suite tests
   type:
@@ -333,7 +333,7 @@ test-suite tests
     vector-th-unbox     >= 0.2,
     list-extras         >= 0.4,
     heap                >= 1.0.0,
-    hmatrix             >= 0.15.0.1,
+    hmatrix             == 0.15.2.0,
     dlist               >= 0.5,
     split               >= 0.2.2,
     semigroups          >= 0.9,
