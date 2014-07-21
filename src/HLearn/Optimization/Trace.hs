@@ -29,7 +29,7 @@ traceOptimization m = deepseq (map (flip trace ()) $ traceDynamic 0 log) a
         traceDynamic :: Int -> [Event] -> [String]
         traceDynamic i xs = concatMap (traceEvent [traceBFGS,traceNewtonRaphson,traceBracket,traceBrent] i) xs
 
-traceHistory fs m = deepseq (map (flip trace ()) $ traceDynamic 0 log) a
+traceHistory fs m = {-# SCC traceHistory #-} deepseq (map (flip trace ()) $ traceDynamic 0 log) a
     where
         (a,log) = unsafeRunHistory m
 
@@ -37,7 +37,7 @@ traceHistory fs m = deepseq (map (flip trace ()) $ traceDynamic 0 log) a
         traceDynamic i xs = concatMap (traceEvent fs i) xs
 
 traceEvent :: [Event -> [String]] -> Int -> Event -> [String]
-traceEvent fs i x = if i>=maxdepth+1
+traceEvent fs i x = {-# SCC traceEvent #-} if i>=maxdepth+1
     then []
     else case fromDynamic (dyn x) :: Maybe (DList.DList Event) of
         Nothing -> map (traceSpacer i++) $ concatMap ($x) fs
