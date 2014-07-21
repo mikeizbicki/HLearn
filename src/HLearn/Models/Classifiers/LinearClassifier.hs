@@ -196,7 +196,7 @@ trainLogisticRegressionWarmStart :: forall dp vec r container.
       -> container dp 
       -> Map.Map (Label dp) (Attributes dp) 
       -> History (LinearClassifier dp)
-trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = do
+trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {-# SCC trainLogisticRegressionWarmStart #-} do
     weights' <- collectEvents $ fmap Map.fromList $ go $ Map.assocs weights0
     report $ LinearClassifier 
         { weights = weights'

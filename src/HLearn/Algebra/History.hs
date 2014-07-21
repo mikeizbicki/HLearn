@@ -174,11 +174,11 @@ event !a = do
         seq time $ tell $ DList.singleton event
 
 report :: Typeable a => a -> History a
-report a = event a >> return a
+report a = {-# SCC report #-} event a >> return a
 
 collectEvents :: History a -> History a
 -- collectEvents = id
-collectEvents (History m) = History $ do
+collectEvents (History m) = {-# SCC collectEvents #-} History $ do
     modify $ push []
     a <- censor (\ws -> DList.singleton $ Event (toDyn ws) 0 0 0) m
     modify $ snd . fromJust . pop

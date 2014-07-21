@@ -79,8 +79,6 @@ Library
         -fllvm
         -O
         -funbox-strict-fields
---         -auto-all 
---         -caf-all 
 
 
         -ddump-to-file
@@ -201,6 +199,7 @@ executable hlearn-linear
     ghc-options:
         -O
         -funbox-strict-fields
+        -prof
 
     build-depends:
         

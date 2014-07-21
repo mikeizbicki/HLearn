@@ -121,7 +121,7 @@ optimize :: forall opt.
       -> opt                        -- ^ initial conditions
       -> [opt -> History Bool]      -- ^ stopping conditions
       -> History opt
-optimize step opt0 stop = collectEvents $ do
+optimize step opt0 stop = {-# SCC optimize #-} collectEvents $ do
 --     report opt0
 --     opt1 <- step opt0
     go opt0
