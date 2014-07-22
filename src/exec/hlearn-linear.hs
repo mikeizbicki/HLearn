@@ -50,7 +50,7 @@ data Params = Params
     , paramCVFolds      :: Int
     , paramCVReps       :: Int
 
-    , monoidType        :: MonoidType
+    , monoidType        :: String
     , monoidSplits      :: Int
 
     , regType           :: String
@@ -86,7 +86,7 @@ usage = Params
     , monoidSplits   = 1
                     &= help "when training the classifier, first split the dataset into this many subsets; then combine using the specified monoidType"
 
-    , monoidType     = MappendAverage
+    , monoidType     = "mappendAverage"
                     &= help "see monoid splts"
 
     , regType        = "L2"
@@ -145,7 +145,7 @@ main = do
     -- load data
 
     dps :: V.Vector (MaybeLabeled String (LA.Vector Double))
-        <- timeIO "loading dataset" $ loadLabeledNumericData $ DataParams
+        <- loadLabeledNumericData $ DataParams
         { datafile  = fromJust $ data_file params
         , labelcol  = Just $ label_col params
         , pca       = False
@@ -173,6 +173,17 @@ main = do
             "L2" -> l2reg
             "ElasticNet" -> elasticNet
 
+    let readMonoidType = read $ monoidType params :: MonoidType
+    let monoidOperation = case readMonoidType of
+            MappendAverage -> mappendAverage
+            MappendTaylor -> mappendQuadratic
+            MappendUpperBound -> mappendQuadratic
+            MixtureUpperTaylor _ -> mappendQuadratic
+            MixtureAveTaylor _ -> mappendQuadratic
+            MixtureAveUpper _ -> mappendQuadratic
+            otherwise -> error $ "monoidtype ["++monoidType params++"] not supported"
+    seq monoidOperation $ return () 
+
     let res = traceHistory traceEvents $ flip evalRandT (mkStdGen seed) $ validateM
             ( repeatExperiment 
                 ( paramCVReps params ) 
@@ -180,16 +191,30 @@ main = do
             )
             errorRate
             dps
-            ( withMonoid mappendAverage (monoidSplits params) 
+            ( withMonoid monoidOperation (monoidSplits params) 
                 $ trainLogisticRegression 
-                    MappendTaylor 
+                    ( readMonoidType )
                     ( regAmount params )
                     reg
                     logloss
             )
 
-    putStrLn $ "mean = "++show (mean res)
-    putStrLn $ "var  = "++show (variance res)
+    putStrLn $ show (paramSeed params)
+       ++" "++ show (pca_data params)
+       ++" "++ show (varshift_data params)
+       ++" "++ show (paramCVFolds params)
+       ++" "++ show (paramCVReps params)
+       ++" "++ show (monoidSplits params) 
+       ++" "++ (head $ words $ monoidType params)
+       ++" "++ (show (fromRational $ monoidMixRate readMonoidType::Double))
+       ++" "++ (regType params)
+       ++" "++ show (regAmount params)
+       ++ concat (replicate 20 "--  ")
+       ++" "++ show (mean res)
+       ++" "++ show (variance res)
+
+    hPutStrLn stderr $ "mean = "++show (mean res)
+    hPutStrLn stderr $ "var  = "++show (variance res)
 
 
     -----------------------------------
@@ -216,7 +241,7 @@ main = do
 --                 putStr $ show n++", "
 --                 let res = runtest n id
 --                 putStr $ show (mean res)++", "++show (variance res)++", "
---                 let res_taylor = runtest n (withMonoid mappendTaylor 2)
+--                 let res_taylor = runtest n (withMonoid mappendQuadratic 2)
 --                 putStr $ show (mean res_taylor)++", "++show (variance res_taylor)++", "
 --                 let res_ave = runtest n (withMonoid mappendAverage 2)
 --                 putStrLn $ show (mean res_ave)++", "++show (variance res_ave)
@@ -253,7 +278,7 @@ main = do
 --     let tests = 
 --             [ do 
 --                 putStr $ show n++", "
---                 let res_taylor = runtest n (withMonoid mappendTaylor n)
+--                 let res_taylor = runtest n (withMonoid mappendQuadratic n)
 --                 putStr $ show (mean res_taylor)++", "++show (variance res_taylor)++", "
 --                 let res_ave = runtest n (withMonoid mappendAverage n)
 --                 putStrLn $ show (mean res_ave)++", "++show (variance res_ave)
@@ -263,5 +288,5 @@ main = do
 -- 
 --     sequence_ tests
 
-    putStrLn "done."
+    hPutStrLn stderr "done."
 

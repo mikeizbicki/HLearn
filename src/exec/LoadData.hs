@@ -103,7 +103,9 @@ loadLabeledNumericData params = do
         colindex = fromJust $ labelcol params
 
     xse :: Either String (V.Vector (V.Vector String))  
-        <- trace "loading dataset" $ fmap (decode HasHeader) $ BS.readFile $ datafile params
+        <- timeIO ("loading ["++datafile params++"] ") 
+         $ fmap (decode HasHeader) 
+         $ BS.readFile $ datafile params
     xs <- case xse of 
         Right rs -> return rs
         Left str -> error $ "failed to parse CSV file " ++ datafile params ++ ": " ++ take 1000 str

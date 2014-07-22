@@ -54,6 +54,11 @@ data Taylor dp
     | NoTaylor
     deriving (Typeable)
 
+dptaylor (Taylor dp _) = dp
+mattaylor (Taylor _ mat) = mat
+
+type instance Scalar (Taylor dp) = Scalar dp
+
 instance 
     ( NFData (Scalar dp)
     , NFData (Label dp)
@@ -91,7 +96,7 @@ mappendAverage lr1 lr2 = LinearClassifier
             where
                 w = VG.zipWith (\a b -> (n1*a+n2*b)/(n1+n2)) w1 w2
 
-mappendTaylor ::
+mappendQuadratic ::
     ( VG.Vector v t
     , Attributes dp ~ v t
     , Fractional t
@@ -105,7 +110,7 @@ mappendTaylor ::
     , Ord t
     , Ord (Label dp)
     ) => LinearClassifier dp -> LinearClassifier dp -> LinearClassifier dp
-mappendTaylor lr1 lr2 = LinearClassifier 
+mappendQuadratic lr1 lr2 = LinearClassifier 
     { weights = Map.unionWith go (weights lr1) (weights lr2)
     , datapoints = V.fromList $ V.toList (datapoints lr1) ++ V.toList (datapoints lr2)
     , reg = reg lr1
@@ -153,9 +158,18 @@ traceLinearClassifier _ opt = case fromDynamic (dyn opt) :: Maybe (LinearClassif
 data MonoidType
     = MappendAverage
     | MappendTaylor
+    | MixtureUpperTaylor Rational
+    | MixtureAveTaylor Rational
+    | MixtureAveUpper Rational
     | MappendUpperBound
     | MappendUpperBoundCenter
     deriving (Read, Show, Eq, Data, Typeable)
+
+monoidMixRate :: MonoidType -> Rational
+monoidMixRate (MixtureUpperTaylor i)    = i
+monoidMixRate (MixtureAveTaylor i)  = i
+monoidMixRate (MixtureAveUpper i)      = i
+monoidMixRate _                     = 0
 
 trainLogisticRegression monoidtype lambda c2reg c2loss dps 
     = trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps $ zeroWeights dps
@@ -239,8 +253,36 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
 
 --             fmap ((if taylor then resTaylor else resUpper):) $ go xs
             fmap ((:) $ case monoidtype of
+                    MappendAverage -> resTaylor -- don't actually care!
                     MappendTaylor -> resTaylor
                     MappendUpperBound -> resUpper
+                    MixtureUpperTaylor mix' -> 
+                        ( l, (n l, w1, let mix=fromRational mix' in
+                            Taylor 
+                                (mix .*(dptaylor  $ resTaylor^._2^._3) <> 
+                                (1-mix).*(dptaylor $ resUpper^._2^._3 ))
+                                
+                                (mix .*(mattaylor  $ resTaylor^._2^._3) <> 
+                                (1-mix).*(mattaylor $ resUpper^._2^._3 ))
+                             ))
+                    MixtureAveTaylor mix' ->
+                        ( l, (n l, w1, let mix=fromRational mix' in
+                            Taylor
+                                (mix .*(dptaylor  $ resTaylor^._2^._3) <> 
+                                (1-mix).*(w1))
+                                
+                                (mix .*(mattaylor  $ resTaylor^._2^._3) <> 
+                                (1-mix).*(LA.eye numrows))
+                            ))
+                    MixtureAveUpper mix' ->
+                        ( l, (n l, w1, let mix=fromRational mix' in
+                            Taylor
+                                (mix .*(dptaylor  $ resUpper^._2^._3) <> 
+                                (1-mix).*(w1))
+                                
+                                (mix .*(mattaylor  $ resUpper^._2^._3) <> 
+                                (1-mix).*(LA.eye numrows))
+                            ))
                 ) $ go xs
             where
                 reg   w = (c2reg w)^._1
@@ -273,6 +315,10 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
 
                 numdp :: Scalar dp
                 numdp = fromIntegral $ length $ F.toList dps
+
+                numrows :: Int
+                numrows = VG.length $ getAttributes $ head $ F.toList dps
+--                 numrows = LA.rows $ dptaylor $ resTaylor^._2^._3
 
 -------------------------------------------------------------------------------
 
