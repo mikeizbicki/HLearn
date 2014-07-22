@@ -42,7 +42,7 @@ Library
         erf                 >= 2.0,
         gamma               >= 0.9,
         logfloat            >= 0.12,
-        hmatrix             == 0.15.2.0,
+        hmatrix             == 0.15.2.2,
         MonadRandom         >= 0.1,
 
         -- are these needed?
@@ -199,7 +199,6 @@ executable hlearn-linear
     ghc-options:
         -O
         -funbox-strict-fields
-        -prof
 
     build-depends:
         
@@ -207,7 +206,7 @@ executable hlearn-linear
         HLearn              >= 2.0,
 
         vector              >= 0.10.11,
-        hmatrix             == 0.15.2.0,
+        hmatrix             == 0.15.2.2,
         containers          >= 0.5.5.1,
     
         cmdargs             >= 0.10.7,
@@ -285,7 +284,7 @@ executable hlearn-allknn
         vector-th-unbox >= 0.2,
         primitive >= 0.5,
         deepseq >= 1.3,
-        hmatrix             == 0.15.2.0
+        hmatrix             == 0.15.2.2
 
 test-suite tests
   type:
@@ -333,7 +332,7 @@ test-suite tests
     vector-th-unbox     >= 0.2,
     list-extras         >= 0.4,
     heap                >= 1.0.0,
-    hmatrix             == 0.15.2.0,
+    hmatrix             == 0.15.2.2,
     dlist               >= 0.5,
     split               >= 0.2.2,
     semigroups          >= 0.9,
