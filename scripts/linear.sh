@@ -56,27 +56,27 @@ case "$test" in
 
         for i in {10..200..10} {200..1000..50}; do
             echo test number $i
-            #nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
-                #-d "$file" -l "$col" \
-                #--maxdp=$i \
-                #--monoidtype="MappendAverage" \
-                #--monoidsplits=2 \
-                #$cmdargs \
-                #>> "$output1"
-            #nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
-                #-d "$file" -l "$col" \
-                #--maxdp=$i \
-                #--monoidtype="MappendTaylor" \
-                #--monoidsplits=2 \
-                #$cmdargs \
-                #>> "$output2"
-            #nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
-                #-d "$file" -l "$col" \
-                #--maxdp=$i \
-                #--monoidtype="MappendUpperBound" \
-                #--monoidsplits=2 \
-                #$cmdargs \
-                #>> "$output3"
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                -d "$file" -l "$col" \
+                --maxdp=$i \
+                --monoidtype="MappendAverage" \
+                --monoidsplits=2 \
+                $cmdargs \
+                >> "$output1"
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                -d "$file" -l "$col" \
+                --maxdp=$i \
+                --monoidtype="MappendTaylor" \
+                --monoidsplits=2 \
+                $cmdargs \
+                >> "$output2"
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                -d "$file" -l "$col" \
+                --maxdp=$i \
+                --monoidtype="MappendUpperBound" \
+                --monoidsplits=2 \
+                $cmdargs \
+                >> "$output3"
             nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
                 --maxdp=$i \
