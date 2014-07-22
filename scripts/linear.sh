@@ -4,6 +4,7 @@ data=$2
 
 case "$1" in
     mixture     ) echo "testing MonoidMixture";;
+    numdp       ) echo "testing number of datapoints";;
 
     * ) echo "test [$1] not supported";;
 esac
@@ -44,7 +45,48 @@ output="tmp/$test/$data $cmdargs"
 # run tests
 case "$test" in
 
-    mixture     )
+    numdp )
+        output1="$output --monoidsplits=2 --monoidtype=MappendAverage"
+        output2="$output --monoidsplits=2 --monoidtype=MappendTaylor"
+        output3="$output --monoidsplits=2 --monoidtype=MappendUpperBound"
+        output4="$output --monoidsplits=1" 
+        [ -e "$output1" ] && mv "$output1" "$output1.old"
+        [ -e "$output2" ] && mv "$output2" "$output2.old"
+        [ -e "$output3" ] && mv "$output3" "$output3.old"
+
+        for i in {10..200..10} {200..1000..50}; do
+            echo test number $i
+            #nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                #-d "$file" -l "$col" \
+                #--maxdp=$i \
+                #--monoidtype="MappendAverage" \
+                #--monoidsplits=2 \
+                #$cmdargs \
+                #>> "$output1"
+            #nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                #-d "$file" -l "$col" \
+                #--maxdp=$i \
+                #--monoidtype="MappendTaylor" \
+                #--monoidsplits=2 \
+                #$cmdargs \
+                #>> "$output2"
+            #nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                #-d "$file" -l "$col" \
+                #--maxdp=$i \
+                #--monoidtype="MappendUpperBound" \
+                #--monoidsplits=2 \
+                #$cmdargs \
+                #>> "$output3"
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
+                -d "$file" -l "$col" \
+                --maxdp=$i \
+                --monoidsplits=1 \
+                $cmdargs \
+                >> "$output4"
+        done
+        ;;
+
+    mixture )
         output1="$output --monoidtype=MixtureAveTaylor"
         output2="$output --monoidtype=MixtureAveUpper"
         output3="$output --monoidtype=MixtureUpperTaylor"
@@ -52,21 +94,22 @@ case "$test" in
         [ -e "$output2" ] && mv "$output2" "$output2.old"
         [ -e "$output3" ] && mv "$output3" "$output3.old"
         for i in -50 -40 -30 -20 -10 -8 -6 -4 -3 -2 -1 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 16 18 20 30 40 50; do
-            ./dist/build/hlearn-linear/hlearn-linear \
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
                 --monoidtype="MixtureAveTaylor ($i % 10)" \
                 $cmdargs \
                 >> "$output1"
-            ./dist/build/hlearn-linear/hlearn-linear \
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
                 --monoidtype="MixtureAveUpper ($i % 10)" \
                 $cmdargs \
                 >> "$output2"
-            ./dist/build/hlearn-linear/hlearn-linear \
+            nice -n 19 ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
                 --monoidtype="MixtureUpperTaylor ($i % 10)" \
                 $cmdargs \
                 >> "$output3"
         done
         ;;
+
 esac
