@@ -45,22 +45,28 @@ output="tmp/$test/$data $cmdargs"
 case "$test" in
 
     mixture     )
+        output1="$output --monoidtype=MixtureAveTaylor"
+        output2="$output --monoidtype=MixtureAveUpper"
+        output3="$output --monoidtype=MixtureUpperTaylor"
+        [ -e "$output1" ] && mv "$output1" "$output1.old"
+        [ -e "$output2" ] && mv "$output2" "$output2.old"
+        [ -e "$output3" ] && mv "$output3" "$output3.old"
         for i in -50 -40 -30 -20 -10 -8 -6 -4 -3 -2 -1 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 16 18 20 30 40 50; do
             ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
                 --monoidtype="MixtureAveTaylor ($i % 10)" \
                 $cmdargs \
-                >> "$output"
+                >> "$output1"
             ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
                 --monoidtype="MixtureAveUpper ($i % 10)" \
                 $cmdargs \
-                >> "$output"
+                >> "$output2"
             ./dist/build/hlearn-linear/hlearn-linear \
                 -d "$file" -l "$col" \
-                --monoidtype="MixtureTaylorUpper ($i % 10)" \
+                --monoidtype="MixtureUpperTaylor ($i % 10)" \
                 $cmdargs \
-                >> "$output"
+                >> "$output3"
         done
         ;;
 esac
