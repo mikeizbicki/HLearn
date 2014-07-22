@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE RankNTypes #-}
 
 import Control.Applicative
 import Control.DeepSeq
@@ -47,6 +48,8 @@ data Params = Params
     { data_file         :: Maybe String 
     , label_col         :: Int
 
+    , maxdp             :: Maybe Int
+
     , paramCVFolds      :: Int
     , paramCVReps       :: Int
 
@@ -72,6 +75,9 @@ usage = Params
     , label_col      = 0
                     &= help "label column"
 
+    , maxdp          = Nothing
+                    &= help "maximum number of datapoints to use from data set"
+
     , paramCVFolds   = 10
                     &= help "number of folds for cross validation"
                     &= name "cvfolds"
@@ -86,7 +92,7 @@ usage = Params
     , monoidSplits   = 1
                     &= help "when training the classifier, first split the dataset into this many subsets; then combine using the specified monoidType"
 
-    , monoidType     = "mappendAverage"
+    , monoidType     = "MappendAverage"
                     &= help "see monoid splts"
 
     , regType        = "L2"
@@ -184,10 +190,17 @@ main = do
             otherwise -> error $ "monoidtype ["++monoidType params++"] not supported"
     seq monoidOperation $ return () 
 
+    let maxdpselector :: SamplingMethod -> SamplingMethod 
+        maxdpselector = case maxdp params of
+            Just x -> setMaxDatapoints x
+            Nothing -> \x -> x
+
     let res = traceHistory traceEvents $ flip evalRandT (mkStdGen seed) $ validateM
             ( repeatExperiment 
                 ( paramCVReps params ) 
-                ( kfold $ paramCVFolds params) 
+                ( maxdpselector
+                    ( kfold $ paramCVFolds params) 
+                )
             )
             errorRate
             dps
@@ -199,7 +212,10 @@ main = do
                     logloss
             )
 
-    putStrLn $ show (paramSeed params)
+    let showMaybe Nothing = "Nothing"
+        showMaybe (Just x) = show x
+
+    putStrLn $ (showMaybe $ paramSeed params)
        ++" "++ show (pca_data params)
        ++" "++ show (varshift_data params)
        ++" "++ show (paramCVFolds params)
@@ -209,7 +225,8 @@ main = do
        ++" "++ (show (fromRational $ monoidMixRate readMonoidType::Double))
        ++" "++ (regType params)
        ++" "++ show (regAmount params)
-       ++ concat (replicate 20 "--  ")
+       ++" "++ (showMaybe $ maxdp params)
+       ++ concat (replicate 19 " -- ")
        ++" "++ show (mean res)
        ++" "++ show (variance res)
 
