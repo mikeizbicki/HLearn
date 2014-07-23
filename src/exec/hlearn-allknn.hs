@@ -109,10 +109,12 @@ data Params = Params
     , distances_file    :: String
     , neighbors_file    :: String 
 
+    , train_sequential  :: Bool
+    , train_monoid      :: Bool
+    , cache_dists       :: Bool
     , pca_data          :: Bool
     , varshift_data     :: Bool
     , searchEpsilon     :: Float
---     , searchEpsilon     :: Float
 
     , packMethod        :: PackMethod
     , sortMethod        :: SortMethod
@@ -170,6 +172,15 @@ allknnParams = Params
 
     , kForceSlow     = False
                     &= help "Don't use precompiled k function; use the generic one"
+
+    , train_sequential = False
+                    &= help "don't train the tree in parallel; this may *slightly* speed up the nearest neighbor search at the expense of greatly slowing tree construction"
+
+    , train_monoid   = False
+                    &= help "train using the (asymptotically faster, but in practice slower) monoid algorithm"
+
+    , cache_dists    = False
+                    &= help "pre-calculate the maximum distance from any node dp to all of its children; speeds up queries at the expense of O(n log n) overhead"
 
     , pca_data       = False 
                     &= groupname "Data Preprocessing" 
@@ -259,7 +270,10 @@ runit params tree knn = do
             }
     rs <- loaddata dataparams
 
-    let reftree = {-parallel-} train rs :: Tree
+    let reftree = 
+            ( if train_sequential params then id else parallel )
+            ( if train_monoid params then trainMonoid else trainInsert ) 
+            rs :: Tree
     timeIO "building reference tree" $ return reftree
 
     let reftree_sort = case sortMethod params of
@@ -277,17 +291,24 @@ runit params tree knn = do
             PackCT3 -> packCT3 $ reftree_sort
     timeIO "packing reference tree" $ return reftree_prune
 
+    let reftree_cache = if cache_dists params 
+            then setMaxDescendentDistance reftree_prune
+            else reftree_prune
+    time "caching distances" $ reftree_cache
+
+    let reftree_final = reftree_cache
+
     -- verbose prints tree stats
     if verbose params 
         then do
             putStrLn ""
             printTreeStats "reftree      " $ unUnit reftree 
-            printTreeStats "reftree_prune" $ reftree_prune
+            printTreeStats "reftree_prune" $ reftree_final
         else return ()
 
     -- build query tree
     (querytree,qs) <- case query_file params of
-        Nothing -> return $ (reftree_prune,rs)
+        Nothing -> return $ (reftree_final,rs)
         Just qfile -> do
             qs <- loaddata $ dataparams { datafile = qfile }
             let qtree = train qs :: Tree
@@ -297,12 +318,10 @@ runit params tree knn = do
             return (qtree_prune,qs)
 
     -- do knn search
---     let result = findNeighborVec (DualTree (reftree_prune) (querytree)) :: V.Vector (NeighborList k DP)
---     let result = findNeighborSL (DualTree (reftree_prune) (querytree)) :: Strict.List (NeighborList k DP)
     let result = parFindEpsilonNeighborMap 
             ( searchEpsilon params ) 
             ( DualTree 
-                ( reftree_prune ) 
+                ( reftree_final ) 
                 ( querytree )
             ) 
             :: NeighborMap k DP

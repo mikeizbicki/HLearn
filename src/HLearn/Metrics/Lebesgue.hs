@@ -148,7 +148,7 @@ type instance Scalar (L2 v r) = r
 
 instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
 -- instance MetricSpace (L2 VU.Vector Float) where
-
+-- 
 --     {-# INLINE distance #-}
 --     distance (L2 v1) (L2 v2) = sqrt $ plusHorizontalX4 $ go 0 (VG.length v1'-1)
 --         where

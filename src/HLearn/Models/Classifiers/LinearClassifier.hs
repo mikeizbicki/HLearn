@@ -242,12 +242,12 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
                 f''w1 = f'' w1
 
             resTaylor <- report 
-                $ trace ("w1="++show w1)
+--                 $ trace ("w1="++show w1)
                 $ deepseq w1 
                 $ (l, (n l, w1, Taylor (w1 `mul` f''w1) f''w1))
 
             resUpper <- report 
-                $ trace ("w1="++show w1)
+--                 $ trace ("w1="++show w1)
                 $ deepseq w1 
                 $ (l, (n l, w1, Taylor (ub_b w1) (ub_a w1) ))
 
