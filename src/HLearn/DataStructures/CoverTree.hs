@@ -5,6 +5,8 @@ module HLearn.DataStructures.CoverTree
     , -}CoverTree'
 
     , insertBatch
+    , trainMonoid
+    , trainInsert
 
     -- * unsafe
 --     , ctmap
@@ -20,6 +22,8 @@ module HLearn.DataStructures.CoverTree
     , packCT
     , packCT2
     , packCT3
+
+    , setMaxDescendentDistance
 
     -- * drawing
 --     , draw
@@ -279,6 +283,21 @@ instance
 -------------------------------------------------------------------------------
 -- 
 
+setMaxDescendentDistance ::
+    ( ValidCT expansionRatio childContainer nodeContainer tag dp
+    ) => CoverTree' expansionRatio childContainer nodeContainer tag dp
+      -> CoverTree' expansionRatio childContainer nodeContainer tag dp
+setMaxDescendentDistance ct = ct
+    { children = children'
+    , maxDescendentDistance = max 
+        ( maximum $ 0 : ( VG.toList $ VG.map maxDescendentDistance children' ) )
+        ( maximum $ 0 : ( VG.toList $ VG.map (distance $ nodedp ct) $ nodeV ct ) )
+    }
+    where
+        children' = VG.map setMaxDescendentDistance $ children ct
+
+---------------------------------------
+
 sortChildren :: 
     ( ValidCT expansionRatio childContainer nodeContainer tag dp
     ) => ( CoverTree' expansionRatio childContainer nodeContainer tag dp
@@ -523,7 +542,7 @@ instance
     ( ValidCT expansionRatio childContainer nodeContainer tag dp
     ) => Comonoid (CoverTree' expansionRatio childContainer nodeContainer tag dp) 
         where
-    partition n ct = [ takeFromTo (fromIntegral i*splitlen) splitlen ct | i <- [0..n-1] ]  
+    partition n ct = {-# SCC partition #-} [ takeFromTo (fromIntegral i*splitlen) splitlen ct | i <- [0..n-1] ]  
         where
             splitlen = fromIntegral (ceiling $ toRational (numdp ct) / toRational n::Int)
 
@@ -533,7 +552,7 @@ takeFromTo :: forall expansionRatio childContainer nodeContainer tag dp.
       -> Scalar dp 
       -> CoverTree' expansionRatio childContainer nodeContainer tag dp 
       -> CoverTree' expansionRatio childContainer nodeContainer tag dp
-takeFromTo from len ct = 
+takeFromTo from len ct = {-# SCC takeFromTo #-}
      ct
 --         { weight = nodeweight
         { nodeV = nodeV'
@@ -554,7 +573,7 @@ takeFromTo from len ct =
 
         children' = fromList $ snd $ mapAccumL mapgo (from-nottaken,len-taken) $ toList $ children ct
         
-        mapgo (from',len') child = 
+        mapgo (from',len') child = {-# SCC mapgo #-}
             ((from'',len''),takeFromTo from' len' child)
             where
                 from'' = if from' == 0
@@ -573,7 +592,7 @@ instance
     ) => Semigroup (CoverTree' expansionRatio childContainer nodeContainer tag dp) 
         where
     {-# INLINABLE (<>) #-}
-    ct1 <> ct2 = case ctmerge' ct1' ct2' of
+    ct1 <> ct2 = {-# SCC semigroup #-} case ctmerge' ct1' ct2' of
         Strict.Just (ct, []) -> ct
         Strict.Just (ct, xs) -> foldl' (<>) ct xs
         Strict.Nothing -> 
@@ -584,7 +603,7 @@ instance
         where
             ct1' = growct ct1 maxlevel
             ct2' = growct ct2 maxlevel
-            maxlevel = maximum 
+            maxlevel = {-# SCC maxlevel #-} maximum 
                 [ level ct1
                 , level ct2
                 , dist2level_down (Proxy::Proxy expansionRatio) $ distance (nodedp ct1) (nodedp ct2)
@@ -598,7 +617,7 @@ ctmerge' :: forall expansionRatio childContainer nodeContainer tag dp.
             ( CoverTree' expansionRatio childContainer nodeContainer tag dp
             , [CoverTree' expansionRatio childContainer nodeContainer tag dp]
             )
-ctmerge' ct1 ct2 = 
+ctmerge' ct1 ct2 = {-# SCC ctmerge' #-}
     if isFartherThan (nodedp ct1) (nodedp ct2) (sepdist ct1)
         then Strict.Nothing
         else Strict.Just 
@@ -606,8 +625,9 @@ ctmerge' ct1 ct2 =
                 ( ct1
                     { children = children'
                     , numdp = sum $ map numdp $ toList children'
-                    , maxDescendentDistance 
-                        = maximum $ map (distance (nodedp ct1)) $ (stToList ct2++stToList ct1)
+                    , maxDescendentDistance = coverDist ct1
+--                     , maxDescendentDistance 
+--                         = maximum $ map (distance (nodedp ct1)) $ (stToList ct2++stToList ct1)
                     }
                 )
                 ( stNodeW ct2 )
@@ -630,7 +650,7 @@ ctmerge' ct1 ct2 =
         (valid_newleftovers,invalid_newleftovers) = Data.List.partition validchild newleftovers
 
         go (childmap,leftovers) []     = (childmap,leftovers)
-        go (childmap,leftovers) (x:xs) = 
+        go (childmap,leftovers) (x:xs) = {-# SCC ctmerge'_go #-}
             case   
                 filter (Strict.isJust . snd) $ map (\(k,v) -> (k,ctmerge'' v x)) $ Map.assocs childmap of
                     [] -> go 
@@ -644,7 +664,7 @@ ctmerge' ct1 ct2 =
                            , leftovers'++leftovers
                            ) xs
             where
-                ctmerge'' ct1 ct2 = ctmerge' ct1 ct2
+                ctmerge'' ct1 ct2 = {-# SCC ctmerge'' #-} ctmerge' ct1 ct2
                     where
                         ct1' = growct ct1 maxlevel
                         ct2' = growct ct2 maxlevel
@@ -669,7 +689,7 @@ growct_safe :: forall expansionRatio childContainer nodeContainer tag dp.
     ) => CoverTree' expansionRatio childContainer nodeContainer tag dp 
       -> Int 
       -> CoverTree' expansionRatio childContainer nodeContainer tag dp
-growct_safe ct d = if sepdist ct==0 || stIsLeaf ct 
+growct_safe ct d = {-# SCC growct_safe #-} if sepdist ct==0 || stIsLeaf ct 
     then ct { level=d }
     else if d > level ct
         then growct (Node
@@ -693,7 +713,7 @@ growct_unsafe :: forall expansionRatio childContainer nodeContainer tag dp.
     ) => CoverTree' expansionRatio childContainer nodeContainer tag dp 
       -> Int 
       -> CoverTree' expansionRatio childContainer nodeContainer tag dp
-growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
+growct_unsafe ct d = {-# SCC growct_unsafe #-} if sepdist ct==0 || stIsLeaf ct
     then ct { level=d }
     else if d <= level ct
         then ct
@@ -701,7 +721,8 @@ growct_unsafe ct d = if sepdist ct==0 || stIsLeaf ct
             { level     = d
             , numdp     = numdp ct
             , children  = fromList [newct]
-            , maxDescendentDistance = maximum $ map (distance (nodedp newleaf)) $ stToList newct
+            , maxDescendentDistance = level2coverdist (Proxy::Proxy expansionRatio) d
+--             , maxDescendentDistance = maximum $ map (distance (nodedp newleaf)) $ stToList newct
             }
     where
         (newleaf,newct) = rmleaf ct
@@ -712,7 +733,7 @@ rmleaf ::
       -> ( CoverTree' expansionRatio childContainer nodeContainer tag dp
          , CoverTree' expansionRatio childContainer nodeContainer tag dp
          )
-rmleaf ct = if stIsLeaf (head childL)
+rmleaf ct = {-# SCC rmleaf #-} if stIsLeaf (head childL)
     then (head childL, ct
         { numdp = numdp ct-1
         , children = fromList $ tail childL
@@ -725,8 +746,13 @@ rmleaf ct = if stIsLeaf (head childL)
         (itrleaf,itrtree) = rmleaf $ head childL
         childL = toList $ children ct
 
-level2sepdist :: forall expansionRatio num. (KnownFrac expansionRatio, Floating num) =>  Proxy expansionRatio -> Int -> num
+level2sepdist :: forall expansionRatio num. 
+    ( KnownFrac expansionRatio
+    , Floating num
+    ) =>  Proxy expansionRatio -> Int -> num
 level2sepdist _ l = (fromRational $ fracVal (Proxy :: Proxy expansionRatio))**(fromIntegral l)
+
+level2coverdist p l = level2sepdist p (l+1)
 
 dist2level_down :: forall expansionRatio num. (KnownFrac expansionRatio, RealFrac num, Floating num) => Proxy expansionRatio -> num -> Int
 dist2level_down _ d = floor $ log d / log (fromRational $ fracVal (Proxy::Proxy expansionRatio))
@@ -918,8 +944,11 @@ instance
 --         , tag       = mempty
         }
 
-    {-# INLINABLE train #-}
-    train = UnitLift . insertBatch . F.toList
+--     {-# INLINABLE train #-}
+--     train = UnitLift . insertBatch . F.toList
+
+trainMonoid = batch train1dp
+trainInsert = UnitLift . insertBatch . F.toList
 
 -------------------------------------------------------------------------------
 -- tests

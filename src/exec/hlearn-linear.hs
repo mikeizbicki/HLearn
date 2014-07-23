@@ -17,6 +17,7 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import Foreign.Storable
+import System.Exit
 import System.IO
 
 import Data.Csv
@@ -50,6 +51,7 @@ data Params = Params
 
     , maxdp             :: Maybe Int
 
+    , noCV              :: Bool
     , paramCVFolds      :: Int
     , paramCVReps       :: Int
 
@@ -63,6 +65,7 @@ data Params = Params
     , varshift_data     :: Bool
 
     , paramSeed         :: Maybe Int
+    , quiet             :: Bool
     , verbose           :: Bool
     , debug             :: Bool
     } 
@@ -78,11 +81,14 @@ usage = Params
     , maxdp          = Nothing
                     &= help "maximum number of datapoints to use from data set"
 
+    , noCV           = False
+                    &= help "do not cross validate; just build model"
+                    &= groupname "Test Configuration"
+
     , paramCVFolds   = 10
                     &= help "number of folds for cross validation"
                     &= name "cvfolds"
                     &= explicit
-                    &= groupname "Test Configuration"
 
     , paramCVReps    = 1
                     &= help "number of times to repeat cross validation"
@@ -116,6 +122,9 @@ usage = Params
                     &= help "specify the seed to the random number generator (default is seeded by current time)"
                     &= groupname "Debugging"
     
+    , quiet          = False
+                    &= help "supress all output"
+
     , verbose        = False 
                     &= help "Print tree statistics (takes some extra time)" 
 
@@ -145,8 +154,6 @@ main = do
     let filename = fromJust $ data_file params
         label_index = label_col params
         
-    let verbose = True
-
     -----------------------------------
     -- load data
 
@@ -159,7 +166,7 @@ main = do
         }
 
     -----------------------------------
-    -- run test
+    -- test parameters
 
     let traceEvents =
             [ traceBFGS
@@ -195,6 +202,30 @@ main = do
             Just x -> setMaxDatapoints x
             Nothing -> \x -> x
 
+    let ioHistory = if debug params 
+            then return . traceHistory traceEvents 
+            else return . Recipe.execHistory
+
+    -----------------------------------
+    -- single models
+
+    when (noCV params) $ do
+        model <- ioHistory $ 
+            withMonoid monoidOperation (monoidSplits params)
+            ( trainLogisticRegression 
+                readMonoidType
+                ( regAmount params )
+                reg
+                logloss
+            )
+            $ F.toList dps
+
+        timeIO "training model" $ deepseq model $ return ()
+        exitSuccess
+
+    -----------------------------------
+    -- run cv tests
+    
     let res = traceHistory traceEvents $ flip evalRandT (mkStdGen seed) $ validateM
             ( repeatExperiment 
                 ( paramCVReps params ) 
@@ -233,77 +264,6 @@ main = do
     hPutStrLn stderr $ "mean = "++show (mean res)
     hPutStrLn stderr $ "var  = "++show (variance res)
 
-
     -----------------------------------
-    -- temporarily needed for type checking
---     putStrLn $ show $ map mean $ foldl1 (zipWith (<>)) 
---         [ flip evalRand (mkStdGen seed') $ monoidtest (VG.toList dps) 1
---         | seed' <- [seed..seed+paramReps params-1]
---         ]
-
---     let m = train dps :: LogisticRegression (MaybeLabeled String (LA.Vector Double))
---     deepseq m $ print $ m
-
---     let testM n f = validate
---             (numSamples n (kfold 10))
---             errorRate
---             dps
---             (f train :: [MaybeLabeled String (LA.Vector Double)] 
---                                -> LogisticRegression (MaybeLabeled String (LA.Vector Double)))
--- 
---     let runtest n f = reduce [flip evalRand (mkStdGen i) $ testM n f | i <- [0..10]]
--- 
---     let tests = 
---             [ do 
---                 putStr $ show n++", "
---                 let res = runtest n id
---                 putStr $ show (mean res)++", "++show (variance res)++", "
---                 let res_taylor = runtest n (withMonoid mappendQuadratic 2)
---                 putStr $ show (mean res_taylor)++", "++show (variance res_taylor)++", "
---                 let res_ave = runtest n (withMonoid mappendAverage 2)
---                 putStrLn $ show (mean res_ave)++", "++show (variance res_ave)
---                 hFlush stdout
---             | n <- [100,200,300,400,500]
---             ]
-
---     let repl ',' = ' '
---         repl c = c
--- 
---     sequence_ 
---         [ do
---             putStr $ show n++" "
---             putStrLn $ map repl $ tail $ init $ show $ map mean $ foldl1 (zipWith (<>)) 
---                 [ flip evalRand (mkStdGen seed) $ monoidtest (VG.toList dps) n
---                 | seed <- [1..100]
---                 ]
---             hFlush stdout
---         | n <- [28..50]
---         | n <- [1,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,310,320,330,340,350,360,370,380,390,400]
---         | n <- [1,50,100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000]
---         | n <- map (*10) [1..5]
---         ]
-
---     let testM n f = validate
---             (kfold 10)
---             errorRate
---             dps
---             (f train :: [MaybeLabeled String (LA.Vector Double)] 
---                                -> LogisticRegression (MaybeLabeled String (LA.Vector Double)))
--- 
---     let runtest n f = reduce [flip evalRand (mkStdGen i) $ testM n f | i <- [0,1]]
--- 
---     let tests = 
---             [ do 
---                 putStr $ show n++", "
---                 let res_taylor = runtest n (withMonoid mappendQuadratic n)
---                 putStr $ show (mean res_taylor)++", "++show (variance res_taylor)++", "
---                 let res_ave = runtest n (withMonoid mappendAverage n)
---                 putStrLn $ show (mean res_ave)++", "++show (variance res_ave)
---                 hFlush stdout
---             | n <- [1..50]
---             ]
--- 
---     sequence_ tests
-
     hPutStrLn stderr "done."
 
