@@ -22,6 +22,7 @@ import Numeric.LinearAlgebra hiding ((<>))
 
 import HLearn.Algebra
 import HLearn.Algebra.LinearAlgebra as LA
+import HLearn.History
 import HLearn.Optimization.Common
 import HLearn.Optimization.LineMinimization as LineMin
 

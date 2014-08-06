@@ -32,6 +32,8 @@ import Paths_HLearn
 import HLearn.Algebra
 import qualified HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Evaluation.CrossValidation
+import HLearn.History
+import HLearn.History.DisplayMethods
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 import HLearn.Models.Classifiers.LinearClassifier
@@ -201,16 +203,19 @@ main = do
         maxdpselector = case maxdp params of
             Just x -> setMaxDatapoints x
             Nothing -> \x -> x
-
-    let ioHistory = if debug params 
-            then return . traceHistory traceEvents 
-            else return . Recipe.execHistory
+ 
+--     let debugHistory = if debug params 
+--             then runHistory compactTrace
+--             else runHistory compactTrace
+    
+--     let debugHistory = runHistory linearTrace
+    let debugHistory = runHistory (summaryStatistics === (removeLineMin ||| linearTrace))
 
     -----------------------------------
     -- single models
 
     when (noCV params) $ do
-        model <- ioHistory $ 
+        model <- debugHistory $ 
             withMonoid monoidOperation (monoidSplits params)
             ( trainLogisticRegression 
                 readMonoidType
@@ -226,7 +231,7 @@ main = do
     -----------------------------------
     -- run cv tests
     
-    let res = traceHistory traceEvents $ flip evalRandT (mkStdGen seed) $ validateM
+    res <- debugHistory $ flip evalRandT (mkStdGen seed) $ validateM
             ( repeatExperiment 
                 ( paramCVReps params ) 
                 ( maxdpselector

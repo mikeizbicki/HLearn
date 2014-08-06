@@ -35,6 +35,7 @@ import Debug.Trace
 
 import HLearn.Algebra
 import HLearn.Algebra.LinearAlgebra
+import HLearn.History
 import HLearn.Optimization.Common
 
 -------------------------------------------------------------------------------

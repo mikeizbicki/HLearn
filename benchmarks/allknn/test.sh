@@ -1,6 +1,6 @@
 #!/bin/bash
 
-K=2
+K=1
 
 time ./hlearn-allknn -k $K -r $1 --pca --verbose -n "tmp/neighbors_hlearn.csv" --distances-file="tmp/distances_hlearn.csv" +RTS -K1000M -N4
 #time ./hlearn-allknn -k $K -r $1 --varshift --verbose -n "tmp/neighbors_hlearn.csv" --distances-file="tmp/distances_hlearn.csv" +RTS -K1000M # -N4

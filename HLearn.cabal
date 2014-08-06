@@ -33,6 +33,9 @@ Library
         deepseq             >= 1.3,
         mtl                 >= 2.1.2,
 
+        pipes               >= 4.1.2,
+        ansi-terminal       >= 0.6.1.1,
+
         -- my packages
         ConstraintKinds     >= 1.2.0,
         typeparams          >= 0.0.5,
@@ -74,8 +77,6 @@ Library
         src
 
     ghc-options:        
---         -rtsopts 
---         -threaded
         -fllvm
         -O
         -funbox-strict-fields
@@ -95,7 +96,6 @@ Library
 
         HLearn.Algebra
         HLearn.Algebra.Common
-        HLearn.Algebra.History
         HLearn.Algebra.LinearAlgebra
         HLearn.Algebra.Functions
         HLearn.Algebra.Types.Frac
@@ -109,6 +109,9 @@ Library
         HLearn.Algebra.Structures.Modules
         HLearn.Algebra.Structures.Topology
         HLearn.Algebra.Structures.Free.AddUnit
+
+        HLearn.History
+        HLearn.History.DisplayMethods
         
         HLearn.DataStructures.SortedVector
         HLearn.DataStructures.CoverTree
@@ -188,6 +191,8 @@ Library
         KindSignatures
         ConstraintKinds
         DeriveDataTypeable
+        RankNTypes
+        ImpredicativeTypes
 
 executable hlearn-linear
     main-is:

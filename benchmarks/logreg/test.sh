@@ -26,7 +26,7 @@ for i in $tests; do
     sklearn=`/usr/bin/time --format="%U" ./logreg.py $longfile $col 2>&1 >/dev/null`
     echo "sklearn $shortfile $sklearn"
 
-    #hlearn=`/usr/bin/time --format="%U" hlearn-linear -d $longfile -l $col --nocv 2>&1 >/dev/null | tail -n 1` 
-    #echo "hlearn $shortfile $hlearn"
+    hlearn=`/usr/bin/time --format="%U" hlearn-linear -d $longfile -l $col --nocv 2>&1 >/dev/null | tail -n 1` 
+    echo "hlearn $shortfile $hlearn"
 
 done
