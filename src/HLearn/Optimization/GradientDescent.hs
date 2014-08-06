@@ -7,7 +7,7 @@ module HLearn.Optimization.GradientDescent
     , StepMethod (..)
     , ConjugateMethod (..)
     , traceConjugateGradientDescent
-    , linsolvepsd
+--     , linsolvepsd
     )
     where
 
@@ -33,6 +33,7 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HLearn.Algebra
 import HLearn.Algebra.LinearAlgebra
+import HLearn.History
 -- import HLearn.Algebra.Structures.Monad
 import HLearn.Optimization.Common
 import HLearn.Optimization.Trace
@@ -203,13 +204,14 @@ step_conjugateGradientDescent stepMethod conjMethod f f' (ConjugateGradientDesce
 -------------------------------------------------------------------------------
 -- trace
 
-traceConjugateGradientDescent :: Event -> [String]
+traceConjugateGradientDescent :: Report -> [String]
 traceConjugateGradientDescent = traceFunk (undefined :: ConjugateGradientDescent (Vector Double))
 -- traceConjugateGradientDescent _ = traceFunk (undefined :: ConjugateGradientDescent dp)
 
 -------------------------------------------------------------------------------
 -- tests
 
+{-
 numdim :: Double
 numdim = 2
 
@@ -271,3 +273,4 @@ test = do
     print "minimum"
     print $ mul mat res <> inverse vec
     return res
+    -}

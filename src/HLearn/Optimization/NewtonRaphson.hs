@@ -22,11 +22,13 @@ import Numeric.LinearAlgebra hiding ((<>))
 import Control.Lens
 
 import HLearn.Algebra
--- import qualified Numeric.LinearAlgebra as LA
 import HLearn.Algebra.LinearAlgebra as LA
+import HLearn.History
 import HLearn.Optimization.Common
 import qualified HLearn.Optimization.LineMinimization as LineMin
 
+-------------------------------------------------------------------------------
+-- data types
 
 data NewtonRaphson a = NewtonRaphson
     { __x1 :: !(Tensor 1 a)
@@ -47,6 +49,22 @@ instance (ValidTensor a) => Has_f'x1 NewtonRaphson a where f'x1 = _f'x1
 instance (ValidTensor a) => Has_stepSize NewtonRaphson a where stepSize = _alpha1
 
 deriving instance (Typeable Matrix)
+
+-------------------------------------------------------------------------------
+
+displayNewtonRaphson :: forall a. Typeable a => a -> DisplayFunction
+displayNewtonRaphson _ = mkDisplayFunction go
+    where
+        go :: NewtonRaphson a -> String
+        go _ = "NewtonRaphson"
+
+-- displayNewtonRaphson_fx1 :: DisplayFunction
+-- displayNewtonRaphson_fx1 = mkDisplayFunction $ go
+--     where
+--         go :: NewtonRaphson (VS.Vector Double) -> String
+--         go = show . __fx1 
+
+-------------------------------------------------------------------------------
 
 newtonRaphson :: 
     ( ValidTensor v
@@ -74,15 +92,16 @@ newtonRaphson f f' f'' x0 = optimize
         , __alpha1 = 1
         }
 
-projectOrthant opt1 = do
-    mopt0 <- prevValueOfType opt1
-    return $ case mopt0 of
-        Nothing -> opt1
-        Just opt0 -> set x1 (VG.zipWith go (opt0^.x1) (opt1^.x1)) $ opt1
-    where
-        go a0 a1 = if (a1>=0 && a0>=0) || (a1<=0 && a0<=0)
-            then a1
-            else 0
+-- FIXME: broken by new History
+-- projectOrthant opt1 = do
+--     mopt0 <- prevValueOfType opt1
+--     return $ case mopt0 of
+--         Nothing -> opt1
+--         Just opt0 -> set x1 (VG.zipWith go (opt0^.x1) (opt1^.x1)) $ opt1
+--     where
+--         go a0 a1 = if (a1>=0 && a0>=0) || (a1<=0 && a0<=0)
+--             then a1
+--             else 0
 
 step_newtonRaphson :: 
     ( ValidTensor v
@@ -114,6 +133,7 @@ step_newtonRaphson f f' f'' opt = do
         brent <- LineMin.brent g bracket
             [ lowerBound fx0
             , maxIterations 100
+            , fx1grows
             ] 
         return $ LineMin._x brent
 

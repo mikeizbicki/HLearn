@@ -26,7 +26,7 @@ import Data.Csv
 import Debug.Trace
 
 import HLearn.Algebra
-import HLearn.Algebra.History
+import HLearn.History
 import HLearn.Algebra.LinearAlgebra as LA
 import HLearn.Evaluation.CrossValidation
 import HLearn.Metrics.Lebesgue
@@ -42,8 +42,15 @@ import HLearn.Optimization.Trace
 -------------------------------------------------------------------------------
 -- data types
 
+data LabelDecision dp = LabelDecision
+    { ldWeight :: !(Scalar dp)
+    , ldVector :: !(Attributes dp)
+    , ldTaylor :: !(Taylor (Attributes dp))
+    }
+    deriving (Typeable)
+
 data LinearClassifier dp = LinearClassifier
-    { weights :: Map.Map (Label dp) (Scalar dp, Attributes dp, Taylor (Attributes dp))
+    { weights :: Map.Map (Label dp) (LabelDecision dp)
     , datapoints :: V.Vector dp
     , reg :: Scalar dp
     }
@@ -63,18 +70,29 @@ instance
     ( NFData (Scalar dp)
     , NFData (Label dp)
     , NFData (Attributes dp)
-    ) => NFData (LinearClassifier dp)
+    ) => NFData (LabelDecision dp)
     where
-    rnf lr = seq (Map.map (\(n,w,t) -> deepseq w $ seq n$ seq t $ () ) $ weights lr) ()
+    rnf ld = deepseq (ldWeight ld)
+           $ deepseq (ldVector ld)
+           $ seq (ldTaylor ld)
+           $ ()
 
 instance 
-    ( Show (Label dp)
-    , Show (Scalar dp)
-    , Show (Attributes dp)
-    , Storable (Scalar dp)
-    ) => Show (LinearClassifier dp)
-        where
-    show lr = show $ Map.map (\(n,w,_) -> (n,w)) $ weights lr
+    ( NFData (Scalar dp)
+    , NFData (Label dp)
+    , NFData (Attributes dp)
+    ) => NFData (LinearClassifier dp)
+    where
+    rnf lr = seq (Map.map rnf $ weights lr) ()
+
+-- instance 
+--     ( Show (Label dp)
+--     , Show (Scalar dp)
+--     , Show (Attributes dp)
+--     , Storable (Scalar dp)
+--     ) => Show (LinearClassifier dp)
+--         where
+--     show lr = show $ Map.map (\ld -> (n,w)) $ weights lr
 
 -------------------------------------------------------------------------------
 -- training
@@ -92,7 +110,7 @@ mappendAverage lr1 lr2 = LinearClassifier
     , reg = reg lr1
     }
     where
-        go (n1,w1,_) (n2,w2,_) = (n1+n2,w,NoTaylor)
+        go (LabelDecision n1 w1 _) (LabelDecision n2 w2 _) = LabelDecision (n1+n2) w NoTaylor
             where
                 w = VG.zipWith (\a b -> (n1*a+n2*b)/(n1+n2)) w1 w2
 
@@ -116,10 +134,11 @@ mappendQuadratic lr1 lr2 = LinearClassifier
     , reg = reg lr1
     }
     where
-        go (n1,w1,NoTaylor) (n2,w2,NoTaylor) = (n1+n2,w1,NoTaylor)
-        go (_,_,NoTaylor) a = a
-        go a (_,_,NoTaylor) = a
-        go (n1,w1,Taylor v1 m1) (n2,w2,Taylor v2 m2) = (n1+n2,w,Taylor v' m')  
+        go (LabelDecision n1 w1 NoTaylor) (LabelDecision n2 w2 NoTaylor) = LabelDecision (n1+n2) w1 NoTaylor
+        go (LabelDecision _ _ NoTaylor) a = a
+        go a (LabelDecision _ _ NoTaylor) = a
+        go (LabelDecision n1 w1 (Taylor v1 m1)) (LabelDecision  n2 w2 (Taylor v2 m2)) 
+            = LabelDecision (n1+n2) w (Taylor v' m')  
             where
                 m' = ((n1.*m1) <> (n2.*m2))/.(n1+n2)
                 v' = ((n1.*v1) <> (n2.*v2))/.(n1+n2)
@@ -142,7 +161,7 @@ mappendQuadratic lr1 lr2 = LinearClassifier
 --         dps' = V.fromList $ V.toList (datapoints lr1) ++ V.toList (datapoints lr2)
 --         go (_,w,_) = w
 
-traceLinearClassifier :: forall dp. Typeable dp => dp -> Event -> [String]
+traceLinearClassifier :: forall dp. Typeable dp => dp -> Report -> [String]
 traceLinearClassifier _ opt = case fromDynamic (dyn opt) :: Maybe (LinearClassifier dp) of
     Nothing -> []
     Just x -> 
@@ -152,7 +171,7 @@ traceLinearClassifier _ opt = case fromDynamic (dyn opt) :: Maybe (LinearClassif
 --         ++"; step="++showDouble (stepSize x)
 --         ++"; step="++showDouble (stepSize x)
 --         ++"; sec="++showDouble ((fromIntegral $ stoptime opt)*1e-12)
-        ++"; sec="++showDouble ((fromIntegral $ runtime opt)*1e-12)
+        ++"; sec="++showDouble ((fromIntegral $ cpuTimeDiff opt)*1e-12)
         ]
 
 data MonoidType
@@ -211,7 +230,7 @@ trainLogisticRegressionWarmStart :: forall dp vec r container.
       -> Map.Map (Label dp) (Attributes dp) 
       -> History (LinearClassifier dp)
 trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {-# SCC trainLogisticRegressionWarmStart #-} do
-    weights' <- collectEvents $ fmap Map.fromList $ go $ Map.assocs weights0
+    weights' <- collectReports $ fmap Map.fromList $ go $ Map.assocs weights0
     report $ LinearClassifier 
         { weights = weights'
         , datapoints = V.fromList $ F.toList dps
@@ -224,7 +243,9 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
         -- the weights for the last label are set to zero;
         -- this is equivalent to running the optimization procedure,
         -- but much cheaper
-        go ((l,w0):[]) = report [(l, (n l,VG.replicate (VG.length w0) 0, NoTaylor))]
+        go ((l,w0):[]) = do
+            x <- report $ LabelDecision (n l) (VG.replicate (VG.length w0) 0) NoTaylor
+            return [(l,x)]
 
         -- calculate the weights for label l
         go ((l,w0):xs) = do
@@ -233,7 +254,7 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
 --             opt <- quasiNewton f f' w0
                 [ maxIterations 200
                 , fx1grows
-                , multiplicativeTollerance 1e-6
+                , multiplicativeTollerance 1e-3
                 ]
 
             let w1 = opt^.x1
@@ -241,46 +262,45 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
                 f'w1 = f' w1
                 f''w1 = f'' w1
 
-            resTaylor <- report 
---                 $ trace ("w1="++show w1)
+            resTaylor <- return 
                 $ deepseq w1 
-                $ (l, (n l, w1, Taylor (w1 `mul` f''w1) f''w1))
+                $ (l, LabelDecision (n l) w1 (Taylor (w1 `mul` f''w1) f''w1))
 
-            resUpper <- report 
---                 $ trace ("w1="++show w1)
+            resUpper <- return 
                 $ deepseq w1 
-                $ (l, (n l, w1, Taylor (ub_b w1) (ub_a w1) ))
+                $ (l, LabelDecision (n l) w1 (Taylor (ub_b w1) (ub_a w1) ))
 
---             fmap ((if taylor then resTaylor else resUpper):) $ go xs
+            report $ snd resTaylor
+
             fmap ((:) $ case monoidtype of
                     MappendAverage -> resTaylor -- don't actually care!
                     MappendTaylor -> resTaylor
                     MappendUpperBound -> resUpper
                     MixtureUpperTaylor mix' -> 
-                        ( l, (n l, w1, let mix=fromRational mix' in
+                        ( l, LabelDecision (n l) w1 (let mix=fromRational mix' in
                             Taylor 
-                                (mix .*(dptaylor  $ resTaylor^._2^._3) <> 
-                                (1-mix).*(dptaylor $ resUpper^._2^._3 ))
+                                (mix .*(dptaylor  $ ldTaylor $ resTaylor^._2) <> 
+                                (1-mix).*(dptaylor $ ldTaylor $ resUpper^._2))
                                 
-                                (mix .*(mattaylor  $ resTaylor^._2^._3) <> 
-                                (1-mix).*(mattaylor $ resUpper^._2^._3 ))
+                                (mix .*(mattaylor  $ ldTaylor $ resTaylor^._2) <> 
+                                (1-mix).*(mattaylor $ ldTaylor $ resUpper^._2))
                              ))
                     MixtureAveTaylor mix' ->
-                        ( l, (n l, w1, let mix=fromRational mix' in
+                        ( l, LabelDecision (n l) w1 (let mix=fromRational mix' in
                             Taylor
-                                (mix .*(dptaylor  $ resTaylor^._2^._3) <> 
+                                (mix .*(dptaylor  $ ldTaylor $ resTaylor^._2) <> 
                                 (1-mix).*(w1))
                                 
-                                (mix .*(mattaylor  $ resTaylor^._2^._3) <> 
+                                (mix .*(mattaylor  $ ldTaylor $ resTaylor^._2) <> 
                                 (1-mix).*(LA.eye numrows))
                             ))
                     MixtureAveUpper mix' ->
-                        ( l, (n l, w1, let mix=fromRational mix' in
+                        ( l, LabelDecision (n l) w1 (let mix=fromRational mix' in
                             Taylor
-                                (mix .*(dptaylor  $ resUpper^._2^._3) <> 
+                                (mix .*(dptaylor  $ ldTaylor $ resUpper^._2) <> 
                                 (1-mix).*(w1))
                                 
-                                (mix .*(mattaylor  $ resUpper^._2^._3) <> 
+                                (mix .*(mattaylor  $ ldTaylor $ resUpper^._2) <> 
                                 (1-mix).*(LA.eye numrows))
                             ))
                 ) $ go xs
@@ -458,7 +478,7 @@ centroidtrain dps = LinearClassifier
         n l = fromIntegral $ length $ filter (\dp -> getLabel dp == l) $ F.toList dps
 
         go [] = []
-        go ((l,w0):xs) = (l,(n l, w', NoTaylor)):go xs
+        go ((l,w0):xs) = (l,LabelDecision (n l)  w' NoTaylor):go xs
             where
                 w' = (foldl1 (<>) $ map getAttributes $ filter (\dp -> getLabel dp==l) $ F.toList dps) /. n l
 
@@ -488,7 +508,7 @@ nbtrain dps = LinearClassifier
         n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ F.toList dps
 
         go [] = []
-        go ((l,w0):xs) = (l,(n l, w', NoTaylor)):go xs
+        go ((l,w0):xs) = (l, LabelDecision (n l) w' NoTaylor):go xs
             where
                 w' = (VG.convert $ VG.map (\(n,t) -> mean n/(variance t+1e-6)) normV)
                    VG.// [(0,bias)]
@@ -531,7 +551,7 @@ instance
     , Show (Label dp)
     ) => Classifier (LinearClassifier dp)
         where
-    classify m attr = fst $ argmax (\(l,s) -> s) $ Map.assocs $ Map.map (\(_,w,_) -> inner w attr) $ weights m
+    classify m attr = fst $ argmax (\(l,s) -> s) $ Map.assocs $ Map.map (\ld -> inner (ldVector ld) attr) $ weights m
 
 -------------------------------------------------------------------------------
 -- test

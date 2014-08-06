@@ -19,8 +19,7 @@ import Debug.Trace
 import qualified Data.DList as D
 
 import HLearn.Algebra
-import HLearn.Algebra.History
--- import HLearn.Evaluation.Metrics
+import HLearn.History
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 import qualified Control.ConstraintKinds as CK
@@ -133,7 +132,7 @@ validateM :: forall model g container.
       -> RandT g History (Normal Double Double)
 validateM samplingMethod loss xs trainM = do
     xs' <- samplingMethod $ F.toList xs 
-    lift $ collectEvents $ fmap trainNormal $ forM xs' $ \(trainingset, testset) -> do
+    lift $ collectReports $ fmap trainNormal $ forM xs' $ \(trainingset, testset) -> do
         model <- trainM trainingset
         return $ loss model testset
 
