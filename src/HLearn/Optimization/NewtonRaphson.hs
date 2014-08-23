@@ -21,8 +21,10 @@ import qualified Data.Vector.Algorithms.Intro as Intro
 import Numeric.LinearAlgebra hiding ((<>))
 import Control.Lens
 
-import HLearn.Algebra
+-- import SubHask.Category.Algebra.HMatrix
 import HLearn.Algebra.LinearAlgebra as LA
+
+import HLearn.Algebra
 import HLearn.History
 import HLearn.Optimization.Common
 import qualified HLearn.Optimization.LineMinimization as LineMin
@@ -36,12 +38,14 @@ data NewtonRaphson a = NewtonRaphson
     , __fx0 :: !(Tensor 0 a)
     , __f'x1 :: !(Tensor 1 a)
     , __alpha1 :: !(Tensor 0 a)
+    , __f :: !(Tensor 1 a -> Tensor 0 a)
     }
     deriving (Typeable)
 makeLenses ''NewtonRaphson
 
-deriving instance (Show (Tensor 0 a), Show (Tensor 1 a)) => Show (NewtonRaphson a)
+type instance Scalar (NewtonRaphson a) = Scalar a
 
+instance (ValidTensor a) => Has_f NewtonRaphson a where flens = _f
 instance (ValidTensor a) => Has_x1 NewtonRaphson a where x1 = _x1
 instance (ValidTensor a) => Has_fx1 NewtonRaphson a where fx1 = _fx1
 instance (ValidTensor a) => Has_fx0 NewtonRaphson a where fx0 = _fx0
@@ -90,6 +94,7 @@ newtonRaphson f f' f'' x0 = optimize
         , __fx0 = infinity
         , __f'x1 = f' $ mkTensor x0
         , __alpha1 = 1
+        , __f = f
         }
 
 -- FIXME: broken by new History
@@ -145,6 +150,7 @@ step_newtonRaphson f f' f'' opt = do
         , __fx0 = opt^.fx1
         , __f'x1 = f' x1
         , __alpha1 = alpha
+        , __f = f
         }
 
 -------------------------------------------------------------------------------

@@ -37,6 +37,7 @@ import HLearn.History.DisplayMethods
 import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 import HLearn.Models.Classifiers.LinearClassifier
+import HLearn.Optimization.NewtonRaphson
 import qualified HLearn.Optimization.GradientDescent as Recipe
 import qualified HLearn.Optimization.Common as Recipe
 import HLearn.Optimization.Trace
@@ -209,8 +210,18 @@ main = do
 --             else runHistory compactTrace
     
 --     let debugHistory = runHistory linearTrace
-    let debugHistory = runHistory (summaryStatistics === (removeLineMin ||| linearTrace))
-
+    let debugHistory = runHistory $ idDisplayMethod
+            === summaryStatistics 
+            === removeLineMin 
+                ||| linearTrace
+            === removeLineMin 
+                ||| (allowPasses  (undefined::NewtonRaphson (LA.Vector Double)) [2]
+                ||| linearTrace)
+            === allowFirstPass (undefined::NewtonRaphson (LA.Vector Double))
+                ||| mkOptimizationPlot 
+                    (undefined::NewtonRaphson (LA.Vector Double))
+                    "optplot.dat"
+                
     -----------------------------------
     -- single models
 

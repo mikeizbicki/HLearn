@@ -31,8 +31,11 @@ import qualified Data.Vector.Algorithms.Intro as Intro
 -- import Numeric.LinearAlgebra hiding ((<>))
 import qualified Numeric.LinearAlgebra as LA
 
+import SubHask.Algebra
+import qualified SubHask.Category.Algebra.HMatrix as HM
+-- import HLearn.Algebra.LinearAlgebra
+
 import HLearn.Algebra
-import HLearn.Algebra.LinearAlgebra
 import HLearn.History
 -- import HLearn.Algebra.Structures.Monad
 import HLearn.Optimization.Common

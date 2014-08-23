@@ -33,6 +33,9 @@ data Report = Report
 data StartCollection = StartCollection
     deriving (Show,Typeable)
 
+data StartHistory = StartHistory
+    deriving (Show,Typeable)
+
 data EndHistory = EndHistory
     deriving (Show,Typeable)
 
@@ -73,6 +76,7 @@ runHistoryWithState s f hist = do
                 , reportLevel   = 0
                 }
     let hist' = do
+            report StartHistory
             a <- hist
             report EndHistory
             return a

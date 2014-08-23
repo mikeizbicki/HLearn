@@ -254,7 +254,7 @@ trainLogisticRegressionWarmStart monoidtype lambda c2reg c2loss dps weights0 = {
 --             opt <- quasiNewton f f' w0
                 [ maxIterations 200
                 , fx1grows
-                , multiplicativeTollerance 1e-3
+                , multiplicativeTollerance 1e-6
                 ]
 
             let w1 = opt^.x1
