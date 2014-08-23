@@ -32,6 +32,8 @@ import HLearn.History
 
 -------------------------------------------------------------------------------
 
+class ValidTensor1 v => Has_f opt v           where flens     :: Lens' (opt v) (Tensor 1 v -> Tensor 0 v)
+
 class ValidTensor1 v => Has_x1 opt v          where x1        :: Lens' (opt v) (Tensor 1 v)
 class ValidTensor1 v => Has_fx1 opt v         where fx1       :: Lens' (opt v) (Tensor 0 v)
 class ValidTensor1 v => Has_fx0 opt v         where fx0       :: Lens' (opt v) (Tensor 0 v)

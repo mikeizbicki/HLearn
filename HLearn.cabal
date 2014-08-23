@@ -35,10 +35,12 @@ Library
 
         pipes               >= 4.1.2,
         ansi-terminal       >= 0.6.1.1,
+        directory           >= 1.2,
 
         -- my packages
         ConstraintKinds     >= 1.2.0,
         typeparams          >= 0.0.5,
+        subhask             >= 0.1,
 --         simd                >= 0.1.0.1,
         
         -- math dependencies
