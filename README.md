@@ -34,7 +34,7 @@ Note: These models not included in the latest hackage releases: decision stumps/
 
 Every model in HLearn is trained from a data set using the function `train`.  The type signature specifies which model we're training.
 
-    let dataset =  [1,2,3,4,5,6]
+    let dataset =  [1,2,3,4,5,6] :: [Double]
     let dist = train dataset :: Normal Double
 
 We can train in parallel using the higher order function `parallel`.  The GHC run time automatically takes advantage of multiple cores on your compuer.  If you have 4 cores, then run time is 4x faster.
