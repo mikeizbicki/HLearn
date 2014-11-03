@@ -1,34 +1,73 @@
 module HLearn.History
+    (
+    DynamicHistory
+    , runDynamicHistory
+    , runDynamicHistoryWithState
+--     , report
+--     , collectReports
+--     , prevReport
+--     , currentItr
+
+    , SimpleHistory
+    , runSimpleHistory
+
+    , HistoryMonad (..)
+    , Reportable (..)
+    , Report (..)
+    , CPUTime
+
+    , mkDisplayFunction
+    , idDisplayFilter
+    , idDisplayMethod
+    , DisplayFunction
+    , DisplayFilter
+    , DisplayFilter'
+    , DisplayMethod
+    , DisplayMethod'
+    , StartCollection (..)
+    , StartHistory (..)
+    , EndHistory (..)
+
+    , module Control.Applicative
+    , module Control.DeepSeq
+    , module Control.Lens
+    , module Control.Monad
+    , module Data.Typeable
+    , module Data.Dynamic
+    )
     where
 
 import Control.Applicative
+import Control.DeepSeq
+import Control.Lens
 import Control.Monad
 import Control.Monad.Identity
 import Control.Monad.State.Strict
 import Control.Monad.Trans
 import Data.Dynamic
-import Data.Monoid
 import Data.Typeable
-import Numeric
-import System.Console.ANSI
 import System.CPUTime
 import System.IO
 
 import Pipes
 
+import SubHask
+
 -------------------------------------------------------------------------------
 -- data types
 
-type CPUTime = Integer
+class (Functor m, Monad m, Boolean (m Bool)) => HistoryMonad m where
+    type Reportable m a :: Constraint
+    type Reportable m a = ()
 
-data Report = Report 
-    { cpuTime       :: {-#NOUNPACK#-}!CPUTime 
-    , cpuTimeDiff   :: {-#NOUNPACK#-}!CPUTime 
-    , dyn           :: {-#UNPACK#-}!Dynamic
-    , numReports    :: {-#UNPACK#-}!Int
-    , reportLevel   :: {-#UNPACK#-}!Int
-    }
-    deriving (Show,Typeable)
+    data Report m
+
+    report :: Reportable m a => a -> m a
+    collectReports :: m a -> m a
+    prevReport :: m (Report m)
+    currentItr :: Ring r => m r
+
+type CPUTime = Integer
 
 data StartCollection = StartCollection
     deriving (Show,Typeable)
@@ -39,35 +78,114 @@ data StartHistory = StartHistory
 data EndHistory = EndHistory
     deriving (Show,Typeable)
 
-type BaseMonad = StateT [Report] IO
-
 type DisplayFilter = DisplayFilter' ()
 type DisplayMethod = DisplayMethod' ()
 
-type DisplayFilter' s = Report -> StateT s IO Bool
-type DisplayMethod' s = Report -> StateT s IO ()
+type DisplayFilter' s = Report DynamicHistory -> StateT s IO Bool
+type DisplayMethod' s = Report DynamicHistory -> StateT s IO ()
 
-type History = Producer Report BaseMonad
 
 -------------------------------------------------------------------------------
 
-type DisplayFunction = Report -> String
+type DisplayFunction = Report DynamicHistory -> String
 
 mkDisplayFunction :: forall a. Typeable a => (a -> String) -> DisplayFunction
 mkDisplayFunction f x = case fromDynamic $ dyn x :: Maybe a of
     Nothing -> ""
     Just y -> f y
 
+{-# INLINE idDisplayFilter #-}
+idDisplayFilter :: DisplayFilter
+idDisplayFilter _ = return True
+
+{-# INLINE idDisplayMethod #-}
+idDisplayMethod :: DisplayMethod
+idDisplayMethod _ = return ()
+
 -------------------------------------------------------------------------------
--- functions
+-- SimpleHistory
 
-runHistory :: Monoid s => DisplayMethod' s -> History a -> IO a
-runHistory = runHistoryWithState mempty
+newtype SimpleHistory a = SimpleHistory (State [Int] a)
+    deriving (Functor,Applicative,Monad)
 
-runHistoryWithState :: forall s a. s -> DisplayMethod' s -> History a -> IO a
-runHistoryWithState s f hist = do
+runSimpleHistory :: SimpleHistory a -> a
+runSimpleHistory (SimpleHistory m) = (fst.runState m) [0]
+
+instance Lattice a => Lattice (SimpleHistory a) where
+    {-# INLINABLE sup #-}
+    sup a b = do
+        a' <- a
+        b' <- b
+        return $ sup a' b'
+
+    {-# INLINABLE inf #-}
+    inf a b = do
+        a' <- a
+        b' <- b
+        return $ inf a' b'
+
+instance MaxBound a => MaxBound (SimpleHistory a) where
+    maxBound = return $ maxBound
+
+instance MinBound a => MinBound (SimpleHistory a) where
+    minBound = return $ minBound
+
+instance Boolean a => Boolean (SimpleHistory a) where
+    not a = do
+        a' <- a
+        return $ not a'
+
+instance HistoryMonad SimpleHistory where
+    type Reportable SimpleHistory a = ()
+    newtype Report SimpleHistory = Report_SimpleHistory Int
+
+    {-# INLINE report #-}
+    report a = SimpleHistory $ do
+        x:xs <- get
+        put $ (x+1):xs
+        return a
+
+    {-# INLINE collectReports #-}
+    collectReports (SimpleHistory m) = SimpleHistory $ do
+        x:xs <- get
+        put $ 0:x:xs
+        a <- m
+        put $ x:xs
+        return a
+
+    {-# INLINE prevReport #-}
+    prevReport = SimpleHistory $ do
+        x:_ <- get
+        return $ Report_SimpleHistory x
+
+    {-# INLINE currentItr #-}
+    currentItr = SimpleHistory $ do
+        x:_ <- get
+        return $ fromIntegral x
+--     type Reportable m a :: Constraint
+--     type Reportable m a = ()
+--
+--     data Report m
+--
+--     report :: Reportable m a => a -> m a
+--     collectReports :: m a -> m a
+--     prevReport :: m (Report m)
+--     currentItr :: Ring r => m r
+
+
+-------------------------------------------------------------------------------
+-- DynamicHistory
+
+newtype DynamicHistory a = DynamicHistory (Producer (Report DynamicHistory) (StateT [Report DynamicHistory] IO) a)
+    deriving (Functor,Applicative,Monad)
+
+runDynamicHistory :: Monoid s => DisplayMethod' s -> DynamicHistory a -> IO a
+runDynamicHistory = runDynamicHistoryWithState zero
+
+runDynamicHistoryWithState :: forall s a. s -> DisplayMethod' s -> DynamicHistory a -> IO a
+runDynamicHistoryWithState s f hist = do
     time <- getCPUTime
-    let startReport = 
+    let startReport =
             Report
                 { cpuTime       = time
                 , cpuTimeDiff   = 0
@@ -75,7 +193,7 @@ runHistoryWithState s f hist = do
                 , numReports    = 0
                 , reportLevel   = 0
                 }
-    let hist' = do
+    let (DynamicHistory hist') = do
             report StartHistory
             a <- hist
             report EndHistory
@@ -88,53 +206,88 @@ runHistoryWithState s f hist = do
             ((),s') <- liftIO $ runStateT (f next) s
             go s'
 
-idDisplayFilter :: DisplayFilter
-idDisplayFilter _ = return True
+instance Lattice a => Lattice (DynamicHistory a) where
+    {-# INLINABLE sup #-}
+    sup a b = do
+        a' <- a
+        b' <- b
+        return $ sup a' b'
 
-idDisplayMethod :: DisplayMethod
-idDisplayMethod _ = return ()
+    {-# INLINABLE inf #-}
+    inf a b = do
+        a' <- a
+        b' <- b
+        return $ inf a' b'
 
----------------------------------------
+instance MaxBound a => MaxBound (DynamicHistory a) where
+    maxBound = return $ maxBound
 
-report :: Typeable a => a -> History a
-report a = do
-    time <- liftIO getCPUTime
-    prevReport:xs <- get
-    let newReport = Report 
-            { cpuTime       = time
-            , cpuTimeDiff   = time - cpuTime prevReport
-            , dyn           = toDyn a
-            , numReports    = numReports prevReport+1
-            , reportLevel   = reportLevel $ prevReport
-            }
-    yield newReport
-    put $ newReport:xs
-    return a
+instance MinBound a => MinBound (DynamicHistory a) where
+    minBound = return $ minBound
 
-collectReports :: History a -> History a
-collectReports hist = do
-    mkLevel
-    a <- hist
-    rmLevel
-    return a
-    where
-        mkLevel = do
-            prevReport:xs <- get
-            time <- liftIO getCPUTime
-            let newReport = Report
-                    { cpuTime       = time
-                    , cpuTimeDiff   = 0
-                    , dyn           = toDyn StartCollection
-                    , numReports    = -1
-                    , reportLevel   = reportLevel prevReport+1
-                    }
-            put $ newReport:prevReport:xs
-                
-        rmLevel = do
-            newReport:xs <- get
-            put xs
+instance Boolean a => Boolean (DynamicHistory a) where
+    not a = do
+        a' <- a
+        return $ not a'
 
-prevReport :: History Report
-prevReport = do
-    x:_ <- get
-    return x
+instance HistoryMonad DynamicHistory where
+
+    type Reportable DynamicHistory a = Typeable a
+
+    data Report DynamicHistory = Report
+        { cpuTime       :: {-#NOUNPACK#-}!CPUTime
+        , cpuTimeDiff   :: {-#NOUNPACK#-}!CPUTime
+        , dyn           :: {-#UNPACK#-}!Dynamic
+        , numReports    :: {-#UNPACK#-}!Int
+        , reportLevel   :: {-#UNPACK#-}!Int
+        }
+        deriving Show
+
+
+    {-# INLINE report #-}
+    report a = {-# SCC report #-} DynamicHistory $ do
+        time <- liftIO getCPUTime
+        prevReport:xs <- get
+        let newReport = Report
+                { cpuTime       = time
+                , cpuTimeDiff   = time - cpuTime prevReport
+                , dyn           = toDyn a
+                , numReports    = numReports prevReport+1
+                , reportLevel   = reportLevel $ prevReport
+                }
+        yield newReport
+        put $ newReport:xs
+        return a
+
+    {-# INLINE collectReports #-}
+    collectReports (DynamicHistory hist) = {-# SCC collectReports #-} DynamicHistory $ do
+        mkLevel
+        a <- hist
+        rmLevel
+        return a
+        where
+            mkLevel = do
+                prevReport:xs <- get
+                time <- liftIO getCPUTime
+                let newReport = Report
+                        { cpuTime       = time
+                        , cpuTimeDiff   = 0
+                        , dyn           = toDyn StartCollection
+                        , numReports    = -1
+                        , reportLevel   = reportLevel prevReport+1
+                        }
+                put $ newReport:prevReport:xs
+
+            rmLevel = do
+                newReport:xs <- get
+                put xs
+
+    {-# INLINE prevReport #-}
+    prevReport = {-# SCC prevReport #-} DynamicHistory $ do
+        x:_ <- get
+        return x
+
+    {-# INLINE currentItr #-}
+    currentItr = {-# SCC currentItr #-} DynamicHistory $ do
+        x:_ <- get
+        return . fromInteger . fromIntegral $ numReports x

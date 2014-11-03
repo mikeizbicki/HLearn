@@ -3,100 +3,106 @@
 module HLearn.Models.Distributions.Univariate.Normal
     ( Normal (..)
     , trainNormal
+    , train1Normal
     )
     where
 
 import Control.DeepSeq
-import GHC.TypeLits
+-- import GHC.TypeLits
 import qualified Data.Vector.Unboxed as U
-import Data.Vector.Unboxed.Deriving
+-- import Data.Vector.Unboxed.Deriving
 import Math.Gamma
 import Data.Number.Erf
 
-import HLearn.Algebra
+import SubHask
+-- import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Internal.Moments
-import HLearn.Models.Distributions.Visualization.Gnuplot
+-- import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
 -- data types
 
-newtype Normal prob dp = Normal (Moments3 prob)
-    deriving (Read,Show,Eq,Ord,Monoid,Group,Abelian,Module,NumDP,NFData)
+newtype Normal r = Normal (Moments3 r)
+    deriving (Read,Show,Eq,{-POrd,Lattice,Ord,-}Semigroup,Cancellative,Monoid,Group,Abelian,NFData)
 
-mkNormal :: (Num prob) => prob -> prob -> Normal prob dp
+type instance Datapoint (Normal r) = r
+type instance Scalar (Normal r) = r
+
+mkNormal :: Ring r => r -> r -> Normal r
 mkNormal mu sigma = Normal $ Moments3
     { m0 = 1
     , m1 = mu
     , m2 = sigma*sigma + mu*mu
     }
 
-addNoise :: (Num prob) => (prob -> prob) -> prob -> Normal prob prob
+addNoise :: Ring r => (r -> r) -> r -> Normal r
 addNoise f dp = mkNormal dp (f dp)
 
 -------------------------------------------------------------------------------
 -- training
 
 {-# INLINE trainNormal #-}
-trainNormal dps = Normal $ train dps
+trainNormal :: Ring r => [r] -> Normal r
+trainNormal dps = Normal $ foldl1 (+) $ fmap train1Moments3 dps
 
-instance (Num prob) => HomTrainer (Normal prob prob) where
-    type Datapoint (Normal prob prob) = prob
-    train1dp dp = Normal $ train1dp dp
+train1Normal :: Ring r => r -> Normal r
+train1Normal dp = Normal $ train1Moments3 dp
 
-type instance Scalar (Normal prob dp) = prob
+-- instance (Num r) => HomTrainer (Normal r) where
+--     type Datapoint (Normal r) = r
+--     train1dp dp = Normal $ train1dp dp
+--
+-- type instance Scalar (Normal r) = r
 
 ---------------------------------------
 
-join :: Normal prob (Normal prob dp) -> Normal prob dp
-join (Normal moments) = Normal moments
+-- join :: Normal (Normal r) -> Normal r
+-- join (Normal moments) = Normal moments
 
-add :: (Num prob) => prob -> Normal prob prob -> Normal prob prob
+add :: Ring r => r -> Normal r -> Normal r
 add x (Normal moments) = Normal $ moments
     { m1 = m1 moments + m0 moments * x
     , m2 = m2 moments + 2*m1 moments*x + x*x*m0 moments
     }
 
-mul :: (Num prob) => prob -> Normal prob prob -> Normal prob prob
+mul :: Ring r => r -> Normal r -> Normal r
 mul x (Normal moments) = Normal $ moments
     { m1 = m1 moments *x
-    , m2 = m2 moments *x*x 
+    , m2 = m2 moments *x*x
     }
 
 -------------------------------------------------------------------------------
 -- distribution
 
-instance (Num prob) => Probabilistic (Normal prob dp) where
-    type Probability (Normal prob dp) = prob
-
-instance (Floating prob) => PDF (Normal prob prob) where
+instance Floating r => PDF (Normal r) where
     pdf dist dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
         where
             sigma2 = variance dist
             mu = mean dist
 
-instance (Floating prob, Erf prob) => CDF (Normal prob prob) where
+instance (Floating r, Erf r) => CDF (Normal r) where
     cdf dist dp = ( 0.5 * ( 1 + erf ( (dp - mu) / (sqrt $ sigma2 *2) )))
         where
             sigma2 = variance dist
             mu = mean dist
 
-instance (Fractional prob) => Mean (Normal prob prob) where
+instance Field r => Mean (Normal r) where
     mean (Normal dist) = m1 dist / m0 dist
 
-instance (Fractional prob) => Variance (Normal prob prob) where
+instance Field r => Variance (Normal r) where
     variance normal@(Normal dist) = m2 dist / m0 dist - (mean normal)*(mean normal)
 
-instance 
-    ( Floating prob
-    , Enum prob
-    , Show prob
-    , Ord prob
-    ) => PlottableDistribution (Normal prob prob) where
-    
-    plotType _ = Continuous
-
-    samplePoints dist = samplesFromMinMax min max
-        where
-            min = (mean dist)-5*(sqrt $ variance dist)
-            max = (mean dist)+5*(sqrt $ variance dist)
+-- instance
+--     ( Floating r
+--     , Enum r
+--     , Show r
+--     , Ord r
+--     ) => PlottableDistribution (Normal r) where
+--
+--     plotType _ = Continuous
+--
+--     samplePoints dist = samplesFromMinMax min max
+--         where
+--             min = (mean dist)-5*(sqrt $ variance dist)
+--             max = (mean dist)+5*(sqrt $ variance dist)

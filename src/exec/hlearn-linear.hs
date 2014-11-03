@@ -1,6 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 import Control.Applicative
 import Control.DeepSeq
@@ -21,26 +25,35 @@ import System.Exit
 import System.IO
 
 import Data.Csv
-import Numeric.LinearAlgebra hiding ((<>))
 import System.Console.CmdArgs.Implicit
 
 import Debug.Trace
+import Prelude (head,words,replicate)
 
 import Data.Version
 import Paths_HLearn
 
-import HLearn.Algebra
-import qualified HLearn.Algebra.LinearAlgebra as LA
+import SubHask
+import SubHask.Algebra.HMatrix
+-- import HLearn.Algebra
 import HLearn.Evaluation.CrossValidation
 import HLearn.History
 import HLearn.History.DisplayMethods
-import HLearn.Models.Distributions
+-- import HLearn.Models.Distributions
 import HLearn.Models.Classifiers.Common
 import HLearn.Models.Classifiers.LinearClassifier
-import HLearn.Optimization.NewtonRaphson
-import qualified HLearn.Optimization.GradientDescent as Recipe
-import qualified HLearn.Optimization.Common as Recipe
-import HLearn.Optimization.Trace
+import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Univariate.Normal
+import HLearn.Optimization.Common
+-- import HLearn.Optimization.StochasticGradientDescent
+import HLearn.Optimization.StepSize
+import HLearn.Optimization.StepSize.Linear
+import HLearn.Optimization.LineMinimization.Univariate
+import HLearn.Optimization.GradientDescent
+-- import HLearn.Optimization.NewtonRaphson
+-- import qualified HLearn.Optimization.GradientDescent as Recipe
+-- import qualified HLearn.Optimization.Common as Recipe
+-- import HLearn.Optimization.Trace
 
 import Timing
 import LoadData
@@ -49,7 +62,7 @@ import LoadData
 -- command line parameters
 
 data Params = Params
-    { data_file         :: Maybe String 
+    { data_file         :: Maybe String
     , label_col         :: Int
 
     , maxdp             :: Maybe Int
@@ -63,6 +76,8 @@ data Params = Params
 
     , regType           :: String
     , regAmount         :: Double
+    , step_eta          :: Double
+    , maxitr            :: Int
 
     , pca_data          :: Bool
     , varshift_data     :: Bool
@@ -71,10 +86,10 @@ data Params = Params
     , quiet             :: Bool
     , verbose           :: Bool
     , debug             :: Bool
-    } 
+    }
     deriving (Show, Data, Typeable)
 
-usage = Params 
+usage = Params
     { data_file      = Nothing
                     &= help "file to perform classification on"
 
@@ -110,29 +125,35 @@ usage = Params
     , regAmount      = 0.1
                     &= help "regularization parameter lambda"
 
-    , pca_data       = False 
-                    &= groupname "Data Preprocessing" 
+    , step_eta       = 0.001
+                    &= help "eta parameter for step sizes"
+
+    , maxitr         = 10000
+                    &= help "maximum number of iterations"
+
+    , pca_data       = False
+                    &= groupname "Data Preprocessing"
                     &= help "Rotate the data points using the PCA transform.  Speeds up nearest neighbor searches, but computing the PCA can be expensive in many dimensions."
                     &= name "pca"
                     &= explicit
 
-    , varshift_data  = False 
-                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive in higher dimensions." 
+    , varshift_data  = False
+                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive in higher dimensions."
                     &= name "varshift"
                     &= explicit
 
     , paramSeed      = Nothing
                     &= help "specify the seed to the random number generator (default is seeded by current time)"
                     &= groupname "Debugging"
-    
+
     , quiet          = False
                     &= help "supress all output"
 
-    , verbose        = False 
-                    &= help "Print tree statistics (takes some extra time)" 
+    , verbose        = False
+                    &= help "Print tree statistics (takes some extra time)"
 
-    , debug          = False 
-                    &= help "Test created trees for validity (takes lots of time)" 
+    , debug          = False
+                    &= help "Test created trees for validity (takes lots of time)"
                     &= name "debug"
                     &= explicit
     }
@@ -142,9 +163,9 @@ usage = Params
 -- main
 
 main = do
-    
+
     -----------------------------------
-    -- proccess command line
+    -- process command line
 
     params <- cmdArgs usage
 
@@ -156,33 +177,34 @@ main = do
 
     let filename = fromJust $ data_file params
         label_index = label_col params
-        
+
     -----------------------------------
     -- load data
 
-    dps :: V.Vector (MaybeLabeled String (LA.Vector Double))
+    dps :: V.Vector (MaybeLabeled String (Vector Double))
         <- loadLabeledNumericData $ DataParams
-        { datafile  = fromJust $ data_file params
-        , labelcol  = Just $ label_col params
-        , pca       = False
-        , varshift  = False
-        }
+            { datafile  = fromJust $ data_file params
+            , labelcol  = Just $ label_col params
+            , pca       = pca_data params
+            , varshift  = False
+            }
 
     -----------------------------------
     -- test parameters
 
     let traceEvents =
-            [ traceBFGS
-            , traceNewtonRaphson
-            , traceLinearClassifier (undefined::MaybeLabeled String (LA.Vector Double))
-            ]
+            []
+--             [ traceBFGS
+--             , traceNewtonRaphson
+--             , traceLinearClassifier (undefined::MaybeLabeled String (Vector Double))
+--             ]
 
-    let withMonoid :: ( Monad m )
-                   => ( model -> model -> model )
-                   -> Int
-                   -> ( [dp] -> m model )
-                   -> ( [dp] -> m model )
-        withMonoid f n _train dps = liftM (F.foldl1 f) $ mapM _train $ partition n dps
+--     let withMonoid :: ( Monad m )
+--                    => ( model -> model -> model )
+--                    -> Int
+--                    -> ( [dp] -> m model )
+--                    -> ( [dp] -> m model )
+--         withMonoid f n _train dps = liftM (F.foldl1 f) $ mapM _train $ partition n dps
 
     let reg = case regType params of
             "L1" -> l1reg
@@ -191,72 +213,96 @@ main = do
 
     let readMonoidType = read $ monoidType params :: MonoidType
     let monoidOperation = case readMonoidType of
-            MappendAverage -> mappendAverage
-            MappendTaylor -> mappendQuadratic
-            MappendUpperBound -> mappendQuadratic
-            MixtureUpperTaylor _ -> mappendQuadratic
-            MixtureAveTaylor _ -> mappendQuadratic
-            MixtureAveUpper _ -> mappendQuadratic
+--             MappendAverage -> mappendAverage
+--             MappendTaylor -> mappendQuadratic
+--             MappendUpperBound -> mappendQuadratic
+--             MixtureUpperTaylor _ -> mappendQuadratic
+--             MixtureAveTaylor _ -> mappendQuadratic
+--             MixtureAveUpper _ -> mappendQuadratic
             otherwise -> error $ "monoidtype ["++monoidType params++"] not supported"
-    seq monoidOperation $ return () 
+--     seq monoidOperation $ return ()
 
-    let maxdpselector :: SamplingMethod -> SamplingMethod 
+    let maxdpselector :: SamplingMethod -> SamplingMethod
         maxdpselector = case maxdp params of
             Just x -> setMaxDatapoints x
             Nothing -> \x -> x
- 
---     let debugHistory = if debug params 
+
+--     let debugHistory = if debug params
 --             then runHistory compactTrace
 --             else runHistory compactTrace
-    
+
 --     let debugHistory = runHistory linearTrace
-    let debugHistory = runHistory $ idDisplayMethod
-            === summaryStatistics 
-            === removeLineMin 
+    let debugHistory = runDynamicHistory
+              $ {- summaryStatistics
+            === -}removeLineMin
+--                 ||| sampleSGD 10000
                 ||| linearTrace
-            === removeLineMin 
-                ||| (allowPasses  (undefined::NewtonRaphson (LA.Vector Double)) [2]
-                ||| linearTrace)
-            === allowFirstPass (undefined::NewtonRaphson (LA.Vector Double))
-                ||| mkOptimizationPlot 
-                    (undefined::NewtonRaphson (LA.Vector Double))
-                    "optplot.dat"
-                
+--             === removeLineMin
+--                 ||| (allowPasses (undefined::NewtonRaphson (Vector Double)) [2]
+--                 ||| linearTrace)
+--             === allowFirstPass (undefined::ConjugateGradientDescent (Vector Double))
+--                 ||| mkOptimizationPlot
+--                     (undefined::ConjugateGradientDescent (Vector Double))
+--                     "optplot.dat"
+
+    let optMethod ::
+            ( HistoryMonad m
+            , Reportable m (LineBracket Double)
+            , Reportable m (Brent Double)
+            , Reportable m (ConjugateGradientDescent (Vector Double))
+            ) => OptimizationMethod m (MaybeLabeled String (Vector Double))
+        optMethod = cgd
+--         optMethod = sgd
+--             [ maxIterations $ maxitr params ]
+--             randomSample
+-- --             linearScan
+-- --             ( lrAlmeidaLanglois )
+--             ( Hyperparams { eta = step_eta params, gamma = regAmount params } )
+
     -----------------------------------
     -- single models
 
     when (noCV params) $ do
-        model <- debugHistory $ 
-            withMonoid monoidOperation (monoidSplits params)
-            ( trainLogisticRegression 
+        model <- runDynamicHistory
+            ( summaryStatistics
+          === removeLineMin
+            ||| linearTrace
+          === allowFirstPass (undefined::ConjugateGradientDescent (Vector Double))
+            ||| mkOptimizationPlot
+                ( undefined::ConjugateGradientDescent (Vector Double))
+                "optplot.dat"
+            )
+            ( trainLinearClassifier
                 readMonoidType
                 ( regAmount params )
                 reg
                 logloss
+                optMethod
+                dps
             )
-            $ F.toList dps
 
         timeIO "training model" $ deepseq model $ return ()
         exitSuccess
 
     -----------------------------------
     -- run cv tests
-    
+
     res <- debugHistory $ flip evalRandT (mkStdGen seed) $ validateM
-            ( repeatExperiment 
-                ( paramCVReps params ) 
+            ( repeatExperiment
+                ( paramCVReps params )
                 ( maxdpselector
-                    ( kfold $ paramCVFolds params) 
+                    ( kfold $ paramCVFolds params)
                 )
             )
             errorRate
             dps
-            ( withMonoid monoidOperation (monoidSplits params) 
-                $ trainLogisticRegression 
+            ( --withMonoid monoidOperation (monoidSplits params) $
+                trainLinearClassifier
                     ( readMonoidType )
                     ( regAmount params )
                     reg
                     logloss
+                    optMethod
             )
 
     let showMaybe Nothing = "Nothing"
@@ -267,7 +313,7 @@ main = do
        ++" "++ show (varshift_data params)
        ++" "++ show (paramCVFolds params)
        ++" "++ show (paramCVReps params)
-       ++" "++ show (monoidSplits params) 
+       ++" "++ show (monoidSplits params)
        ++" "++ (head $ words $ monoidType params)
        ++" "++ (show (fromRational $ monoidMixRate readMonoidType::Double))
        ++" "++ (regType params)
