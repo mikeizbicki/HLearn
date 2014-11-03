@@ -1,4 +1,6 @@
 module HLearn.Metrics.Lebesgue
+    ( L2 (..)
+    )
     where
 
 import Control.Monad
@@ -17,14 +19,21 @@ import System.IO.Unsafe
 
 import Test.QuickCheck
 
+import qualified Prelude as P
+import SubHask
 -- import Data.SIMD
-import HLearn.Algebra
+-- import HLearn.Algebra
+
+-- instance (Ord r, HasScalar (L1 v r)) => Normed (L1 v r)
+-- instance (Ord r, HasScalar (L2 v r)) => Normed (L2 v r)
+-- instance (Ord r, HasScalar (Linf v r)) => Normed (Linf v r)
 
 -------------------------------------------------------------------------------
 -- L1
 
+{-
 newtype L1 v a = L1 { unL1 :: v a }
-    deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
+    deriving (Read,Show,Eq,Lattice,POrd,Ord,Arbitrary,FromRecord,NFData, P.Ord)
 
 deriving instance F.Foldable v => F.Foldable (L1 v)
 deriving instance Functor v => Functor (L1 v)
@@ -45,7 +54,7 @@ instance VG.Vector v a => VG.Vector (L1 v) a where
     basicUnsafeCopy (L1M vm) (L1 v) = VG.basicUnsafeCopy vm v
     elemseq (L1 v) a b = VG.elemseq v a b
 
-newtype L1M v s a = L1M { unL1M :: v s a } 
+newtype L1M v s a = L1M { unL1M :: v s a }
 
 instance VGM.MVector v a => VGM.MVector (L1M v) a where
     {-# INLINE basicLength #-}
@@ -69,7 +78,16 @@ type instance VG.Mutable (L1 v) = L1M (VG.Mutable v)
 
 type instance Scalar (L1 v r) = r
 
-instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L1 v r) where
+
+instance
+    ( VG.Vector v r
+    , Eq (v r)
+    , Floating r
+    , Normed r
+    , Ord r
+    , IsScalar r
+    ) => MetricSpace (L1 v r)
+        where
 -- instance (VG.Unbox r, RealFrac r,Floating r) => MetricSpace (L1 VG.Vector r) where
     {-# INLINABLE distance #-}
     {-# INLINABLE isFartherThan #-}
@@ -81,9 +99,9 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L1 v r) where
 --             go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 --                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
-    isFartherThan !(L1 v1) !(L1 v2) !dist = go 0 (VG.length v1-1) 
+    isFartherThan !(L1 v1) !(L1 v2) !dist = go 0 (VG.length v1-1)
         where
-            go tot (-1) = False 
+            go tot (-1) = False
             go tot i = if tot'>dist
                 then True
                 else go tot' (i-1)
@@ -93,8 +111,9 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L1 v r) where
 -------------------------------------------------------------------------------
 -- L2
 
+-}
 newtype L2 v a = L2 { unL2 :: v a }
-    deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
+    deriving (Read,Show,Eq,Lattice,POrd,Ord,Arbitrary,FromRecord,NFData, P.Ord)
 
 deriving instance F.Foldable v => F.Foldable (L2 v)
 deriving instance Functor v => Functor (L2 v)
@@ -115,7 +134,7 @@ instance VG.Vector v a => VG.Vector (L2 v) a where
     basicUnsafeCopy (L2M vm) (L2 v) = VG.basicUnsafeCopy vm v
     elemseq (L2 v) a b = VG.elemseq v a b
 
-newtype L2M v s a = L2M { unL2M :: v s a } 
+newtype L2M v s a = L2M { unL2M :: v s a }
 
 instance VGM.MVector v a => VGM.MVector (L2M v) a where
     {-# INLINE basicLength #-}
@@ -146,32 +165,20 @@ type instance VG.Mutable (L2 v) = L2M (VG.Mutable v)
 
 type instance Scalar (L2 v r) = r
 
-instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
--- instance MetricSpace (L2 VU.Vector Float) where
--- 
---     {-# INLINE distance #-}
---     distance (L2 v1) (L2 v2) = sqrt $ plusHorizontalX4 $ go 0 (VG.length v1'-1)
---         where
---             v1' = unsafeVectorizeUnboxedX4 v1
---             v2' = unsafeVectorizeUnboxedX4 v2
---             
---             go tot (-1) = tot
---             go tot i = go tot' (i-1)
---                 where
---                     tot' = tot+diff*diff
---                     diff = v1' `VG.unsafeIndex` i - v2' `VG.unsafeIndex` i
--- 
---             goEach !tot !i = if i>= VG.length v1
---                 then tot
---                 else goEach tot' (i+1)
---                 where
---                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
---                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+instance
+    ( VG.Vector v r
+    , Eq (v r)
+    , Floating r
+    , Normed r
+    , Ord r
+    , IsScalar r
+    ) => MetricSpace (L2 v r)
+        where
 
     {-# INLINE distance #-}
-    distance !(L2 v1) !(L2 v2) = {-# SCC distance #-} sqrt $ goEach 0 0
+    distance !(L2 !v1) !(L2 !v2) = {-# SCC l2_distance #-} sqrt $ go 0 0
         where
-            go !tot !i = {-# SCC distance_go #-} if i>VG.length v1-4
+            go !tot !i =  if i>VG.length v1-4
                 then goEach tot i
                 else go tot' (i+4)
                 where
@@ -201,7 +208,7 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 
     {-# INLINE isFartherThanWithDistanceCanError #-}
-    isFartherThanWithDistanceCanError (L2 v1) (L2 v2) !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
+    isFartherThanWithDistanceCanError (L2 !v1) (L2 !v2) !dist = {-# SCC l2_isFartherThanWithDistanceCanError #-}
         sqrt $ go 0 0
         where
             dist2=dist*dist
@@ -241,9 +248,10 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
 
 -------------------------------------------------------------------------------
 -- Linf
+{-
 
 newtype Linf v a = Linf { unLinf :: v a }
-    deriving (Read,Show,Eq,Ord,Arbitrary,FromRecord,NFData)
+    deriving (Read,Show,Eq,Lattice,POrd,Ord,Arbitrary,FromRecord,NFData)
 
 deriving instance F.Foldable v => F.Foldable (Linf v)
 deriving instance Functor v => Functor (Linf v)
@@ -264,7 +272,7 @@ instance VG.Vector v a => VG.Vector (Linf v) a where
     basicUnsafeCopy (LinfM vm) (Linf v) = VG.basicUnsafeCopy vm v
     elemseq (Linf v) a b = VG.elemseq v a b
 
-newtype LinfM v s a = LinfM { unLinfM :: v s a } 
+newtype LinfM v s a = LinfM { unLinfM :: v s a }
 
 instance VGM.MVector v a => VGM.MVector (LinfM v) a where
     {-# INLINE basicLength #-}
@@ -288,7 +296,16 @@ type instance VG.Mutable (Linf v) = LinfM (VG.Mutable v)
 
 type instance Scalar (Linf v r) = r
 
-instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (Linf v r) where
+instance
+    ( VG.Vector v r
+    , Eq (v r)
+    , Floating r
+    , Normed r
+    , Ord r
+    , IsScalar r
+    ) => MetricSpace (Linf v r)
+        where
+
 -- instance (VG.Unbox r, RealFrac r,Floating r) => MetricSpace (Linf VG.Vector r) where
     {-# INLINABLE distance #-}
     {-# INLINABLE isFartherThan #-}
@@ -300,9 +317,9 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (Linf v r) where
 --             go tot i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 --                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
 
-    isFartherThan !(Linf v1) !(Linf v2) !dist = go 0 (VG.length v1-1) 
+    isFartherThan !(Linf v1) !(Linf v2) !dist = go 0 (VG.length v1-1)
         where
-            go tot (-1) = False 
+            go tot (-1) = False
             go tot i = if tot'>dist
                 then True
                 else go tot' (i-1)
@@ -311,29 +328,4 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (Linf v r) where
 
 ---------------------------------------
 
--- instance (MetricSpace (v r), VG.Vector v r, Fractional r) => MkCentroid (v r) where
---     {-# INLINABLE mkCentroid #-}
---     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
-instance MkCentroid (L1 VU.Vector Double) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
--- instance MkCentroid (L2 VU.Vector Double) where
---     {-# INLINABLE mkCentroid #-}
---     mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
-instance MkCentroid (Linf VU.Vector Double) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
-
-instance MkCentroid (L1 VU.Vector Float) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
-instance MkCentroid (L2 VU.Vector Float) where
-    {-# INLINABLE mkCentroid #-}
-    mkCentroid v1 v2 = {-# SCC mkCentroid #-} VG.zipWith (\a b -> (a+b)/2) v1 v2
-
-
+-}

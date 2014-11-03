@@ -3,11 +3,11 @@ module HLearn.Evaluation.CrossValidation
     where
 
 import Control.Monad
-import Control.Monad.Random
+import Control.Monad.Random hiding (fromList)
 import Control.Monad.ST
 import Control.Monad.Trans
 import Data.Array.ST
-import GHC.Arr
+import qualified GHC.Arr as Arr
 import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import qualified Data.Set as S
@@ -17,12 +17,14 @@ import qualified Data.Vector as V
 import Debug.Trace
 
 import qualified Data.DList as D
+import Prelude (take,drop,map,filter,zip)
 
-import HLearn.Algebra
+import SubHask
 import HLearn.History
-import HLearn.Models.Distributions
+import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Univariate.Normal
 import HLearn.Models.Classifiers.Common
-import qualified Control.ConstraintKinds as CK
+-- import qualified Control.ConstraintKinds as CK
 
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
@@ -50,26 +52,26 @@ kfold :: Int -> SamplingMethod
 kfold k xs = do
     xs' <- shuffle xs
     let step = floor $ (fromIntegral $ length xs :: Double) / fromIntegral k
-    trace ("step="++show step) $ return 
+    trace ("step="++show step) $ return
         [ ( take ((i)*step) xs' ++ drop ((i+1)*step) xs'
           , take step $ drop (i*step) xs'
           )
-        | i <- [0..k-1] 
+        | i <- [0..k-1]
         ]
 
--- leaveOneOut :: SamplingMethod 
+-- leaveOneOut :: SamplingMethod
 -- leaveOneOut xs = return $ map (\x -> [x]) xs
--- 
+--
 -- withPercent :: Double -> SamplingMethod -> SamplingMethod
--- withPercent p f xs = do 
+-- withPercent p f xs = do
 --     xs' <- shuffle xs
 --     f $ take (floor $ (fromIntegral $ length xs') * p) xs'
--- 
+--
 -- repeatExperiment :: Int -> SamplingMethod -> SamplingMethod
 -- repeatExperiment i f xs = do
 --     liftM concat $ forM [1..i] $ \i -> do
 --         f xs
--- 
+--
 -- kfold :: Int -> SamplingMethod
 -- kfold k xs = do
 --     xs' <- shuffle xs
@@ -77,7 +79,7 @@ kfold k xs = do
 --     where
 --         takeEvery n [] = []
 --         takeEvery n xs = head xs : (takeEvery n $ drop n xs)
--- 
+--
 -- numSamples :: Int -> SamplingMethod -> SamplingMethod
 -- numSamples n f dps = f $ take n dps
 
@@ -86,26 +88,27 @@ shuffle :: MonadRandom m => [a] -> m [a]
 shuffle xs = do
     let l = length xs
     rands <- take l `liftM` getRandomRs (0, l-1)
-    let ar = runSTArray $ do
-            ar <- thawSTArray $ listArray (0, l-1) xs
+    let ar = runSTArray ( do
+            ar <- Arr.thawSTArray (Arr.listArray (0, l-1) xs)
             forM_ (zip [0..(l-1)] rands) $ \(i, j) -> do
-                vi <- readSTArray ar i
-                vj <- readSTArray ar j
-                writeSTArray ar j vi
-                writeSTArray ar i vj
+                vi <- Arr.readSTArray ar i
+                vj <- Arr.readSTArray ar j
+                Arr.writeSTArray ar j vi
+                Arr.writeSTArray ar i vj
             return ar
-    return (elems ar)
+            )
+    return (Arr.elems ar)
 
 ---------------------------------------
 
-type LossFunction = forall model. 
+type LossFunction = forall model.
     ( Classifier model
-    , HomTrainer model 
+--     , HomTrainer model
     , Labeled (Datapoint model)
     , Eq (Label (Datapoint model))
     ) => model -> [Datapoint model] -> Double
 
-accuracy :: LossFunction 
+accuracy :: LossFunction
 accuracy model dataL = (fromIntegral $ length $ filter (==False) resultsL) / (fromIntegral $ length dataL)
     where
         resultsL = map (\(l1,l2) -> l1/=l2) $ zip trueL classifyL
@@ -118,22 +121,25 @@ errorRate model dataL = 1 - accuracy model dataL
 ---------------------------------------
 
 
-validateM :: forall model g container.
-    ( HomTrainer model
-    , Classifier model
+validateM :: forall model g container m.
+--     ( HomTrainer model
+    ( Classifier model
     , RandomGen g
     , Eq (Datapoint model)
     , Eq (Label (Datapoint model))
     , F.Foldable container
-    ) => SamplingMethod 
-      -> LossFunction 
-      -> container (Datapoint model) 
-      -> ([Datapoint model] -> History model)
-      -> RandT g History (Normal Double Double)
+    , Foldable (container (Datapoint model))
+    , Elem (container (Datapoint model)) ~ Datapoint model
+    , HistoryMonad m
+    ) => SamplingMethod
+      -> LossFunction
+      -> container (Datapoint model)
+      -> (container (Datapoint model) -> m model)
+      -> RandT g m (Normal Double)
 validateM samplingMethod loss xs trainM = do
-    xs' <- samplingMethod $ F.toList xs 
+    xs' <- samplingMethod $ F.toList xs
     lift $ collectReports $ fmap trainNormal $ forM xs' $ \(trainingset, testset) -> do
-        model <- trainM trainingset
+        model <- trainM (fromList trainingset)
         return $ loss model testset
 
 
