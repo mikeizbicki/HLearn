@@ -5,4 +5,5 @@
 !*.md
 !*.cabal
 !*/
+!.travis.yml
 dist/

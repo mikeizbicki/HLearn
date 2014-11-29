@@ -1,0 +1,8 @@
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y liblapack-dev libblas-dev
+
+ghc:
+  - 7.8
+  - 7.6
+  - 7.4
