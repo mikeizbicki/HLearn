@@ -1,3 +1,4 @@
+language: haskell
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y liblapack-dev libblas-dev
