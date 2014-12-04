@@ -295,7 +295,7 @@ test-suite tests
       -Werror
 
   hs-source-dirs:
-      src/test
+      test
 
   main-is:
       Spec.hs
