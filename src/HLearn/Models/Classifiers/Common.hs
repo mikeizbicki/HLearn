@@ -44,10 +44,12 @@ data MaybeLabeled label attr = MaybeLabeled
     }
     deriving (Read,Show,Typeable)
 
+type instance Logic (MaybeLabeled label attr) = Logic attr
+
 instance (NFData label, NFData attr) => NFData (MaybeLabeled label attr) where
     rnf (MaybeLabeled label attr) = deepseq label $ rnf attr
 
-instance Eq attr => Eq (MaybeLabeled label attr) where
+instance Eq_ attr => Eq_ (MaybeLabeled label attr) where
     a==b = attr a==attr b
 
 {-

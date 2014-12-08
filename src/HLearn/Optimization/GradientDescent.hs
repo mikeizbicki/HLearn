@@ -91,6 +91,7 @@ conjugateGradientDescent ::
     , Reportable m (ConjugateGradientDescent v)
     , Show (Scalar v)
     , Show v
+    , Logic v~Bool
     ) => (v -> Scalar v)
       -> (v -> v)
       -> v

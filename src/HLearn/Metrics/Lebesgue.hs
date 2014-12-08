@@ -1,5 +1,7 @@
 module HLearn.Metrics.Lebesgue
     ( L2 (..)
+    , L1 (..)
+--     , Linf (..)
     )
     where
 
@@ -21,20 +23,17 @@ import Test.QuickCheck
 
 import qualified Prelude as P
 import SubHask
--- import Data.SIMD
--- import HLearn.Algebra
 
--- instance (Ord r, HasScalar (L1 v r)) => Normed (L1 v r)
--- instance (Ord r, HasScalar (L2 v r)) => Normed (L2 v r)
--- instance (Ord r, HasScalar (Linf v r)) => Normed (Linf v r)
 
 -------------------------------------------------------------------------------
 -- L1
 
-{-
 newtype L1 v a = L1 { unL1 :: v a }
-    deriving (Read,Show,Eq,Lattice,POrd,Ord,Arbitrary,FromRecord,NFData, P.Ord)
+    deriving (Read,Show,POrd_,Lattice_,Ord,Arbitrary,FromRecord,NFData, P.Ord)
 
+type instance Logic (L1 v a) = Logic (v a)
+
+deriving instance Eq_ (v a) => Eq_ (L1 v a)
 deriving instance F.Foldable v => F.Foldable (L1 v)
 deriving instance Functor v => Functor (L1 v)
 
@@ -111,10 +110,12 @@ instance
 -------------------------------------------------------------------------------
 -- L2
 
--}
 newtype L2 v a = L2 { unL2 :: v a }
-    deriving (Read,Show,Eq,Lattice,POrd,Ord,Arbitrary,FromRecord,NFData, P.Ord)
+    deriving (Read,Show,POrd_,Lattice_,Ord_,Arbitrary,FromRecord,NFData, P.Ord)
 
+type instance Logic (L2 v a) = Logic (v a)
+
+deriving instance Eq_ (v a) => Eq_ (L2 v a)
 deriving instance F.Foldable v => F.Foldable (L2 v)
 deriving instance Functor v => Functor (L2 v)
 
@@ -207,6 +208,44 @@ instance
                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
 
+    {-# INLINE isFartherThan #-}
+    isFartherThan (L2 !v1) (L2 !v2) !dist = {-# SCC l2_isFartherThan #-}
+        go 0 0
+        where
+            dist2=dist*dist
+
+            go !tot !i = {-# SCC l2_isFartherThan_go #-} if i>VG.length v1-4
+                then goEach tot i
+                else if tot'>dist2
+                    then True
+                    else go tot' (i+4)
+                where
+                    tot' = tot
+                        +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                        *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                        +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
+                        *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
+                        +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
+                        *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
+                        +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
+                        *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
+--                         +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
+--                         *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
+--                         +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
+--                         *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
+--                         +(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
+--                         *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
+--                         +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
+--                         *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
+
+            goEach !tot !i = {-# SCC l2_isFartherThan_goEach #-}if i>= VG.length v1
+                then tot>dist2
+                else goEach tot' (i+1)
+                where
+                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+
+
     {-# INLINE isFartherThanWithDistanceCanError #-}
     isFartherThanWithDistanceCanError (L2 !v1) (L2 !v2) !dist = {-# SCC l2_isFartherThanWithDistanceCanError #-}
         sqrt $ go 0 0
@@ -248,11 +287,17 @@ instance
 
 -------------------------------------------------------------------------------
 -- Linf
+
 {-
-
 newtype Linf v a = Linf { unLinf :: v a }
-    deriving (Read,Show,Eq,Lattice,POrd,Ord,Arbitrary,FromRecord,NFData)
+    deriving (Read,Show,Arbitrary,FromRecord,NFData, P.Ord)
 
+type instance Logic (L2 v a) = Logic (v a)
+
+deriving instance Eq_ (v a) => Eq_ (Linf v a)
+deriving instance POrd_ (v a) => POrd_ (Linf v a)
+deriving instance Lattice_ (v a) => Lattice_ (Linf v a)
+deriving instance Ord_ (v a) => Ord_ (Linf v a)
 deriving instance F.Foldable v => F.Foldable (Linf v)
 deriving instance Functor v => Functor (Linf v)
 
@@ -327,5 +372,4 @@ instance
                     tot' = tot+(max (v1 `VG.unsafeIndex` i) (v2 `VG.unsafeIndex` i))
 
 ---------------------------------------
-
 -}

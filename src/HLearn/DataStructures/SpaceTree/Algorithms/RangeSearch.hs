@@ -6,10 +6,8 @@ import Debug.Trace
 
 import Control.DeepSeq
 import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
-import qualified Data.Strict.Maybe as Strict
-import GHC.TypeLits
-import HLearn.Algebra
+
+import SubHask
 import HLearn.DataStructures.SpaceTree
 
 -------------------------------------------------------------------------------
@@ -20,91 +18,112 @@ data Range dp = Range
     , rangedistance :: !(Scalar dp)
     }
 
+type instance Logic (Range dp) = Bool
+
 deriving instance (Read dp, Read (Scalar dp)) => Read (Range dp)
 deriving instance (Show dp, Show (Scalar dp)) => Show (Range dp)
-
-instance Eq (Scalar dp) => Eq (Range dp) where
-    r1 == r2 = rangedistance r1 == rangedistance r2
-
-instance Ord (Scalar dp) => Ord (Range dp) where
-    compare r1 r2 = compare (rangedistance r1) (rangedistance r2)
 
 instance NFData (Range dp) where
     rnf dp = seq dp ()
 
--------------------------------------------------------------------------------
--- RangeList
+instance Eq (Scalar dp) => Eq_ (Range dp) where
+    r1 == r2 = rangedistance r1 == rangedistance r2
 
-data RangeList dp = RangeList
-    { mindist  :: !(Scalar dp)
-    , maxdist  :: !(Scalar dp)
-    , rangeset :: !(Set.Set (Range dp))
-    }
+instance Ord (Scalar dp) => POrd_ (Range dp) where
+    inf r1 r2 = if rangedistance r1 < rangedistance r2
+        then r1
+        else r2
 
-instance NFData (Scalar dp) => NFData (RangeList dp) where
-    rnf rl = seq rl $ rnf (rangeset rl)
+instance Ord (Scalar dp) => Lattice_ (Range dp) where
+    sup r1 r2 = if rangedistance r1 > rangedistance r2
+        then r1
+        else r2
 
-mkRangeList :: Ord (Scalar dp) => Scalar dp -> Scalar dp -> RangeList dp
-mkRangeList !a !b = RangeList a b mempty
-
-rlInsert :: Ord (Scalar dp) => Range dp -> RangeList dp -> RangeList dp
-rlInsert !dp !rl = if rangedistance dp <= maxdist rl && rangedistance dp > mindist rl
-    then rl { rangeset = Set.insert dp $ rangeset rl }
-    else rl
-
-instance ( Fractional (Scalar dp), Ord (Scalar dp)) =>  Monoid (RangeList dp) where
-    mempty = RangeList
-        { mindist = 0
-        , maxdist = infinity
-        , rangeset = mempty
-        }
-
-    mappend !rl1 !rl2 = RangeList
-        { mindist = mindist' 
-        , maxdist = maxdist'
-        , rangeset = Set.filter (\r -> rangedistance r>mindist' && rangedistance r<maxdist') 
-            $ rangeset rl1 <> rangeset rl2
-        }
-        where
-            mindist' = max (mindist rl1) (mindist rl2)
-            maxdist' = min (maxdist rl1) (maxdist rl2)
+instance Ord (Scalar dp) => Ord_ (Range dp)
 
 ---------------------------------------
 
 {-# INLINABLE findRangeList #-}
-findRangeList :: (SpaceTree t dp, Eq dp) => t dp -> Scalar dp -> Scalar dp -> dp -> RangeList dp
-findRangeList tree mindist maxdist query = 
-    prunefoldB (rl_catadp query) (rl_cata query) (mkRangeList mindist maxdist) tree
+findRangeList ::
+    ( SpaceTree t dp
+    , Eq dp
+    , CanError (Scalar dp)
+    ) => t dp -> Scalar dp -> dp -> [dp]
+findRangeList tree maxdist query =
+    prunefold (rl_prune maxdist query) (rl_cata maxdist query) [] tree
 
-{-# INLINABLE rl_catadp #-}
-rl_catadp :: (MetricSpace dp, Ord (Scalar dp)) => dp -> dp -> RangeList dp -> RangeList dp
-rl_catadp !query !dp !rl = {-# SCC rl_catadp #-} 
-    case isFartherThanWithDistance dp query (maxdist rl) of
-        Strict.Nothing -> rl
-        Strict.Just dist -> rlInsert (Range dp dist) rl
+{-# INLINABLE rl_prune #-}
+rl_prune ::
+    ( SpaceTree t dp
+    , Ord (Scalar dp)
+    ) => Scalar dp -> dp -> [dp] -> t dp -> Bool
+rl_prune maxdist query xs tree =
+    stMinDistanceDp tree query > maxdist
 
 {-# INLINABLE rl_cata #-}
-rl_cata :: forall k t dp. ( SpaceTree t dp, Eq dp ) => 
-    dp -> t dp -> RangeList dp -> Strict.Maybe (RangeList dp)
-rl_cata !query !tree !rl = {-# SCC rl_cata #-} 
-    case stIsMinDistanceDpFartherThanWithDistance tree query (maxdist rl) of
-        Strict.Nothing -> Strict.Nothing
-        Strict.Just dist -> Strict.Just $ rlInsert (Range (stNode tree) dist) rl
+rl_cata ::
+    ( MetricSpace dp
+    , Logic dp~Bool
+    ) => Scalar dp -> dp -> dp -> [dp] -> [dp]
+rl_cata maxdist query dp xs = if distance dp query < maxdist
+    then dp:xs
+    else xs
 
--------------------------------------------------------------------------------
--- RangeMap
+-- {-# INLINABLE findRangeList #-}
+-- findRangeList ::
+--     ( SpaceTree t dp
+--     , Eq dp
+--     , CanError (Scalar dp)
+--     ) => t dp -> Scalar dp -> dp -> [dp]
+-- findRangeList tree maxdist query =
+--     prunefoldB_CanError (rl_catadp maxdist query) (rl_cata maxdist query) [] tree
+--
+-- {-# INLINABLE rl_catadp #-}
+-- rl_catadp ::
+--     ( MetricSpace dp
+--     , CanError (Scalar dp)
+--     , Ord (Scalar dp)
+--     ) => Scalar dp -> dp -> dp -> [dp] -> [dp]
+-- rl_catadp !maxdist !query !dp !rl = {-# SCC rl_catadp #-}
+--     if isError dist
+--         then rl
+--         else dp:rl
+--     where
+--         dist = isFartherThanWithDistanceCanError dp query maxdist
+--
+-- {-# INLINABLE rl_cata #-}
+-- rl_cata ::
+--     ( SpaceTree t dp
+--     , CanError (Scalar dp)
+--     , Eq dp
+--     ) => Scalar dp -> dp -> t dp -> [dp] -> [dp]
+-- rl_cata !maxdist !query !tree !rl = {-# SCC rl_cata #-}
+--     if isError dist
+--         then errorVal
+--         else if isFartherThan (stNode tree) query maxdist
+--             then rl
+--             else stNode tree:rl
+--     where
+--         dist = stIsMinDistanceDpFartherThanWithDistanceCanError tree query maxdist
 
-newtype RangeMap dp = RangeMap { rm2map :: Map.Map dp (RangeList dp) } 
 
-deriving instance (NFData dp, NFData (Scalar dp)) => NFData (RangeMap dp)
+------------
+---- test
 
-instance (Ord dp, Ord (Scalar dp), Fractional (Scalar dp)) => Monoid (RangeMap dp) where
-    mempty = RangeMap mempty
-    mappend !(RangeMap rm1) !(RangeMap rm2) = RangeMap $ Map.unionWith (undefined) rm1 rm2
-
----------------------------------------
-
-findRangeMap :: (NFData (Scalar dp), NFData dp, SpaceTree t dp, Ord dp) => Scalar dp -> Scalar dp -> DualTree (t dp) -> RangeMap dp
-findRangeMap mindist maxdist dual = reduce $ 
-    map (\dp -> RangeMap $ Map.singleton dp $ findRangeList (reference dual) mindist maxdist dp) (stToList $ query dual)
-
+-- instance MetricSpace (Double,Double) where
+--     distance (a1,a2) (b1,b2) = sqrt $ (a1-b1)**2 + (a2-b2)**2
+--
+-- instance POrd_ (Double,Double) where
+--     inf (a1,a2) (b1,b2) = (inf a1 b1, inf a2 b2)
+--
+-- instance SupSemilattice (Double,Double) where
+--     sup (a1,a2) (b1,b2) = (sup a1 b1, sup a2 b2)
+--
+-- instance Lattice (Double,Double) where
+--
+-- instance POrd (Double,Double) where
+--     pcompare (a1,a2) (b1,b2) = case pcompare a1 a2 of
+--         PEQ -> pcompare b1 b2
+--         _   -> pcompare a1 a2
+--
+-- instance Ord (Double,Double)

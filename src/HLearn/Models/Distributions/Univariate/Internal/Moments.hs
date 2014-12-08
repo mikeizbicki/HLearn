@@ -28,7 +28,9 @@ data Moments3 prob = Moments3
     }
     deriving (Read,Show)
 
-instance Eq prob => Eq (Moments3 prob) where
+type instance Logic (Moments3 prob) = Logic prob
+
+instance Eq prob => Eq_ (Moments3 prob) where
     x==y = m0 x==m0 y && m1 x==m1 y && m2 x==m2 y
 
 instance (NFData prob) => NFData (Moments3 prob) where

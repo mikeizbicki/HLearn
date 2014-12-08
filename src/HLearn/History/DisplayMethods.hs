@@ -338,13 +338,13 @@ mkOptimizationPlot :: forall opt v v'.
     , Random (Scalar v)
     , Show (Scalar v)
     , Show v
+    , Eq (opt (v' (Scalar v)))
     , Typeable (opt v)
     , v ~ v' (Scalar v)
     , VG.Vector v' (Scalar v)
     , Ord (Scalar v)
     , InnerProductSpace v
-    , MinBound (Scalar v)
-    , MaxBound (Scalar v)
+    , Bounded (Scalar v)
     ) => opt v -> FilePath -> DisplayMethod' [opt v]
 mkOptimizationPlot opt path rep = do
     xs <- get
@@ -393,12 +393,12 @@ mkOptimizationPlot' :: forall opt v v'.
     , Random (Scalar v)
     , Show (Scalar v)
     , Show v
+    , Eq (opt (v' (Scalar v)))
     , Typeable (opt v)
     , v ~ v' (Scalar v)
     , VG.Vector v' (Scalar v)
     , Ord (Scalar v)
-    , MinBound (Scalar v)
-    , MaxBound (Scalar v)
+    , Bounded (Scalar v)
     , InnerProductSpace v
     ) => V.Vector v -> (v -> Scalar v) -> opt v -> FilePath -> DisplayMethod' [opt v]
 mkOptimizationPlot' basis f opt path rep = do
@@ -431,7 +431,8 @@ mkOptimizationPlot' basis f opt path rep = do
         forM_ [0..length xs-1] $ \itr -> do
             forM_ [0..VG.length basis-1] $ \i -> do
                 let basisvec = basis VG.! i
-                    itrx = reverse xs ! itr
+--                     itrx = reverse xs ! itr
+                    itrx = elemAt itr $ reverse xs
                     filename = tmpdir++"/crosssection1d-itr"++padInt itr++"-basis"++padInt i++".dat"
                 hfunc <- openFile filename WriteMode
                 let col = map (\x -> (x^.x1) <> basisvec) xs
@@ -495,6 +496,11 @@ mkOptimizationPlot' basis f opt path rep = do
             ExitSuccess -> putStrLn "done."
             ExitFailure i -> putStrLn $ "ExitFailure"++show i
 
+elemAt :: Int -> [a] -> a
+elemAt 0 (x:xs) = x
+elemAt i (x:xs) = elemAt (i-1) xs
+elemAt _ []     = error "elemAt: empty list"
+
 mkOptimization2d' :: forall opt v v'.
     ( Has_fx1 opt v
     , Has_x1 opt v
@@ -502,12 +508,12 @@ mkOptimization2d' :: forall opt v v'.
     , Random (Scalar v)
     , Show (Scalar v)
     , Show v
+    , Eq (opt (v' (Scalar v)))
     , Typeable (opt v)
     , v ~ v' (Scalar v)
     , VG.Vector v' (Scalar v)
     , Ord (Scalar v)
-    , MinBound (Scalar v)
-    , MaxBound (Scalar v)
+    , Bounded (Scalar v)
     , InnerProductSpace v
     ) => V.Vector v -> (v -> Scalar v) -> opt v -> FilePath -> DisplayMethod' [opt v]
 mkOptimization2d' basis f opt path rep = do
@@ -540,7 +546,7 @@ mkOptimization2d' basis f opt path rep = do
         forM_ [0..length xs-1] $ \itr -> do
             forM_ [0..VG.length basis-1] $ \i -> do
                 let basisvec = basis VG.! i
-                    itrx = reverse xs ! itr
+                    itrx = elemAt itr $ reverse xs
                     filename = tmpdir++"/crosssection1d-itr"++padInt itr++"-basis"++padInt i++".dat"
                 hfunc <- openFile filename WriteMode
                 let col = map (\x -> (x^.x1) <> basisvec) xs
@@ -562,7 +568,7 @@ mkOptimization2d' basis f opt path rep = do
 
         -- output 2d cross-sections
         forM_ [0..length xs-1] $ \itr -> do
-            let itrx = reverse xs ! itr
+            let itrx = elemAt itr $ reverse xs
             forM_ [0..VG.length basis-1] $ \b1 -> do
                 forM_ [b1+1..VG.length basis-1] $ \b2 -> do
                     let filename = tmpdir++"/crosssection2d-itr"++padInt itr++"-basis"

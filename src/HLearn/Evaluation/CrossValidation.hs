@@ -29,7 +29,7 @@ import HLearn.Models.Classifiers.Common
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
-type SamplingMethod = forall dp r. MonadRandom r => [dp] -> r [([dp],[dp])]
+type SamplingMethod = forall dp r. (Eq dp, MonadRandom r) => [dp] -> r [([dp],[dp])]
 
 repeatExperiment :: Int -> SamplingMethod -> SamplingMethod
 repeatExperiment n f xs =
@@ -84,7 +84,7 @@ kfold k xs = do
 -- numSamples n f dps = f $ take n dps
 
 -- | randomly shuffles a list in time O(n log n); see http://www.haskell.org/haskellwiki/Random_shuffle
-shuffle :: MonadRandom m => [a] -> m [a]
+shuffle :: (Eq a, MonadRandom m) => [a] -> m [a]
 shuffle xs = do
     let l = length xs
     rands <- take l `liftM` getRandomRs (0, l-1)
@@ -106,6 +106,7 @@ type LossFunction = forall model.
 --     , HomTrainer model
     , Labeled (Datapoint model)
     , Eq (Label (Datapoint model))
+    , Eq (Datapoint model)
     ) => model -> [Datapoint model] -> Double
 
 accuracy :: LossFunction
@@ -129,6 +130,7 @@ validateM :: forall model g container m.
     , Eq (Label (Datapoint model))
     , F.Foldable container
     , Foldable (container (Datapoint model))
+    , Unfoldable (container (Datapoint model))
     , Elem (container (Datapoint model)) ~ Datapoint model
     , HistoryMonad m
     ) => SamplingMethod

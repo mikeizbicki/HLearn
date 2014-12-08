@@ -30,6 +30,7 @@ import SubHask
 -- import Data.SIMD.SIMD4
 -- import HLearn.Algebra
 import HLearn.Metrics.Lebesgue
+import SubHask.Algebra.Trans.MiscMetrics
 
 -------------------
 
@@ -69,7 +70,121 @@ setptsize len = do
 -- v = VU.fromList $ replicate 10 x
 
 -------------------------------------------------------------------------------
--- vector opts
+-- l2 vector ops
+
+instance VUM.Unbox elem => VUM.Unbox (JensenShannonDivergence VU.Vector elem)
+
+data instance VUM.MVector s (JensenShannonDivergence VU.Vector elem) = JS_UnsafeMVector
+    { js_elemsizeM :: !Int
+    , js_elemsizerealM :: !Int
+    , js_lenM :: !Int
+    , js_vecM :: !(VUM.MVector s elem)
+    }
+
+instance
+    ( VG.Vector VU.Vector elem
+    , VGM.MVector VUM.MVector elem
+    ) => VGM.MVector VUM.MVector (JensenShannonDivergence VU.Vector elem)
+        where
+    {-# INLINE basicLength #-}
+    basicLength uv = js_lenM uv
+
+    {-# INLINE basicUnsafeSlice #-}
+    basicUnsafeSlice i js_lenM' uv = JS_UnsafeMVector
+        { js_elemsizeM = js_elemsizeM uv
+        , js_elemsizerealM = js_elemsizerealM uv
+        , js_lenM = js_lenM'
+        , js_vecM = VGM.basicUnsafeSlice (i*js_elemsizerealM uv) (js_lenM'*js_elemsizerealM uv) $ js_vecM uv
+        }
+
+    {-# INLINE basicOverlaps #-}
+    basicOverlaps uv1 uv2 = VGM.basicOverlaps (js_vecM uv1) (js_vecM uv2)
+
+    {-# INLINE basicUnsafeNew #-}
+    basicUnsafeNew js_lenM' = do
+        let js_elemsizeM'=ptsize
+        let js_elemsizerealM'=ptalign*(ptsize `mod` ptalign)+ptalign
+        js_vecM' <- VGM.basicUnsafeNew (js_lenM'*js_elemsizerealM')
+        return $ JS_UnsafeMVector
+            { js_elemsizeM=js_elemsizeM'
+            , js_elemsizerealM=js_elemsizerealM'
+            , js_lenM=js_lenM'
+            , js_vecM=js_vecM'
+            }
+
+    {-# INLINE basicUnsafeRead #-}
+    basicUnsafeRead uv i =
+        liftM JensenShannonDivergence $ VG.freeze $ VGM.unsafeSlice (i*js_elemsizerealM uv) (js_elemsizeM uv) (js_vecM uv)
+
+    {-# INLINE basicUnsafeWrite #-}
+    basicUnsafeWrite uv loc v =
+        forM_ [0..js_elemsizeM uv-1] $ \i -> do
+            let x = v `VG.unsafeIndex` i
+            VGM.unsafeWrite (js_vecM uv) (start+i) x
+        where
+            start = loc*js_elemsizerealM uv
+
+--     {-# INLINE basicUnsafeCopy #-}
+--     basicUnsafeCopy v1 v2 = VGM.basicUnsafeCopy (js_vecM v1) (js_vecM v2)
+--
+--     {-# INLINE basicUnsafeMove #-}
+--     basicUnsafeMove v1 v2 = VGM.basicUnsafeMove (js_vecM v1) (js_vecM v2)
+
+--     {-# INLINE basicSet #-}
+--     basicSet v x = VGM.basicSet (js_vecM v) x
+
+-------------------------------------------------------------------------------
+-- immutable vector
+
+data instance VU.Vector (JensenShannonDivergence VU.Vector elem) = JS_UnsafeVector
+    { js_elemsize :: !Int
+    , js_elemsizereal :: !Int
+    , js_len :: !Int
+    , js_vec :: !(JensenShannonDivergence VU.Vector elem)
+    }
+
+instance
+    ( VG.Vector VU.Vector elem
+    , VGM.MVector VUM.MVector elem
+    ) => VG.Vector VU.Vector (JensenShannonDivergence VU.Vector elem)
+        where
+
+    {-# INLINE basicUnsafeFreeze #-}
+    basicUnsafeFreeze uv = do
+        js_vec' <- VG.basicUnsafeFreeze (js_vecM uv)
+        return $ JS_UnsafeVector
+            { js_elemsize = js_elemsizeM uv
+            , js_elemsizereal = js_elemsizerealM uv
+            , js_len = js_lenM uv
+            , js_vec = JensenShannonDivergence js_vec'
+            }
+
+    {-# INLINE basicUnsafeThaw #-}
+    basicUnsafeThaw uv = do
+        js_vecM' <- VG.basicUnsafeThaw (unJensenShannonDivergence $ js_vec uv)
+        return $ JS_UnsafeMVector
+            { js_elemsizeM = js_elemsize uv
+            , js_elemsizerealM = js_elemsizereal uv
+            , js_lenM = js_len uv
+            , js_vecM = js_vecM'
+            }
+
+    {-# INLINE basicLength #-}
+    basicLength uv = js_len uv
+
+    {-# INLINE basicUnsafeSlice #-}
+    basicUnsafeSlice i js_len' uv = uv
+        { js_len = js_len'
+        , js_vec = VG.basicUnsafeSlice (i*js_elemsizereal uv) (js_len'*js_elemsizereal uv) (js_vec uv)
+        }
+
+    {-# INLINE basicUnsafeIndexM #-}
+    basicUnsafeIndexM uv i = return $ VG.basicUnsafeSlice (i*js_elemsizereal uv) (js_elemsize uv) (js_vec uv)
+
+--     {-# INLINE basicUnsafeCopy #-}
+--     basicUnsafeCopy mv v = VG.basicUnsafeCopy (js_vecM mv) (js_vec v)
+-------------------------------------------------------------------------------
+-- l2 vector ops
 
 instance VUM.Unbox elem => VUM.Unbox (L2 VU.Vector elem)
 

@@ -9,6 +9,7 @@ module HLearn.DataStructures.SpaceTree
     , DualTree (..)
 
     -- * Generic algorithms
+    , stMaxDescendentDistance
     , stToList
 --     , stToListW
     , stDescendents
@@ -81,9 +82,16 @@ type Weighted# dp = (# Scalar dp, dp #)
 
 class
     ( MetricSpace dp
+    , Logic (t dp) ~ Bool
+    , Logic dp ~ Bool
+    , Eq_ (t dp)
     , Scalar dp ~ Scalar (t dp)
     , Elem (ChildContainer t (t dp)) ~ t dp
     , Elem (LeafContainer t dp) ~ dp
+    , Unfoldable (LeafContainer t dp)
+    , Unfoldable  (ChildContainer t (t dp))
+    , Normed (LeafContainer t dp)
+    , Normed (ChildContainer t (t dp))
     , Foldable (LeafContainer t dp)
     , Foldable (ChildContainer t (t dp))
     ) => SpaceTree t dp
@@ -112,8 +120,8 @@ class
     stMaxDistanceDp :: t dp -> dp -> Scalar dp
     stMaxDistanceDp t dp = fst# (stMaxDistanceDpWithDistance t dp)
 
-    stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Maybe' (Scalar dp)
-    stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Maybe' (Scalar dp)
+--     stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Maybe' (Scalar dp)
+--     stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Maybe' (Scalar dp)
 
     stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
     stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
@@ -151,6 +159,10 @@ class
 -------------------------------------------------------------------------------
 -- generic algorithms
 
+{-# INLINABLE stMaxDescendentDistance #-}
+stMaxDescendentDistance :: (Eq dp, SpaceTree t dp) => t dp -> Scalar dp
+stMaxDescendentDistance t = maximum_ 0 $ map (distance (stNode t)) $ stDescendents t
+
 {-# INLINABLE stToList #-}
 stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
 stToList t = if stHasNoChildren t && stWeight t > 0
@@ -183,9 +195,14 @@ stToList t = if stHasNoChildren t && stWeight t > 0
 
 {-# INLINABLE stDescendents #-}
 stDescendents :: SpaceTree t dp => t dp -> [dp]
-stDescendents t = if stHasNoChildren t
-    then [stNode t]
-    else L.concatMap stDescendents (stChildrenList t) ++ toList (stLeaves t)
+stDescendents t = case tailMaybe $ go t of
+    Just xs -> xs
+    where
+        go t = stNode t : L.concatMap go (stChildrenList t) ++ toList (stLeaves t)
+
+-- stDescendents t = if stHasNoChildren t
+--     then [stNode t]
+--     else L.concatMap stDescendents (stChildrenList t) ++ toList (stLeaves t)
 
 {-# INLINABLE stNumDp #-}
 stNumDp :: SpaceTree t dp => t dp -> Scalar dp
