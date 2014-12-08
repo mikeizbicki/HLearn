@@ -7,9 +7,8 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.ST
 import Data.Csv
-import Data.List
+import Data.List hiding (insert)
 import Data.Maybe
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -30,7 +29,9 @@ import qualified Numeric.LinearAlgebra as LA
 -- import Control.Parallel.Strategies
 
 import SubHask
+import SubHask.Algebra.Container
 import SubHask.Algebra.Vector
+import SubHask.Compatibility.Containers
 -- import HLearn.Algebra
 import HLearn.Models.Classifiers.Common
 -- import HLearn.DataStructures.StrictVector
@@ -56,7 +57,7 @@ import Prelude (asTypeOf)
 
 -- | This loads files in the format used by the BagOfWords UCI dataset.
 -- See: https://archive.ics.uci.edu/ml/machine-learning-databases/bag-of-words/readme.txt
-loadBagOfWords :: FilePath -> IO (Array (IndexedVector Int Float))
+loadBagOfWords :: FilePath -> IO (Array (Map' Int Float))
 loadBagOfWords filepath = do
     hin <- openFile filepath ReadMode
     numdp :: Int <- liftM read $ hGetLine hin
@@ -68,7 +69,7 @@ loadBagOfWords filepath = do
         line <- hGetLine hin
         let [dp,dim,val] :: [Int] = map read $ words line
         curdp <- VGM.read ret (dp-1)
-        VGM.write ret (dp-1) $ insertAt dim (fromIntegral val) curdp
+        VGM.write ret (dp-1) $ insert (dim,fromIntegral val) curdp
 
     hClose hin
     VG.unsafeFreeze ret
@@ -76,7 +77,7 @@ loadBagOfWords filepath = do
 -- | Loads a dataset of strings in the unix words file format (i.e. one word per line).
 -- This format is also used by the UCI Bag Of Words dataset.
 -- See: https://archive.ics.uci.edu/ml/machine-learning-databases/bag-of-words/readme.txt
-loadWords :: (Elem dp~Char, Unfoldable dp) => FilePath -> IO (Array dp)
+loadWords :: (Elem dp~Char, Eq dp, Unfoldable dp) => FilePath -> IO (Array dp)
 loadWords filepath = do
     hin <- openFile filepath ReadMode
     contents <- hGetContents hin

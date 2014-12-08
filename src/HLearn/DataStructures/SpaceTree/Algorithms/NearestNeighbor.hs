@@ -35,6 +35,9 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 
 import SubHask
+import SubHask.Algebra.Container
+import SubHask.Compatibility.Containers
+import SubHask.TemplateHaskell.Deriving
 import HLearn.DataStructures.SpaceTree
 import HLearn.Metrics.Lebesgue
 import HLearn.UnsafeVector
@@ -50,6 +53,8 @@ data Neighbor dp = Neighbor
 --     , neighborDistance :: {-#UNPACK#-}!Float
     }
 
+type instance Logic (Neighbor dp) = Bool
+
 -- class
 --     ( dp ~ L2 VU.Vector Float
 --     ) => ValidNeighbor dp
@@ -61,14 +66,15 @@ type ValidNeighbor dp =
     , Field (Scalar dp)
     , Floating (Scalar dp)
     , -}MetricSpace dp
-    , MaxBound (Scalar dp)
+    , Bounded (Scalar dp)
     , CanError (Scalar dp)
+    , Logic dp~Bool
     )
 
 deriving instance (Read dp, Read (Scalar dp)) => Read (Neighbor dp)
 deriving instance (Show dp, Show (Scalar dp)) => Show (Neighbor dp)
 
-instance Eq (Scalar dp) => Eq (Neighbor dp) where
+instance Eq (Scalar dp) => Eq_ (Neighbor dp) where
     {-# INLINE (==) #-}
     a == b = neighborDistance a == neighborDistance b
 
@@ -86,6 +92,8 @@ data NeighborList (k :: Config Nat) dp
 
 mkParams ''NeighborList
 
+type instance Logic (NeighborList k dp) = Bool
+
 deriving instance (Read dp, Read (Scalar dp)) => Read (NeighborList k dp)
 deriving instance (Show dp, Show (Scalar dp)) => Show (NeighborList k dp)
 
@@ -93,7 +101,12 @@ instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborList k dp) where
     rnf NL_Nil = ()
     rnf (NL_Cons n ns) = deepseq n $ rnf ns
 
-property_orderedNeighborList :: (MetricSpace dp) => NeighborList k dp -> Bool
+instance (ValidNeighbor dp, Eq_ dp) => Eq_ (NeighborList k dp) where
+    (NL_Cons x xs) ==(NL_Cons y ys) = x==y && xs==ys
+    NL_Nil == NL_Nil = True
+    _ == _ = False
+
+property_orderedNeighborList :: (Logic dp~Bool, MetricSpace dp) => NeighborList k dp -> Bool
 property_orderedNeighborList NL_Nil = True
 property_orderedNeighborList (NL_Cons n NL_Nil) = True
 property_orderedNeighborList (NL_Cons n (NL_Cons n2 ns)) = if neighborDistance n < neighborDistance n2
@@ -205,10 +218,14 @@ instance
 -------------------------------------------------------------------------------
 
 newtype NeighborMap (k :: Config Nat) dp = NeighborMap
-    { nm2map :: IndexedVector dp (NeighborList k dp)
+    { nm2map :: Map' dp (NeighborList k dp)
     }
 mkParams ''NeighborMap
+-- deriveHierarchy ''NeighborMap []
 
+type instance Logic (NeighborMap k dp) = Bool
+
+deriving instance (Eq_ (Map' dp (NeighborList k dp))) => Eq_ (NeighborMap k dp)
 deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
 deriving instance (Show dp, Show (Scalar dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
 deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborMap k dp)
@@ -220,7 +237,7 @@ nm2list ::
     , Lattice dp
     , Ord dp
     ) => NeighborMap k dp -> [(dp,NeighborList k dp)]
-nm2list (NeighborMap nm) = toIndexedList nm
+nm2list (NeighborMap nm) = toList nm
 
 instance
     ( ViewParam Param_k (NeighborList k dp)
@@ -394,6 +411,8 @@ findNeighborVec' dual = V.generate (VG.length qvec) go
 
 ---------------------------------------
 
+singletonAt k v = singleton (k,v)
+
 {-# INLINABLE findNeighborMap #-}
 findNeighborMap ::
 --     ( KnownNat k
@@ -434,7 +453,7 @@ parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} ({-parallel-} reduce)
 --     ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
 -- parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
 --     map
---         (\dp -> NeighborMap $ singletonAt dp $ findNeighborListWith (Map.findWithDefault zero dp nm) (reference dual) dp)
+--         (\dp -> NeighborMap $ singletonAt dp $ findNeighborListWith (Map'.findWithDefault zero dp nm) (reference dual) dp)
 --         (stToList $ query dual)
 
 {-# INLINABLE parFindEpsilonNeighborMap #-}

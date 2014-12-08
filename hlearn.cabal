@@ -47,7 +47,8 @@ Library
         erf                 >= 2.0,
         gamma               >= 0.9,
         logfloat            >= 0.12,
-        hmatrix             >= 0.15.2.2,
+--         hmatrix             == 0.15.2.2,
+        hmatrix             >= 0.16.0.5,
         MonadRandom         >= 0.1,
 
         -- are these needed?
@@ -70,8 +71,8 @@ Library
 
         -- visualization
 
-        --diagrams-svg        >= 0.6,
-        --diagrams-lib        >= 0.6,
+        diagrams-svg        >= 0.6,
+        diagrams-lib        >= 0.6,
         process             >= 1.1,
         graphviz            >= 2999.16
 
@@ -79,23 +80,24 @@ Library
         src
 
     ghc-options:
-        -fllvm
-        -O2
-        -funbox-strict-fields
+        -O
+--         -fllvm
+--         -O2
+--         -funbox-strict-fields
 
 
-        -ddump-to-file
+--         -ddump-to-file
 --         -ddump-cmm
-        -ddump-simpl
+--         -ddump-simpl
 --         -ddump-simpl-stats
-        -dsuppress-module-prefixes
-        -dsuppress-uniques
-        -dsuppress-idinfo
-        -dsuppress-coercions
-        -dsuppress-type-applications
-        -ddump-rule-firings
-        -ddump-rule-rewrites
-        -ddump-rules
+--         -dsuppress-module-prefixes
+--         -dsuppress-uniques
+--         -dsuppress-idinfo
+--         -dsuppress-coercions
+--         -dsuppress-type-applications
+--         -ddump-rule-firings
+--         -ddump-rule-rewrites
+--         -ddump-rules
 --         -dppr-debug
 
     Exposed-modules:
@@ -120,11 +122,12 @@ Library
         HLearn.History
         HLearn.History.DisplayMethods
 
+        HLearn.DataStructures.Graph
 --         HLearn.DataStructures.SortedVector
         HLearn.DataStructures.SpaceTree
         HLearn.DataStructures.SpaceTree.CoverTree
         HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
---         HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
+        HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 --         HLearn.DataStructures.SpaceTree.DualTreeMonoids
 --         HLearn.DataStructures.SpaceTree.Simple
 --         HLearn.DataStructures.StrictList
@@ -143,7 +146,7 @@ Library
 
 --         HLearn.Metrics.Generic
         HLearn.Metrics.Lebesgue
-        HLearn.Metrics.String
+--         HLearn.Metrics.String
 --         HLearn.Metrics.Jaccard
 --         HLearn.Metrics.Mahalanobis
 --         HLearn.Metrics.Mahalanobis.ITML
@@ -209,47 +212,50 @@ Library
         RankNTypes
         ImpredicativeTypes
 
-        --DataKinds
+        DataKinds
         PolyKinds
         AutoDeriveTypeable
         TemplateHaskell
+        QuasiQuotes
         RebindableSyntax
         NoImplicitPrelude
         UnboxedTuples
         MagicHash
+        PolymorphicComponents
+        ExplicitNamespaces
 
-executable hlearn-linear
-    main-is:
-        hlearn-linear.hs
-
-    hs-source-dirs:
-        src/exec
-
-    ghc-options:
-        -O
-        -funbox-strict-fields
-
-    build-depends:
-
-        base                >= 4.7,
-        HLearn              >= 2.0,
-        subhask             >= 0.1,
-
-        vector              >= 0.10.11,
-        hmatrix             == 0.15.2.2,
-        containers          >= 0.5.5.1,
-
-        cmdargs             >= 0.10.7,
-        cassava             >= 0.4.1,
-        bytestring          >= 0.10.4,
-        deepseq             >= 1.3.0.2,
-        QuickCheck          >= 2.7.5,
-        parallel            >= 3.2.0.4,
-        time                >= 1.4.2,
-
-        vector-algorithms   >= 0.6.0.1,
-        MonadRandom         >= 0.1.13,
-        list-extras         >= 0.4.1.3
+-- executable hlearn-linear
+--     main-is:
+--         hlearn-linear.hs
+--
+--     hs-source-dirs:
+--         src/exec
+--
+--     ghc-options:
+--         -O
+--         -funbox-strict-fields
+--
+--     build-depends:
+--
+--         base                >= 4.7,
+--         HLearn              >= 2.0,
+--         subhask             >= 0.1,
+--
+--         vector              >= 0.10.11,
+--         hmatrix             == 0.15.2.2,
+--         containers          >= 0.5.5.1,
+--
+--         cmdargs             >= 0.10.7,
+--         cassava             >= 0.4.1,
+--         bytestring          >= 0.10.4,
+--         deepseq             >= 1.3.0.2,
+--         QuickCheck          >= 2.7.5,
+--         parallel            >= 3.2.0.4,
+--         time                >= 1.4.2,
+--
+--         vector-algorithms   >= 0.6.0.1,
+--         MonadRandom         >= 0.1.13,
+--         list-extras         >= 0.4.1.3
 
 executable hlearn-allknn
     main-is:
@@ -261,8 +267,8 @@ executable hlearn-allknn
     ghc-options:
         -rtsopts
         -threaded
---         -O
-        -O2
+        -O
+--         -O2
         -funbox-strict-fields
 --         -fexcess-precision
 --         -Odph
@@ -275,26 +281,26 @@ executable hlearn-allknn
 --         -fno-cse
 --         -fno-full-laziness
 
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
+--         -fllvm
+--         -optlo-O3
+--         -optlo-enable-fp-mad
+--         -optlo-enable-no-infs-fp-math
+--         -optlo-enable-no-nans-fp-math
+--         -optlo-enable-unsafe-fp-math
 
-        -ddump-rule-firings
-        -ddump-rule-rewrites
-        -ddump-rules
-        -ddump-to-file
+--         -ddump-rule-firings
+--         -ddump-rule-rewrites
+--         -ddump-rules
+--         -ddump-to-file
 --         -ddump-cmm
-        -ddump-simpl
+--         -ddump-simpl
 --         -ddump-simpl-stats
 --         -dppr-debug
-        -dsuppress-module-prefixes
-        -dsuppress-uniques
-        -dsuppress-idinfo
-        -dsuppress-coercions
-        -dsuppress-type-applications
+--         -dsuppress-module-prefixes
+--         -dsuppress-uniques
+--         -dsuppress-idinfo
+--         -dsuppress-coercions
+--         -dsuppress-type-applications
 
     build-depends:
 
@@ -323,7 +329,8 @@ executable hlearn-allknn
         vector-th-unbox >= 0.2,
         primitive >= 0.5,
         deepseq >= 1.3,
-        hmatrix             == 0.15.2.2
+--         hmatrix             == 0.15.2.2
+        hmatrix             >= 0.16.0.5
 
 -- test-suite tests
 --   type:

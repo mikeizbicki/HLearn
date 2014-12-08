@@ -15,6 +15,8 @@ import Math.Gamma
 import Data.Number.Erf
 
 import SubHask
+import SubHask.TemplateHaskell.Deriving
+
 -- import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Internal.Moments
@@ -24,10 +26,12 @@ import HLearn.Models.Distributions.Univariate.Internal.Moments
 -- data types
 
 newtype Normal r = Normal (Moments3 r)
-    deriving (Read,Show,Eq,{-POrd,Lattice,Ord,-}Semigroup,Cancellative,Monoid,Group,Abelian,NFData)
+--     deriving (Read,Show,Eq_,Semigroup,Cancellative,Monoid,Group,Abelian,NFData)
+
+deriveHierarchy ''Normal [ ''Eq_, ''Group, ''Abelian]
 
 type instance Datapoint (Normal r) = r
-type instance Scalar (Normal r) = r
+-- type instance Scalar (Normal r) = r
 
 mkNormal :: Ring r => r -> r -> Normal r
 mkNormal mu sigma = Normal $ Moments3

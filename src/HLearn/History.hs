@@ -108,27 +108,42 @@ idDisplayMethod _ = return ()
 newtype SimpleHistory a = SimpleHistory (State [Int] a)
     deriving (Functor,Applicative,Monad)
 
+type instance Logic (SimpleHistory a) = SimpleHistory (Logic a)
+
 runSimpleHistory :: SimpleHistory a -> a
 runSimpleHistory (SimpleHistory m) = (fst.runState m) [0]
 
-instance Lattice a => Lattice (SimpleHistory a) where
-    {-# INLINABLE sup #-}
-    sup a b = do
+instance Eq_ a => Eq_ (SimpleHistory a) where
+    a==b = do
         a' <- a
         b' <- b
-        return $ sup a' b'
+        return $ a'==b'
 
+instance POrd_ a => POrd_ (SimpleHistory a) where
     {-# INLINABLE inf #-}
     inf a b = do
         a' <- a
         b' <- b
         return $ inf a' b'
 
-instance MaxBound a => MaxBound (SimpleHistory a) where
+instance Lattice_ a => Lattice_ (SimpleHistory a) where
+    {-# INLINABLE sup #-}
+    sup a b = do
+        a' <- a
+        b' <- b
+        return $ sup a' b'
+
+instance MinBound_ a => MinBound_ (SimpleHistory a) where
+    minBound = return $ minBound
+
+instance Bounded a => Bounded (SimpleHistory a) where
     maxBound = return $ maxBound
 
-instance MinBound a => MinBound (SimpleHistory a) where
-    minBound = return $ minBound
+instance Heyting a => Heyting (SimpleHistory a) where
+    (==>) a b = do
+        a' <- a
+        b' <- b
+        return $ a' ==> b'
 
 instance Boolean a => Boolean (SimpleHistory a) where
     not a = do
@@ -179,6 +194,14 @@ instance HistoryMonad SimpleHistory where
 newtype DynamicHistory a = DynamicHistory (Producer (Report DynamicHistory) (StateT [Report DynamicHistory] IO) a)
     deriving (Functor,Applicative,Monad)
 
+type instance Logic (DynamicHistory a) = DynamicHistory (Logic a)
+
+instance Eq_ a => Eq_ (DynamicHistory a) where
+    a==b = do
+        a' <- a
+        b' <- b
+        return $ a'==b'
+
 runDynamicHistory :: Monoid s => DisplayMethod' s -> DynamicHistory a -> IO a
 runDynamicHistory = runDynamicHistoryWithState zero
 
@@ -206,24 +229,31 @@ runDynamicHistoryWithState s f hist = do
             ((),s') <- liftIO $ runStateT (f next) s
             go s'
 
-instance Lattice a => Lattice (DynamicHistory a) where
-    {-# INLINABLE sup #-}
-    sup a b = do
-        a' <- a
-        b' <- b
-        return $ sup a' b'
-
+instance POrd_ a => POrd_ (DynamicHistory a) where
     {-# INLINABLE inf #-}
     inf a b = do
         a' <- a
         b' <- b
         return $ inf a' b'
 
-instance MaxBound a => MaxBound (DynamicHistory a) where
+instance Lattice_ a => Lattice_ (DynamicHistory a) where
+    {-# INLINABLE sup #-}
+    sup a b = do
+        a' <- a
+        b' <- b
+        return $ sup a' b'
+
+instance MinBound_ a => MinBound_ (DynamicHistory a) where
+    minBound = return $ minBound
+
+instance Bounded a => Bounded (DynamicHistory a) where
     maxBound = return $ maxBound
 
-instance MinBound a => MinBound (DynamicHistory a) where
-    minBound = return $ minBound
+instance Heyting a => Heyting (DynamicHistory a) where
+    (==>) a b = do
+        a' <- a
+        b' <- b
+        return $ a' ==> b'
 
 instance Boolean a => Boolean (DynamicHistory a) where
     not a = do

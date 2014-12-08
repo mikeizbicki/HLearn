@@ -27,7 +27,7 @@ import Debug.Trace
 
 import qualified Prelude as P
 import Prelude (take,drop,map,filter,zip,head)
-import SubHask
+import SubHask hiding (argmax)
 import SubHask.Algebra.HMatrix
 
 -- import HLearn.Algebra
@@ -216,6 +216,7 @@ trainLinearClassifier :: forall dp vec r container m.
     , F.Foldable container
     , VG.Vector vec r
     , P.Ord (Label dp)
+    , Eq dp
 
     , HistoryMonad m
     , Reportable m (LinearClassifier dp)
@@ -261,6 +262,7 @@ warmStartLinearClassifier :: forall dp vec r container m.
     , F.Foldable container
     , VG.Vector vec r
     , P.Ord (Label dp)
+    , Eq dp
 
     , HistoryMonad m
     , Reportable m (LinearClassifier dp)
