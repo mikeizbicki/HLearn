@@ -1,12 +1,22 @@
+#!/usr/bin/env Rscript
 library(FNN)
 
 args <- commandArgs(trailingOnly=TRUE)
 file <- args[1]
-#tree <- "cover_tree"
-tree <- "kd_tree"
-#tree <- "brute"
 
 k <- 1
+if (length(args)>=3) {
+    k <- as.numeric(args[2]);
+}
+
+tree <- "cover_tree"
+#tree <- "kd_tree"
+#tree <- "brute"
+if (length(args)>=4) {
+    tree <- args[3]
+}
+
+
 file_neighbors <- "neighbors_R.csv"
 file_distances <- "distances_R.csv"
 
@@ -22,7 +32,7 @@ t1 <- Sys.time()
 cat("done. ",difftime(t1,t0,units="secs"), " sec\n")
 
 #######################################
-## do allknn search 
+## do allknn search
 
 t0 <- Sys.time()
 cat("finding neighbors.................")
@@ -37,7 +47,7 @@ cat("done. ",difftime(t1,t0,units="secs"), " sec\n")
 
 t0 <- Sys.time()
 cat("outputing neighbors...............")
-neighbors <- res[1] 
+neighbors <- res[1]
 write.table(neighbors, file=file_neighbors,row.names=FALSE,col.names=FALSE,sep=",")
 t1 <- Sys.time()
 cat("done. ",difftime(t1,t0,units="secs"), " sec\n")

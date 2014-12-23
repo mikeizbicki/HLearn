@@ -1,3 +1,5 @@
+#!/usr/bin/env runghc
+
 import Data.List.Split
 import System.Environment
 

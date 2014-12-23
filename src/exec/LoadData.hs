@@ -320,14 +320,14 @@ rotatePCADouble ::
     , VG.Vector container [Double]
     , VG.Vector v Double
     ) => container (v Double) -> container (v Double)
-rotatePCADouble dps' = {-# SCC rotatePCA #-} VG.map rotate dps
+rotatePCADouble dps' =  VG.map rotate dps
     where
         rotate dp = VG.convert $ (LA.trans eigm) LA.<> (VG.convert dp :: VS.Vector Double)
         dps = meanCenter dps'
 
-        (eigv,eigm) = {-# SCC eigSH #-} LA.eigSH gramMatrix
+        (eigv,eigm) =  LA.eigSH gramMatrix
 
-        gramMatrix = {-# SCC gramMatrix #-} LA.trans tmpm LA.<> tmpm
+        gramMatrix =  LA.trans tmpm LA.<> tmpm
             where
                 tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
 

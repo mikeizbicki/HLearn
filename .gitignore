@@ -1,11 +1,5 @@
-#*
-#!*.sh
-#!*.py
-#!*.hs
-#!*.lhs
-#!*.md
-#!*.cabal
-#!*/
+*.Rout
+*.csv
 
 hlearn-allknn
 hlearn-linear

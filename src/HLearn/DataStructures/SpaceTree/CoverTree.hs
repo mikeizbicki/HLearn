@@ -548,27 +548,49 @@ packCT ct = {-# SCC packCT #-} snd $ go 0 ct
                     (toList $ children t)
 
 -------------------------------------------------------------------------------
+
+-- FIXME: add proper container hierarchy
+type instance Elem (CoverTree_ exprat childC leafC dp) = dp
+
+-- instance
+--     ( ValidCT exprat childC leafC dp
+--     ) => Container (CoverTree_ exprat childC leafC dp)
+--         where
+--
+--     -- FIXME: use the covertree's structure!
+--     elem e ct = elem e $ stToList ct
+--     notElem = not elem
+
+-- instance
+--     ( ValidCT exprat childC leafC dp
+--     ) => Unfoldable (CoverTree_ exprat childC leafC dp)
+--         where
+--
+--     fromList =
+
+-------------------------------------------------------------------------------
 -- construction
 
 {-# INLINABLE trainInsert #-}
 trainInsert ::
     ( ValidCT exprat childC leafC (Elem xs)
     , Foldable xs
-    ) => xs
+    ) => AddChildMethod (Elem xs)
+      -> xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsert xs = case unCons xs of
+trainInsert addChild xs = {-# SCC trainInsert #-} case unCons xs of
     Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' insertCT (train1dp dp) $ toList dps
+    Just (dp,dps) -> Just' $ foldr' (insertCT addChild) (singletonCT dp) $ toList dps
 
-{-# INLINABLE trainInsertOrig #-}
-trainInsertOrig ::
+{-# INLINABLE trainInsertNoSort #-}
+trainInsertNoSort ::
     ( ValidCT exprat childC leafC (Elem xs)
     , Foldable xs
     ) => xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsertOrig xs = case unCons xs of
+trainInsertNoSort xs = {-# SCC trainInsertNoSort #-}case unCons xs of
     Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' insertCTOrig (train1dp dp) dps
+    Just (dp,dps) -> Just' $ foldr' insertCTNoSort (singletonCT dp) dps
 
 {-# INLINABLE trainMonoid #-}
 trainMonoid ::
@@ -576,21 +598,7 @@ trainMonoid ::
     , Foldable xs
     ) => xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainMonoid xs = trace "trainMonoid" $ foldMap (Just' . train1dp) xs
-
-{-# INLINABLE train1dp #-}
-train1dp ::
-    ( ValidCT exprat childC leafC dp
-    ) => dp -> CoverTree_ exprat childC leafC dp
-train1dp dp = Node
-    { nodedp                = dp
-    , nodeWeight            = 1
-    , level                 = minBound
-    , numdp                 = 1
-    , children              = empty
-    , leaves                = empty
-    , maxDescendentDistance = 0
-    }
+trainMonoid xs = {-# SCC trainMonoid #-}foldMap (Just' . singletonCT) xs
 
 {-# INLINABLE singletonCT #-}
 singletonCT :: ValidCT exprat childC leafC dp => dp -> CoverTree_  exprat childC leafC dp
@@ -604,13 +612,57 @@ singletonCT dp = Node
     , maxDescendentDistance = 0
     }
 
-{-# INLINABLE insertCT #-}
-insertCT :: forall exprat childC leafC dp.
+{-# INLINABLE insertCTNoSort #-}
+insertCTNoSort :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     ) => dp
       -> CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
-insertCT dp ct = {-# SCC insertCT #-} if dist > coverdist ct
+insertCTNoSort dp ct = {-# SCC insertCTNoSort #-}
+    if dist > coverdist ct
+
+        -- | ct can't cover dp, so create a new node at dp that covers ct
+        then Node
+            { nodedp                = dp
+            , nodeWeight            = 1
+            , level                 = dist2level_up (Proxy::Proxy exprat) dist
+            , numdp                 = numdp ct+1
+            , maxDescendentDistance = dist+maxDescendentDistance ct
+            , children              = singleton
+                                    $ raiseRootLevel (dist2level_down (Proxy::Proxy exprat) dist)
+                                    $ ct
+            , leaves                = empty
+            }
+
+        -- | insert dp underneath ct
+        else ct
+            { numdp                 = numdp ct+1
+            , maxDescendentDistance = max dist (maxDescendentDistance ct)
+            , children              = fromList $ go [] $ toList $ children ct
+            }
+
+        where
+            dist = distance (nodedp ct) dp
+
+            go !acc []     = ((singletonCT dp) { level = level ct-1 }):acc
+            go !acc (x:xs) = if isFartherThan (nodedp x) dp (sepdist ct)
+                then go (x:acc) xs
+                else acc+((insertCTNoSort dp x):xs)
+
+-- |
+--
+-- FIXME:
+-- This function does a few more distance calls than "insertCTNoSort",
+-- but runs WAY slower.
+-- I'm pretty sure the intermediate list of children isn't getting fused away for some reason.
+{-# INLINABLE insertCT #-}
+insertCT :: forall exprat childC leafC dp.
+    ( ValidCT exprat childC leafC dp
+    ) => AddChildMethod dp
+      -> dp
+      -> CoverTree_ exprat childC leafC dp
+      -> CoverTree_ exprat childC leafC dp
+insertCT addChild dp ct = {-# SCC insertCT #-} if dist > coverdist ct
         -- | ct can't cover dp, so create a new node at dp that covers ct
         then {-# SCC insertCT_greater #-} Node
             { nodedp                = dp
@@ -634,16 +686,15 @@ insertCT dp ct = {-# SCC insertCT #-} if dist > coverdist ct
         where
             dist = distance (nodedp ct) dp
 
-            childrendists = map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
-            mindist = minimum $ map fst childrendists
+            childrendists = {-# SCC childrendists #-}
+                map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
 
-            go !acc [] = addChild dp ct
+            mindist = {-# SCC mindist #-} minimum $ map fst childrendists
+
+            go !acc [] = {-# SCC go_addChild #-} addChild dp ct
             go !acc ((dist,x):xs) = if dist == mindist && dist <= coverdist x
-                then insertCT dp x:(acc+map snd xs)
+                then insertCT addChild dp x:(acc+map snd xs)
                 else go (x:acc) xs
---                 else if dist <= sepdist ct
---                     then go (x:acc) xs
---                     else insertCT dp x:(acc+map snd xs)
 
 -- |
 --
@@ -651,71 +702,71 @@ insertCT dp ct = {-# SCC insertCT #-} if dist > coverdist ct
 --
 -- returns: the update list of children for ct
 --
-addChild ::
-    ( ValidCT exprat childC leafC dp
-    ) => dp
-      -> CoverTree_ exprat childC leafC dp
-      -> [CoverTree_ exprat childC leafC dp]
-addChild = addChild_inserts
+type AddChildMethod dp = forall exprat childC leafC.
+    ValidCT exprat childC leafC dp
+        => dp
+        -> CoverTree_ exprat childC leafC dp
+        -> [CoverTree_ exprat childC leafC dp]
 
-addChild_inserts ::
-    ( ValidCT exprat childC leafC dp
-    ) => dp
-      -> CoverTree_ exprat childC leafC dp
-      -> [CoverTree_ exprat childC leafC dp]
-addChild_inserts dp ct = toList $ children $ foldr' insertCT ct' dps
+{-# INLINE addChild_nothing #-}
+addChild_nothing :: AddChildMethod dp
+addChild_nothing dp ct = cons
+    ( (singletonCT dp) { level = level ct-1} )
+    (toList $ children ct)
+
+{-# INLINE addChild_ancestor #-}
+addChild_ancestor :: AddChildMethod dp
+addChild_ancestor dp ct = toList $ children $ foldr' (insertCT addChild_ancestor)  ct' dps
     where
-        (acc',dps) = rmCloseChildren dp (sepdist ct) $ toList $ children ct
+        (acc',dps) = rmCloseChildren addChild_ancestor dp (sepdist ct) $ toList $ children ct
         ct' = ct
             { children = ((singletonCT dp) { level = level ct-1 }) `cons` fromList acc'
             }
 
-addChild_leaves ::
-    ( ValidCT exprat childC leafC dp
-    ) => dp
-      -> CoverTree_ exprat childC leafC dp
-      -> [CoverTree_ exprat childC leafC dp]
-addChild_leaves dp ct = ret:acc'
+{-# INLINE addChild_parent #-}
+addChild_parent :: AddChildMethod dp
+addChild_parent dp ct = ret:acc'
     where
-        ret=foldr' insertCT ((singletonCT dp) { level = level ct-1 }) dps
-        (acc',dps) = rmCloseChildren dp (sepdist ct) $ toList $ children ct
+        ret=foldr' (insertCT addChild_parent) ((singletonCT dp) { level = level ct-1 }) dps
+        (acc',dps) = rmCloseChildren addChild_parent dp (sepdist ct) $ toList $ children ct
 
-addChild_simple ::
-    ( ValidCT exprat childC leafC dp
-    ) => dp
-      -> CoverTree_ exprat childC leafC dp
-      -> [CoverTree_ exprat childC leafC dp]
-addChild_simple dp ct = ((singletonCT dp) { level=level ct-1 }):(toList $ children ct)
-
-
+{-# INLINE rmCloseChildren #-}
 rmCloseChildren ::
     ( ValidCT exprat childC leafC dp
-    ) => dp
+    ) => AddChildMethod dp
+      -> dp
       -> Scalar dp
       -> [CoverTree_ exprat childC leafC dp]
       -> ([CoverTree_ exprat childC leafC dp], [dp])
-rmCloseChildren dp maxdist cts = {-# SCC rmCloseChildren #-}
+rmCloseChildren addChild dp maxdist cts = {-# SCC rmCloseChildren #-}
     (map fst xs, P.concat $ map snd xs)
     where
-        xs = map (extractCloseChildren dp maxdist) cts
+        xs = map (extractCloseChildren addChild dp maxdist) cts
 
+{-# INLINE extractCloseChildren #-}
 extractCloseChildren :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
-    ) => dp
+    ) => AddChildMethod dp
+      -> dp
       -> Scalar dp
       -> CoverTree_ exprat childC leafC dp
       -> (CoverTree_ exprat childC leafC dp, [dp])
-extractCloseChildren dp maxdist root = {-# SCC extractCloseChildren #-}
+extractCloseChildren addChild dp maxdist root = {-# SCC extractCloseChildren #-}
     case go root of
         Right x -> x
     where
         go :: CoverTree_ exprat childC leafC dp
            -> Either ([dp],[dp]) (CoverTree_ exprat childC leafC dp, [dp])
         go ct = if distance (nodedp ct) (nodedp root) > distance (nodedp ct) dp
-            then let (valid,invalid) = L.partition (\x -> distance (nodedp root) x < distance dp x) $ stDescendents ct
+--             then let (valid,invalid) = L.partition (\x -> distance (nodedp root) x < distance dp x) $ stDescendents ct
+            then let (valid,invalid) = L.partition (distance (nodedp root) < distance dp)
+                                     $ stDescendents ct
                 in Left (valid,nodedp ct:invalid)
 
-            else Right (foldr' insertCT ct' newbabies, invalids+P.concat (map snd $ rights allbabies))
+            else Right
+                ( foldr' (insertCT addChild) ct' newbabies
+                , invalids+P.concat (map snd $ rights allbabies)
+                )
                 where
                     ct' = ct
                         { children = fromList $ map fst $ rights allbabies
@@ -764,44 +815,6 @@ extractCloseChildren_orig dp maxdist ct = {-# SCC extractCloseChildren #-}
 --                     (x',dps') = extractCloseChildren_orig dp maxdist x
 
 
-{-# INLINABLE insertCTOrig #-}
-insertCTOrig :: forall exprat childC leafC dp.
-    ( ValidCT exprat childC leafC dp
-    ) => dp
-      -> CoverTree_ exprat childC leafC dp
-      -> CoverTree_ exprat childC leafC dp
-insertCTOrig dp ct = {-# SCC insertCTOrig #-}
-    if dist > coverdist ct
-
-        -- | ct can't cover dp, so create a new node at dp that covers ct
-        then Node
-            { nodedp                = dp
-            , nodeWeight            = 1
-            , level                 = dist2level_up (Proxy::Proxy exprat) dist
-            , numdp                 = numdp ct+1
-            , maxDescendentDistance = dist+maxDescendentDistance ct
-            , children              = singleton
-                                    $ raiseRootLevel (dist2level_down (Proxy::Proxy exprat) dist)
-                                    $ ct
-            , leaves                = empty
-            }
-
-        -- | insert dp underneath ct
-        else ct
-            { numdp                 = numdp ct+1
-            , maxDescendentDistance = max dist (maxDescendentDistance ct)
-            , children              = fromList $ go [] $ toList $ children ct
-            }
-
-        where
-            dist = distance (nodedp ct) dp
---             dist = isFartherThanWithDistanceCanError (nodedp ct) dp (coverdist ct)
-
-            go !acc []     = ((singletonCT dp) { level = level ct-1 }):acc
-            go !acc (x:xs) = if isFartherThan (nodedp x) dp (sepdist ct)
-                then go (x:acc) xs
-                else acc+((insertCTOrig dp x):xs)
-
 instance
     ( ValidCT exprat childC leafC dp
     ) => Abelian (CoverTree_ exprat childC leafC dp)
@@ -836,7 +849,7 @@ ctmerge_ :: forall exprat childC leafC  dp.
          , [CoverTree_ exprat childC leafC  dp]
          )
 ctmerge_ ct1 ct2 = {-# SCC ctmerge_ #-}
-    ( insertCT (nodedp ct2) $ ct1 -- ^ FIXME: the insertCT is sucking up all the time
+    ( insertCT addChild_ancestor (nodedp ct2) $ ct1 -- ^ FIXME: the insertCT is sucking up all the time
         { children = children'
         , numdp = {-# SCC ctmerge__numdp #-} sum $ map numdp $ toList children'
         , maxDescendentDistance = coverdist ct1
@@ -851,7 +864,7 @@ ctmerge_ ct1 ct2 = {-# SCC ctmerge_ #-}
 
         -- | FIXME: replace go with fold, better variable names
         -- FIXME: if CT is an IndexedVector, we can get rid of the map
-        (newchildren,newleftovers) = go (ct2indexedVector ct1,[]) validchildren
+        (newchildren,newleftovers) = go (ct2map' ct1,[]) validchildren
         (valid_newleftovers,invalid_newleftovers) = L.partition validchild newleftovers
 
         go (childmap,leftovers) []     = (childmap,leftovers)
@@ -916,7 +929,7 @@ ctmerge_ ct1 ct2 = {-# SCC ctmerge_ #-}
         validchild x = not $ isFartherThan (nodedp ct1) (nodedp x) (coverdist ct1)
         (validchildren,invalidchildren) = L.partition validchild $ stChildrenList ct2
 
-        (newchildren,newleftovers) = go (ct2indexedVector ct1,[]) validchildren
+        (newchildren,newleftovers) = go (ct2map' ct1,[]) validchildren
         (valid_newleftovers,invalid_newleftovers) = L.partition validchild newleftovers
 
         go (childmap,leftovers) []     = (childmap,leftovers)
@@ -947,11 +960,11 @@ ctmerge_ ct1 ct2 = {-# SCC ctmerge_ #-}
 
 -}
 
-ct2indexedVector ::
+ct2map' ::
     ( ValidCT exprat childC leafC dp
     ) => CoverTree_ exprat childC leafC dp
-      -> Map dp (CoverTree_ exprat childC leafC dp)
-ct2indexedVector ct = fromList $ map (\v -> (nodedp v,v)) $ stChildrenList ct
+      -> Map' dp (CoverTree_ exprat childC leafC dp)
+ct2map' ct = fromList $ map (\v -> (nodedp v,v)) $ stChildrenList ct
 
 head x = ret
     where

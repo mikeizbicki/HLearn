@@ -36,6 +36,7 @@ import SubHask.Compatibility.Vector.Lebesgue
 
 import Data.Params
 
+import HLearn.Algebra.Functions
 import HLearn.DataStructures.Graph
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.CoverTree hiding (head,tail)
@@ -81,8 +82,10 @@ data Params = Params
     deriving (Show, Data, Typeable)
 
 data TrainMethod
-    = TrainInsert
-    | TrainInsertOrig
+    = TrainInsert_NoSort
+    | TrainInsert_Sort
+    | TrainInsert_Parent
+    | TrainInsert_Ancestor
     | TrainMonoid
     deriving (Read,Show,Data,Typeable)
 
@@ -151,7 +154,7 @@ allknnParams = Params
     , train_sequential = False
                     &= help "don't train the tree in parallel; this may *slightly* speed up the nearest neighbor search at the expense of greatly slowing tree construction"
 
-    , train_method   = TrainInsertOrig
+    , train_method   = TrainInsert_NoSort
                     &= help "which method to use to construct the cover tree?"
 
     , adopt_children = False
@@ -360,9 +363,11 @@ buildTree params xs = do
     setexpratIORef $ P.toRational $ expansionRatio params
 
     let trainmethod = case train_method params of
-            TrainInsertOrig -> trainInsertOrig
-            TrainInsert     -> trainInsert
-            TrainMonoid     -> trainMonoid
+            TrainInsert_NoSort   -> trainInsertNoSort
+            TrainInsert_Sort     -> parallel $ trainInsert addChild_nothing
+            TrainInsert_Parent   -> parallel $ trainInsert addChild_parent
+            TrainInsert_Ancestor -> parallel $ trainInsert addChild_ancestor
+            TrainMonoid          -> parallel $ trainMonoid
     let (Just' reftree) = trainmethod xs
     time "building tree" reftree
 
