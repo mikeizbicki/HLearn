@@ -8,13 +8,8 @@ module HLearn.Models.Distributions.Univariate.Internal.Moments
     )
     where
 
-import Control.DeepSeq
--- import GHC.TypeLits
--- import qualified Data.Vector.Unboxed as U
--- import Data.Vector.Unboxed.Deriving
-
--- import HLearn.Algebra
 import SubHask
+import SubHask.Monad
 import HLearn.Models.Distributions.Common
 -- import HLearn.Models.Distributions.Visualization.Gnuplot
 

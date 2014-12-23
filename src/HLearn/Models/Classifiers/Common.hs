@@ -3,11 +3,8 @@
 module HLearn.Models.Classifiers.Common
     where
 
-import Control.DeepSeq
-import Data.Typeable
-
 import SubHask
--- import HLearn.Algebra
+import SubHask.Monad
 import HLearn.Models.Distributions.Common
 
 

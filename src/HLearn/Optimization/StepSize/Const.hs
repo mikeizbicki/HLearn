@@ -5,7 +5,7 @@ module HLearn.Optimization.StepSize.Const
     )
     where
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 import HLearn.History
 import HLearn.Optimization.Common
 
@@ -18,7 +18,7 @@ newtype Hyperparams v = Hyperparams
     { step :: Scalar v
     }
 
-data Params v = Params 
+data Params v = Params
 
 instance VectorSpace v => LearningRate Hyperparams Params v where
     lrInit _ _ = Params

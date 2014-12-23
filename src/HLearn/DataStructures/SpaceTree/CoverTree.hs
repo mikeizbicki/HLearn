@@ -11,13 +11,12 @@ import qualified Prelude as P
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector as V
-import Control.DeepSeq
 
 import Data.Params
 
 import SubHask
+import SubHask.Monad
 import SubHask.Algebra.Container
-import SubHask.Algebra.Vector
 import SubHask.Compatibility.Containers
 
 import HLearn.DataStructures.SpaceTree
@@ -27,7 +26,6 @@ import HLearn.Models.Distributions.Univariate.Normal
 import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar)
 import qualified Diagrams.Prelude as D
 import Diagrams.Backend.SVG
--- import Diagrams.Backend.Postscript.CmdLine
 
 ---------
 import System.IO.Unsafe
@@ -93,6 +91,11 @@ instance
 
 type instance Scalar (CoverTree_ exprat childC leafC dp) = Scalar dp
 
+-- | This type alias simplifies all our type signatures.
+--
+-- FIXME:
+-- There is a much smaller subset of these that is actually needed,
+-- but GHC's type system isn't strong enough to express this subset.
 type ValidCT exprat childC leafC dp =
     ( Foldable (childC (CoverTree_ exprat childC leafC dp))
     , Foldable (leafC dp)
@@ -116,7 +119,20 @@ type ValidCT exprat childC leafC dp =
     , Logic dp ~ Bool
     , Logic (CoverTree_ exprat childC leafC dp) ~ Bool
     , Logic (Scalar (leafC dp)) ~ Bool
+    , NFData (CoverTree_ exprat childC leafC dp)
 
+    -- these constraints come from hlearn-allknn
+    , Scalar (leafC dp) ~ Scalar (childC (CoverTree_ exprat childC leafC dp))
+    , Elem (childC Bool) ~ Bool
+    , Elem (childC (Scalar dp)) ~ Scalar dp
+    , Elem (leafC dp) ~ dp
+    , Foldable (childC Bool)
+    , Foldable (childC (Scalar dp))
+    , Integral (Scalar (childC (CoverTree_ exprat childC leafC dp)))
+    , NFData (Scalar dp)
+    , NFData dp
+
+    -- debugging constraints
     , Show (Scalar dp)
     , Show dp
     , Show (leafC dp)
@@ -488,33 +504,9 @@ cmp_distance_numdp' ct b a
 
 ---------------------------------------
 
-{-# INLINABLE packCT #-}
-packCT ::
-    ( ValidCT exprat childC leafC dp
-    , VG.Vector leafC dp
-    ) => CoverTree_ exprat childC leafC dp
-      -> CoverTree_ exprat childC leafC dp
--- packCT ct = {-# SCC packCT #-} sndHask $ go 0 ct'
-packCT !ct = {-# SCC packCT #-} P.snd $ go 0 ct'
-    where
-        go !i !t = {-# SCC packCT_go #-} ( i',t
-            { nodedp = v VG.! i
-            , leaves = VG.slice (i+1) (VG.length $ leaves t) v
-            , children = fromList children'
-            } )
-            where
-                (i',children') = {-# SCC mapAccumL #-} L.mapAccumL
-                    go
-                    (i+1+length (toList $ leaves t))
-                    (toList $ children t)
-
-        ct' = setLeaves 0 ct
-        v = {-# SCC fromList #-} fromList $ mkNodeList ct'
-
-        mkNodeList ct = {-# SCC mkNodeList #-} [nodedp ct]
-                     ++ (toList $ leaves ct)
-                     ++ (L.concatMap mkNodeList $ toList $ children ct)
-
+-- | This function moves subtrees that have @n@ children or less from @childC@ to @leafC@.
+-- The @leafC@ container stores data points directly.
+-- This makes traversals faster and greatly improves runtimes.
 {-# INLINABLE setLeaves #-}
 setLeaves ::
     ( ValidCT exprat childC leafC dp
@@ -530,6 +522,30 @@ setLeaves n ct = {-# SCC setLeaves #-} if stNumNodes ct > n
         { children = zero
         , leaves = fromList $ stToList ct
         }
+
+-- | This function puts the data points into a van Embde Boas layout.
+-- This is a cache oblivious layout that causes queries to have fewer cache misses (and hence run faster).
+-- Any modifications to the cover tree after calling "PackCT" will result in a slow degradation of cache performance.
+{-# INLINABLE packCT #-}
+packCT ::
+    ( ValidCT exprat childC leafC dp
+    , VG.Vector leafC dp
+    ) => CoverTree_ exprat childC leafC dp
+      -> CoverTree_ exprat childC leafC dp
+packCT ct = {-# SCC packCT #-} snd $ go 0 ct
+    where
+        dpvec = fromList $ stToList ct
+
+        go !i !t = {-# SCC packCT_go #-} ( i',t
+            { nodedp = dpvec VG.! i
+            , leaves = VG.slice (i+1) (VG.length $ leaves t) dpvec
+            , children = fromList children'
+            } )
+            where
+                (i',children') = {-# SCC mapAccumL #-} L.mapAccumL
+                    go
+                    (i+1+length (toList $ leaves t))
+                    (toList $ children t)
 
 -------------------------------------------------------------------------------
 -- construction
@@ -1013,14 +1029,14 @@ dist2level_up _ d = ceiling $ log d / log exprat
 
 -------------------------------------------------------------------------------
 
-drawCT ::
-    ( ValidCT exprat childC leafC dp
-    , VG.Vector childC (QDiagram SVG R2 Any)
-    , Integral (Scalar (leafC dp))
-    , Integral (Scalar (childC (CoverTree_ exprat childC leafC dp)))
-    ) => P.FilePath
-      -> CoverTree_ exprat childC leafC dp
-      -> IO ()
+-- drawCT ::
+--     ( ValidCT exprat childC leafC dp
+--     , VG.Vector childC (QDiagram SVG R2 Any)
+--     , Integral (Scalar (leafC dp))
+--     , Integral (Scalar (childC (CoverTree_ exprat childC leafC dp)))
+--     ) => P.FilePath
+--       -> CoverTree_ exprat childC leafC dp
+--       -> IO ()
 drawCT path ct = renderSVG path (Dims 500 300) (diagramCT_ 0 ct)
 
 

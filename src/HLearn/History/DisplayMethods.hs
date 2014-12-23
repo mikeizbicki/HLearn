@@ -28,8 +28,8 @@ import Pipes.Core
 
 import qualified Prelude as P
 import Prelude (take,drop,map,filter,zip)
-import SubHask
-import SubHask.Algebra.HMatrix
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask.Compatibility.HMatrix
 
 import HLearn.History
 import HLearn.Optimization.Common
@@ -125,7 +125,7 @@ display_fx1_Backtracking = mkDisplayFunction (dispFloat._bt_fx :: Backtracking (
 -- type instance Scalar (Matrix r) = r
 
 display_fx1_BacktrackingM :: DisplayFunction
-display_fx1_BacktrackingM x = case fromDynamic $ dyn x :: Maybe (Backtracking (SubHask.Algebra.HMatrix.Matrix Double)) of
+display_fx1_BacktrackingM x = case fromDynamic $ dyn x :: Maybe (Backtracking (SubHask.Compatibility.HMatrix.Matrix Double)) of
     Nothing -> ""
     Just y -> dispFloat (_bt_fx y)
 

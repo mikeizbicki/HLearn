@@ -4,7 +4,7 @@
 #
 # ${@:2} = all other arguments, which get passed to $knn
 
-knn="~/proj/HLearn/dist/build/hlearn-allknn/hlearn-allknn"
+knn="~/proj/hlearn/dist/build/hlearn-allknn/hlearn-allknn"
 
 tmpdir=$(mktemp -d)
 curdir=$(pwd)
@@ -15,16 +15,24 @@ echo "hlearn-allknn -r \"$1\" ${@:2}"
 
 cd "$tmpdir"
 #$knn -r "$1" ${@:2} --verbose +RTS -p > stdout 2> stderr
-/home/user/proj/HLearn/hlearn-allknn -r "$1" ${@:2} --verbose +RTS -p > stdout 2> stderr
+/home/user/proj/hlearn/dist/build/hlearn-allknn/hlearn-allknn -r "$1" ${@:2} --verbose +RTS -p > stdout 2> stderr
 cd "$curdir"
 
 params="params=$(tr ' ' '_' <<< "${@:2}")"
-if [ ! -d "$params" ]; then
-    mkdir "$params"
+if [ ! -d "$dataset" ]; then
+    mkdir "$dataset"
 fi
 
-if [ -d "$params/$dataset" ]; then
-    mv "$params/$dataset" "$params/$dataset.old.$(date +%Y-%m-%d--%H-%M-%S)"
+if [ -d "$dataset/$params" ]; then
+    mv "$dataset/$params" "$dataset/$params.old.$(date +%Y-%m-%d--%H-%M-%S)"
 fi
+mv "$tmpdir" "./${dataset}/${params}"
 
-mv "$tmpdir" "./${params}/${dataset}"
+#if [ ! -d "$params" ]; then
+    #mkdir "$params"
+#fi
+#
+#if [ -d "$params/$dataset" ]; then
+    #mv "$params/$dataset" "$params/$dataset.old.$(date +%Y-%m-%d--%H-%M-%S)"
+#fi
+#mv "$tmpdir" "./${params}/${dataset}"

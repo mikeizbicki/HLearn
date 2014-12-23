@@ -4,11 +4,11 @@ module HLearn.Optimization.LineMinimization.Univariate
     -- * advanced functions
     -- ** bracket
     LineBracket (..)
-    , lineBracket 
+    , lineBracket
 
     -- ** minimizers
     , GoldenSectionSearch (..)
-    , goldenSectionSearch 
+    , goldenSectionSearch
 
     , Brent (..)
     , brent
@@ -16,7 +16,7 @@ module HLearn.Optimization.LineMinimization.Univariate
     )
     where
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 
 import HLearn.History
 import HLearn.Optimization.Common
@@ -24,20 +24,20 @@ import HLearn.Optimization.Common
 -------------------------------------------------------------------------------
 -- line bracketing
 
-data LineBracket a = LineBracket 
+data LineBracket a = LineBracket
     { _ax :: !a
     , _bx :: !a
     , _cx :: !a
     , _fa :: !a
     , _fb :: !a
-    , _fc :: !a 
+    , _fc :: !a
     }
     deriving (Read,Show,Typeable)
 
 -- | finds two points ax and cs between which a minimum is guaranteed to exist
 -- this is a transliteration of the 'lineBracket' function from the \"Numerical
 -- Recipes\" series
-lineBracket :: 
+lineBracket ::
     ( Field a
     , Normed a
     , Ord a
@@ -65,8 +65,8 @@ lineBracket !f !pt1 !pt2 = do
             , _fc = f cx
             }
 
-    optimize 
-        (step_LineBracket f) 
+    optimize
+        (step_LineBracket f)
         lb0
         stop_LineBracket
 
@@ -75,7 +75,7 @@ stop_LineBracket _ lb = if _fb lb /= _fb lb
     then error "NaN in linebracket"
     else return $ _fb lb <= _fc lb
 
-step_LineBracket :: 
+step_LineBracket ::
     ( Ord a
     , Normed a
     , Field a
@@ -84,7 +84,7 @@ step_LineBracket ::
     , HistoryMonad m
     , Show a
     ) => (a -> a) -> LineBracket a -> m (LineBracket a)
-step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = --trace ("lb="++show lb) $ 
+step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = --trace ("lb="++show lb) $
   return ret
     where
         sign a b = if b>0 then abs a else -(abs a)
@@ -117,10 +117,10 @@ step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = --trace ("lb="++show lb
                         , _cx = u'
                         , _fa = fb
                         , _fb = fc
-                        , _fc = f u' 
+                        , _fc = f u'
                         }
             else if (cx-u)*(u-ulim) > 0 -- parabolic fit is between c and its allowed limit
-                then if fu < fc 
+                then if fu < fc
                     then let u' = cx+gold*(cx-bx) in lb
                         { _ax = cx
                         , _bx = u
@@ -128,9 +128,9 @@ step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = --trace ("lb="++show lb
                         , _fa = fc
                         , _fb = fu
                         , _fc = f u'
-                        } 
+                        }
                     else lb
-                        { _ax = bx 
+                        { _ax = bx
                         , _bx = cx
                         , _cx = u
                         , _fa = fb
@@ -173,7 +173,7 @@ data GoldenSectionSearch a = GoldenSectionSearch
 --         where
 --             getter gss = min (_gss_fxb gss) (_gss_fxc gss)
 --             setter = error "GoldenSectionSearch fx1 setter"
--- 
+--
 -- instance (Ord a, IsScalar a) => Has_x1 GoldenSectionSearch a where
 --     x1 = lens getter setter
 --         where
@@ -185,7 +185,7 @@ data GoldenSectionSearch a = GoldenSectionSearch
 ---------------------------------------
 
 -- | Finds the minimum of a "poorly behaved" function; usually brent's
--- method is much better. 
+-- method is much better.
 -- This is a transliteration of the gss routine from the \"Numerical
 -- Recipes\" series
 goldenSectionSearch f (LineBracket ax bx cx fa fb fc) stop = do
@@ -210,13 +210,13 @@ goldenSectionSearch f (LineBracket ax bx cx fa fb fc) stop = do
             }
 
     optimize
-        (step_GoldenSectionSearch f) 
+        (step_GoldenSectionSearch f)
         gss0
         stop
 
 ----------------------------------------
 
-stop_GoldenSectionSearch :: 
+stop_GoldenSectionSearch ::
     ( Normed a
     , Rng a
     , Ord a
@@ -225,7 +225,7 @@ stop_GoldenSectionSearch ::
     ) => a -> GoldenSectionSearch a -> m Bool
 stop_GoldenSectionSearch tol (GoldenSectionSearch _ _ !x0 !x1 !x2 !x3 ) = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
 
-step_GoldenSectionSearch :: 
+step_GoldenSectionSearch ::
     ( Ord a
     , Field a
     , Reportable m a
@@ -237,11 +237,11 @@ step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = return $ if
     where
         r = 0.61803399
         c = 1-r
-    
+
 -------------------------------------------------------------------------------
 -- Brent's methos
 
-data Brent a = Brent 
+data Brent a = Brent
     { _a :: !a
     , _b :: !a
     , _d :: !a
@@ -251,23 +251,23 @@ data Brent a = Brent
     , _fx :: !a
     , _v :: !a
     , _w :: !a
-    , _x :: !a 
+    , _x :: !a
     }
     deriving (Read,Show,Typeable)
 makeLenses ''Brent
 
--- instance IsScalar v => Has_x1 Brent v where 
+-- instance IsScalar v => Has_x1 Brent v where
 --     x1 = x
--- 
+--
 -- instance IsScalar v => Has_fx1 Brent v where
---     fx1 = lens getter setter 
+--     fx1 = lens getter setter
 --         where
 --             getter s = (s^.fv + s^.fw + s^.fx)/3
 --             setter = error "Brent.fx1 undefined"
 
--- | Brent's method uses parabolic interpolation.  
+-- | Brent's method uses parabolic interpolation.
 -- This function is a transliteration of the method found in numerical recipes.
-brent :: 
+brent ::
     ( Ord a
     , Field a
     , Normed a
@@ -275,12 +275,12 @@ brent ::
     , HistoryMonad m
     , Reportable m a
     , Reportable m (Brent a)
-    ) => (a -> a) 
-      -> LineBracket a 
+    ) => (a -> a)
+      -> LineBracket a
       -> StopCondition m (Brent a)
       -> m (Brent a)
 brent f (LineBracket ax bx cx fa fb fc) = optimize
-    (step_Brent f) 
+    (step_Brent f)
     $ Brent
         { _a = min ax cx
         , _b = max ax cx
@@ -294,7 +294,7 @@ brent f (LineBracket ax bx cx fa fb fc) = optimize
         , _fx = f bx
         }
 
-brentTollerance :: 
+brentTollerance ::
     ( Ord a
     , Field a
     , Normed a
@@ -309,7 +309,7 @@ brentTollerance tol _ opt = return $ abs (x-xm) <= tol2'-0.5*(b-a)
         tol2' = 2*tol1'
         zeps = 1e-10
 
-step_Brent :: 
+step_Brent ::
     ( Field a
     , Normed a
     , IsScalar a

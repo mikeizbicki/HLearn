@@ -19,7 +19,7 @@ module HLearn.Optimization.GradientDescent
     )
     where
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 
 import HLearn.History
 import HLearn.Optimization.Common

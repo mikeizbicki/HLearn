@@ -52,25 +52,14 @@ module HLearn.DataStructures.SpaceTree
 
 import Debug.Trace
 
-import Control.DeepSeq
--- import Control.Monad
--- import Control.Monad.ST
--- import Data.Semigroup
 import qualified Data.List as L
--- import Data.Traversable
--- import qualified Data.Foldable as F
--- import qualified Data.Strict.Either as Strict
--- import qualified Data.Strict.Maybe as Strict
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 
--- import Unsafe.Coerce
--- import GHC.Prim
-
 import Prelude (map)
 import SubHask
-import SubHask.Algebra.Vector
+import SubHask.Monad
 
 import HLearn.Algebra.Prim
 import HLearn.Models.Distributions.Univariate.Normal
@@ -120,11 +109,10 @@ class
     stMaxDistanceDp :: t dp -> dp -> Scalar dp
     stMaxDistanceDp t dp = fst# (stMaxDistanceDpWithDistance t dp)
 
---     stIsMinDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Maybe' (Scalar dp)
---     stIsMaxDistanceDpFartherThanWithDistance :: t dp -> dp -> Scalar dp -> Maybe' (Scalar dp)
-
-    stIsMinDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
-    stIsMaxDistanceDpFartherThanWithDistanceCanError :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
+    stIsMinDistanceDpFartherThanWithDistanceCanError
+        :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
+    stIsMaxDistanceDpFartherThanWithDistanceCanError
+        :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
 
     stMinDistanceDpWithDistance :: t dp -> dp -> (# Scalar dp, Scalar dp #)
     stMaxDistanceDpWithDistance :: t dp -> dp -> (# Scalar dp, Scalar dp #)
@@ -133,7 +121,7 @@ class
     stMaxDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
 
     stHasNode   :: t dp -> Bool
-    stChildren  :: t dp -> (ChildContainer t) (t dp)
+    stChildren  :: t dp -> ChildContainer t (t dp)
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Scalar dp
 
@@ -146,7 +134,7 @@ class
     stChildrenList t = toList $ stChildren t
 
     {-# INLINE stLeaves #-}
-    stLeaves :: t dp -> (LeafContainer t) dp
+    stLeaves :: t dp -> LeafContainer t dp
     stLeaves t = zero
 
     {-# INLINE stNodeW #-}
@@ -163,15 +151,26 @@ class
 stMaxDescendentDistance :: (Eq dp, SpaceTree t dp) => t dp -> Scalar dp
 stMaxDescendentDistance t = maximum_ 0 $ map (distance (stNode t)) $ stDescendents t
 
+{-# INLINABLE stToListDFS #-}
+stToListDFS :: SpaceTree t dp => t dp -> [dp]
+stToListDFS t
+    = stNode t
+    : (toList $ stLeaves t)
+    + (concat $ map stToListDFS $ stChildrenList t)
+
 {-# INLINABLE stToList #-}
-stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
-stToList t = if stHasNoChildren t && stWeight t > 0
-    then (stNode t):(toList $ stLeaves t)
-    else go (concat $ map stToList $ stChildrenList t)
-    where
-        go xs = if stWeight t > 0
-            then (stNode t) : (toList (stLeaves t) ++ xs)
-            else toList (stLeaves t) ++ xs
+stToList :: SpaceTree t dp => t dp -> [dp]
+stToList = stToListDFS
+
+-- {-# INLINABLE stToList #-}
+-- stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
+-- stToList t = if stHasNoChildren t && stWeight t > 0
+--     then (stNode t):(toList $ stLeaves t)
+--     else go (concat $ map stToList $ stChildrenList t)
+--     where
+--         go xs = if stWeight t > 0
+--             then (stNode t) : (toList (stLeaves t) ++ xs)
+--             else toList (stLeaves t) ++ xs
 
 -- {-# INLINABLE stToListW
 -- stToListW :: (Eq dp, SpaceTree t dp) => t dp -> [Weighted dp]

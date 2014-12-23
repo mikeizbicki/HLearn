@@ -26,11 +26,9 @@ import GHC.Prim
 import GHC.Int
 import GHC.Types
 
-import SubHask
--- import Data.SIMD.SIMD4
--- import HLearn.Algebra
-import HLearn.Metrics.Lebesgue
-import SubHask.Algebra.Trans.MiscMetrics
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return, liftM, forM_)
+import SubHask.Compatibility.Vector.HistogramMetrics
+import SubHask.Compatibility.Vector.Lebesgue
 
 -------------------
 

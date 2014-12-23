@@ -29,7 +29,6 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     )
     where
 
-import Control.DeepSeq
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -37,9 +36,12 @@ import qualified Data.Vector.Generic as VG
 import SubHask
 import SubHask.Algebra.Container
 import SubHask.Compatibility.Containers
+import SubHask.Compatibility.Vector.Lebesgue
+import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
+
+import HLearn.Algebra.Functions
 import HLearn.DataStructures.SpaceTree
-import HLearn.Metrics.Lebesgue
 import HLearn.UnsafeVector
 
 import Data.Params
@@ -62,13 +64,11 @@ type instance Logic (Neighbor dp) = Bool
 -- instance ValidNeighbor (L2 VU.Vector Float)
 
 type ValidNeighbor dp =
-    ( {-BoundedField (Scalar dp)
-    , Field (Scalar dp)
-    , Floating (Scalar dp)
-    , -}MetricSpace dp
+    ( MetricSpace dp
     , Bounded (Scalar dp)
     , CanError (Scalar dp)
     , Logic dp~Bool
+--     , dp ~ (L2 VU.Vector Float)
     )
 
 deriving instance (Read dp, Read (Scalar dp)) => Read (Neighbor dp)
@@ -91,6 +91,12 @@ data NeighborList (k :: Config Nat) dp
     | NL_Cons {-#UNPACK#-}!(Neighbor dp) !(NeighborList k dp)
 
 mkParams ''NeighborList
+
+-- | update the distances in the NeighborList based on a new data point
+resetNL :: ValidNeighbor dp => dp -> NeighborList k dp -> NeighborList k dp
+resetNL p NL_Nil = NL_Nil
+resetNL p (NL_Cons (Neighbor q _) nl)
+    = NL_Cons (Neighbor q $ distance p q) $ resetNL p nl
 
 type instance Logic (NeighborList k dp) = Bool
 
@@ -148,12 +154,6 @@ nlAddNeighbor :: forall k dp.
     , ValidNeighbor dp
     ) => NeighborList k dp -> Neighbor dp -> NeighborList k dp
 nlAddNeighbor nl n = nl + NL_Cons n NL_Nil
--- nlAddNeighbor !nl !n = go nl
---     where
---         go (NL_Cons n' _) = if neighborDistance n < neighborDistance n'
---             then NL_Cons n NL_Nil
---             else NL_Cons n' NL_Nil
---         go NL_Nil = NL_Cons n NL_Nil
 
 instance CanError (NeighborList k dp) where
     {-# INLINE errorVal #-}
@@ -188,9 +188,7 @@ instance
     NL_Nil + nl2    = nl2
     nl1    + nl2    = ret
         where
-            -- FIXME
---             ret = go nl1 nl2 (viewParam _k nl1)
-            ret = go nl1 nl2 (1::Int)
+            ret = go nl1 nl2 (viewParam _k nl1)
 
             go _ _ 0 = NL_Nil
             go (NL_Cons n1 ns1) (NL_Cons n2 ns2) k = if neighborDistance n1 > neighborDistance n2
@@ -218,17 +216,23 @@ instance
 -------------------------------------------------------------------------------
 
 newtype NeighborMap (k :: Config Nat) dp = NeighborMap
-    { nm2map :: Map' dp (NeighborList k dp)
+--     { nm2map :: Map' dp (NeighborList k dp)
+    { nm2map :: Seq (dp , NeighborList k dp)
     }
 mkParams ''NeighborMap
 -- deriveHierarchy ''NeighborMap []
 
 type instance Logic (NeighborMap k dp) = Bool
 
-deriving instance (Eq_ (Map' dp (NeighborList k dp))) => Eq_ (NeighborMap k dp)
+deriving instance (Eq_ dp, ValidNeighbor dp) => Eq_ (NeighborMap k dp)
 deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
 deriving instance (Show dp, Show (Scalar dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
 deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborMap k dp)
+
+-- deriving instance (Eq_ (Map' dp (NeighborList k dp))) => Eq_ (NeighborMap k dp)
+-- deriving instance (Read dp, Read (Scalar dp), Ord dp, Read (NeighborList k dp)) => Read (NeighborMap k dp)
+-- deriving instance (Show dp, Show (Scalar dp), Ord dp, Show (NeighborList k dp)) => Show (NeighborMap k dp)
+-- deriving instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborMap k dp)
 
 {-# INLINE nm2list #-}
 nm2list ::
@@ -441,21 +445,6 @@ parFindNeighborMap ::
 parFindNeighborMap dual = {-# SCC knn2_single_parallel #-} ({-parallel-} reduce) $
     map (\dp -> NeighborMap $ singletonAt dp $ findNeighborList (reference dual) dp) (stToList $ query dual)
 
--- {-# INLINABLE parFindNeighborMapWith #-}
--- parFindNeighborMapWith ::
---     ( KnownNat k
---     , SpaceTree t dp
---     , Ord dp
---     , NFData (Scalar dp)
---     , NFData dp
---     , Floating (Scalar dp)
---     , CanError (Scalar dp)
---     ) => NeighborMap k dp -> DualTree (t dp) -> NeighborMap k dp
--- parFindNeighborMapWith (NeighborMap nm) dual = (parallel reduce) $
---     map
---         (\dp -> NeighborMap $ singletonAt dp $ findNeighborListWith (Map'.findWithDefault zero dp nm) (reference dual) dp)
---         (stToList $ query dual)
-
 {-# INLINABLE parFindEpsilonNeighborMap #-}
 parFindEpsilonNeighborMap ::
 --     ( KnownNat k
@@ -471,7 +460,7 @@ parFindEpsilonNeighborMap ::
 parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith zero e d
 
 {-# INLINABLE parFindEpsilonNeighborMapWith #-}
-parFindEpsilonNeighborMapWith ::
+parFindEpsilonNeighborMapWith :: forall k dp t.
 --     ( KnownNat k
     ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
@@ -482,8 +471,36 @@ parFindEpsilonNeighborMapWith ::
     , CanError (Scalar dp)
     , ValidNeighbor dp
     ) => NeighborMap k dp -> Scalar dp -> DualTree (t dp) -> NeighborMap k dp
-parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = ({-parallel-} reduce) $
-    map
-        (\dp -> NeighborMap $ singletonAt dp $ findEpsilonNeighborListWith (findWithDefault zero dp nm) epsilon (reference dual) dp)
-        (stToList $ query dual)
+-- parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = NeighborMap $ map
+--     (\dp -> (dp, findEpsilonNeighborListWith zero epsilon (reference dual) dp) )
+--     (stToList $ query dual)
+
+parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = parallel reduce $ map
+    (\dp -> NeighborMap
+        $ singletonAt dp
+        $ findEpsilonNeighborListWith zero epsilon (reference dual) dp)
+    (stToList $ query dual)
+
+-- parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual = parallel reduce $ map
+--     (\dp -> NeighborMap
+--         $ singletonAt dp
+--         $ findEpsilonNeighborListWith (findWithDefault zero dp nm) epsilon (reference dual) dp)
+--     (stToList $ query dual)
+
+-- parFindEpsilonNeighborMapWith (NeighborMap nm) epsilon dual
+--     = parallel reduce
+--     $ map (NeighborMap . singleton)
+--     $ go prev0 (stToList $ query dual) []
+--     where
+--         prev0 = zero :: NeighborList k dp
+--
+--         go prev []     ret = ret
+--         go prev (x:xs) ret = go next xs ((x,next):ret)
+--             where
+--                 next=findEpsilonNeighborListWith zero epsilon (reference dual) x
+-- --                 next = findEpsilonNeighborListWith (resetNL x prev) epsilon (reference dual) x
+-- --
+-- --                 prev' = case prev of
+-- --                     (NL_Cons (Neighbor prevx _) NL_Nil) -> if prevx==x then zero else prev
+-- --                     otherwise -> zero
 

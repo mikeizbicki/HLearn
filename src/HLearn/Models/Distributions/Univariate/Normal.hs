@@ -7,20 +7,15 @@ module HLearn.Models.Distributions.Univariate.Normal
     )
     where
 
-import Control.DeepSeq
--- import GHC.TypeLits
-import qualified Data.Vector.Unboxed as U
--- import Data.Vector.Unboxed.Deriving
 import Math.Gamma
 import Data.Number.Erf
 
 import SubHask
+import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
 
--- import HLearn.Algebra
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Internal.Moments
--- import HLearn.Models.Distributions.Visualization.Gnuplot
 
 -------------------------------------------------------------------------------
 -- data types

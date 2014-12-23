@@ -1,23 +1,23 @@
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE PolyKinds, NoImplicitPrelude #-}
 
 -- | This module contains \"low-level higher order functions\" for manipulating algebraic homomorphisms.  You probably want to use the "HomTrainer" type-class rather than using these functions directly.
 
 module HLearn.Algebra.Functions
-    ( 
+    (
     -- * Almost dependently typed function
-    Function (..)
-    
+--     Function (..)
+
     -- * Higher order functions
     -- ** Parallelism
-    , parallel
+     parallel
     , parallelN
 
     -- ** Manipulating homomorphisms
-    , online, offline
-    , batch, batchCK, unbatch
-    , semigroup
-    -- ** Helper functions
-    , reduce
+--     , online, offline
+--     , batch, batchCK, unbatch
+--     , semigroup
+--     -- ** Helper functions
+--     , reduce
     )
     where
 
@@ -28,11 +28,14 @@ import Control.Parallel.Strategies
 -- import Data.Traversable
 import qualified Data.Foldable as F
 import GHC.Exts (Constraint)
-import Prelude hiding (filter)
+-- import Prelude hiding (filter)
 import System.IO.Unsafe
 
 import HLearn.Algebra.Structures.Comonoid
-import HLearn.Algebra.Structures.Groups
+-- import HLearn.Algebra.Structures.Groups
+
+import qualified Prelude as P
+import SubHask
 
 -------------------------------------------------------------------------------
 -- type classes
@@ -44,9 +47,10 @@ class Function f domain range | f -> domain  range where
 -------------------------------------------------------------------------------
 -- higher order functions
 
--- | Parallelizes any batch trainer to run over multiple processors on a single machine.  
-parallelN :: 
-    ( Comonoid domain 
+
+-- | Parallelizes any batch trainer to run over multiple processors on a single machine.
+parallelN ::
+    ( Comonoid domain
     , Monoid range
     , NFData range
     ) => Int -- ^ number of parallel threads
@@ -58,26 +62,24 @@ parallelN n train = \datapoint ->
         strat = rdeepseq
 
 -- | Parallelizes any batch trainer to run over multiple processors on a single machine.  The function automatically detects the number of available processors and parallelizes the function accordingly.  This requires the use of unsafePerformIO, however, the result should still be safe.
-parallel :: 
-    ( Comonoid domain 
+parallel ::
+    ( Comonoid domain
     , Monoid range
     , NFData range
     ) => (domain -> range) -- ^ sequential batch trainer
       -> (domain -> range) -- ^ parallel batch trainer
-parallel = parallelN (unsafePerformIO getNumCapabilities) 
+parallel = parallelN (unsafePerformIO getNumCapabilities)
 
--- safeParallel1 :: (NonCocommutative domain, Monoid range, NFData range) => (domain -> range) -> (domain -> range)
--- safeParallel2 :: (Cocommutative domain, Abelian range, NFData range) => (domain -> range) -> (domain -> range)
-
+{-
 -- | Converts a batch trainer into an online trainer.  The input function should be a semigroup homomorphism.
-online :: 
+online ::
     ( Monoid model
     ) => (datapoint -> model) -- ^ singleton trainer
       -> (model -> datapoint -> model) -- ^ online trainer
 online train = \model datapoint -> model <> (train datapoint)
 
 -- | The inverse of 'online'.  Converts an online trainer into a batch trainer.
-offline :: 
+offline ::
     ( Monoid model
     ) => (model -> datapoint -> model) -- ^ online singleton trainer
       -> (datapoint -> model) -- ^ singleton trainer
@@ -101,35 +103,35 @@ batchCK ::
 batchCK = CK.foldMap
 
 -- | Inverse of 'unbatch'.  Converts a semigroup homomorphism into a singleton trainer.
-unbatch :: 
+unbatch ::
     ([datapoint] -> model) -- ^ batch trainer
     -> (datapoint -> model) -- ^ singleton trainer
 unbatch train = \datapoint -> train [datapoint]
 
 -- | Normally we would define our semigroup operation explicitly.  However, it is possible to generate one from an online trainer and a pseudo inverse.
-semigroup :: 
+semigroup ::
     (model -> datapoint -> model) -- ^ online trainer
     -> (model -> datapoint) -- ^ pseudo inverse
     -> (model -> model -> model) -- ^ The semigroup operation
 semigroup trainonline pseudoinverse = \model1 model2 -> trainonline model1 (pseudoinverse model2)
-    
+
 -------------------------------------------------------------------------------
 -- Helper Functions
 
 -- | Like fold, but (i) only for use on the semigroup operation (\<\>) and (ii) uses the fan-in reduction strategy which is more efficient when the semigroup operation takes nonconstant time depending on the size of the data structures being reduced.
-reduce :: 
+reduce ::
     ( Monoid sg
     , F.Foldable container
     ) => container sg -> sg
 reduce = reduceL . F.toList
 
-reduceCK :: 
-    ( Monoid sg
-    , CK.Foldable container
-    , CK.FoldableConstraint container sg
-    , CK.FoldableConstraint container [sg]
-    ) => container sg -> sg
-reduceCK = reduceL . CK.toList
+-- reduceCK ::
+--     ( Monoid sg
+--     , CK.Foldable container
+--     , CK.FoldableConstraint container sg
+--     , CK.FoldableConstraint container [sg]
+--     ) => container sg -> sg
+-- reduceCK = reduceL . CK.toList
 
 reduceL :: (Monoid sg) => [sg] -> sg
 reduceL []  = mempty -- error "reduce: cannot reduce empty list"
@@ -140,3 +142,4 @@ reduceL xs  = reduceL $ itr xs
         itr []            = []
         itr [x]           = [x]
         itr (x1:x2:xs)    = (x1<>x2):(itr xs)
+        -}

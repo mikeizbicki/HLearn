@@ -3,15 +3,15 @@ module HLearn.DataStructures.Graph
 
 
 import SubHask
-import SubHask.Algebra.Vector
-import SubHask.Algebra.HMatrix
+import SubHask.Compatibility.HMatrix
+import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
 
 import qualified Data.Vector.Generic as VG
 
 import Data.List (reverse,take,permutations)
 import Control.DeepSeq
-import Control.Monad
+-- import Control.Monad
 import Data.List (lines,filter,head,words,sort,replicate,take,nubBy,zip,zip3)
 import System.IO
 import System.Directory

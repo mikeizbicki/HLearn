@@ -18,7 +18,7 @@ module HLearn.Optimization.LineMinimization.Multivariate
     )
     where
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 
 import HLearn.History
 import HLearn.Optimization.Common
@@ -45,15 +45,15 @@ makeLenses ''Backtracking
 
 -- | Backtracking linesearch is NOT guaranteed to converge.
 -- It is frequently used as the linesearch for multidimensional problems.
--- In this case, the overall minimization problem can converge significantly  
+-- In this case, the overall minimization problem can converge significantly
 -- faster than if one of the safer methods is used.
-backtracking :: 
+backtracking ::
     ( InnerProductSpace v
     , Normed (Scalar v)
     , Ord (Scalar v)
     , HistoryMonad m
     , Reportable m (Backtracking v)
-    ) => StopCondition m (Backtracking v) 
+    ) => StopCondition m (Backtracking v)
       -> MultivariateLineSearch m v
 backtracking stops f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
     let g y = {-# backtracking_g #-} f $ x0 + y *. f'x0
@@ -71,13 +71,13 @@ backtracking stops f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
             })
         stops
 
-step_backtracking :: 
+step_backtracking ::
     ( Module v
     , HistoryMonad m
-    ) => Scalar v 
-      -> (v -> Scalar v) 
+    ) => Scalar v
+      -> (v -> Scalar v)
       -> (v -> v)
-      -> Backtracking v 
+      -> Backtracking v
       -> m (Backtracking v)
 step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
     let x1 = tao * _bt_x bt
@@ -94,7 +94,7 @@ step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
 -- stop conditions
 
 {-# INLINABLE wolfe #-}
-wolfe :: 
+wolfe ::
     ( InnerProductSpace v
     , Normed (Scalar v)
     , Ord (Scalar v)
@@ -106,38 +106,38 @@ wolfe !c1 !c2 !bt0 !bt1 = {-# SCC wolfe #-} do
     return $ a && b
 
 {-# INLINABLE amijo #-}
-amijo :: 
+amijo ::
     ( InnerProductSpace v
     , Ord (Scalar v)
     , HistoryMonad m
     ) => Scalar v -> StopCondition m (Backtracking v)
-amijo !c1 _ !bt = {-# SCC amijo #-} return $ 
+amijo !c1 _ !bt = {-# SCC amijo #-} return $
     _bt_fx bt <= _init_fx bt + c1 * (_bt_x bt) * ((_init_f'x bt) <> (_init_dir bt))
 
 {-# INLINABLE weakCurvature #-}
-weakCurvature :: 
+weakCurvature ::
     ( InnerProductSpace v
     , Ord (Scalar v)
     , HistoryMonad m
     ) => Scalar v -> StopCondition m (Backtracking v)
-weakCurvature !c2 _ !bt = {-# SCC weakCurvature #-} return $ 
+weakCurvature !c2 _ !bt = {-# SCC weakCurvature #-} return $
     _init_dir bt <> _bt_f'x bt >= c2 * (_init_dir bt <> _init_f'x bt)
 
 {-# INLINABLE strongCurvature #-}
-strongCurvature :: 
+strongCurvature ::
     ( InnerProductSpace v
     , Ord (Scalar v)
     , Normed (Scalar v)
     , HistoryMonad m
     ) => Scalar v -> StopCondition m (Backtracking v)
-strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $ 
+strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
     abs (_init_dir bt <> _bt_f'x bt) <= c2 * abs (_init_dir bt <> _init_f'x bt)
 
 
 -------------------------------------------------------------------------------
 
 -- | determine how far to go in a particular direction
-type MultivariateLineSearch m v = 
+type MultivariateLineSearch m v =
     (v -> Scalar v) -> (v -> v) -> v -> v -> Scalar v -> m (Scalar v)
 
 -- lineSearchBrent ::

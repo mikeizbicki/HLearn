@@ -20,7 +20,7 @@ module HLearn.Optimization.Common
 --     )
     where
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 
 import HLearn.History
 

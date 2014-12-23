@@ -4,10 +4,10 @@ module HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 
 import Debug.Trace
 
-import Control.DeepSeq
 import qualified Data.Map.Strict as Map
 
 import SubHask
+import SubHask.Monad
 import HLearn.DataStructures.SpaceTree
 
 -------------------------------------------------------------------------------

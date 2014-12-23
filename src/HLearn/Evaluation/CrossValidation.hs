@@ -19,7 +19,7 @@ import Debug.Trace
 import qualified Data.DList as D
 import Prelude (take,drop,map,filter,zip)
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 import HLearn.History
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal

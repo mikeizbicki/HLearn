@@ -24,14 +24,15 @@ import System.Console.CmdArgs.Implicit
 import System.Mem
 import System.IO
 import qualified Numeric.LinearAlgebra as LA
+import qualified Numeric.LinearAlgebra.Devel as LA
 
 -- import Test.QuickCheck hiding (verbose,sample,label)
 -- import Control.Parallel.Strategies
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 import SubHask.Algebra.Container
-import SubHask.Algebra.Vector
 import SubHask.Compatibility.Containers
+import SubHask.Compatibility.Vector.Lebesgue
 -- import HLearn.Algebra
 import HLearn.Models.Classifiers.Common
 -- import HLearn.DataStructures.StrictVector
@@ -42,7 +43,6 @@ import HLearn.Models.Classifiers.Common
 -- import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 -- import qualified HLearn.DataStructures.StrictList as Strict
 -- import qualified HLearn.DataStructures.StrictVector as Strict
-import HLearn.Metrics.Lebesgue
 -- import HLearn.Metrics.Mahalanobis
 -- import HLearn.Metrics.Mahalanobis.Normal
 -- import HLearn.Models.Distributions
@@ -268,9 +268,9 @@ meanCenter ::
     , VG.Vector v2 a
     , Floating a
     ) => v1 (v2 a) -> v1 (v2 a)
-meanCenter dps = VG.map (\v -> VG.zipWith (-) v meanV) dps
+meanCenter dps = {-# SCC meanCenter #-} VG.map (\v -> VG.zipWith (-) v meanV) dps
     where
-        meanV = VG.map (/ fromIntegral (VG.length dps)) $ VG.foldl1' (VG.zipWith (+)) dps
+        meanV = {-# SCC meanV #-} VG.map (/ fromIntegral (VG.length dps)) $ VG.foldl1' (VG.zipWith (+)) dps
 
 {-# INLINABLE rotatePCA #-}
 -- | rotates the data using the PCA transform
@@ -282,20 +282,36 @@ rotatePCA ::
     , Show a
     , a ~ Float
     ) => container dp -> container dp
-rotatePCA dps' = trace "pca" $ {-# SCC rotatePCA #-} VG.map rotate dps
+rotatePCA dps' = {-# SCC rotatePCA #-} VG.map rotate dps
     where
 --         rotate dp = VG.convert $ LA.single $ eigm LA.<> LA.double (VG.convert dp :: VS.Vector Float)
-        rotate dp = VG.convert $ LA.single $ (LA.trans eigm) LA.<> LA.double (VG.convert dp :: VS.Vector Float)
-        dps = meanCenter dps'
+        rotate dp = {-# SCC convert #-} VG.convert $ LA.single $ (LA.trans eigm) LA.<> LA.double (VG.convert dp :: VS.Vector Float)
+        dps =  meanCenter dps'
 
         (eigv,eigm) = {-# SCC eigSH #-} LA.eigSH $ LA.double gramMatrix
 
-        gramMatrix = {-# SCC gramMatrix #-} LA.trans tmpm LA.<> tmpm
-            where
-                tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
+        gramMatrix = {-# SCC gramMatrix #-} gramMatrix_ $ map VG.convert $ VG.toList dps
+--         gramMatrix = {-# SCC gramMatrix #-} LA.trans tmpm LA.<> tmpm
+--             where
+--                 tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
 
 --         gramMatrix = {-# SCC gramMatrix #-} foldl1' (+)
 --             [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
+
+gramMatrix_ :: (Ring a, Storable a) => [Vector a] -> LA.Matrix a
+gramMatrix_ xs = runST ( do
+    let dim = VG.length (head xs)
+    m <- LA.newMatrix 0 dim dim
+
+    forM_ xs $ \x -> do
+        forM_ [0..dim-1] $ \i -> do
+            forM_ [0..dim-1] $ \j -> do
+                mij <- LA.unsafeReadMatrix m i j
+                LA.unsafeWriteMatrix m i j $ mij + (x `VG.unsafeIndex` i)*(x `VG.unsafeIndex` j)
+
+    LA.unsafeFreezeMatrix m
+    )
+
 
 {-# INLINABLE rotatePCADouble #-}
 -- | rotates the data using the PCA transform

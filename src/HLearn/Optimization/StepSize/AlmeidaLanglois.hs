@@ -4,13 +4,13 @@
 module HLearn.Optimization.StepSize.AlmeidaLanglois
     where
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 import HLearn.History
 import HLearn.Optimization.Common
 
 import qualified Data.Vector.Generic as VG
 
--- lrAlmeidaLanglois :: 
+-- lrAlmeidaLanglois ::
 --     ( VectorSpace v
 --     , VG.Vector u r
 --     , u r ~ v
@@ -54,7 +54,7 @@ data Params v = Params
     }
 
 instance (r ~ Scalar (v r), VectorSpace (v r), VG.Vector v r) => LearningRate Hyperparams Params (v r) where
-    lrInit (Hyperparams _ _ u) x = Params 
+    lrInit (Hyperparams _ _ u) x = Params
         { d = VG.map (const $ 1/u) x
         , v = VG.map (const $ 1/u) x
         , p = VG.map (const $ 0.1) x

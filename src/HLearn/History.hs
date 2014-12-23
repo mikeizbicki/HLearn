@@ -51,7 +51,7 @@ import System.IO
 
 import Pipes
 
-import SubHask
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 
 -------------------------------------------------------------------------------
 -- data types

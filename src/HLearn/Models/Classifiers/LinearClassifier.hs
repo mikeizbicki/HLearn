@@ -27,8 +27,8 @@ import Debug.Trace
 
 import qualified Prelude as P
 import Prelude (take,drop,map,filter,zip,head)
-import SubHask hiding (argmax)
-import SubHask.Algebra.HMatrix
+import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return, argmax)
+import SubHask.Compatibility.HMatrix
 
 -- import HLearn.Algebra
 import HLearn.History
