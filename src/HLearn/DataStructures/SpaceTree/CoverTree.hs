@@ -560,15 +560,15 @@ trainInsert xs = case unCons xs of
     Nothing -> Nothing'
     Just (dp,dps) -> Just' $ foldr' insertCT (train1dp dp) $ toList dps
 
-{-# INLINABLE trainInsert_ #-}
-trainInsert_ ::
+{-# INLINABLE trainInsertOrig #-}
+trainInsertOrig ::
     ( ValidCT exprat childC leafC (Elem xs)
     , Foldable xs
     ) => xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsert_ xs = case unCons xs of
+trainInsertOrig xs = case unCons xs of
     Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' insertCT_ (train1dp dp) dps
+    Just (dp,dps) -> Just' $ foldr' insertCTOrig (train1dp dp) dps
 
 {-# INLINABLE trainMonoid #-}
 trainMonoid ::
@@ -764,13 +764,15 @@ extractCloseChildren_orig dp maxdist ct = {-# SCC extractCloseChildren #-}
 --                     (x',dps') = extractCloseChildren_orig dp maxdist x
 
 
-{-# INLINABLE insertCT_ #-}
-insertCT_ :: forall exprat childC leafC dp.
+{-# INLINABLE insertCTOrig #-}
+insertCTOrig :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     ) => dp
       -> CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
-insertCT_ dp ct = {-# SCC insertCT_ #-} if dist > coverdist ct
+insertCTOrig dp ct = {-# SCC insertCTOrig #-}
+    if dist > coverdist ct
+
         -- | ct can't cover dp, so create a new node at dp that covers ct
         then Node
             { nodedp                = dp
@@ -798,7 +800,7 @@ insertCT_ dp ct = {-# SCC insertCT_ #-} if dist > coverdist ct
             go !acc []     = ((singletonCT dp) { level = level ct-1 }):acc
             go !acc (x:xs) = if isFartherThan (nodedp x) dp (sepdist ct)
                 then go (x:acc) xs
-                else acc+((insertCT_ dp x):xs)
+                else acc+((insertCTOrig dp x):xs)
 
 instance
     ( ValidCT exprat childC leafC dp

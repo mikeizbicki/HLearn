@@ -83,7 +83,6 @@ data Params = Params
 data TrainMethod
     = TrainInsert
     | TrainInsertOrig
-    | TrainInsert_
     | TrainMonoid
     deriving (Read,Show,Data,Typeable)
 
@@ -152,7 +151,7 @@ allknnParams = Params
     , train_sequential = False
                     &= help "don't train the tree in parallel; this may *slightly* speed up the nearest neighbor search at the expense of greatly slowing tree construction"
 
-    , train_method   = TrainInsert
+    , train_method   = TrainInsertOrig
                     &= help "which method to use to construct the cover tree?"
 
     , adopt_children = False
@@ -213,11 +212,11 @@ main = do
             rs <- loaddata dataparams
             runTest params rs Nothing l2ct l2nl
 
-        PLG -> do
-            let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
-                ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
-            rs <- timeIO "loadDirectoryPLG" $ loadDirectoryPLG filepath
-            runTest params rs Nothing ct nl
+--         PLG -> do
+--             let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
+--                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
+--             rs <- timeIO "loadDirectoryPLG" $ loadDirectoryPLG filepath
+--             runTest params rs Nothing ct nl
 
     {-
     let bownl=Proxy::Proxy (NeighborList (Static 1) (IndexedVector Int Float))
@@ -275,14 +274,13 @@ main = do
 
 -- | Given our data, perform the actual tests.
 -- For efficiency, it is extremely important that this function get specialized to the exact types it is called on.
--- {-# INLINE runTest #-}
+{-# INLINE runTest #-}
 runTest :: forall k exprat childC leafC dp proxy1 proxy2.
     ( ValidCT exprat childC leafC dp
     , P.Fractional (Scalar dp)
     , Param_k (NeighborList k dp)
     , VG.Vector childC Int
     , VG.Vector childC Bool
---     , dp ~ L2 UnboxedVector Float
     ) => Params
       -> Array dp
       -> Maybe (Array dp)
@@ -362,8 +360,8 @@ buildTree params xs = do
     setexpratIORef $ P.toRational $ expansionRatio params
 
     let trainmethod = case train_method params of
+            TrainInsertOrig -> trainInsertOrig
             TrainInsert     -> trainInsert
-            TrainInsert_    -> trainInsert_
             TrainMonoid     -> trainMonoid
     let (Just' reftree) = trainmethod xs
     time "building tree" reftree

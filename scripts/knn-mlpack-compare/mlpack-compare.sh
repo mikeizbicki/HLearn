@@ -1,6 +1,6 @@
 #!/bin/bash
 
-K=3
+K=1
 
 tmpdir=$(mktemp --tmpdir -d)
 echo "--------------------------------------------------------------------------------"
@@ -13,7 +13,7 @@ mlpack_distances="$tmpdir/distances_mlpack.csv"
 
 #verbose="--verbose"
 optimization="--varshift"
-method="--train-method=traininsert_"
+#method="--train-method=traininsert_"
 
 time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N1
 #time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N
