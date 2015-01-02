@@ -9,8 +9,6 @@ module HLearn.Algebra.Functions
 
     -- * Higher order functions
     -- ** Parallelism
-     parallel
-    , parallelN
 
     -- ** Manipulating homomorphisms
 --     , online, offline
@@ -47,28 +45,6 @@ class Function f domain range | f -> domain  range where
 -------------------------------------------------------------------------------
 -- higher order functions
 
-
--- | Parallelizes any batch trainer to run over multiple processors on a single machine.
-parallelN ::
-    ( Comonoid domain
-    , Monoid range
-    , NFData range
-    ) => Int -- ^ number of parallel threads
-      -> (domain -> range) -- ^ sequential batch trainer
-      -> (domain -> range) -- ^ parallel batch trainer
-parallelN n train = \datapoint ->
-    reduce $ parMap strat train (partition n datapoint)
-    where
-        strat = rdeepseq
-
--- | Parallelizes any batch trainer to run over multiple processors on a single machine.  The function automatically detects the number of available processors and parallelizes the function accordingly.  This requires the use of unsafePerformIO, however, the result should still be safe.
-parallel ::
-    ( Comonoid domain
-    , Monoid range
-    , NFData range
-    ) => (domain -> range) -- ^ sequential batch trainer
-      -> (domain -> range) -- ^ parallel batch trainer
-parallel = parallelN (unsafePerformIO getNumCapabilities)
 
 {-
 -- | Converts a batch trainer into an online trainer.  The input function should be a semigroup homomorphism.

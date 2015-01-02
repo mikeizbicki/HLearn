@@ -7,7 +7,7 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.ST
 import Data.Csv
-import Data.List hiding (insert)
+import Data.List hiding (insert,length,concat)
 import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Vector as V
@@ -23,6 +23,8 @@ import qualified Data.Vector.Algorithms.Intro as Intro
 import System.Console.CmdArgs.Implicit
 import System.Mem
 import System.IO
+import System.Directory
+import System.FilePath.Posix
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel as LA
 
@@ -43,6 +45,7 @@ import HLearn.Models.Classifiers.Common
 -- import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 -- import qualified HLearn.DataStructures.StrictList as Strict
 -- import qualified HLearn.DataStructures.StrictVector as Strict
+import HLearn.Metrics.EMD
 -- import HLearn.Metrics.Mahalanobis
 -- import HLearn.Metrics.Mahalanobis.Normal
 -- import HLearn.Models.Distributions
@@ -51,7 +54,7 @@ import Timing
 import HLearn.UnsafeVector
 
 import Debug.Trace
-import Prelude (asTypeOf)
+import Prelude (asTypeOf,unzip)
 
 --------------------------------------------------------------------------------
 
@@ -82,6 +85,82 @@ loadWords filepath = do
     hin <- openFile filepath ReadMode
     contents <- hGetContents hin
     return $ fromList $ map fromList $ lines contents
+
+
+--------------------------------------------------------------------------------
+
+-- | Returns all files in a subdirectory (and all descendant directories).
+-- Unlike "getDirectoryContents", this function prepends the directory's path to each filename.
+-- This is important so that we can tell where in the hierarchy the file is located.
+--
+-- FIXME:
+-- This is relatively untested.
+-- It probably has bugs related to weird symbolic links.
+getDirectoryContentsRecursive :: FilePath -> IO [FilePath]
+getDirectoryContentsRecursive dirpath = do
+    files <- getDirectoryContents dirpath
+    fmap concat $ forM files $ \file -> case file of
+        '.':_ -> return []
+        _ -> do
+--             let file' = dirpath++"/"++takeFileName file
+            let file' = dirpath++"/"++file
+            isdir <- doesDirectoryExist file'
+            contents <- if isdir
+                then getDirectoryContentsRecursive file'
+                else return []
+            return $ file':contents
+
+-- | A generic method for loading unlabeled data points
+-- where each file in a directory hierarchy corresponds to a single data point.
+loadDirectory ::
+    ( Eq a
+    , NFData a
+    ) => FilePath             -- ^ directory to load data from
+      -> (FilePath -> IO a)   -- ^ function to load an individual file
+      -> (FilePath -> Bool)   -- ^ function to filter out invalid filenames
+      -> (a -> Bool)          -- ^ function to filter out malformed results
+      -> IO (Array a)         -- ^
+loadDirectory dirpath loadFile validFilepath validResult = {-# SCC loadDirectory #-} do
+    files <- --fmap (take 1000) $
+        fmap (filter validFilepath) $
+        getDirectoryContentsRecursive dirpath
+
+    results <- fmap (filter validResult)
+        $ mapM loadFile files
+    time "loadDirectory" results
+
+    putStrLn $ "  numdp: " ++ show (length files)
+--     when debug $ do
+--         forM files $ \file -> do
+--             putStrLn file
+
+    return $ fromList results
+
+-------------------
+
+
+type HistogramSignature_ a = EMD (Lexical (StorableArray Float), Lexical (Array a))
+type HistogramSignature = HistogramSignature_ (L2 Vector Float)
+
+loadHistogramSignature
+    :: Bool     -- ^ print debug info?
+    -> FilePath -- ^ path of signature file
+    -> IO HistogramSignature
+loadHistogramSignature debug filepath = {-# SCC loadHistogramSignature #-} do
+    filedata <- liftM lines $ readFile filepath
+
+    let (fs,as) = unzip
+            $ map (\[b,g,r,v] -> (v,VG.fromList [r,g,b]))
+            $ map ((read :: String -> [Float]).(\x->"["+x+"]")) filedata
+
+        ret = (fromList fs, fromList as)
+
+    when debug $ do
+        putStrLn $ "filepath="++show filepath
+        putStrLn $ "  filedata="++show filedata
+--         putStrLn $ "signature length=" ++ show (length ret)
+
+    deepseq ret $ return $ EMD ret
 
 
 --------------------------------------------------------------------------------

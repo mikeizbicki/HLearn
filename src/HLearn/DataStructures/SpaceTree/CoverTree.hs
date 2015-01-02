@@ -19,17 +19,21 @@ import SubHask.Monad
 import SubHask.Algebra.Container
 import SubHask.Compatibility.Containers
 
+import HLearn.Algebra.Structures.Comonoid
 import HLearn.DataStructures.SpaceTree
 -- import HLearn.Metrics.Lebesgue
 import HLearn.Models.Distributions.Univariate.Normal
 
-import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar)
+import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar,Monoid)
 import qualified Diagrams.Prelude as D
 import Diagrams.Backend.SVG
 
 ---------
 import System.IO.Unsafe
 import Data.IORef
+
+import Control.Concurrent
+import Control.Parallel.Strategies
 
 
 {-# NOINLINE expratIORef #-}
@@ -137,6 +141,8 @@ type ValidCT exprat childC leafC dp =
     , Show dp
     , Show (leafC dp)
     , Show (childC (CoverTree_ exprat childC leafC dp))
+    , Show (Scalar (childC (CoverTree_ exprat childC leafC dp)))
+    , Show (Scalar (leafC dp))
     )
 
 instance
@@ -350,8 +356,8 @@ invariant_CoverTree_covering ::
     ) => CoverTree_ exprat childC leafC dp -> Bool
 invariant_CoverTree_covering node
     = and (map invariant_CoverTree_covering $ stChildrenList node)
-   && and (map (\child -> distance  (nodedp node) (nodedp child) <= 1.1*coverdist node) $ stChildrenList node)
---    && and (map (\child -> distance  (nodedp node) (nodedp child) <= coverdist node) $ stChildrenList node)
+--    && and (map (\child -> distance  (nodedp node) (nodedp child) <= 1.1*coverdist node) $ stChildrenList node)
+   && and (map (\child -> distance  (nodedp node) (nodedp child) <= coverdist node) $ stChildrenList node)
 
 invariant_CoverTree_tightCovering ::
     ( ValidCT exprat childC leafC dp
@@ -370,8 +376,8 @@ invariant_CoverTree_maxDescendentDistance ::
     ) => CoverTree_ exprat childC leafC dp -> Bool
 invariant_CoverTree_maxDescendentDistance node
     = and (map invariant_CoverTree_maxDescendentDistance $ stChildrenList node)
-   && and (map (\dp -> distance dp (nodedp node) <= 1.1 * maxDescendentDistance node) $ stDescendents node)
---    && and (map (\dp -> distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
+--    && and (map (\dp -> distance dp (nodedp node) <= 1.1 * maxDescendentDistance node) $ stDescendents node)
+   && and (map (\dp -> distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
 
 invariant_CoverTree_separating ::
     ( ValidCT exprat childC leafC dp
@@ -568,6 +574,16 @@ type instance Elem (CoverTree_ exprat childC leafC dp) = dp
 --
 --     fromList =
 
+instance
+    ( ValidCT exprat childC leafC dp
+    ) => Foldable (CoverTree_ exprat childC leafC dp)
+        where
+    toList = stToList
+
+instance
+    ( ValidCT exprat childC leafC dp
+    ) => Monoid (CoverTree_ exprat childC leafC dp)
+
 -------------------------------------------------------------------------------
 -- construction
 
@@ -598,7 +614,7 @@ trainMonoid ::
     , Foldable xs
     ) => xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainMonoid xs = {-# SCC trainMonoid #-}foldMap (Just' . singletonCT) xs
+trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
 
 {-# INLINABLE singletonCT #-}
 singletonCT :: ValidCT exprat childC leafC dp => dp -> CoverTree_  exprat childC leafC dp
@@ -662,7 +678,17 @@ insertCT :: forall exprat childC leafC dp.
       -> dp
       -> CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
-insertCT addChild dp ct = {-# SCC insertCT #-} if dist > coverdist ct
+insertCT addChild dp ct = {-# SCC insertCT #-}
+    insertCT_ addChild dp ct (distance dp $ nodedp ct)
+
+insertCT_ :: forall exprat childC leafC dp.
+    ( ValidCT exprat childC leafC dp
+    ) => AddChildMethod dp
+      -> dp
+      -> CoverTree_ exprat childC leafC dp
+      -> Scalar dp
+      -> CoverTree_ exprat childC leafC dp
+insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-} if dist > coverdist ct
         -- | ct can't cover dp, so create a new node at dp that covers ct
         then {-# SCC insertCT_greater #-} Node
             { nodedp                = dp
@@ -684,8 +710,6 @@ insertCT addChild dp ct = {-# SCC insertCT #-} if dist > coverdist ct
             }
 
         where
-            dist = distance (nodedp ct) dp
-
             childrendists = {-# SCC childrendists #-}
                 map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
 
@@ -814,19 +838,29 @@ extractCloseChildren_orig dp maxdist ct = {-# SCC extractCloseChildren #-}
 --                 where
 --                     (x',dps') = extractCloseChildren_orig dp maxdist x
 
-
 instance
     ( ValidCT exprat childC leafC dp
     ) => Abelian (CoverTree_ exprat childC leafC dp)
+
+-- |
+--
+-- FIXME:
+-- Move to a better spot
+-- Add rewrite rules to remove with optimization -O
+assert :: String -> Bool -> a -> a
+assert str b = if b
+    then id
+    else error $ "ASSERT FAILED: "+str
 
 instance
     ( ValidCT exprat childC leafC dp
     ) => Semigroup (CoverTree_ exprat childC leafC dp)
         where
+
     {-# INLINABLE (+) #-}
-    ct1 + ct2 = {-# SCC semigroup_CoverTree #-} case ctmerge_ ct1_ ct2_ of
+    ct1 + ct2 = {-# SCC semigroup_CoverTree #-} case ctmerge_ ct1_ ct2_ dist of
         (ct, []) -> ct
-        (ct, xs) -> foldl' (+) ct xs
+        (ct, xs) -> foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
 
         where
             dist = distance (nodedp ct1) (nodedp ct2)
@@ -837,46 +871,182 @@ instance
                 , dist2level_down (Proxy::Proxy exprat) dist
                 ]
 
-            ct1_ = if dist > coverdist ct1 then raiseRootLevel maxlevel ct1 else ct1
-            ct2_ = if dist > coverdist ct2 then raiseRootLevel maxlevel ct2 else ct2
+            ct1_ = if level ct1 < maxlevel then raiseRootLevel maxlevel ct1 else ct1
+            ct2_ = if level ct2 < maxlevel then raiseRootLevel maxlevel ct2 else ct2
 
--- | expect level ct1==level ct2; this probably leads to inefficiencies
+{-
+    ct1 + ct2 = {-# SCC semigroup_CoverTree #-}
+--         trace "semigroup" $
+        if level ct1_ == level ct2_
+            then {-# SCC plus_then #-} {-trace " then" $ -} case ctmerge_ ct1_ ct2_ dist of
+                (ct, []) -> ct
+                (ct, xs) -> {-trace ("  |xs|="++show (length xs)) $-} foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
+            else {-# SCC plus_else #-} {-trace " else" $ -} ct1_
+                { children = fromList $ go [] (stChildrenList ct1_)
+                , numdp = numdp ct1_ + numdp ct2_
+                , maxDescendentDistance = maxDescendentDistance ct2_ + dist
+                }
+
+        where
+            go ret []     = (raiseRootLevel (maxlevel-1) ct2_):ret
+            go ret (x:xs) = if isFartherThan (nodedp x) (nodedp ct2_) (coverdist x)
+                then go (x:ret) xs
+                else (x+ct2_):(ret++xs)
+
+            dist = distance (nodedp ct1) (nodedp ct2)
+
+            maxlevel = maximum
+                [ level ct1
+                , level ct2
+                , dist2level_down (Proxy::Proxy exprat) dist
+                ]
+
+            (ct1_,ct2_) = if level ct1 >= level ct2
+                then (raiseRootLevel maxlevel ct1,ct2)
+                else (raiseRootLevel maxlevel ct2,ct1)
+-}
+
+-- | If the following prerequisites are met:
+--
+-- > level ct1==level ct2
+--
+-- > distance (nodedp ct1) (nodedp ct2) < coverdist ct1
+--
+-- then all output covertrees will be valid.
+-- The root not of ct1 is guaranteed to not change.
 ctmerge_ :: forall exprat childC leafC  dp.
     ( ValidCT exprat childC leafC  dp
     ) => CoverTree_ exprat childC leafC  dp
       -> CoverTree_ exprat childC leafC  dp
+      -> Scalar dp
       -> ( CoverTree_ exprat childC leafC  dp
          , [CoverTree_ exprat childC leafC  dp]
          )
-ctmerge_ ct1 ct2 = {-# SCC ctmerge_ #-}
-    ( insertCT addChild_ancestor (nodedp ct2) $ ct1 -- ^ FIXME: the insertCT is sucking up all the time
-        { children = children'
-        , numdp = {-# SCC ctmerge__numdp #-} sum $ map numdp $ toList children'
-        , maxDescendentDistance = coverdist ct1
-        }
-    , invalidchildren++invalid_newleftovers
-    )
-    where
-        children' = fromList (values newchildren + valid_newleftovers)
+ctmerge_ ct1 ct2 dist =
+--   assert "ctmerge_ level  ==" (level ct1==level ct2) $
+--   assert "ctmerge_ covdist <" (distance (nodedp ct1) (nodedp ct2) <= coverdist ct1) $
 
-        validchild x = not $ isFartherThan (nodedp ct1) (nodedp x) (coverdist ct1)
-        (validchildren,invalidchildren) = L.partition validchild $ stChildrenList ct2
+    {-# SCC ctmerge_ #-}
+--     ( ct_minusleftovers , notCoveredChildren+leftovers )
+    ( ct' , notCoveredChildren+leftovers' )
+    where
+        -- remove the children of ct2 that can't be covered by ct1 ("notCoveredChildren");
+        -- these will be handled separately in (+)
+        (coveredChildren,notCoveredChildren) = {-# SCC isCovered #-}
+            L.partition isCovered $ stChildrenList ct2
+            where
+                isCovered x = not $ isFartherThan (nodedp ct1) (nodedp x) (coverdist ct1)
+
+        -- sepcovChildren is not a part of children' because we loop through children' in go
+        -- adding in sepcovChildren would result in extra iterations
+        (children',sepcovChildren,leftovers)
+            = foldl' (go []) (stChildrenList ct1,[],[]) coveredChildren
+            where
+                -- merge covChild with a child of ct1' within the separating distance
+                go tot (x:xs,ys,zs) covChild = if godist <= sepdist ct1
+                    then let (x',zs') = ctmerge_ x covChild godist
+                         in (x':tot++xs,ys,zs'++zs)
+                    else go (x:tot) (xs,ys,zs) covChild
+                    where
+                        godist = distance (nodedp x) (nodedp covChild)
+
+                -- nothing within separating distance, so add covChild as new child
+                go tot ([],ys,zs) covChild = (tot,covChild:ys,zs)
+
+        -- update children, insert root of ct2 into ct1
+        ct_minusleftovers = insertCT_
+            addChild_nothing
+            (nodedp ct2)
+            ( ct1
+                { children = fromList $ children' + sepcovChildren
+                , numdp =  sum $ map numdp $ children' + sepcovChildren
+                , maxDescendentDistance = coverdist ct1*2
+                } )
+            dist
+
+        -- insert any leftovers into the tree if they fit
+        (ct',leftovers') = foldl' go (ct_minusleftovers,[]) leftovers
+            where
+                go (ct,xs) x = if level ct >= level x && godist <= coverdist ct
+                    then (goct, goleftovers++xs)
+                    else (ct,x:xs)
+                    where
+                        godist = distance (nodedp ct) (nodedp x)
+                        (goct,goleftovers) = ctmerge_ ct (raiseRootLevel (level ct) x) godist
+
+
+        {-
+        -- all covered children of ct2 that don't violate the separating constraint of ct1
+        -- can be directly added to ct1
+        (sepcovChildren,notSepcovChildren) = {-# SCC isSeparated #-}L.partition isSeparated $ coveredChildren
+            where
+                isSeparated x = and
+                    $ map (\y -> isFartherThan (nodedp y) (nodedp x) (sepdist ct1))
+                    $ stChildrenList ct1
+
+        -- covered children that are not separated must be merged with a close neighbor from ct1
+        (children',leftovers) = {-# SCC foldgo #-} foldl' (go []) (stChildrenList ct1,[]) notSepcovChildren
+            where
+                go _   ([],  []) _           = error "this should never happen"
+                go tot (x:xs,ys) sepcovChild = if distance (nodedp x) (nodedp sepcovChild) < coverdist x
+                    then let (x',ys') = ctmerge_ x sepcovChild
+                         in (x':tot++xs,ys'++ys)
+                    else go (x:tot) (xs,ys) sepcovChild
+-}
+
+--   trace (" ctmerge_ (stNumDp) "++ show (stNumDp ct1) ++ " " ++ show (stNumDp ct2)) $
+--   trace (" ctmerge_ (level)   "++ show (level   ct1) ++ " " ++ show (level   ct2)) $
+--
+--   trace (" |leftovers|="+show (sum $ map numdp $ leftovers)) $
+--   trace ("  |coveredChildren|="+show (sum $ map numdp $ coveredChildren)) $
+--   trace ("  |notCoveredChildren|="+show (sum $ map numdp $  notCoveredChildren)) $
+--   trace ("  |sepcovChildren|="+show (sum $ map numdp $  sepcovChildren)) $
+--   trace ("  |notSepcovChildren|="+show (sum $ map numdp $  notSepcovChildren)) $
+--   trace (" |children'|="+show (sum $ map numdp $  children')) $
+--   trace (" |children ct1|="+show (sum $ map numdp $ toList $ children ct1)) $
+--   trace (" |children ct2|="+show (sum $ map numdp $ toList $ children ct2)) $
+--   assert
+--     ("ctmerge_ debug_"
+--         ++"\n children'="++show children'
+--         ++"\n notCoveredChildren="++show notCoveredChildren
+--         ++"\n notSepcovChildren="++show notSepcovChildren
+--         ++"\n children ct1="++show (stChildrenList ct1)
+--         ++"\n children ct2="++show (stChildrenList ct2)
+--     )
+--     (sum (map stNumDp $ notCoveredChildren + leftovers + toList children' + sepcovChildren) +2
+--     == stNumDp ct1 + stNumDp ct2
+--     ) $
+{-
+        children' =
+            fromList (values newchildren + valid_newleftovers)
+
+        leftovers = invalidchildren++invalid_newleftovers
 
         -- | FIXME: replace go with fold, better variable names
         -- FIXME: if CT is an IndexedVector, we can get rid of the map
-        (newchildren,newleftovers) = go (ct2map' ct1,[]) validchildren
-        (valid_newleftovers,invalid_newleftovers) = L.partition validchild newleftovers
+        (separatedChildren,newleftovers) =
+--           trace (" |coveredChildren|="++show (length coveredChildren)) $
+--           trace (" |notCoveredChildren|="++show (length notCoveredChildren)) $
+            go (ct2map' ct1,[]) coveredChildren
+        (valid_newleftovers,invalid_newleftovers) =
+--           trace (" |newleftovers="++show (length newleftovers)) $
+            L.partition validchild newleftovers
 
-        go (childmap,leftovers) []     = (childmap,leftovers)
+        go (childmap,leftovers) []     =
+--           trace ("  go: 0") $
+--           trace ("   |childmap|="++show (length childmap)) $
+--           trace ("   |leftovers|="++show (length leftovers)) $
+            (childmap,leftovers)
         go (childmap,leftovers) (x:xs) = {-# SCC ctmerge__go #-}
+--           trace ("  go: "++show (length xs+1)) $
             go ( insert (nodedp new, new { level = level ct1-1 }) childmap
-               , leftovers
+               , leftovers'
                ) xs
             where
-                (new,leftovers) =  case L.filter (\v -> isFartherThan (nodedp v) (nodedp x) (coverdist v)) $ values childmap of
+                (new,leftovers') =  case L.filter (\v -> isFartherThan (nodedp v) (nodedp x) (coverdist v)) $ values childmap of
                     [] -> (x,leftovers)
                     y:_ -> let (new,ys) = ctmerge_ y x in (new,ys+leftovers)
-
+-}
 {-
 instance
     ( ValidCT exprat childC leafC dp

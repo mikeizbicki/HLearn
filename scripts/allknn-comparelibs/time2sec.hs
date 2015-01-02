@@ -11,5 +11,5 @@ str2seconds :: String -> Double
 str2seconds xs = case splitOn ":" xs of
     [s] -> read s
     [m,s] -> read m*60 + read s
-    [h,m,s] -> read h*24+read m*60+read s
+    [h,m,s] -> read h*60*60+read m*60+read s
 

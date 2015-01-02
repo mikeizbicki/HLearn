@@ -21,6 +21,8 @@ module HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
     -- * functions
     , findNeighborVec
 
+    , findAllNeighbors
+
     , parFindNeighborMap
     , parFindEpsilonNeighborMap
     , parFindEpsilonNeighborMapWith
@@ -40,7 +42,7 @@ import SubHask.Compatibility.Vector.Lebesgue
 import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
 
-import HLearn.Algebra.Functions
+import HLearn.Algebra.Structures.Comonoid
 import HLearn.DataStructures.SpaceTree
 import HLearn.UnsafeVector
 
@@ -216,8 +218,8 @@ instance
 -------------------------------------------------------------------------------
 
 newtype NeighborMap (k :: Config Nat) dp = NeighborMap
---     { nm2map :: Map' dp (NeighborList k dp)
-    { nm2map :: Seq (dp , NeighborList k dp)
+    { nm2map :: Map' dp (NeighborList k dp)
+--     { nm2map :: Seq (dp , NeighborList k dp)
     }
 mkParams ''NeighborMap
 -- deriveHierarchy ''NeighborMap []
@@ -458,6 +460,22 @@ parFindEpsilonNeighborMap ::
     , ValidNeighbor dp
     ) => Scalar dp -> DualTree (t dp) -> NeighborMap k dp
 parFindEpsilonNeighborMap e d = parFindEpsilonNeighborMapWith zero e d
+
+{-# INLINABLE findAllNeighbors #-}
+findAllNeighbors :: forall k dp t.
+    ( ViewParam Param_k (NeighborList k dp)
+    , SpaceTree t dp
+    , Ord dp
+    , NFData (Scalar dp)
+    , NFData dp
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
+    , ValidNeighbor dp
+    ) => Scalar dp -> t dp -> [dp] -> Seq (dp,NeighborList k dp)
+findAllNeighbors epsilon rtree qs = reduce $ map
+    (\dp -> singletonAt dp
+        $ findEpsilonNeighborListWith zero epsilon rtree dp)
+    qs
 
 {-# INLINABLE parFindEpsilonNeighborMapWith #-}
 parFindEpsilonNeighborMapWith :: forall k dp t.

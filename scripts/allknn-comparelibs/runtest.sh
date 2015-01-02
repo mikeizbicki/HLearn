@@ -11,11 +11,11 @@ INPUT="$curdir/$1"
 
 TIME="/usr/bin/time -f %E "
 
+    #"$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.2.csv --distances-file=distances_hlearn.2.csv +RTS -K1000M -N3" \
+    #"$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.3.csv --distances-file=distances_hlearn.3.csv +RTS -K1000M -N2" \
+    #"$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.4.csv --distances-file=distances_hlearn.4.csv +RTS -K1000M -N1" \
 for cmd in \
     "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv +RTS -K1000M -N4" \
-    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.2.csv --distances-file=distances_hlearn.2.csv +RTS -K1000M -N3" \
-    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.3.csv --distances-file=distances_hlearn.3.csv +RTS -K1000M -N2" \
-    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.4.csv --distances-file=distances_hlearn.4.csv +RTS -K1000M -N1" \
     "allknn -r $INPUT -k 1 -n neighbors_mlpack.1.csv -d distances_mlpack.1.csv -S " \
     "allknn -r $INPUT -k 1 -n neighbors_mlpack.2.csv -d distances_mlpack.2.csv " \
     "allknn -r $INPUT -k 1 -n neighbors_mlpack.3.csv -d distances_mlpack.3.csv -c S" \
@@ -27,6 +27,7 @@ do
     echo "$cmd"
     sanitizedcmd=$(tr ' /' '__' <<< "$cmd")
     runtime=$($TIME $cmd 2>&1 >> "stdout.$sanitizedcmd")
+    echo "$runtime" >> "stderr.$sanitizedcmd"
     runtime=$(tail -1 <<< "$runtime")
     runseconds=$(../time2sec.hs $runtime)
 

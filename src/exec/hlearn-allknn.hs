@@ -16,9 +16,8 @@
 {-# LANGUAGE RebindableSyntax #-}
 
 import Control.Monad
-import Data.Csv hiding (Field)
-import Data.List (zip,intersperse,init,tail)
-import Data.Maybe
+import Data.List (zip,intersperse,init,tail,isSuffixOf)
+import Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as VG
 import Data.Version
 import Numeric
@@ -36,7 +35,6 @@ import SubHask.Compatibility.Vector.Lebesgue
 
 import Data.Params
 
-import HLearn.Algebra.Functions
 import HLearn.DataStructures.Graph
 import HLearn.DataStructures.SpaceTree
 import HLearn.DataStructures.SpaceTree.CoverTree hiding (head,tail)
@@ -106,8 +104,11 @@ data SortMethod
     deriving (Read,Show,Data,Typeable)
 
 data DataFormat
-    = CSV
-    | PLG
+    = DF_CSV
+    | DF_PLG
+    | DF_Images
+    | DF_BagOfWords
+    | DF_String
     deriving (Read,Show,Data,Typeable)
 
 allknnParams = Params
@@ -115,14 +116,14 @@ allknnParams = Params
                     &= help "Number of nearest neighbors to find"
 
     , reference_file = def
-                    &= help "Reference data set in CSV format"
+                    &= help "Reference data set"
                     &= typFile
 
-    , data_format    = CSV
+    , data_format    = DF_CSV
                     &= help "file format of data files"
 
     , query_file     = def
-                    &= help "Query data set in CSV format"
+                    &= help "Query data set"
                     &= typFile
 
     , distances_file = "distances_hlearn.csv"
@@ -169,8 +170,8 @@ allknnParams = Params
                     &= name "pca"
                     &= explicit
 
-    , varshift_data  = False
-                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive in higher dimensions."
+    , varshift_data  = True
+                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive to compute."
                     &= name "varshift"
                     &= explicit
 
@@ -203,7 +204,7 @@ main = do
     let filepath = fromJust $ reference_file params
 
     case data_format params of
-        CSV -> do
+        DF_CSV -> do
             let l2nl=Proxy::Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
                 l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
             let dataparams = DataParams
@@ -213,31 +214,42 @@ main = do
                     , varshift = varshift_data params
                     }
             rs <- loaddata dataparams
+
             runTest params rs Nothing l2ct l2nl
 
---         PLG -> do
---             let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
---                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
---             rs <- timeIO "loadDirectoryPLG" $ loadDirectoryPLG filepath
+--         DF_Images -> do
+--             let nl=Proxy::Proxy (NeighborList (Static 1) HistogramSignature)
+--                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array HistogramSignature)
+--             rs <- loadDirectory
+--                 filepath
+--                 (loadHistogramSignature False)
+--                 (isSuffixOf ".sig.all")
+--                 true
 --             runTest params rs Nothing ct nl
 
-    {-
-    let bownl=Proxy::Proxy (NeighborList (Static 1) (IndexedVector Int Float))
-        bowct=Proxy::Proxy (Maybe' (CoverTree_ (13/10) Array Array (IndexedVector Int Float)))
-    when ("docword" `isInfixOf` filepath) $ do
-        let dataparams = DataParams
-        rs <- loadBagOfWords filepath
-        timeIO "loading data" $ return rs
-        runTest params rs bowct bownl
+--         DF_PLG -> do
+--             let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
+--                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
+--             rs <- timeIO "loadDirectory_PLG" $ loadDirectory_PLG filepath
+--             runTest params rs Nothing ct nl
 
-    let wordsnl=Proxy::Proxy (NeighborList (Static 1) (Lexical (Hamming (UnboxedArray Char))))
-        wordsct=Proxy::Proxy (Maybe' (CoverTree_ (13/10) Array Array (Lexical (Hamming (UnboxedArray Char)))))
-    when ("vocab" `isInfixOf` filepath) $ do
-        let dataparams = DataParams
-        rs <- loadWords filepath
-        timeIO "loading data" $ return rs
-        runTest params rs wordsct wordsnl
-    -}
+--         DF_String -> do
+--             let wordsnl=Proxy::Proxy (NeighborList (Static 1) (Lexical (Levenshtein (UnboxedArray Char))))
+--                 wordsct=Proxy::Proxy (CoverTree_ (13/10) Array Array (Lexical (Levenshtein (UnboxedArray Char))))
+--
+--             rs <- loadWords filepath
+--             timeIO "loading data" $ return rs
+--             runTest params rs Nothing wordsct wordsnl
+--
+--         DF_BagOfWords -> do
+--             let bownl=Proxy::Proxy (NeighborList (Static 1) (Map' Int Float))
+--                 bowct=Proxy::Proxy (CoverTree_ (13/10) Array Array (Map' Int Float))
+--
+--             let dataparams = DataParams
+--             rs <- loadBagOfWords filepath
+--             timeIO "loading data" $ return rs
+--             runTest params rs Nothing bowct bownl
+
 
 --     runTest params (undefined :: Tree) (undefined :: NeighborList (Static 1) DP)
 --     if kForceSlow params || k params > 3
@@ -282,6 +294,7 @@ runTest :: forall k exprat childC leafC dp proxy1 proxy2.
     ( ValidCT exprat childC leafC dp
     , P.Fractional (Scalar dp)
     , Param_k (NeighborList k dp)
+    , RationalField (Scalar dp)
     , VG.Vector childC Int
     , VG.Vector childC Bool
     ) => Params
@@ -302,56 +315,90 @@ runTest params rs mqs tree knn = do
             return (querytree, qs)
 
     -- do knn search
-    let result = parFindEpsilonNeighborMap
-            (  P.fromRational $ P.toRational $ searchEpsilon params )
-            ( DualTree
-                ( reftree )
-                ( querytree )
-            )
-            :: NeighborMap k dp
-
-    res <- time "computing parFindNeighborMap" result
+    let res = parallel
+            ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
+            ( stToList querytree )
+            :: Seq (dp, NeighborList k dp)
+    time "computing parFindNeighborMap" res
 
     -- output to files
-    let qs_index = fromList $ zip (VG.toList qs) [0::Int ..] :: Map' dp Int
+    let qs_index = parallel fromList $ zip (VG.toList qs) [0::Int ..] :: Map' dp Int
         rs_index = case mqs of
             Nothing -> qs_index
-            Just _  -> fromList $ zip (VG.toList rs) [0::Int ..] :: Map' dp Int
-
+            Just _  -> parallel fromList $ zip (VG.toList rs) [0::Int ..] :: Map' dp Int
     time "qs_index" qs_index
     time "rs_index" rs_index
 
+    let sortedResults :: [[Neighbor dp]]
+        sortedResults =
+            ( map getknnL
+            . values
+            . parallel
+                ( mapIndices (qs_index!)
+                . fromList
+                . toList
+                )
+            ) res
+    time "sorting results" sortedResults
+
+    -- output distances
+    let distanceL = map (map neighborDistance) sortedResults
+
     timeIO "outputing distance" $ do
         hDistances <- openFile (distances_file params) WriteMode
-        sequence_ $
-            map (hPutStrLn hDistances . concat . intersperse "," . map show)
-            . values
-            . mapIndices (qs_index!)
-            . mapValues (map neighborDistance . getknnL)
-            . fromList
-            . toList
-            $ nm2map res
+        forM_ distanceL (hPutStrLn hDistances . init . tail . show)
         hClose hDistances
 
-    timeIO "outputing neighbors" $ do
+    -- output neighbors
+    let neighborL = parallel (map (map ((rs_index!) . neighbor))) sortedResults
+    time "finding neighbors" neighborL
+
+    timeIO "outputting neighbors" $ do
         hNeighbors <- openFile (neighbors_file params) WriteMode
-        sequence_ $
-            map (hPutStrLn hNeighbors . init . tail . show)
-            . values
-            . mapValues (map (rs_index!))
-            . mapIndices (qs_index!)
-            . mapValues (map neighbor . getknnL)
-            . fromList
-            . toList
-            $ nm2map res
+        forM_ neighborL (hPutStrLn hNeighbors . init . tail . show)
         hClose hNeighbors
 
     putStrLn "done"
 
+{-# RULES
+
+"subhask/parallel"     forall f g x. parallel f (parallel g x) = parallel (f.g) x
+
+  #-}
+
+
+{-# RULES
+
+"subhask/fromtoList"     forall x. fromList (toList x) = x
+"subhask/tofromList"     forall x. toList (fromList x) = x
+
+  #-}
+
+
+{-# RULES
+
+"subhask/eqVectorDouble"  (==) = eqVectorDouble
+"subhask/eqVectorFloat"  (==) = eqVectorFloat
+"subhask/eqVectorInt"  (==) = eqVectorInt
+"subhask/eqUnboxedVectorDouble"  (==) = eqUnboxedVectorDouble
+"subhask/eqUnboxedVectorFloat"  (==) = eqUnboxedVectorFloat
+"subhask/eqUnboxedVectorInt"  (==) = eqUnboxedVectorInt
+
+"subhask/distance_l2_float_unboxed"         distance = distance_l2_float_unboxed
+"subhask/isFartherThan_l2_float_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_float_unboxed
+"subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
+"subhask/isFartherThan_l2_m128_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_m128_unboxed
+
+"subhask/distance_l2_m128_storable"        distance = distance_l2_m128_storable
+"subhask/distance_l2_m128d_storable"       distance = distance_l2_m128d_storable
+"subhask/isFartherThan_l2_m128_storable"   isFartherThanWithDistanceCanError=isFartherThan_l2_m128_storable
+"subhask/isFartherThan_l2_m128d_storable"  isFartherThanWithDistanceCanError=isFartherThan_l2_m128d_storable
+
+  #-}
 
 -- | Gives us many possible ways to construct our cover trees based on the input parameters.
 -- This is important so we can compare their runtime features.
-buildTree ::
+buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
@@ -368,6 +415,7 @@ buildTree params xs = do
             TrainInsert_Parent   -> parallel $ trainInsert addChild_parent
             TrainInsert_Ancestor -> parallel $ trainInsert addChild_ancestor
             TrainMonoid          -> parallel $ trainMonoid
+
     let (Just' reftree) = trainmethod xs
     time "building tree" reftree
 

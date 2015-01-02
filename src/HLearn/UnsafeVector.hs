@@ -46,10 +46,10 @@ data UVector = UVector {-#UNPACK#-}!Int {-#UNPACK#-}!Int {-#UNPACK#-}!ByteArray
 -- unsafe globals
 
 {-# NOINLINE ptsizeIO #-}
-ptsizeIO = unsafePerformIO $ newIORef (64::Int)
+ptsizeIO = unsafePerformIO $ newIORef (16::Int)
 
 {-# NOINLINE ptalignIO #-}
-ptalignIO = unsafePerformIO $ newIORef (64::Int)
+ptalignIO = unsafePerformIO $ newIORef (16::Int)
 
 -- {-# NOINLINE ptsize #-}
 {-# INLINE ptsize #-}
@@ -61,6 +61,8 @@ ptalign = unsafePerformIO $ readIORef ptalignIO
 setptsize :: Int -> IO ()
 setptsize len = do
     writeIORef ptsizeIO len
+--     writeIORef ptalignIO (4::Int)
+--     writeIORef ptalignIO (((len+4) `div` 4)*4)
     writeIORef ptalignIO len
 
 

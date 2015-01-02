@@ -106,18 +106,12 @@ Library
 --         HLearn.Algebra
 --         HLearn.Algebra.Common
 --         HLearn.Algebra.LinearAlgebra
-        HLearn.Algebra.Functions
+--         HLearn.Algebra.Functions
 --         HLearn.Algebra.Types.Frac
 --         HLearn.Algebra.Models.HomTrainer
 --         HLearn.Algebra.Models.CoHomTrainer
 --         HLearn.Algebra.Models.Lame
---         HLearn.Algebra.Structures.CanError
-        HLearn.Algebra.Structures.Comonoid
---         HLearn.Algebra.Structures.Groups
---         HLearn.Algebra.Structures.MetricSpace
---         HLearn.Algebra.Structures.Modules
---         HLearn.Algebra.Structures.Topology
---         HLearn.Algebra.Structures.Free.AddUnit
+--         HLearn.Algebra.Structures.Comonoid
 
         HLearn.History
         HLearn.History.DisplayMethods
@@ -127,7 +121,7 @@ Library
         HLearn.DataStructures.SpaceTree
         HLearn.DataStructures.SpaceTree.CoverTree
         HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
-        HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
+--         HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 --         HLearn.DataStructures.SpaceTree.DualTreeMonoids
 --         HLearn.DataStructures.SpaceTree.Simple
 --         HLearn.DataStructures.StrictList
@@ -144,6 +138,7 @@ Library
 --         HLearn.Models.Classifiers.Perceptron
 --         HLearn.Models.Classifiers.Centroid
 
+        HLearn.Metrics.EMD
 --         HLearn.Metrics.Mahalanobis
 --         HLearn.Metrics.Mahalanobis.ITML
 --         HLearn.Metrics.Mahalanobis.Lego
@@ -251,6 +246,29 @@ Library
 --         MonadRandom         >= 0.1.13,
 --         list-extras         >= 0.4.1.3
 
+    c-sources:
+        cbits/emd.c
+
+    cc-options:
+        -- optimization options
+        -O3
+        -msse2
+--         -mavx
+        -ffast-math
+        -fassociative-math
+        -ftree-vectorize
+--         -march=native
+        -mfpmath=sse
+
+        -- opencv options
+        -fPIC
+
+    extra-libraries:
+        opencv_core
+        opencv_highgui
+        opencv_imgproc
+        opencv_imgcodecs
+
 executable hlearn-allknn
     main-is:
         hlearn-allknn.hs
@@ -260,11 +278,13 @@ executable hlearn-allknn
 
     ghc-options:
 --         -prof
+--         -Wall
         -threaded
         -rtsopts
-        -with-rtsopts=-N
+--         -with-rtsopts=-N
 
-        -O2
+        -O
+--         -O2
         -funbox-strict-fields
         -fexcess-precision
 
@@ -275,11 +295,11 @@ executable hlearn-allknn
         -optlo-enable-no-nans-fp-math
         -optlo-enable-unsafe-fp-math
 
+--         -ddump-to-file
+--
 --         -ddump-rule-firings
 --         -ddump-rule-rewrites
 --         -ddump-rules
---         -ddump-to-file
---         -ddump-cmm
 --         -ddump-simpl
 --         -ddump-simpl-stats
 --         -dppr-debug
@@ -288,6 +308,8 @@ executable hlearn-allknn
 --         -dsuppress-idinfo
 --         -dsuppress-coercions
 --         -dsuppress-type-applications
+
+--         -ddump-cmm
 
     build-depends:
 
@@ -298,6 +320,8 @@ executable hlearn-allknn
         typeparams      >=0.0.5,
         subhask         >=0.0.1,
 
+        directory           >= 1.2,
+        filepath        >= 1.3.0.2,
         deepseq >=1.3,
         cassava >=0.3,
         containers >=0.5,

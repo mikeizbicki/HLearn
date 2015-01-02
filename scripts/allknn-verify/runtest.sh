@@ -13,9 +13,9 @@ mlpack_distances="$tmpdir/distances_mlpack.csv"
 
 #verbose="--verbose"
 optimization="--varshift"
-#method="--train-method=traininsert"
+#method="--train-method=trainmonoid"
 
-time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N1
+time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N2
 #time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N
 
 time allknn -r $1 -n $mlpack_neighbors -d $mlpack_distances -k $K -v -S
