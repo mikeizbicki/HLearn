@@ -384,15 +384,15 @@ runTest params rs mqs tree knn = do
 "subhask/eqUnboxedVectorFloat"  (==) = eqUnboxedVectorFloat
 "subhask/eqUnboxedVectorInt"  (==) = eqUnboxedVectorInt
 
-"subhask/distance_l2_float_unboxed"         distance = distance_l2_float_unboxed
-"subhask/isFartherThan_l2_float_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_float_unboxed
-"subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
-"subhask/isFartherThan_l2_m128_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_m128_unboxed
-
-"subhask/distance_l2_m128_storable"        distance = distance_l2_m128_storable
-"subhask/distance_l2_m128d_storable"       distance = distance_l2_m128d_storable
-"subhask/isFartherThan_l2_m128_storable"   isFartherThanWithDistanceCanError=isFartherThan_l2_m128_storable
-"subhask/isFartherThan_l2_m128d_storable"  isFartherThanWithDistanceCanError=isFartherThan_l2_m128d_storable
+-- "subhask/distance_l2_float_unboxed"         distance = distance_l2_float_unboxed
+-- "subhask/isFartherThan_l2_float_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_float_unboxed
+-- "subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
+-- "subhask/isFartherThan_l2_m128_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_m128_unboxed
+--
+-- "subhask/distance_l2_m128_storable"        distance = distance_l2_m128_storable
+-- "subhask/distance_l2_m128d_storable"       distance = distance_l2_m128d_storable
+-- "subhask/isFartherThan_l2_m128_storable"   isFartherThanWithDistanceCanError=isFartherThan_l2_m128_storable
+-- "subhask/isFartherThan_l2_m128d_storable"  isFartherThanWithDistanceCanError=isFartherThan_l2_m128d_storable
 
   #-}
 
