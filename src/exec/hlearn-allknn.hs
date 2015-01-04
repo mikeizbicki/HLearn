@@ -35,18 +35,18 @@ import SubHask.Compatibility.Vector.Lebesgue
 
 import Data.Params
 
-import HLearn.DataStructures.Graph
-import HLearn.DataStructures.SpaceTree
-import HLearn.DataStructures.SpaceTree.CoverTree hiding (head,tail)
-import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.Data.Graph
+import HLearn.Data.LoadData
+import HLearn.Data.SpaceTree
+import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
+import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
+import HLearn.Data.UnsafeVector
+import HLearn.History.Timing
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal
-import HLearn.UnsafeVector
 
 import Paths_HLearn
 
-import LoadData
-import Timing
 
 -------------------------------------------------------------------------------
 -- command line parameters
@@ -297,6 +297,7 @@ runTest :: forall k exprat childC leafC dp proxy1 proxy2.
     , RationalField (Scalar dp)
     , VG.Vector childC Int
     , VG.Vector childC Bool
+    , ValidNeighbor dp
     ) => Params
       -> Array dp
       -> Maybe (Array dp)
@@ -350,7 +351,7 @@ runTest params rs mqs tree knn = do
         hClose hDistances
 
     -- output neighbors
-    let neighborL = parallel (map (map ((rs_index!) . neighbor))) sortedResults
+    let neighborL = {-parallel-} (map (map ((rs_index!) . neighbor))) sortedResults
     time "finding neighbors" neighborL
 
     timeIO "outputting neighbors" $ do
@@ -388,7 +389,7 @@ runTest params rs mqs tree knn = do
 -- "subhask/isFartherThan_l2_float_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_float_unboxed
 -- "subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
 -- "subhask/isFartherThan_l2_m128_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_m128_unboxed
---
+
 -- "subhask/distance_l2_m128_storable"        distance = distance_l2_m128_storable
 -- "subhask/distance_l2_m128d_storable"       distance = distance_l2_m128d_storable
 -- "subhask/isFartherThan_l2_m128_storable"   isFartherThanWithDistanceCanError=isFartherThan_l2_m128_storable
@@ -411,12 +412,12 @@ buildTree params xs = do
 
     let trainmethod = case train_method params of
             TrainInsert_NoSort   -> trainInsertNoSort
-            TrainInsert_Sort     -> parallel $ trainInsert addChild_nothing
-            TrainInsert_Parent   -> parallel $ trainInsert addChild_parent
-            TrainInsert_Ancestor -> parallel $ trainInsert addChild_ancestor
-            TrainMonoid          -> parallel $ trainMonoid
+            TrainInsert_Sort     -> trainInsert addChild_nothing
+            TrainInsert_Parent   -> trainInsert addChild_parent
+            TrainInsert_Ancestor -> trainInsert addChild_ancestor
+            TrainMonoid          -> trainMonoid
 
-    let (Just' reftree) = trainmethod xs
+    let (Just' reftree) = parallel trainmethod xs
     time "building tree" reftree
 
     let reftree_adopt = if adopt_children params

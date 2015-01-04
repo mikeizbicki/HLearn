@@ -1,6 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators,MultiParamTypeClasses,NoImplicitPrelude,RebindableSyntax #-}
-
-module LoadData
+module HLearn.Data.LoadData
     where
 
 import Control.DeepSeq
@@ -19,11 +17,10 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Vector.Algorithms.Intro as Intro
-import System.Console.CmdArgs.Implicit
-import System.Mem
+-- import System.Mem
 import System.IO
 import System.Directory
-import System.FilePath.Posix
+-- import System.FilePath.Posix
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel as LA
 
@@ -36,24 +33,12 @@ import SubHask.Compatibility.ByteString
 import SubHask.Compatibility.Cassava
 import SubHask.Compatibility.Containers
 import SubHask.Compatibility.Vector.Lebesgue
--- import HLearn.Algebra
-import HLearn.Models.Classifiers.Common
--- import HLearn.DataStructures.StrictVector
--- import HLearn.DataStructures.CoverTree
--- import HLearn.DataStructures.SpaceTree
--- import HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
--- import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
--- import HLearn.DataStructures.SpaceTree.DualTreeMonoids
--- import qualified HLearn.DataStructures.StrictList as Strict
--- import qualified HLearn.DataStructures.StrictVector as Strict
-import HLearn.Metrics.EMD
--- import HLearn.Metrics.Mahalanobis
--- import HLearn.Metrics.Mahalanobis.Normal
--- import HLearn.Models.Distributions
 import SubHask.TemplateHaskell.Deriving
 
-import Timing
-import HLearn.UnsafeVector
+import HLearn.Data.UnsafeVector
+import HLearn.History.Timing
+import HLearn.Models.Classifiers.Common
+import HLearn.Metrics.EMD
 
 import Debug.Trace
 import Prelude (asTypeOf,unzip)

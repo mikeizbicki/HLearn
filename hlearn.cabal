@@ -63,6 +63,7 @@ Library
         cassava             >= 0.2.2,
         strict              >= 0.3.2,
         normaldistribution  >= 1.1.0.3,
+        time                >= 1.4.2,
 
         bytestring          >= 0.10.4,
 
@@ -81,13 +82,11 @@ Library
 
     ghc-options:
         -O
---         -fllvm
 --         -O2
---         -funbox-strict-fields
-
+        -funbox-strict-fields
 
 --         -ddump-to-file
---         -ddump-cmm
+--
 --         -ddump-simpl
 --         -ddump-simpl-stats
 --         -dsuppress-module-prefixes
@@ -100,33 +99,22 @@ Library
 --         -ddump-rules
 --         -dppr-debug
 
+--         -ddump-cmm
+
     Exposed-modules:
-        HLearn.UnsafeVector
---
---         HLearn.Algebra
---         HLearn.Algebra.Common
---         HLearn.Algebra.LinearAlgebra
---         HLearn.Algebra.Functions
---         HLearn.Algebra.Types.Frac
---         HLearn.Algebra.Models.HomTrainer
---         HLearn.Algebra.Models.CoHomTrainer
---         HLearn.Algebra.Models.Lame
---         HLearn.Algebra.Structures.Comonoid
 
         HLearn.History
         HLearn.History.DisplayMethods
+        HLearn.History.Timing
 
-        HLearn.DataStructures.Graph
---         HLearn.DataStructures.SortedVector
-        HLearn.DataStructures.SpaceTree
-        HLearn.DataStructures.SpaceTree.CoverTree
-        HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
---         HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
---         HLearn.DataStructures.SpaceTree.DualTreeMonoids
---         HLearn.DataStructures.SpaceTree.Simple
---         HLearn.DataStructures.StrictList
---         HLearn.DataStructures.StrictVector
---
+        HLearn.Data.Graph
+        HLearn.Data.LoadData
+        HLearn.Data.SpaceTree
+        HLearn.Data.SpaceTree.CoverTree
+        HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
+--         HLearn.Data.SpaceTree.Algorithms.RangeSearch
+        HLearn.Data.UnsafeVector
+
         HLearn.Evaluation.CrossValidation
 --
 --         HLearn.Models.Classifiers
@@ -295,8 +283,8 @@ executable hlearn-allknn
         -optlo-enable-no-nans-fp-math
         -optlo-enable-unsafe-fp-math
 
---         -ddump-to-file
---
+        -ddump-to-file
+
 --         -ddump-rule-firings
 --         -ddump-rule-rewrites
 --         -ddump-rules

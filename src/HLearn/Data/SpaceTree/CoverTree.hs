@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
-module HLearn.DataStructures.SpaceTree.CoverTree
+module HLearn.Data.SpaceTree.CoverTree
     where
 
 import Debug.Trace
@@ -19,9 +19,7 @@ import SubHask.Monad
 import SubHask.Algebra.Container
 import SubHask.Compatibility.Containers
 
-import HLearn.Algebra.Structures.Comonoid
-import HLearn.DataStructures.SpaceTree
--- import HLearn.Metrics.Lebesgue
+import HLearn.Data.SpaceTree
 import HLearn.Models.Distributions.Univariate.Normal
 
 import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar,Monoid)
@@ -558,21 +556,21 @@ packCT ct = {-# SCC packCT #-} snd $ go 0 ct
 -- FIXME: add proper container hierarchy
 type instance Elem (CoverTree_ exprat childC leafC dp) = dp
 
--- instance
---     ( ValidCT exprat childC leafC dp
---     ) => Container (CoverTree_ exprat childC leafC dp)
---         where
---
---     -- FIXME: use the covertree's structure!
---     elem e ct = elem e $ stToList ct
---     notElem = not elem
+instance
+    ( ValidCT exprat childC leafC dp
+    ) => Container (CoverTree_ exprat childC leafC dp)
+        where
 
--- instance
---     ( ValidCT exprat childC leafC dp
---     ) => Unfoldable (CoverTree_ exprat childC leafC dp)
---         where
---
---     fromList =
+    -- FIXME: use the covertree's structure!
+    elem e ct = elem e $ stToList ct
+    notElem = not elem
+
+instance
+    ( ValidCT exprat childC leafC dp
+    ) => Unfoldable (CoverTree_ exprat childC leafC dp)
+        where
+
+    singleton = singletonCT
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -678,9 +676,10 @@ insertCT :: forall exprat childC leafC dp.
       -> dp
       -> CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
-insertCT addChild dp ct = {-# SCC insertCT #-}
+insertCT addChild dp ct =
     insertCT_ addChild dp ct (distance dp $ nodedp ct)
 
+{-# INLINABLE insertCT_ #-}
 insertCT_ :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod dp
@@ -688,7 +687,8 @@ insertCT_ :: forall exprat childC leafC dp.
       -> CoverTree_ exprat childC leafC dp
       -> Scalar dp
       -> CoverTree_ exprat childC leafC dp
-insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-} if dist > coverdist ct
+insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
+    if dist > coverdist ct
         -- | ct can't cover dp, so create a new node at dp that covers ct
         then {-# SCC insertCT_greater #-} Node
             { nodedp                = dp
@@ -717,7 +717,7 @@ insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-} if dist > coverdist ct
 
             go !acc [] = {-# SCC go_addChild #-} addChild dp ct
             go !acc ((dist,x):xs) = if dist == mindist && dist <= coverdist x
-                then insertCT addChild dp x:(acc+map snd xs)
+                then insertCT_ addChild dp x dist:(acc+map snd xs)
                 else go (x:acc) xs
 
 -- |
@@ -732,13 +732,13 @@ type AddChildMethod dp = forall exprat childC leafC.
         -> CoverTree_ exprat childC leafC dp
         -> [CoverTree_ exprat childC leafC dp]
 
-{-# INLINE addChild_nothing #-}
+{-# INLINABLE addChild_nothing #-}
 addChild_nothing :: AddChildMethod dp
 addChild_nothing dp ct = cons
     ( (singletonCT dp) { level = level ct-1} )
     (toList $ children ct)
 
-{-# INLINE addChild_ancestor #-}
+{-# INLINABLE addChild_ancestor #-}
 addChild_ancestor :: AddChildMethod dp
 addChild_ancestor dp ct = toList $ children $ foldr' (insertCT addChild_ancestor)  ct' dps
     where
@@ -747,14 +747,14 @@ addChild_ancestor dp ct = toList $ children $ foldr' (insertCT addChild_ancestor
             { children = ((singletonCT dp) { level = level ct-1 }) `cons` fromList acc'
             }
 
-{-# INLINE addChild_parent #-}
+{-# INLINABLE addChild_parent #-}
 addChild_parent :: AddChildMethod dp
 addChild_parent dp ct = ret:acc'
     where
         ret=foldr' (insertCT addChild_parent) ((singletonCT dp) { level = level ct-1 }) dps
         (acc',dps) = rmCloseChildren addChild_parent dp (sepdist ct) $ toList $ children ct
 
-{-# INLINE rmCloseChildren #-}
+{-# INLINABLE rmCloseChildren #-}
 rmCloseChildren ::
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod dp
@@ -767,7 +767,7 @@ rmCloseChildren addChild dp maxdist cts = {-# SCC rmCloseChildren #-}
     where
         xs = map (extractCloseChildren addChild dp maxdist) cts
 
-{-# INLINE extractCloseChildren #-}
+{-# INLINABLE extractCloseChildren #-}
 extractCloseChildren :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod dp
@@ -782,7 +782,6 @@ extractCloseChildren addChild dp maxdist root = {-# SCC extractCloseChildren #-}
         go :: CoverTree_ exprat childC leafC dp
            -> Either ([dp],[dp]) (CoverTree_ exprat childC leafC dp, [dp])
         go ct = if distance (nodedp ct) (nodedp root) > distance (nodedp ct) dp
---             then let (valid,invalid) = L.partition (\x -> distance (nodedp root) x < distance dp x) $ stDescendents ct
             then let (valid,invalid) = L.partition (distance (nodedp root) < distance dp)
                                      $ stDescendents ct
                 in Left (valid,nodedp ct:invalid)
@@ -799,58 +798,9 @@ extractCloseChildren addChild dp maxdist root = {-# SCC extractCloseChildren #-}
                     allbabies = map go $ toList $ children ct
                     (newbabies,invalids) = foldl' (+) ([],[]) $ lefts allbabies
 
---         go_old ct = if invalid==[]
---             then (ct,[])
---             else (foldr' insertCT ((singletonCT (nodedp ct)) { level = level ct }) valid, invalid)
---
---             where
---                 (valid,invalid) = L.partition (\x -> distance (nodedp ct) x < distance dp x) $ stDescendents ct
-
-extractCloseChildren_orig ::
-    ( ValidCT exprat childC leafC dp
-    ) => dp
-      -> Scalar dp
-      -> CoverTree_ exprat childC leafC dp
-      -> (CoverTree_ exprat childC leafC dp, [dp])
-extractCloseChildren_orig dp maxdist ct = {-# SCC extractCloseChildren #-}
-    ( ct
-        { numdp = numdp ct-fromIntegral (length invalidchildren)
-        , children = fromList validchildren
-        }
-    , invalidchildren
-    )
-    where
-        (validchildren,invalidchildren) = go ([],[]) $ toList $ children ct
-
-        go (valid,invalid) [] = (valid,invalid)
-        go (valid,invalid) (x:xs) = if distance (nodedp x) dp > distance (nodedp x) (nodedp ct)
---                                     || distance (nodedp x) dp > maxdist
-            then go (x':valid,dps'+invalid) xs
-            else go (valid, nodedp x:(stDescendents x+invalid)) xs
-            where
-                (x',dps') = extractCloseChildren_orig dp maxdist x
---         go (valid,invalid) (x:xs) = if length (children x) == 0
---             then if distance (nodedp x) dp > distance (nodedp x) (nodedp ct)
---                  || distance (nodedp x) dp > maxdist
---                 then go (x:valid, invalid) xs
---                 else go (valid, nodedp x:invalid) xs
---             else go (x':valid,dps'+invalid) xs
---                 where
---                     (x',dps') = extractCloseChildren_orig dp maxdist x
-
 instance
     ( ValidCT exprat childC leafC dp
     ) => Abelian (CoverTree_ exprat childC leafC dp)
-
--- |
---
--- FIXME:
--- Move to a better spot
--- Add rewrite rules to remove with optimization -O
-assert :: String -> Bool -> a -> a
-assert str b = if b
-    then id
-    else error $ "ASSERT FAILED: "+str
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -860,7 +810,8 @@ instance
     {-# INLINABLE (+) #-}
     ct1 + ct2 = {-# SCC semigroup_CoverTree #-} case ctmerge_ ct1_ ct2_ dist of
         (ct, []) -> ct
-        (ct, xs) -> foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
+        (ct, xs) -> foldr' insertCTNoSort ct $ concat $ map stToList xs
+--         (ct, xs) -> foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
 
         where
             dist = distance (nodedp ct1) (nodedp ct2)
@@ -914,6 +865,7 @@ instance
 --
 -- then all output covertrees will be valid.
 -- The root not of ct1 is guaranteed to not change.
+{-# INLINABLE ctmerge_ #-}
 ctmerge_ :: forall exprat childC leafC  dp.
     ( ValidCT exprat childC leafC  dp
     ) => CoverTree_ exprat childC leafC  dp
@@ -927,7 +879,6 @@ ctmerge_ ct1 ct2 dist =
 --   assert "ctmerge_ covdist <" (distance (nodedp ct1) (nodedp ct2) <= coverdist ct1) $
 
     {-# SCC ctmerge_ #-}
---     ( ct_minusleftovers , notCoveredChildren+leftovers )
     ( ct' , notCoveredChildren+leftovers' )
     where
         -- remove the children of ct2 that can't be covered by ct1 ("notCoveredChildren");
@@ -954,15 +905,16 @@ ctmerge_ ct1 ct2 dist =
                 go tot ([],ys,zs) covChild = (tot,covChild:ys,zs)
 
         -- update children, insert root of ct2 into ct1
-        ct_minusleftovers = insertCT_
-            addChild_nothing
+        ct_minusleftovers = insertCTNoSort
+--         ct_minusleftovers = insertCT_
+--             addChild_nothing
             (nodedp ct2)
             ( ct1
                 { children = fromList $ children' + sepcovChildren
                 , numdp =  sum $ map numdp $ children' + sepcovChildren
                 , maxDescendentDistance = coverdist ct1*2
                 } )
-            dist
+--             dist
 
         -- insert any leftovers into the tree if they fit
         (ct',leftovers') = foldl' go (ct_minusleftovers,[]) leftovers
@@ -1285,64 +1237,3 @@ intShow a = P.filter go $ show a
             | x=='0' = True
             | otherwise = False
 
-{-
-drawT ct1 ct2 = (strutY 2.5 === draw (unUnit ct2))
--- ||| (text "<>" <> strutX 2.5)
-||| (strutX 2.5)
-||| (strutY 2.5 === draw (unUnit ct1))
--- ||| (text "=" <> strutX 2)
-||| (strutX 2.5)
-||| (draw $ unUnit $ ct1 `mappend` ct2)
-draw node = draw' 0 node
-draw' depth tree = mkConnections $
-(named (label++show depth) $ fontSize 0.5 $
-(
-(text label <> strutY 0.5)
-=== (text (show (sepdist tree)) <> strutY 0.5)
--- === (text (show (maxDescendentDistance tree)) <> strutY 0.5)
-)
-<> circle 1 # fc nodecolor)
-=== (pad 1.05 $ centerName (label++show (depth+1)) $
-VG.foldr (|||) mempty $ fmap (draw' (depth+1)) $ children tree)
-where
-label = intShow $ nodedp tree
-nodecolor = if weight tree > 0
-then red
-else lightblue
-mkConnections =
-connect (label++show depth) (label++show (depth+1)) . apList (fmap
-(\key -> connect (label++show depth) (intShow key++show (depth+1)))
-(map nodedp $ toList $ children tree))
-justdouble :: Maybe Double -> String
-justdouble Nothing = "0"
-justdouble (Just x) = show x
-apList :: [a -> a] -> a -> a
-apList [] a = a
-apList (x:xs) a = apList xs (x a)
--- apList :: List (a -> a) -> a -> a
--- apList Strict.Nil a = a
--- apList (x:.xs) a = apList xs (x a)
-centerName name = withName name $ \b a -> moveOriginTo (location b) a
-connect n1 n2
-= withName n1 $ \b1 ->
-withName n2 $ \b2 ->
-atop ((location b1 ~~ location b2) # lc green # lw 0.03)
--- ((location b1 ~~ location b2) # lc green # lw 0.03)
-class IntShow a where
-intShow :: a -> String
-instance IntShow (Double,Double) where
-intShow (x,y) = show (floor x::Int,floor y::Int)
-instance (VG.Vector (L2 v) r, RealFrac r) => IntShow (L2 v r) where
-intShow v = show (map floor $ VG.toList v)
-instance (IntShow attr,Show label) => IntShow (MaybeLabeled label attr) where
-intShow dp = "("++label++","++intShow (getAttributes dp)++")"
-where
-label = case getLabel dp of
-Just x -> show x
-Nothing -> "_"
--}
--- v1 = [1,2,3] :: (Array VU.Vector) Float
--- v1 = VG.fromList [1,2,3] :: L2 VU.Vector Float
--- v2 = VG.fromList [1,2,2] :: L2 VU.Vector Float
--- v3 = VG.fromList [2,2,2] :: L2 VU.Vector Float
--- v4 = VG.fromList [3,1,2] :: L2 VU.Vector Float

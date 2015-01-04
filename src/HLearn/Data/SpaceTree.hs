@@ -1,12 +1,11 @@
 {-# LANGUAGE DataKinds,MagicHash,UnboxedTuples #-}
 
-module HLearn.DataStructures.SpaceTree
+module HLearn.Data.SpaceTree
     (
     -- * Type classes
     SpaceTree (..)
 
     , Weighted#
-    , DualTree (..)
 
     -- * Generic algorithms
     , stMaxDescendentDistance
@@ -38,15 +37,11 @@ module HLearn.DataStructures.SpaceTree
     , prunefoldA
     , prunefoldB
     , prunefoldB_CanError
---     , prunefoldC
+    , prunefoldC
+    , prunefoldD
 --     , prunefoldM
     , noprune
 
-    -- ** Dual tree
-    , dualfold
-    , prunefold2init
-    , prunefold2
-    , dualNodes
     )
     where
 
@@ -61,13 +56,18 @@ import Prelude (map)
 import SubHask
 import SubHask.Monad
 
-import HLearn.Algebra.Prim
 import HLearn.Models.Distributions.Univariate.Normal
 
 -------------------------------------------------------------------------------
 -- SpaceTree
 
 type Weighted# dp = (# Scalar dp, dp #)
+
+fst# :: (# a,b #) -> a
+fst# (# a,b #) = a
+
+snd# :: (# a,b #) -> b
+snd# (# a,b #) = b
 
 class
     ( MetricSpace dp
@@ -83,6 +83,9 @@ class
     , Normed (ChildContainer t (t dp))
     , Foldable (LeafContainer t dp)
     , Foldable (ChildContainer t (t dp))
+
+    , Unfoldable (t dp)
+    , dp ~ Elem (t dp)
     ) => SpaceTree t dp
         where
 
@@ -373,9 +376,8 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
 --                     !res = f2 t b
 --                     !b'' = {-# SCC b'' #-} ckfoldl' (flip f1) res (stLeaves t)
 
-{-# INLINABLE prunefoldB_CanError #-}
--- {-# INLINE prunefoldB_CanError #-}
--- prunefoldB_CanError :: (VG.Vector (ChildContainer t) (t a), VG.Vector (LeafContainer t) a, SpaceTree t a, CanError b) =>
+-- {-# INLINABLE prunefoldB_CanError #-}
+{-# INLINE prunefoldB_CanError #-}
 prunefoldB_CanError :: (SpaceTree t a, CanError b) =>
     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
 prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
@@ -385,119 +387,51 @@ prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
             else {-# SCC prunefoldB_CanError_Just #-}
                 foldr' go b'' $ {-# SCC prunefoldB_CanError_stChildren #-} stChildren t
                 where
-                    !res = {-# SCC res #-} f2 t b
-                    !b'' = {-# SCC b'' #-} foldr' f1 res (stLeaves t)
+                    res = {-# SCC res #-} f2 t b
+                    b'' = {-# SCC b'' #-} foldr' f1 res (stLeaves t)
 
-{-# INLINE vecfold #-}
--- vecfold :: VG.Vector v a => (a -> b -> a) -> b -> v a -> b
-vecfold !f !tot !v = {-# SCC vecfold #-} if VG.length v > 0
-    then goEach 0 tot
-    else tot
+{-# INLINABLE prunefoldD #-}
+-- {-# INLINE prunefoldD #-}
+prunefoldD :: (SpaceTree t a, CanError b, Monoid b) =>
+    (a -> b -> b) -> ( (# a,Scalar a #) -> b -> b) -> b -> t a -> b
+prunefoldD !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
     where
-        goEach !i !tot = if i>=VG.length v
-            then tot
-            else goEach (i+1) $ f (v `VG.unsafeIndex` i) tot
+        go !t !b =  if isError res
+            then b
+            else foldr' go b'' $ stChildren t
+                where
+                    !res = f2' t b
+                    !b'' = foldr' f1 res (stLeaves t)
 
--- {-# INLINABLE prunefoldC #-}
--- prunefoldC :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Strict.Either b b) -> b -> t a -> b
--- prunefoldC !f1 !f2 !b !t = case f2 t b of
---     Strict.Left b' -> b'
---     Strict.Right b' -> ckfoldl' (prunefoldC f1 f2) b'' (stChildren t)
---         where
---             b'' = CK.foldr' f1 b' (stLeaves t)
+        f2' t b = f2 (# stNode t, lambda t #) b
+
+--                     !b'' = foldr' f2' res (stLeaves t)
+
+--         f2' dp b = if isError tmp
+--             then b
+--             else tmp
+--             where tmp = f2 (singleton dp) b
+
+
+
+{-# INLINABLE prunefoldC #-}
+prunefoldC ::
+    ( SpaceTree t a
+    , CanError b
+    ) => (a -> b -> b) -> b -> t a -> b
+prunefoldC !f !b !t = go t b
+    where
+        go !t !b = if isError res
+            then b
+            else foldr' go b'' $ stChildren t
+            where
+                res = f (stNode t) b
+                b'' = foldr' f1 res $ stLeaves t
+
+        f1 a b = if isError a' then b else a'
+            where a' = f a b
 
 {-# INLINE noprune #-}
 noprune :: b -> a -> Bool
 noprune _ _ = False
-
----------------------------------------
--- dual tree algs
-
-data DualTree a = DualTree
-    { reference :: !a
-    , query     :: !a
-    }
-    deriving (Read,Show)
-
-instance (Semigroup a,Eq a) => Semigroup (DualTree a) where
-    a+b = if reference a==reference b
-        then DualTree
-            { reference = reference a
-            , query = query a + query b
-            }
-        else error "DualTree Monoid requires both references to be equal"
-
-instance (Monoid a,Eq a) => Monoid (DualTree a) where
-    zero = DualTree
-        { reference = undefined
-        , query = zero
-        }
-
-
--- instance Cocommutative a => Cocommutative (DualTree a)
--- instance NonCocommutative a => NonCocommutative (DualTree a)
--- instance Comonoid a => Comonoid (DualTree a) where
---     partition n dual = [DualTree (reference dual) q | q <- partition n $ query dual]
-
-{-# INLINABLE dualNodes #-}
-dualNodes :: SpaceTree t dp => DualTree (t dp) -> DualTree dp
-dualNodes dual = DualTree (stNode $ reference dual) (stNode $ query dual)
-
-{-# INLINABLE prunefold2init #-}
-prunefold2init ::
-    ( SpaceTree t dp
-    ) => (DualTree (t dp) -> res)
-    -> (res -> DualTree (t dp) -> Bool)
-    -> (DualTree dp -> res -> res)
-    -> DualTree (t dp)
-    -> res
-prunefold2init init prune f pair = foldl'
-    (prunefold2 prune f)
-    (init pair)
-    (dualTreeMatrix (stChildrenList $ reference pair) (stChildrenList $ query pair))
-
-{-# INLINABLE dualfold #-}
-dualfold ::
-    ( SpaceTree t dp
-    )
-    => (DualTree (t dp) -> res -> res)
-    -> (res -> DualTree (t dp) -> Bool)
-    -> (DualTree dp -> res -> res)
-    -> res
-    -> DualTree (t dp)
-    -> res
-dualfold tag prune f b pair = if prune b_tagged pair
-    then b_tagged
-    else if stHasNoChildren (reference pair) && stHasNoChildren (query pair)
-        then b'
-        else foldl'
-            (dualfold tag prune f)
-            b'
-            (dualTreeMatrix (stChildrenList $ reference pair) (stChildrenList $ query pair))
-    where
-        b_tagged = tag pair b
-        b' = f (dualNodes pair) b_tagged
-
-{-# INLINABLE prunefold2 #-}
-prunefold2 ::
-    ( SpaceTree t dp
-    ) =>(res -> DualTree (t dp) -> Bool)
-    -> (DualTree dp -> res -> res)
-    -> res
-    -> DualTree (t dp)
-    -> res
-prunefold2 prune f b pair = if prune b pair
-    then b
-    else if stHasNoChildren (reference pair) && stHasNoChildren (query pair)
-        then b'
-        else foldl'
-            (prunefold2 prune f)
-            b'
-            (dualTreeMatrix (stChildrenList $ reference pair) (stChildrenList $ query pair))
-    where
-        b' = f (dualNodes pair) b
-
-dualTreeMatrix :: [a] -> [a] -> [DualTree a]
-dualTreeMatrix xs [] = []
-dualTreeMatrix xs (y:ys) = fmap (\x -> DualTree x y) xs ++ dualTreeMatrix xs ys
 
