@@ -397,6 +397,13 @@ runTest params rs mqs tree knn = do
 
   #-}
 
+-- {-# SPECIALIZE insertCT
+--     :: KnownFrac exprat
+--     => AddChildMethod (L2 UnboxedVector Float)
+--     -> L2 UnboxedVector Float
+--     -> CoverTree_ exprat Array UnboxedArray (L2 UnboxedVector Float)
+--     -> CoverTree_ exprat Array UnboxedArray (L2 UnboxedVector Float)
+--   #-}
 -- | Gives us many possible ways to construct our cover trees based on the input parameters.
 -- This is important so we can compare their runtime features.
 buildTree :: forall exprat childC leafC dp.
