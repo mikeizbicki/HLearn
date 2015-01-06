@@ -1,20 +1,22 @@
 #Homomorphic Learning
 
-HLearn is a suite of libraries for interpreting machine learning models according to their algebraic structure.  Every structure has associated algorithms useful for learning.  when we show that a model is an instance of a particular structure, we get the associated algorithms "for free."
+HLearn is a suite of libraries for interpreting machine learning models according to their algebraic structure.
+Every structure has associated algorithms useful for learning.
+When we show that a model is an instance of a particular structure, we get the associated algorithms "for free."
 
-| Structure | What we get |
-|:-----------|:------------|
-| Monoid | parallel batch training |
-| Monoid     | online training    |
-| Monoid     |  fast cross-validation  |
-| Abelian group | "untraining" of data points |
-| Abelian group | more fast cross-validation |
-| R-Module    | weighted data points |
-| Vector space | fractionally weighted data points |
-| Functor | fast simple preprocessing of data |
-| Monad |  fast complex preprocessing of data |
+| Structure     | What we get                           |
+|:--------------|:--------------------------------------|
+| Monoid        | parallel batch training               |
+| Monoid        | online training                       |
+| Monoid        |  fast cross-validation                |
+| Abelian group | "untraining" of data points           |
+| Abelian group | more fast cross-validation            |
+| R-Module      | weighted data points                  |
+| Vector space  | fractionally weighted data points     |
+| Functor       | fast simple preprocessing of data     |
+| Monad         | fast complex preprocessing of data    |
 
-This interpretation of machine learning is somewhat limitting in that not all models have obvious algebraic structure.  But many important models do.  Currently implemented models include:
+This interpretation of machine learning is somewhat limiting in that not all models have obvious algebraic structure.  But many important models do.  Currently implemented models include:
 
 * **Univariate distributions**: exponential, log-normal, normal, kernel density estimator, binomial, categorical, geometric, poisson
 
@@ -54,7 +56,7 @@ For more details on why the Normal distribution has algebraic structure and what
 
 ## More documentation
 
-There are three main sources of documentation.  First, there are a number of tutorials on my personal blog.  These provide the most detail and are geared towards the beginner.  They're probably the easiest way to get started.  Next, there are two papers about the internals of the HLearn library.  They are a good resource for understanding the theory behind why the library works.  Finally, there's the hackage documentation.  
+There are three main sources of documentation.  First, there are a number of tutorials on my personal blog.  These provide the most detail and are geared towards the beginner.  They're probably the easiest way to get started.  Next, there are two papers about the internals of the HLearn library.  They are a good resource for understanding the theory behind why the library works.  Finally, there's the hackage documentation.
 
 Tutorial links:
 
