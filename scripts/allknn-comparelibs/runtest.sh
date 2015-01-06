@@ -15,13 +15,17 @@ TIME="/usr/bin/time -f %E "
     #"$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.3.csv --distances-file=distances_hlearn.3.csv +RTS -K1000M -N2" \
     #"$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.4.csv --distances-file=distances_hlearn.4.csv +RTS -K1000M -N1" \
 for cmd in \
-    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv +RTS -K1000M -N4" \
-    "allknn -r $INPUT -k 1 -n neighbors_mlpack.1.csv -d distances_mlpack.1.csv -S " \
-    "allknn -r $INPUT -k 1 -n neighbors_mlpack.2.csv -d distances_mlpack.2.csv " \
-    "allknn -r $INPUT -k 1 -n neighbors_mlpack.3.csv -d distances_mlpack.3.csv -c S" \
-    "allknn -r $INPUT -k 1 -n neighbors_mlpack.4.csv -d distances_mlpack.4.csv -c " \
-    "../allknn.R $INPUT 1 cover_tree" \
-    "../allknn.R $INPUT 1 kd_tree "
+    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv +RTS -K1000M -N1" \
+    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv --train-method=trainmonoid +RTS -K1000M -N1" \
+    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv --train-method=traininsert_sort +RTS -K1000M -N1" \
+    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv --train-method=traininsert_parent +RTS -K1000M -N1" \
+    "$curdir/hlearn-allknn --varshift -r $INPUT -k 1 -n neighbors_hlearn.1.csv --distances-file=distances_hlearn.1.csv --train-method=traininsert_ancestor +RTS -K1000M -N1" \
+    #"allknn -r $INPUT -k 1 -n neighbors_mlpack.1.csv -d distances_mlpack.1.csv -S " \
+    #"allknn -r $INPUT -k 1 -n neighbors_mlpack.2.csv -d distances_mlpack.2.csv " \
+    #"allknn -r $INPUT -k 1 -n neighbors_mlpack.3.csv -d distances_mlpack.3.csv -c S" \
+    #"allknn -r $INPUT -k 1 -n neighbors_mlpack.4.csv -d distances_mlpack.4.csv -c " \
+    #"../allknn.R $INPUT 1 cover_tree" \
+    #"../allknn.R $INPUT 1 kd_tree "
     #"allknn -r $INPUT -k 1 -v -N -n tmp/neighbors_mlpack.csv -d tmp/distances_mlpack.csv "
 do
     echo "$cmd"

@@ -13,6 +13,7 @@ mlpack_distances="$tmpdir/distances_mlpack.csv"
 
 #verbose="--verbose"
 optimization="--varshift"
+method="--train-method=traininsert_ancestor"
 #method="--train-method=trainmonoid"
 
 time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N2
@@ -30,3 +31,4 @@ echo "-------------------------------------"
 #echo "---"
 #head neighbors_mlpack.csv
 echo "num differences: " `diff $hlearn_neighbors $mlpack_neighbors | wc -l` " / " `cat $1 | wc -l`
+diff $hlearn_neighbors $mlpack_neighbors | head

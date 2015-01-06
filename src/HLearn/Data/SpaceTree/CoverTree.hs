@@ -673,12 +673,7 @@ insertCTNoSort dp ct = {-# SCC insertCTNoSort #-}
                 then go (x:acc) xs
                 else acc+((insertCTNoSort dp x):xs)
 
--- |
---
--- FIXME:
--- This function does a few more distance calls than "insertCTNoSort",
--- but runs WAY slower.
--- I'm pretty sure the intermediate list of children isn't getting fused away for some reason.
+-- | Insert a single data point into the cover tree.
 {-# INLINABLE insertCT #-}
 insertCT :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
@@ -689,6 +684,7 @@ insertCT :: forall exprat childC leafC dp.
 insertCT addChild dp ct =
     insertCT_ addChild dp ct (distance dp $ nodedp ct)
 
+-- | Like "insertCT", but this function also takes the distance between the data point and root of the cover tree to avoid recomputation.
 {-# INLINABLE insertCT_ #-}
 insertCT_ :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
