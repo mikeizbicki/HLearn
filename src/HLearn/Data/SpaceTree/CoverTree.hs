@@ -632,7 +632,7 @@ insertCTOrig_ :: forall exprat childC leafC dp.
       -> CoverTree_ exprat childC leafC dp
       -> Scalar dp
       -> CoverTree_ exprat childC leafC dp
-insertCTOrig_ dp ct dist =
+insertCTOrig_ !dp !ct !dist = {-# SCC insertCTOrig_ #-}
     if dist > coverdist ct
 
         -- | ct can't cover dp, so create a new node at dp that covers ct
