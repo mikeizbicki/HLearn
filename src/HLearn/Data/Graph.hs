@@ -82,7 +82,7 @@ instance KernelSpace v => KernelSpace (SelfKernel v) where
     selfKernel (SelfKernel k _) = k
 
 instance KernelSpace v => Normed (SelfKernel v) where
-    abs = kernelNorm
+    size = kernelNorm
 
 instance KernelSpace v => MetricSpace (SelfKernel v) where
     distance = kernelDistance

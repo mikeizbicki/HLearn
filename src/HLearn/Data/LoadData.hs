@@ -185,8 +185,8 @@ loadCSV filepath = do
         Left str -> error $ "failed to parse CSV file " ++ filepath ++ ": " ++ take 1000 str
 
     putStrLn "  dataset info:"
-    putStrLn $ "    num dp:  " ++ show (abs rs)
---     putStrLn $ "    size dp: " ++ show (abs $ head rs)
+    putStrLn $ "    num dp:  " ++ show (size rs)
+--     putStrLn $ "    size dp: " ++ show (size $ head rs)
     putStrLn ""
 
     return rs

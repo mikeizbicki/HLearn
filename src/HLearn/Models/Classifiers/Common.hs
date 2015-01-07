@@ -84,7 +84,7 @@ instance
 type instance Scalar (MaybeLabeled label attr) = Scalar attr
 
 instance Normed attr => Normed (MaybeLabeled label attr) where
-    abs (MaybeLabeled _ a) = abs a
+    size (MaybeLabeled _ a) = size a
 
 -- FIXME: add faster functions
 instance MetricSpace attr => MetricSpace (MaybeLabeled label attr) where

@@ -35,7 +35,7 @@ import Control.Parallel.Strategies
 
 
 {-# NOINLINE expratIORef #-}
-expratIORef = unsafePerformIO $ newIORef (2::Rational)
+expratIORef = unsafePerformIO $ newIORef (1.3::Rational)
 
 setexpratIORef :: Rational -> P.IO ()
 setexpratIORef r = writeIORef expratIORef r
@@ -585,45 +585,6 @@ instance
 -------------------------------------------------------------------------------
 -- construction
 
-{-# INLINE trainInsertParent #-}
-trainInsertParent ::
-    ( ValidCT exprat childC leafC (Elem xs)
-    , Foldable xs
-    ) => xs
-      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsertParent xs = {-# SCC trainInsertParent #-} case unCons xs of
-    Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' (insertCT addChild_parent) (singletonCT dp) $ toList dps
-
-{-# INLINABLE trainInsert #-}
-trainInsert ::
-    ( ValidCT exprat childC leafC (Elem xs)
-    , Foldable xs
-    ) => AddChildMethod exprat childC leafC (Elem xs)
-      -> xs
-      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsert addChild xs = {-# SCC trainInsert #-} case unCons xs of
-    Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' (insertCT addChild) (singletonCT dp) $ toList dps
-
-{-# INLINABLE trainInsertNoSort #-}
-trainInsertNoSort ::
-    ( ValidCT exprat childC leafC (Elem xs)
-    , Foldable xs
-    ) => xs
-      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsertNoSort xs = {-# SCC trainInsertNoSort #-}case unCons xs of
-    Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' insertCTNoSort (singletonCT dp) dps
-
-{-# INLINABLE trainMonoid #-}
-trainMonoid ::
-    ( ValidCT exprat childC leafC (Elem xs)
-    , Foldable xs
-    ) => xs
-      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
-
 {-# INLINABLE singletonCT #-}
 singletonCT :: ValidCT exprat childC leafC dp => dp -> CoverTree_  exprat childC leafC dp
 singletonCT dp = Node
@@ -635,6 +596,95 @@ singletonCT dp = Node
     , leaves                = empty
     , maxDescendentDistance = 0
     }
+
+{-# INLINABLE trainMonoid #-}
+trainMonoid ::
+    ( ValidCT exprat childC leafC (Elem xs)
+    , Foldable xs
+    ) => xs
+      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
+
+----------------------------------------
+
+{-# INLINABLE trainInsertOrig #-}
+trainInsertOrig ::
+    ( ValidCT exprat childC leafC (Elem xs)
+    , Foldable xs
+    ) => xs
+      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+trainInsertOrig xs = {-# SCC trainInsertOrig #-}case unCons xs of
+    Nothing -> Nothing'
+    Just (dp,dps) -> Just' $ foldr' insertCTOrig (singletonCT dp) dps
+
+{-# INLINABLE insertCTOrig #-}
+insertCTOrig ::
+    ( ValidCT exprat childC leafC dp
+    ) => dp
+      -> CoverTree_ exprat childC leafC dp
+      -> CoverTree_ exprat childC leafC dp
+insertCTOrig dp ct = insertCTOrig_ dp ct (distance dp (nodedp ct))
+
+{-# INLINABLE insertCTOrig_ #-}
+insertCTOrig_ :: forall exprat childC leafC dp.
+    ( ValidCT exprat childC leafC dp
+    ) => dp
+      -> CoverTree_ exprat childC leafC dp
+      -> Scalar dp
+      -> CoverTree_ exprat childC leafC dp
+insertCTOrig_ dp ct dist =
+    if dist > coverdist ct
+
+        -- | ct can't cover dp, so create a new node at dp that covers ct
+        then Node
+            { nodedp                = dp
+            , nodeWeight            = 1
+            , level                 = dist2level_up (Proxy::Proxy exprat) dist
+            , numdp                 = numdp ct+1
+            , maxDescendentDistance = dist+maxDescendentDistance ct
+            , children              = singleton
+                                    $ raiseRootLevel (dist2level_down (Proxy::Proxy exprat) dist)
+                                    $ ct
+            , leaves                = empty
+            }
+
+        -- | insert dp underneath ct
+        else ct
+            { numdp                 = numdp ct+1
+            , maxDescendentDistance = max dist (maxDescendentDistance ct)
+            , children              = fromList $ go [] $ toList $ children ct
+            }
+
+        where
+            go !acc (x:xs) = if isFartherThan (nodedp x) dp (sepdist ct)
+                then go (x:acc) xs
+                else acc+((insertCTOrig dp x):xs)
+
+            go !acc [] = if dist > sepdist ct
+
+                -- far from root, so just insert the node
+                then ((singletonCT dp) { level = level ct-1 }):acc
+
+                -- close to root, so add new lower root level
+                else insertCTOrig_ dp ct' dist:acc
+                    where
+                        ct' = (singletonCT (nodedp ct))
+                            { level      = level ct-1
+                            , numdp      = 0
+                            , nodeWeight = 0
+                            }
+
+----------------------------------------
+
+{-# INLINABLE trainInsertNoSort #-}
+trainInsertNoSort ::
+    ( ValidCT exprat childC leafC (Elem xs)
+    , Foldable xs
+    ) => xs
+      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+trainInsertNoSort xs = {-# SCC trainInsertNoSort #-}case unCons xs of
+    Nothing -> Nothing'
+    Just (dp,dps) -> Just' $ foldr' insertCTNoSort (singletonCT dp) dps
 
 {-# INLINABLE insertCTNoSort #-}
 insertCTNoSort :: forall exprat childC leafC dp.
@@ -672,6 +722,19 @@ insertCTNoSort dp ct = {-# SCC insertCTNoSort #-}
             go !acc (x:xs) = if isFartherThan (nodedp x) dp (sepdist ct)
                 then go (x:acc) xs
                 else acc+((insertCTNoSort dp x):xs)
+
+----------------------------------------
+
+{-# INLINABLE trainInsert #-}
+trainInsert ::
+    ( ValidCT exprat childC leafC (Elem xs)
+    , Foldable xs
+    ) => AddChildMethod exprat childC leafC (Elem xs)
+      -> xs
+      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+trainInsert addChild xs = {-# SCC trainInsert #-} case unCons xs of
+    Nothing -> Nothing'
+    Just (dp,dps) -> Just' $ foldr' (insertCT addChild) (singletonCT dp) $ toList dps
 
 -- | Insert a single data point into the cover tree.
 {-# INLINABLE insertCT #-}

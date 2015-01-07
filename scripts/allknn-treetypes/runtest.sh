@@ -24,17 +24,18 @@ echo "--------------------------------------------------------------------------
 hlearn_neighbors="./neighbors_hlearn.csv"
 hlearn_distances="./distances_hlearn.csv"
 
-#verbose="--verbose"
+verbose="--verbose"
 optimization="--varshift"
 #method="--train-method=traininsert"
 
-methodlist="trainmonoid traininsert_nosort traininsert_sort traininsert_parent traininsert_ancestor"
+#methodlist="trainmonoid traininsert_nosort traininsert_sort traininsert_parent traininsert_ancestor traininsert_orig"
+methodlist="traininsert_orig"
 
 touch results
 
 for method in $methodlist; do
     echo -e "---\n$method\n---\n"
-    "$curdir/hlearn-allknn" --train-method="$method" -k $K -r "$curdir/$1" $2 $3 $4 $5 $optimization $verbose +RTS -K1000M -N2 -p -s 2>&1 | tee out.$method
+    "hlearn-allknn" --train-method="$method" -k $K -r "$curdir/$1" $2 $3 $4 $5 $optimization $verbose +RTS -K1000M -p -s 2>&1 | tee out.$method
 
     mv ./hlearn-allknn.prof ./prof.$method
 

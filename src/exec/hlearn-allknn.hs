@@ -80,7 +80,8 @@ data Params = Params
     deriving (Show, Data, Typeable)
 
 data TrainMethod
-    = TrainInsert_NoSort
+    = TrainInsert_Orig
+    | TrainInsert_NoSort
     | TrainInsert_Sort
     | TrainInsert_Parent
     | TrainInsert_Ancestor
@@ -418,6 +419,7 @@ buildTree params xs = do
     setexpratIORef $ P.toRational $ expansionRatio params
 
     let trainmethod = case train_method params of
+            TrainInsert_Orig     -> trainInsertOrig
             TrainInsert_NoSort   -> trainInsertNoSort
             TrainInsert_Sort     -> trainInsert addChild_nothing
             TrainInsert_Parent   -> trainInsert addChild_parent

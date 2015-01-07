@@ -265,7 +265,7 @@ executable hlearn-allknn
         src/exec
 
     ghc-options:
---         -prof
+        -prof
 --         -Wall
         -threaded
         -rtsopts
