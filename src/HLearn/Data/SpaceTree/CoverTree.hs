@@ -632,7 +632,7 @@ insertCTOrig_ :: forall exprat childC leafC dp.
       -> CoverTree_ exprat childC leafC dp
       -> Scalar dp
       -> CoverTree_ exprat childC leafC dp
-insertCTOrig_ !dp !ct !dist = {-# SCC insertCTOrig_ #-}
+insertCTOrig_ !dp !ct !dist = deepseq ct $ {-# SCC insertCTOrig_ #-}
     if dist > coverdist ct
 
         -- | ct can't cover dp, so create a new node at dp that covers ct
@@ -660,7 +660,7 @@ insertCTOrig_ !dp !ct !dist = {-# SCC insertCTOrig_ #-}
                 then go (x:acc) xs
                 else acc+((insertCTOrig dp x):xs)
 
-            go !acc [] = if dist > sepdist ct
+            go !acc [] = if dist >= sepdist ct
 
                 -- far from root, so just insert the node
                 then ((singletonCT dp) { level = level ct-1 }):acc
