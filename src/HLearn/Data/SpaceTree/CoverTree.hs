@@ -416,7 +416,6 @@ ctAdoptNodes ::
 ctAdoptNodes ct = ct { children = fromList $ map ctAdoptNodes $ go [] $ toList $ children ct }
     where
         go acc []     = acc
---         go acc (x:xs) = go ((foldl' (+) x (accchildren++xschildren)):acc') xs'
         go acc (x:xs) = go (x { children = (fromList accchildren+fromList xschildren+children x)}:acc') xs'
             where
                 betterMoveNode y c = distance (nodedp x) (nodedp c) < distance (nodedp y) (nodedp c)
@@ -434,41 +433,37 @@ ctAdoptNodes ct = ct { children = fromList $ map ctAdoptNodes $ go [] $ toList $
                 (accchildren, acc') = extractChildrenL acc
                 (xschildren, xs') = extractChildrenL xs
 
--- ctMovableNodes ::
---     ( ValidCT exprat childC leafC dp
---     , Integral (Scalar (childC (CoverTree_ exprat childC leafC dp)))
---     , Integral (Scalar (leafC dp))
---     ) => CoverTree_ exprat childC leafC dp -> Int
--- ctMovableNodes ct
---     = sum (map movableChildren $ toList $ children ct)
---     + sum (map ctMovableNodes  $ toList $ children ct)
---     where
---         movableChildren c
---             = sum (map totalNodesOfChildren (                  toList $ children c))
---             + sum (map totalNodesOfChildren (map singletonCT $ toList $ leaves   c))
--- --             - (fromIntegral $ toInteger $ length $ children c)
--- --             - (fromIntegral $ toInteger $ length $ leaves c)
+-- | Sets the "maxDescendentDistance" parameter to the tightest bound possible.
+-- This makes future queries of the tree more efficient---we can prune off more traversals, resulting in fewer distance computations.
 --
---         totalNodesOfChildren c
---             = indicator
---             $ (> (1::Int))
---             $ sum
---             $ map (\p -> indicator $ distance (nodedp c) (nodedp p) < sepdist ct)
---             $ toList (children ct)
---            ++ toList (map singletonCT $ toList $ leaves ct)
-
+-- FIXME:
+-- This version uses a branch-and-bound recursion that is much faster than the previous naive implementation.
+-- But it would be cooler (and faster?) if we used a find farthest neighbor method in the SpaceTree framework.
 {-# INLINABLE setMaxDescendentDistance #-}
 setMaxDescendentDistance ::
     ( ValidCT exprat childC leafC dp
     ) => CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
-setMaxDescendentDistance ct = ct
+setMaxDescendentDistance ct = {-# SCC setMaxDescendentDistance #-} ct
     { children = children'
-    , maxDescendentDistance = maximum $ map (\dp -> distance dp (nodedp ct)) $ stDescendents ct
+    , maxDescendentDistance = max leavesMaxDist $ go 0 (toList $ children')
     }
     where
+
         children' = VG.map setMaxDescendentDistance $ children ct
---         distanceL = map (\dp -> distance (nodedp ct) dp) $ stDescendents ct
+
+        leavesMaxDist = maximum $ map (distance (nodedp ct)) $ toList $ leaves ct
+
+        go curmax []     = curmax
+        go curmax (x:xs) = go curmax' xs
+            where
+                curmax' = if dist + maxDescendentDistance x <= curmax
+                    then curmax
+                    else go (maximum [dist,leavesMaxDist,curmax]) (toList $ children x)
+
+                leavesMaxDist = maximum $ map (distance (nodedp ct)) $ toList $ leaves x
+
+                dist = distance (nodedp x) (nodedp ct)
 
 ---------------------------------------
 
@@ -550,8 +545,6 @@ packCT ct = {-# SCC packCT #-} snd $ go 0 ct
 -------------------------------------------------------------------------------
 
 -- FIXME: add proper container hierarchy
-type instance Elem (CoverTree_ exprat childC leafC dp) = dp
-
 instance
     ( ValidCT exprat childC leafC dp
     ) => Container (CoverTree_ exprat childC leafC dp)
