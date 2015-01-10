@@ -16,6 +16,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 
 import Control.Monad
+import Control.Monad.Random hiding (fromList)
 import Data.List (zip,intersperse,init,tail,isSuffixOf)
 import Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as VG
@@ -41,6 +42,7 @@ import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
 import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Data.UnsafeVector
+import HLearn.Evaluation.CrossValidation
 import HLearn.History.Timing
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal
@@ -60,6 +62,9 @@ data Params = Params
     , query_file        :: Maybe String
     , distances_file    :: String
     , neighbors_file    :: String
+
+    , maxrefdp          :: Maybe Int
+    , seed              :: Maybe Int
 
     , train_method      :: TrainMethod
     , adopt_children    :: Bool
@@ -178,6 +183,14 @@ allknnParams = Params
 
     , verbose        = False
                     &= help "Print tree statistics (takes some extra time)"
+                    &= groupname "Debugging"
+
+    , maxrefdp       = Nothing
+                    &= help "Take at most this many points from the dataset to build the reference tree"
+                    &= groupname "Debugging"
+
+    , seed           = Nothing
+                    &= help "If this option is set, the datapoints will be randomly shuffled with the corresponding seed before tree building"
                     &= groupname "Debugging"
 
     , debug          = False
@@ -309,8 +322,17 @@ runTest :: forall k exprat childC leafC dp proxy1 proxy2.
       -> IO ()
 runTest params rs mqs tree knn = do
 
+    -- modify the dataset
+    let rs_take = case maxrefdp params of
+            Nothing -> toList rs
+            Just n  -> P.take n $ toList rs
+
+    let rs_shuffle = fromList $ case seed params of
+            Nothing -> rs_take
+            Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
+
     -- build the trees
-    reftree <- buildTree params rs :: IO (CoverTree_ exprat childC leafC dp)
+    reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC dp)
 
     (querytree,qs) <- case mqs of
         Nothing -> return $ (reftree,rs)
@@ -329,7 +351,7 @@ runTest params rs mqs tree knn = do
     let qs_index = parallel fromList $ zip (VG.toList qs) [0::Int ..] :: Map' dp Int
         rs_index = case mqs of
             Nothing -> qs_index
-            Just _  -> parallel fromList $ zip (VG.toList rs) [0::Int ..] :: Map' dp Int
+            Just _  -> parallel fromList $ zip (VG.toList rs_shuffle) [0::Int ..] :: Map' dp Int
     time "qs_index" qs_index
     time "rs_index" rs_index
 
