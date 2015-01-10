@@ -215,6 +215,8 @@ main = do
                     , varshift = varshift_data params
                     }
             rs <- loaddata dataparams
+            putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
+            putStrLn ""
 
             runTest params rs Nothing l2ct l2nl
 
