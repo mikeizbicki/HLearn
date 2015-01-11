@@ -49,18 +49,18 @@ emd_float ::
       -> Float
 emd_float
     (Lexical (ArrayT v1s), Lexical (ArrayT v1a))
-    (Lexical (ArrayT v2s), Lexical (ArrayT v2a)) = unsafeDupablePerformIO $
+    (Lexical (ArrayT v2s), Lexical (ArrayT v2a))
+    = {-# SCC emd_float #-} unsafeDupablePerformIO $
         withForeignPtr fp1 $ \p1 ->
         withForeignPtr fp2 $ \p2 ->
         withForeignPtr fpcost $ \pcost ->
-            {-# SCC emd_float_ #-}
             emd_float_ p1 n1 p2 n2 pcost
 
     where
         (fp1,n1) = VS.unsafeToForeignPtr0 v1s
         (fp2,n2) = VS.unsafeToForeignPtr0 v2s
 
-        vcost = VS.generate (n1*n2) $ \i -> distance
+        vcost = {-# SCC vcost #-} VS.generate (n1*n2) $ \i -> distance
             (v1a V.! (i`div`n2))
             (v2a V.! (i`mod`n2))
 

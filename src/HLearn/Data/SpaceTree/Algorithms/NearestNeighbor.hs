@@ -37,10 +37,10 @@ import Data.Params
 -------------------------------------------------------------------------------
 
 data Neighbor dp = Neighbor
---     { neighbor         :: !dp
---     , neighborDistance :: !(Scalar dp)
-    { neighbor         :: {-#UNPACK#-}!(L2 UnboxedVector Float)
-    , neighborDistance :: {-#UNPACK#-}!Float
+    { neighbor         :: !dp
+    , neighborDistance :: !(Scalar dp)
+--     { neighbor         :: {-#UNPACK#-}!(L2 UnboxedVector Float)
+--     , neighborDistance :: {-#UNPACK#-}!Float
     }
 
 type instance Scalar (Neighbor dp) = Bool
@@ -51,7 +51,7 @@ type ValidNeighbor dp =
     , Bounded (Scalar dp)
     , CanError (Scalar dp)
     , Logic dp~Bool
-    , dp ~ (L2 UnboxedVector Float)
+--     , dp ~ (L2 UnboxedVector Float)
     )
 
 deriving instance (Read dp, Read (Scalar dp)) => Read (Neighbor dp)

@@ -218,30 +218,31 @@ main = do
     let filepath = fromJust $ reference_file params
 
     case data_format params of
-        DF_CSV -> do
-            let l2nl=Proxy::Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
-                l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
-            let dataparams = DataParams
-                    { datafile = filepath
-                    , labelcol = Nothing
-                    , pca      = pca_data params
-                    , varshift = varshift_data params
-                    }
-            rs <- loaddata dataparams
-            putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
-            putStrLn ""
+--         DF_CSV -> do
+--             let l2nl=Proxy::Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
+--                 l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+--             let dataparams = DataParams
+--                     { datafile = filepath
+--                     , labelcol = Nothing
+--                     , pca      = pca_data params
+--                     , varshift = varshift_data params
+--                     }
+--             rs <- loaddata dataparams
+--             putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
+--             putStrLn ""
+--
+--             runTest params rs Nothing l2ct l2nl
 
-            runTest params rs Nothing l2ct l2nl
-
---         DF_Images -> do
---             let nl=Proxy::Proxy (NeighborList (Static 1) HistogramSignature)
---                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array HistogramSignature)
---             rs <- loadDirectory
---                 filepath
---                 (loadHistogramSignature False)
---                 (isSuffixOf ".sig.all")
---                 true
---             runTest params rs Nothing ct nl
+        DF_Images -> do
+            let nl=Proxy::Proxy (NeighborList (Static 1) HistogramSignature)
+                ct=Proxy::Proxy (CoverTree_ (13/10) Array Array HistogramSignature)
+            rs <- loadDirectory
+                (maxrefdp params)
+                filepath
+                (loadHistogramSignature False)
+                (isSuffixOf ".sig.all")
+                true
+            runTest params rs Nothing ct nl
 
 --         DF_PLG -> do
 --             let nl=Proxy::Proxy (NeighborList (Static 1) Graph)

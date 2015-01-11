@@ -85,37 +85,46 @@ loadWords filepath = do
 -- This is relatively untested.
 -- It probably has bugs related to weird symbolic links.
 getDirectoryContentsRecursive :: FilePath -> IO [FilePath]
-getDirectoryContentsRecursive dirpath = do
-    files <- getDirectoryContents dirpath
-    fmap concat $ forM files $ \file -> case file of
-        '.':_ -> return []
-        _ -> do
---             let file' = dirpath++"/"++takeFileName file
-            let file' = dirpath++"/"++file
-            isdir <- doesDirectoryExist file'
-            contents <- if isdir
-                then getDirectoryContentsRecursive file'
-                else return []
-            return $ file':contents
+getDirectoryContentsRecursive = fmap toList . go
+    where
+        go :: FilePath -> IO (Seq FilePath)
+        go dirpath = do
+            files <- getDirectoryContents dirpath
+            fmap concat $ forM files $ \file -> case file of
+                '.':_ -> return empty
+                _ -> do
+                    let file' = dirpath++"/"++file
+                    isdir <- doesDirectoryExist file'
+                    contents <- if isdir
+                        then go file'
+                        else return empty
+                    return $ file' `cons` contents
 
 -- | A generic method for loading unlabeled data points
 -- where each file in a directory hierarchy corresponds to a single data point.
 loadDirectory ::
     ( Eq a
     , NFData a
-    ) => FilePath             -- ^ directory to load data from
+    ) => Maybe Int            -- ^ maximum number of datapoints to load; Nothing for unlimitted
+      -> FilePath             -- ^ directory to load data from
       -> (FilePath -> IO a)   -- ^ function to load an individual file
       -> (FilePath -> Bool)   -- ^ function to filter out invalid filenames
       -> (a -> Bool)          -- ^ function to filter out malformed results
       -> IO (Array a)         -- ^
-loadDirectory dirpath loadFile validFilepath validResult = {-# SCC loadDirectory #-} do
-    files <- --fmap (take 1000) $
-        fmap (filter validFilepath) $
-        getDirectoryContentsRecursive dirpath
+loadDirectory numdp dirpath loadFile validFilepath validResult = {-# SCC loadDirectory #-} do
 
-    results <- fmap (filter validResult)
+    let takedp = case numdp of
+            Nothing -> id
+            Just n -> fmap (take n)
+
+    files <-  timeIO "getDirectoryContentsRecursive"
+        $ takedp
+        $ fmap (filter validFilepath)
+        $ getDirectoryContentsRecursive dirpath
+
+    results <- timeIO "loadDirectory"
+        $ fmap (filter validResult)
         $ mapM loadFile files
-    time "loadDirectory" results
 
     putStrLn $ "  numdp: " ++ show (length files)
 --     when debug $ do
@@ -146,7 +155,7 @@ loadHistogramSignature debug filepath = {-# SCC loadHistogramSignature #-} do
     when debug $ do
         putStrLn $ "filepath="++show filepath
         putStrLn $ "  filedata="++show filedata
---         putStrLn $ "signature length=" ++ show (length ret)
+        putStrLn $ "signature length=" ++ show (length filedata)
 
     deepseq ret $ return $ EMD ret
 
