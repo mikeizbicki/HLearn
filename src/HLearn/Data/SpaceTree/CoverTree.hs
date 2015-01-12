@@ -22,9 +22,9 @@ import SubHask.Compatibility.Containers
 import HLearn.Data.SpaceTree
 import HLearn.Models.Distributions.Univariate.Normal
 
-import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar,Monoid)
+import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar,Monoid,size)
 import qualified Diagrams.Prelude as D
-import Diagrams.Backend.SVG
+import Diagrams.Backend.SVG hiding (size)
 
 ---------
 import System.IO.Unsafe
@@ -62,6 +62,9 @@ data CoverTree_
 type instance Scalar (CoverTree_ exprat childC leafC dp) = Scalar dp
 type instance Logic (CoverTree_ exprat childC leafC dp) = Bool
 type instance Elem (CoverTree_ exprat childC leafC dp) = dp
+
+instance ValidCT exprat childC leafC dp => Normed (CoverTree_ exprat childC leafC dp) where
+    size = numdp
 
 instance ValidCT exprat childC leafC dp => Eq_ (CoverTree_ exprat childC leafC dp) where
     ct1==ct2 = stToList ct1==stToList ct2
@@ -118,6 +121,14 @@ type ValidCT exprat childC leafC dp =
     , Logic (CoverTree_ exprat childC leafC dp) ~ Bool
     , Logic (Scalar (leafC dp)) ~ Bool
     , NFData (CoverTree_ exprat childC leafC dp)
+    , HasScalar dp
+
+    , ClassicalLogic (leafC dp)
+    , ClassicalLogic (leafC (CoverTree_ exprat childC leafC dp))
+    , ClassicalLogic (childC (CoverTree_ exprat childC leafC dp))
+    , Container (leafC dp)
+--     , Container (leafC (CoverTree_ exprat childC leafC dp))
+    , Container (childC (CoverTree_ exprat childC leafC dp))
 
     -- these constraints come from hlearn-allknn
     , Scalar (leafC dp) ~ Scalar (childC (CoverTree_ exprat childC leafC dp))
@@ -213,7 +224,7 @@ ctMaxCoverRatio ::
     ( ValidCT exprat childC leafC dp
     , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Scalar (leafC dp)
     ) => CoverTree_ exprat childC leafC dp -> Scalar dp
-ctMaxCoverRatio ct = if length (children ct) + length (leaves ct) > 0
+ctMaxCoverRatio ct = if size (children ct) + size (leaves ct) > 0
     then maximum
         $ (stMaxDescendentDistance ct / coverdist ct)
         : map ctMaxCoverRatio (toList $ children ct)
@@ -225,7 +236,7 @@ ctAveCoverRatio ::
     ( ValidCT exprat childC leafC dp
     , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Scalar (leafC dp)
     ) => CoverTree_ exprat childC leafC dp -> Normal (Scalar dp)
-ctAveCoverRatio ct = if length (children ct) + length (leaves ct) > 0
+ctAveCoverRatio ct = if size (children ct) + size (leaves ct) > 0
     then train1Normal (stMaxDescendentDistance ct / coverdist ct)
        + reduce (map ctAveCoverRatio $ toList $ children ct)
     else zero
@@ -244,8 +255,8 @@ ctMovableParents ct
         movableChildren c
             = sum (map totalParentsOfChildren (                  toList $ children c))
             + sum (map totalParentsOfChildren (map singletonCT $ toList $ leaves   c))
-            - (fromIntegral $ toInteger $ length $ children c)
-            - (fromIntegral $ toInteger $ length $ leaves c)
+            - (fromIntegral $ toInteger $ size $ children c)
+            - (fromIntegral $ toInteger $ size $ leaves c)
 
         totalParentsOfChildren c
             = sum
@@ -267,8 +278,8 @@ ctBetterMovableParents ct
         betterMovableChildren c
             = sum (map (totalBetterParentsOfChildren c) (                  toList $ children c))
             + sum (map (totalBetterParentsOfChildren c) (map singletonCT $ toList $ leaves   c))
-            - (fromIntegral $ toInteger $ length $ children c)
-            - (fromIntegral $ toInteger $ length $ leaves c)
+            - (fromIntegral $ toInteger $ size $ children c)
+            - (fromIntegral $ toInteger $ size $ leaves c)
 
         totalBetterParentsOfChildren realparent c
             = sum
@@ -291,8 +302,8 @@ ctMovableNodes ct
         movableChildren c
             = sum (map totalNodesOfChildren (                  toList $ children c))
             + sum (map totalNodesOfChildren (map singletonCT $ toList $ leaves   c))
---             - (fromIntegral $ toInteger $ length $ children c)
---             - (fromIntegral $ toInteger $ length $ leaves c)
+--             - (fromIntegral $ toInteger $ size $ children c)
+--             - (fromIntegral $ toInteger $ size $ leaves c)
 
         totalNodesOfChildren c
             = indicator
@@ -316,8 +327,8 @@ ctBetterMovableNodes ct
         betterMovableChildren c
             = sum (map (totalBetterNodesOfChildren c) (                  toList $ children c))
             + sum (map (totalBetterNodesOfChildren c) (map singletonCT $ toList $ leaves   c))
---             - (fromIntegral $ toInteger $ length $ children c)
---             - (fromIntegral $ toInteger $ length $ leaves c)
+--             - (fromIntegral $ toInteger $ size $ children c)
+--             - (fromIntegral $ toInteger $ size $ leaves c)
 
         totalBetterNodesOfChildren realparent c
             = indicator
@@ -539,7 +550,7 @@ packCT ct = {-# SCC packCT #-} snd $ go 0 ct
             where
                 (i',children') = {-# SCC mapAccumL #-} L.mapAccumL
                     go
-                    (i+1+length (toList $ leaves t))
+                    (i+1+size (toList $ leaves t))
                     (toList $ children t)
 
 -------------------------------------------------------------------------------
@@ -547,12 +558,16 @@ packCT ct = {-# SCC packCT #-} snd $ go 0 ct
 -- FIXME: add proper container hierarchy
 instance
     ( ValidCT exprat childC leafC dp
-    ) => Container (CoverTree_ exprat childC leafC dp)
+    ) => PreContainer (CoverTree_ exprat childC leafC dp)
         where
 
     -- FIXME: use the covertree's structure!
     elem e ct = elem e $ stToList ct
     notElem = not elem
+
+-- instance
+--     ( ValidCT exprat childC leafC dp
+--     ) => Container (CoverTree_ exprat childC leafC dp)
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -560,6 +575,14 @@ instance
         where
 
     singleton = singletonCT
+
+instance
+    ( ValidCT exprat childC leafC dp
+    ) => POrd_ (CoverTree_ exprat childC leafC dp)
+        where
+
+   inf ct1 ct2 = error "inf ValidCT undefined"
+
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -924,7 +947,7 @@ instance
         if level ct1_ == level ct2_
             then {-# SCC plus_then #-} {-trace " then" $ -} case ctmerge_ ct1_ ct2_ dist of
                 (ct, []) -> ct
-                (ct, xs) -> {-trace ("  |xs|="++show (length xs)) $-} foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
+                (ct, xs) -> {-trace ("  |xs|="++show (size xs)) $-} foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
             else {-# SCC plus_else #-} {-trace " else" $ -} ct1_
                 { children = fromList $ go [] (stChildrenList ct1_)
                 , numdp = numdp ct1_ + numdp ct2_

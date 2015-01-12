@@ -73,6 +73,9 @@ class
     ( MetricSpace dp
     , Logic (t dp) ~ Bool
     , Logic dp ~ Bool
+    , Logic (LeafContainer t dp) ~ Bool
+    , Logic (LeafContainer t (t dp)) ~ Bool
+    , Logic (ChildContainer t (t dp)) ~ Bool
     , Eq_ (t dp)
     , Scalar dp ~ Scalar (t dp)
     , Elem (ChildContainer t (t dp)) ~ t dp
@@ -83,6 +86,8 @@ class
     , Normed (ChildContainer t (t dp))
     , Foldable (LeafContainer t dp)
     , Foldable (ChildContainer t (t dp))
+--     , Container (LeafContainer t dp)
+--     , Container (LeafContainer t (t dp))
 
     , Unfoldable (t dp)
     , dp ~ Elem (t dp)
@@ -223,7 +228,7 @@ stNumLeaves ::
     ( Integral (Scalar (LeafContainer t dp))
     , SpaceTree t dp
     ) => t dp -> Scalar dp
-stNumLeaves t = (fromIntegral $ length (stLeaves t)) + sum (map stNumLeaves $ toList $ stChildren t)
+stNumLeaves t = (fromIntegral $ size (stLeaves t)) + sum (map stNumLeaves $ toList $ stChildren t)
 
 {-# INLINABLE stNumGhosts #-}
 stNumGhosts :: SpaceTree t dp => t dp -> Int
@@ -235,7 +240,7 @@ stNumGhosts t = (if stWeight t == 0 then 1 else 0) + if stHasNoChildren t
 stAveGhostChildren :: SpaceTree t dp => t dp -> Normal Double
 stAveGhostChildren t =
     ( if stWeight t == 0
-        then train1Normal . fromIntegral . length $ stChildrenList t
+        then train1Normal . fromIntegral . size $ stChildrenList t
         else zero
     )
     +
@@ -246,24 +251,24 @@ stAveGhostChildren t =
 
 {-# INLINABLE stMaxLeaves #-}
 stMaxLeaves :: SpaceTree t dp => t dp -> Int
-stMaxLeaves t = maximum $ (length $ toList $ stLeaves t):(map stMaxLeaves $ stChildrenList t)
+stMaxLeaves t = maximum $ (size $ toList $ stLeaves t):(map stMaxLeaves $ stChildrenList t)
 
 {-# INLINABLE stAveLeaves #-}
 stAveLeaves :: SpaceTree t dp => t dp -> Normal Double
-stAveLeaves t = (train1Normal . fromIntegral . length . toList $ stLeaves t)
+stAveLeaves t = (train1Normal . fromIntegral . size . toList $ stLeaves t)
               + (reduce . map stAveLeaves $ stChildrenList t)
 
 {-# INLINABLE stMaxChildren #-}
 stMaxChildren :: SpaceTree t dp => t dp -> Int
 stMaxChildren t = if stHasNoChildren t
     then 0
-    else maximum $ (length $ stChildrenList t):(map stMaxChildren $ stChildrenList t)
+    else maximum $ (size $ stChildrenList t):(map stMaxChildren $ stChildrenList t)
 
 {-# INLINABLE stAveChildren #-}
 stAveChildren :: SpaceTree t dp => t dp -> Normal Double
 stAveChildren t = if stHasNoChildren t
     then zero
-    else (train1Normal . fromIntegral . length $ stChildrenList t)
+    else (train1Normal . fromIntegral . size $ stChildrenList t)
        + (reduce . map stAveChildren $ stChildrenList t)
 
 {-# INLINABLE stMaxDepth #-}
@@ -276,7 +281,7 @@ stMaxDepth t = if stHasNoChildren t
 stNumSingletons :: SpaceTree t dp => t dp -> Int
 stNumSingletons t = if stHasNoChildren t
     then 0
-    else sum (map stNumSingletons $ stChildrenList t) + if length (stChildrenList t) == 1
+    else sum (map stNumSingletons $ stChildrenList t) + if size (stChildrenList t) == 1
         then 1
         else 0
 
@@ -285,7 +290,7 @@ stNumGhostSingletons :: SpaceTree t dp => t dp -> Int
 stNumGhostSingletons t = if stHasNoChildren t
     then 0
     else sum (map stNumGhostSingletons $ stChildrenList t)
-       + if length (stChildrenList t) == 1 && stWeight t==0
+       + if size (stChildrenList t) == 1 && stWeight t==0
         then 1
         else 0
 

@@ -61,6 +61,10 @@ instance Eq (Scalar dp) => Eq_ (Neighbor dp) where
     {-# INLINE (==) #-}
     a == b = neighborDistance a == neighborDistance b
 
+instance Eq (Scalar dp) => POrd_ (Neighbor dp)
+instance Eq (Scalar dp) => Lattice_ (Neighbor dp)
+instance Eq (Scalar dp) => Ord_ (Neighbor dp)
+
 -- instance Ord (Scalar dp) => Ord (Neighbor dp) where
 --     compare a b = compare (neighborDistance a) (neighborDistance b)
 
