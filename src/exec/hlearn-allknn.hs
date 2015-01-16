@@ -312,9 +312,14 @@ runTest :: forall k exprat childC leafC dp proxy1 proxy2.
     , P.Fractional (Scalar dp)
     , Param_k (NeighborList k dp)
     , RationalField (Scalar dp)
-    , VG.Vector childC Int
-    , VG.Vector childC Bool
+--     , VG.Vector childC Int
+--     , VG.Vector childC Bool
     , ValidNeighbor dp
+
+    , exprat ~ (13/10)
+    , childC ~ Array
+    , leafC ~ UnboxedArray
+    , dp ~ L2 UnboxedVector Float
     ) => Params
       -> Array dp
       -> Maybe (Array dp)
@@ -337,9 +342,9 @@ runTest params rs mqs tree knn = do
 
     (querytree,qs) <- case mqs of
         Nothing -> return $ (reftree,rs)
-        Just qs -> do
-            querytree <- buildTree params qs
-            return (querytree, qs)
+--         Just qs -> do
+--             querytree <- buildTree params qs
+--             return (querytree, qs)
 
     -- do knn search
     let res = parallel
@@ -418,10 +423,16 @@ runTest params rs mqs tree knn = do
 --   #-}
 -- | Gives us many possible ways to construct our cover trees based on the input parameters.
 -- This is important so we can compare their runtime features.
+
 buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
-    , VG.Vector childC Bool
-    , VG.Vector childC Int
+--     , VG.Vector childC Bool
+--     , VG.Vector childC Int
+
+    , exprat ~ (13/10)
+    , childC ~ Array
+    , leafC ~ UnboxedArray
+    , dp ~ L2 UnboxedVector Float
     ) => Params
       -> Array dp
       -> IO (CoverTree_ exprat childC leafC dp)
@@ -437,7 +448,7 @@ buildTree params xs = do
             TrainInsert_Ancestor -> trainInsert addChild_ancestor
             TrainMonoid          -> trainMonoid
 
-    let (Just' reftree) = {-parallel-} trainmethod xs
+    let (Just' reftree) = parallel trainmethod $ toList xs
     time "building tree" reftree
 
     let reftree_adopt = if adopt_children params
@@ -466,8 +477,8 @@ buildTree params xs = do
 
     when (verbose params) $ do
         putStrLn ""
-        printTreeStats "reftree      " $ reftree
-        printTreeStats "reftree_prune" $ reftree_prune
+--         printTreeStats "reftree      " $ reftree
+--         printTreeStats "reftree_prune" $ reftree_prune
 
     return reftree_cache
 
@@ -508,11 +519,11 @@ printTreeStats str t = do
     putStr (str++"  ctMovableParents.......") >> hFlush stdout >> putStrLn (show $ ctMovableParents t)
     putStr (str++"  ctBetterMovableParents.") >> hFlush stdout >> putStrLn (show $ ctBetterMovableParents t)
 
-    putStrLn (str++" invariants:")
-    putStr (str++"  covering.....") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_covering t)
-    putStr (str++"  tightCover...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_tightCovering t)
-    putStr (str++"  separating...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_separating t)
-    putStr (str++"  maxDescDist..") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_maxDescendentDistance t)
-    putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
-
+--     putStrLn (str++" invariants:")
+--     putStr (str++"  covering.....") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_covering t)
+--     putStr (str++"  tightCover...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_tightCovering t)
+--     putStr (str++"  separating...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_separating t)
+--     putStr (str++"  maxDescDist..") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_maxDescendentDistance t)
+--     putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
+--
     putStrLn ""

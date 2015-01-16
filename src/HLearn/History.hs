@@ -145,10 +145,12 @@ instance Heyting a => Heyting (SimpleHistory a) where
         b' <- b
         return $ a' ==> b'
 
-instance Boolean a => Boolean (SimpleHistory a) where
+instance Complemented a => Complemented (SimpleHistory a) where
     not a = do
         a' <- a
         return $ not a'
+
+instance Boolean a => Boolean (SimpleHistory a)
 
 instance HistoryMonad SimpleHistory where
     type Reportable SimpleHistory a = ()
@@ -255,10 +257,12 @@ instance Heyting a => Heyting (DynamicHistory a) where
         b' <- b
         return $ a' ==> b'
 
-instance Boolean a => Boolean (DynamicHistory a) where
+instance Complemented a => Complemented (DynamicHistory a) where
     not a = do
         a' <- a
         return $ not a'
+
+instance Boolean a => Boolean (DynamicHistory a)
 
 instance HistoryMonad DynamicHistory where
 
