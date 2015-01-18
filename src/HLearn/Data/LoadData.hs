@@ -136,30 +136,6 @@ loadDirectory numdp dirpath loadFile validFilepath validResult = {-# SCC loadDir
 -------------------
 
 
-type HistogramSignature_ a = EMD (Lexical (StorableArray Float), Lexical (Array a))
-type HistogramSignature = HistogramSignature_ (L2 Vector Float)
-
-loadHistogramSignature
-    :: Bool     -- ^ print debug info?
-    -> FilePath -- ^ path of signature file
-    -> IO HistogramSignature
-loadHistogramSignature debug filepath = {-# SCC loadHistogramSignature #-} do
-    filedata <- liftM lines $ readFile filepath
-
-    let (fs,as) = unzip
-            $ map (\[b,g,r,v] -> (v,VG.fromList [r,g,b]))
-            $ map ((read :: String -> [Float]).(\x->"["+x+"]")) filedata
-
-        ret = (fromList fs, fromList as)
-
-    when debug $ do
-        putStrLn $ "filepath="++show filepath
-        putStrLn $ "  filedata="++show filedata
-        putStrLn $ "signature length=" ++ show (length filedata)
-
-    deepseq ret $ return $ EMD ret
-
-
 --------------------------------------------------------------------------------
 
 data DataParams = DataParams

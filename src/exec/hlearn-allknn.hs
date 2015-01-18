@@ -44,6 +44,7 @@ import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Data.UnsafeVector
 import HLearn.Evaluation.CrossValidation
 import HLearn.History.Timing
+import HLearn.Metrics.EMD
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal
 
@@ -218,31 +219,31 @@ main = do
     let filepath = fromJust $ reference_file params
 
     case data_format params of
-        DF_CSV -> do
-            let l2nl=Proxy::Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
-                l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
-            let dataparams = DataParams
-                    { datafile = filepath
-                    , labelcol = Nothing
-                    , pca      = pca_data params
-                    , varshift = varshift_data params
-                    }
-            rs <- loaddata dataparams
-            putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
-            putStrLn ""
+--         DF_CSV -> do
+--             let l2nl=Proxy::Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
+--                 l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+--             let dataparams = DataParams
+--                     { datafile = filepath
+--                     , labelcol = Nothing
+--                     , pca      = pca_data params
+--                     , varshift = varshift_data params
+--                     }
+--             rs <- loaddata dataparams
+--             putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
+--             putStrLn ""
+--
+--             runTest params rs Nothing l2ct l2nl
 
-            runTest params rs Nothing l2ct l2nl
-
---         DF_Images -> do
---             let nl=Proxy::Proxy (NeighborList (Static 1) HistogramSignature)
---                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array HistogramSignature)
---             rs <- loadDirectory
---                 (maxrefdp params)
---                 filepath
---                 (loadHistogramSignature False)
---                 (isSuffixOf ".sig.all")
---                 true
---             runTest params rs Nothing ct nl
+        DF_Images -> do
+            let nl=Proxy::Proxy (NeighborList (Static 1) (ColorSig Float))
+                ct=Proxy::Proxy (CoverTree_ (13/10) Array Array (ColorSig Float))
+            rs <- loadDirectory
+                (maxrefdp params)
+                filepath
+                (loadColorSig False)
+                (isSuffixOf ".sig.all")
+                true
+            runTest params rs Nothing ct nl
 
 --         DF_PLG -> do
 --             let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
@@ -312,14 +313,15 @@ runTest :: forall k exprat childC leafC dp proxy1 proxy2.
     , P.Fractional (Scalar dp)
     , Param_k (NeighborList k dp)
     , RationalField (Scalar dp)
---     , VG.Vector childC Int
---     , VG.Vector childC Bool
     , ValidNeighbor dp
 
-    , exprat ~ (13/10)
-    , childC ~ Array
-    , leafC ~ UnboxedArray
-    , dp ~ L2 UnboxedVector Float
+    , VG.Vector childC Int
+    , VG.Vector childC Bool
+
+--     , exprat ~ (13/10)
+--     , childC ~ Array
+--     , leafC ~ UnboxedArray
+--     , dp ~ L2 UnboxedVector Float
     ) => Params
       -> Array dp
       -> Maybe (Array dp)
@@ -426,13 +428,13 @@ runTest params rs mqs tree knn = do
 
 buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
---     , VG.Vector childC Bool
---     , VG.Vector childC Int
+    , VG.Vector childC Bool
+    , VG.Vector childC Int
 
-    , exprat ~ (13/10)
-    , childC ~ Array
-    , leafC ~ UnboxedArray
-    , dp ~ L2 UnboxedVector Float
+--     , exprat ~ (13/10)
+--     , childC ~ Array
+--     , leafC ~ UnboxedArray
+--     , dp ~ L2 UnboxedVector Float
     ) => Params
       -> Array dp
       -> IO (CoverTree_ exprat childC leafC dp)
@@ -446,9 +448,9 @@ buildTree params xs = do
             TrainInsert_Sort     -> trainInsert addChild_nothing
             TrainInsert_Parent   -> trainInsert addChild_parent
             TrainInsert_Ancestor -> trainInsert addChild_ancestor
-            TrainMonoid          -> trainMonoid
+--             TrainMonoid          -> trainMonoid
 
-    let (Just' reftree) = parallel trainmethod $ toList xs
+    let (Just' reftree) = {-parallel-} trainmethod $ toList xs
     time "building tree" reftree
 
     let reftree_adopt = if adopt_children params
@@ -477,8 +479,8 @@ buildTree params xs = do
 
     when (verbose params) $ do
         putStrLn ""
---         printTreeStats "reftree      " $ reftree
---         printTreeStats "reftree_prune" $ reftree_prune
+        printTreeStats "reftree      " $ reftree
+        printTreeStats "reftree_prune" $ reftree_prune
 
     return reftree_cache
 
@@ -519,11 +521,11 @@ printTreeStats str t = do
     putStr (str++"  ctMovableParents.......") >> hFlush stdout >> putStrLn (show $ ctMovableParents t)
     putStr (str++"  ctBetterMovableParents.") >> hFlush stdout >> putStrLn (show $ ctBetterMovableParents t)
 
---     putStrLn (str++" invariants:")
---     putStr (str++"  covering.....") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_covering t)
---     putStr (str++"  tightCover...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_tightCovering t)
---     putStr (str++"  separating...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_separating t)
---     putStr (str++"  maxDescDist..") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_maxDescendentDistance t)
---     putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
---
+    putStrLn (str++" invariants:")
+    putStr (str++"  covering.....") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_covering t)
+    putStr (str++"  tightCover...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_tightCovering t)
+    putStr (str++"  separating...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_separating t)
+    putStr (str++"  maxDescDist..") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_maxDescendentDistance t)
+    putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
+
     putStrLn ""

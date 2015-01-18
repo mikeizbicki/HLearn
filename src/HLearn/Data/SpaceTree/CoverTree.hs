@@ -110,8 +110,6 @@ type ValidCT exprat childC leafC dp =
     , Normed (leafC dp)
     , Elem (childC (CoverTree_ exprat childC leafC dp)) ~ CoverTree_ exprat childC leafC dp
     , Elem (leafC dp) ~ dp
---     , VG.Vector childC (CoverTree_ exprat childC leafC dp)
---     , VG.Vector childC (Scalar dp)
     , VG.Vector leafC dp
     , VG.Vector leafC (Scalar dp)
     , MetricSpace dp
@@ -154,9 +152,11 @@ type ValidCT exprat childC leafC dp =
     , Show (Scalar (leafC dp))
 
 
-    , childC ~ Array
-    , leafC ~ UnboxedArray
-    , dp ~ L2 UnboxedVector Float
+    , VG.Vector childC (CoverTree_ exprat childC leafC dp)
+    , VG.Vector childC (Scalar dp)
+--     , childC ~ Array
+--     , leafC ~ UnboxedArray
+--     , dp ~ L2 UnboxedVector Float
     )
 
 instance
@@ -360,7 +360,6 @@ ctBetterMovableNodes ct
 -------------------------------------------------------------------------------
 -- tests
 
-{-
 invariant_CoverTree_covering ::
     ( ValidCT exprat childC leafC dp
     , Elem (childC (Scalar dp)) ~ Scalar dp
@@ -424,8 +423,6 @@ property_leveled node
    && VG.and (VG.map property_leveled $ children node)
     where
         xs = VG.map level $ children node
-
--}
 
 -------------------------------------------------------------------------------
 -- optimization helpers
@@ -911,7 +908,10 @@ extractCloseChildren addChild dp maxdist root = {-# SCC extractCloseChildren #-}
         go ct = if distance (nodedp ct) (nodedp root) > distance (nodedp ct) dp
             then let (valid,invalid) = L.partition (distance (nodedp root) < distance dp)
                                      $ stDescendents ct
-                in Left (valid,nodedp ct:invalid)
+                in trace ("numdp ct="+show (numdp ct)) $
+                   trace (" |valid|="++show (length valid)) $
+                   trace (" |invalid|="++show (length invalid)) $
+                    Left (valid,nodedp ct:invalid)
 
             else Right
                 ( foldr' (insertCT_internal addChild) ct' newbabies
