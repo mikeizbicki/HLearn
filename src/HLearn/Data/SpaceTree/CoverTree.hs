@@ -859,71 +859,121 @@ addChild_nothing dp ct = cons
     ( (singletonCT dp) { level = level ct-1} )
     (toList $ children ct)
 
+{-# INLINABLE addChild_parent #-}
+addChild_parent ::
+    ( ValidCT exprat childC leafC dp
+    ) => AddChildMethod exprat childC leafC dp
+addChild_parent dp ct = undefined
+-- addChild_parent dp ct = {-# SCC addChild_parent #-} ret:acc'
+--     where
+--         ret=foldr' (insertCT_internal addChild_parent) ((singletonCT dp) { level = level ct-1 }) dps
+--         (acc',dps) = rmCloseChildren addChild_parent dp  $ toList $ children ct
+
 {-# INLINABLE addChild_ancestor #-}
 addChild_ancestor ::
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod exprat childC leafC dp
 addChild_ancestor dp ct = {-# SCC addChild_ancestor #-}
-    toList $ children $ foldr' (insertCT addChild_ancestor)  ct' dps
+--     toList $ children $ foldl' (+)  ct' dps
+--     toList $ children $ foldr' (+)  ct' dps
+    toList $ children $ foldr' (insertCT addChild_ancestor)  ct' $ concat $ map stToList dps
     where
-        (acc',dps) = rmCloseChildren addChild_ancestor dp (sepdist ct) $ toList $ children ct
+        (acc',dps) = rmCloseChildren addChild_ancestor dp  $ toList $ children ct
         ct' = ct
             { children = ((singletonCT dp) { level = level ct-1 }) `cons` fromList acc'
             }
-
-{-# INLINABLE addChild_parent #-}
-addChild_parent ::
-    ( ValidCT exprat childC leafC dp
-    ) => AddChildMethod exprat childC leafC dp
-addChild_parent dp ct = {-# SCC addChild_parent #-} ret:acc'
-    where
-        ret=foldr' (insertCT_internal addChild_parent) ((singletonCT dp) { level = level ct-1 }) dps
-        (acc',dps) = rmCloseChildren addChild_parent dp (sepdist ct) $ toList $ children ct
 
 {-# INLINABLE rmCloseChildren #-}
 rmCloseChildren ::
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod exprat childC leafC dp
       -> dp
-      -> Scalar dp
       -> [CoverTree_ exprat childC leafC dp]
-      -> ([CoverTree_ exprat childC leafC dp], [dp])
-rmCloseChildren addChild dp maxdist cts = {-# SCC rmCloseChildren #-}
+      -> ( [CoverTree_ exprat childC leafC dp]
+         , [CoverTree_ exprat childC leafC dp]
+         )
+rmCloseChildren addChild dp cts = {-# SCC rmCloseChildren #-}
     (map fst xs, P.concat $ map snd xs)
     where
-        xs = map (extractCloseChildren addChild dp maxdist) cts
+        xs = map (extractCloseChildren addChild dp) cts
 
 {-# INLINABLE extractCloseChildren #-}
 extractCloseChildren :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod exprat childC leafC dp
       -> dp
-      -> Scalar dp
       -> CoverTree_ exprat childC leafC dp
-      -> (CoverTree_ exprat childC leafC dp, [dp])
-extractCloseChildren addChild dp maxdist root = {-# SCC extractCloseChildren #-}
+      -> ( CoverTree_ exprat childC leafC dp
+         , [CoverTree_ exprat childC leafC dp]
+         )
+extractCloseChildren addChild dp root = {-# SCC extractCloseChildren #-}
     case go root of
-        Right x -> x
+        (Just' x,xs) -> (x,xs)
     where
-        go ct = if distance (nodedp ct) (nodedp root) > distance (nodedp ct) dp
-            then let (valid,invalid) = L.partition (distance (nodedp root) < distance dp)
-                                     $ stDescendents ct
-                in trace ("numdp ct="+show (numdp ct)) $
-                   trace (" |valid|="++show (length valid)) $
-                   trace (" |invalid|="++show (length invalid)) $
-                    Left (valid,nodedp ct:invalid)
-
-            else Right
-                ( foldr' (insertCT_internal addChild) ct' newbabies
-                , invalids+P.concat (map snd $ rights allbabies)
-                )
-                where
-                    ct' = ct
-                        { children = fromList $ map fst $ rights allbabies
+        go ct = if dist_ct_root + maxDescendentDistance ct < dist_ct_dp
+            then (Just' ct,[])
+            else if dist_ct_root > dist_ct_dp
+                then (Nothing', [ct])
+                else
+                    ( Just' $ ct
+                        { children = fromList children'
+                        , numdp    = nodeWeight ct + sum (map numdp children')
                         }
-
+                    , concat $ map snd allbabies
+                    )
+                where
                     allbabies = map go $ toList $ children ct
-                    (newbabies,invalids) = foldl' (+) ([],[]) $ lefts allbabies
+                    children' = justs' $ map fst allbabies
+
+                    dist_ct_root = distance (nodedp ct) (nodedp root)
+                    dist_ct_dp   = distance (nodedp ct) dp
+
+justs' :: [Maybe' a] -> [a]
+justs' [] = []
+justs' (Nothing':xs) = justs' xs
+justs' (Just' x:xs) = x:justs' xs
+
+{-# INLINABLE moveLeafToRoot #-}
+moveLeafToRoot :: forall exprat childC leafC dp.
+    ( ValidCT exprat childC leafC dp
+    ) => CoverTree_ exprat childC leafC dp
+      -> Maybe' (CoverTree_ exprat childC leafC dp)
+moveLeafToRoot ct = if stHasNoChildren ct
+    then Nothing'
+    else Just' $ ct
+        { nodedp   = nodedp leaf
+        , numdp    = numdp ct - numdp leaf
+        , children = children ct'
+        , maxDescendentDistance = coverdist ct*2
+        }
+    where
+        (leaf,ct') = rmleaf ct
+
+{-
+{-# INLINABLE rmleaf #-}
+rmleaf ::
+    ( ValidCT exprat childC leafC  dp
+    ) => CoverTree_ exprat childC leafC  dp
+      -> ( CoverTree_ exprat childC leafC  dp
+         , CoverTree_ exprat childC leafC  dp
+         )
+rmleaf ct = {-# SCC rmleaf #-} if stHasNoChildren (head childL)
+    then ( head childL
+         , ct
+            { numdp    = numdp ct-nodeWeight (head childL)
+            , children = tail childL
+            }
+         )
+    else ( itrleaf
+         , ct
+            { numdp    = numdp ct-nodeWeight (head childL)
+            , children = itrtree `cons` tail childL
+            }
+         )
+    where
+        (itrleaf,itrtree) = rmleaf $ head childL
+        childL = children ct
+-}
 
 --------------------------------------------------------------------------------
 

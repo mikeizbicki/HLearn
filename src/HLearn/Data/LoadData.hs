@@ -151,8 +151,7 @@ head x = case unCons x of
 
 {-# INLINABLE loadCSV #-}
 loadCSV ::
-    ( Monoid a
-    , NFData a
+    ( NFData a
     , FromRecord a
     , Eq a
 --     , Normed a
@@ -179,7 +178,6 @@ loadCSV filepath = do
 {-# INLINABLE loaddata #-}
 loaddata ::
     ( VG.Vector v f
-    , Monoid (v f)
     , NFData (v f)
     , FromRecord (v f)
     , Eq (v f)
