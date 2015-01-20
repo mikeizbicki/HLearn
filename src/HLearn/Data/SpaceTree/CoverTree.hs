@@ -863,19 +863,19 @@ addChild_nothing dp ct = cons
 addChild_parent ::
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod exprat childC leafC dp
-addChild_parent dp ct = undefined
--- addChild_parent dp ct = {-# SCC addChild_parent #-} ret:acc'
---     where
---         ret=foldr' (insertCT_internal addChild_parent) ((singletonCT dp) { level = level ct-1 }) dps
---         (acc',dps) = rmCloseChildren addChild_parent dp  $ toList $ children ct
+addChild_parent dp ct = {-# SCC addChild_parent #-} ret:acc'
+    where
+        (acc',dps) = rmCloseChildren addChild_parent dp  $ toList $ children ct
+        ct'=(singletonCT dp) { level = level ct-1 }
+        ret=foldr' (insertCT_internal addChild_parent) ct' $ concat $ map stToList dps
 
 {-# INLINABLE addChild_ancestor #-}
 addChild_ancestor ::
     ( ValidCT exprat childC leafC dp
     ) => AddChildMethod exprat childC leafC dp
 addChild_ancestor dp ct = {-# SCC addChild_ancestor #-}
+--     FIXME: it would be more efficient to use a proper monoid instance
 --     toList $ children $ foldl' (+)  ct' dps
---     toList $ children $ foldr' (+)  ct' dps
     toList $ children $ foldr' (insertCT addChild_ancestor)  ct' $ concat $ map stToList dps
     where
         (acc',dps) = rmCloseChildren addChild_ancestor dp  $ toList $ children ct
@@ -991,7 +991,8 @@ instance
 --       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
 --   #-}
 --
--- {-# INLINE trainMonoid #-}
+
+-- {-# INLINABLE trainMonoid #-}
 -- trainMonoid ::
 --     ( ValidCT exprat childC leafC (Elem xs)
 --     , Foldable xs
@@ -1015,6 +1016,7 @@ instance
         (ct, xs) -> {-# SCC sg_foldr #-} foldr' insertCTNoSort ct $ concat $ map stToList xs
 --         (ct, xs) -> foldr' (insertCT addChild_nothing) ct $ concat $ map stToList xs
 --         (ct, xs) -> foldr' (insertCT_internal addChild_nothing) ct $ concat $ map stToList xs
+--         (ct, xs) -> foldr' (insertCT_internal addChild_ancestor) ct $ concat $ map stToList xs
 
         where
             dist = distance (nodedp ct1) (nodedp ct2)
@@ -1112,6 +1114,7 @@ ctmerge_ ct1 ct2 dist =
         -- update children, insert root of ct2 into ct1
         ct_minusleftovers = {-# SCC minusleftover #-} insertCTNoSort_
 --         ct_minusleftovers = insertCT_internal addChild_nothing
+--         ct_minusleftovers = insertCT_internal addChild_ancestor
             (nodedp ct2)
             ( ct1
                 { children = fromList $ children' + sepcovChildren

@@ -4,14 +4,14 @@ module HLearn.Data.Graph
 
 import SubHask
 import SubHask.Compatibility.HMatrix
-import SubHask.Monad
+-- import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
 
 import qualified Data.Vector.Generic as VG
 
 import Data.List (reverse,take,permutations)
 import Control.DeepSeq
--- import Control.Monad
+import Control.Monad
 import Data.List (lines,filter,head,words,sort,replicate,take,nubBy,zip,zip3)
 import System.IO
 import System.Directory
@@ -233,47 +233,6 @@ mag g = startVec g <> (transitionMatrix g `mXv` stopVec g)
 instance MetricSpace Graph_ where
     distance = kernelDistance
 
--- |
-loadDirectoryPLG
-    :: FilePath
-    -> IO (Array Graph)
-loadDirectoryPLG dirpath = {-# SCC loadDirectoryPLG #-} do
-    files <- getDirectoryContents dirpath
-    let plgfiles = map ((dirpath++"/")++) $ filter (\f -> take 4 (reverse f) == "glp.") files
-    graphs <- mapM (loadPLG False) $ {-take 500-} plgfiles
---     let validgraphs = filter (\(SelfKernel _ v) -> VG.length (startVec v)>0) graphs
-    let validgraphs = filter (\(Graph v _) -> VG.length (startVec v)>0) graphs
-    return $ fromList validgraphs
-
--- | loads a file in the PLG data format into a graph
---
--- See: www.bioinformatik.uni-frankfurt.de/tools/vplg/ for a description of the file format
-loadPLG
-    :: Bool     -- ^ print debug info?
-    -> FilePath -- ^ path of SUBDUE graph file
-    -> IO Graph
-loadPLG debug filepath = {-# SCC loadPLG #-} do
-    filedata <- liftM lines $ readFile filepath
-
-    let edgeList    = mkEdgeList filedata
-        numEdges    = length edgeList
-        numVertices = length $ mkVertexList filedata
-
-    when debug $ do
-        putStrLn $ filepath++"; num vertices = "++show numVertices++"; num edges = "++show numEdges
---         putStrLn $ "num vertices = " ++ show numVertices
---         putStrLn $ "num edges = " ++ show numEdges
-
-    let ret = edgeList2UndirectedGraph numVertices edgeList
-    deepseq ret $ return ret
-
-    where
-        mkVertexList xs = filter (\x -> head x == "|") $ map words xs
-        mkEdgeList xs = map (\["=",v1,"=",t,"=",v2] -> (read v1-1::Int,{-t,-}read v2-1::Int))
-                      $ filter (\x -> head x == "=")
-                      $ map words xs
-
-
 edgeList2UndirectedGraph :: Int -> [(Int,Int)] -> Graph
 edgeList2UndirectedGraph numVertices edgeList = edgeList2Graph numVertices $ symmetrize edgeList
 
@@ -315,6 +274,46 @@ symmetrize xs = sort $ go xs []
         go ((i,j):xs) ret = if i==j
             then go xs $ (i,j):ret
             else go xs $ (i,j):(j,i):ret
+
+--------------------------------------------------------------------------------
+-- file IO
+
+-- | helper for "loadDirectory"
+isFileTypePLG :: FilePath -> Bool
+isFileTypePLG filepath = take 4 (reverse filepath) == "glp."
+
+-- | helper for "loadDirectory"
+isNonemptyGraph :: Graph -> Bool
+isNonemptyGraph (Graph v _) = VG.length (startVec v) > 0
+
+-- | loads a file in the PLG data format into a graph
+--
+-- See: www.bioinformatik.uni-frankfurt.de/tools/vplg/ for a description of the file format
+loadPLG
+    :: Bool     -- ^ print debug info?
+    -> FilePath -- ^ path of SUBDUE graph file
+    -> IO Graph
+loadPLG debug filepath = {-# SCC loadPLG #-} do
+    filedata <- liftM lines $ readFile filepath
+
+    let edgeList    = mkEdgeList filedata
+        numEdges    = length edgeList
+        numVertices = length $ mkVertexList filedata
+
+    when debug $ do
+        putStrLn $ filepath++"; num vertices = "++show numVertices++"; num edges = "++show numEdges
+--         putStrLn $ "num vertices = " ++ show numVertices
+--         putStrLn $ "num edges = " ++ show numEdges
+
+    let ret = edgeList2UndirectedGraph numVertices edgeList
+    deepseq ret $ return ret
+
+    where
+        mkVertexList xs = filter (\x -> head x == "|") $ map words xs
+        mkEdgeList xs = map (\["=",v1,"=",t,"=",v2] -> (read v1-1::Int,{-t,-}read v2-1::Int))
+                      $ filter (\x -> head x == "=")
+                      $ map words xs
+
 
 -- | loads a file in the SUBDUE data format into a graph
 --

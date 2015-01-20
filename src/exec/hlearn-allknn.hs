@@ -245,11 +245,17 @@ main = do
                 true
             runTest params rs Nothing ct nl
 
---         DF_PLG -> do
---             let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
---                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
+        DF_PLG -> do
+            let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
+                ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
 --             rs <- timeIO "loadDirectory_PLG" $ loadDirectory_PLG filepath
---             runTest params rs Nothing ct nl
+            rs <- loadDirectory
+                (maxrefdp params)
+                filepath
+                (loadPLG False)
+                isFileTypePLG
+                isNonemptyGraph
+            runTest params rs Nothing ct nl
 
 --         DF_String -> do
 --             let wordsnl=Proxy::Proxy (NeighborList (Static 1) (Lexical (Levenshtein (UnboxedArray Char))))
@@ -450,7 +456,7 @@ buildTree params xs = do
             TrainInsert_Ancestor -> trainInsert addChild_ancestor
 --             TrainMonoid          -> trainMonoid
 
-    let (Just' reftree) = {-parallel-} trainmethod $ toList xs
+    let (Just' reftree) = parallel trainmethod $ toList xs
     time "building tree" reftree
 
     let reftree_adopt = if adopt_children params
