@@ -154,9 +154,11 @@ type ValidCT exprat childC leafC dp =
 
     , VG.Vector childC (CoverTree_ exprat childC leafC dp)
     , VG.Vector childC (Scalar dp)
---     , childC ~ Array
---     , leafC ~ UnboxedArray
---     , dp ~ L2 UnboxedVector Float
+
+    , exprat ~ (13/10)
+    , childC ~ Array
+    , leafC ~ UnboxedArray
+    , dp ~ L2 UnboxedVector Float
     )
 
 instance
@@ -542,24 +544,26 @@ setLeaves n ct = {-# SCC setLeaves #-} if stNumNodes ct > n
 -- This is a cache oblivious layout that causes queries to have fewer cache misses (and hence run faster).
 -- Any modifications to the cover tree after calling "PackCT" will result in a slow degradation of cache performance.
 {-# INLINABLE packCT #-}
-packCT ::
+packCT :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , VG.Vector leafC dp
     ) => CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
+--packCT ct = {-# SCC packCT #-} deepseq (stToList ct) $ ct
+
 packCT ct = {-# SCC packCT #-} snd $ go 0 ct
     where
-        dpvec = fromList $ stToList ct
-
+        dpvec :: leafC dp
+        dpvec = VG.fromList $ stToList ct
         go !i !t = {-# SCC packCT_go #-} ( i',t
-            { nodedp = dpvec VG.! i
-            , leaves = VG.slice (i+1) (VG.length $ leaves t) dpvec
+            { nodedp = dpvec `VG.unsafeIndex` i
+            , leaves = VG.unsafeSlice (i+1) (VG.length $ leaves t) dpvec
             , children = fromList children'
             } )
             where
                 (i',children') = {-# SCC mapAccumL #-} L.mapAccumL
                     go
-                    (i+1+size (toList $ leaves t))
+                    (i+1+VG.length (leaves t))
                     (toList $ children t)
 
 -------------------------------------------------------------------------------
@@ -1004,9 +1008,10 @@ trainMonoid ::
       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
 trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
 
-instance
-    ( ValidCT exprat childC leafC dp
-    ) => Semigroup (CoverTree_ exprat childC leafC dp)
+-- instance
+--     ( ValidCT exprat childC leafC dp
+--     ) => Semigroup (CoverTree_ exprat childC leafC dp)
+instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
         where
 
     {-# INLINABLE (+) #-}
@@ -1024,7 +1029,8 @@ instance
             maxlevel = maximum
                 [ level ct1
                 , level ct2
-                , dist2level_down (Proxy::Proxy exprat) dist
+                , dist2level_down (Proxy::Proxy (13/10)) dist
+                -- , dist2level_down (Proxy::Proxy exprat) dist
                 ]
 
             ct1_ = if level ct1 < maxlevel then raiseRootLevel maxlevel ct1 else ct1
@@ -1073,6 +1079,7 @@ instance
 
 {-# INLINABLE ctmerge_ #-}
 -- {-# INLINE ctmerge_ #-}
+{-
 ctmerge_ :: forall exprat childC leafC  dp.
     ( ValidCT exprat childC leafC  dp
     ) => CoverTree_ exprat childC leafC  dp
@@ -1081,6 +1088,14 @@ ctmerge_ :: forall exprat childC leafC  dp.
       -> ( CoverTree_ exprat childC leafC  dp
          , [CoverTree_ exprat childC leafC  dp]
          )
+      -}
+ctmerge_
+    :: (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+    -> (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+    -> Float
+    -> ( (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+       , [CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float)]
+       )
 ctmerge_ ct1 ct2 dist =
 --   assert "ctmerge_ level  ==" (level ct1==level ct2) $
 --   assert "ctmerge_ covdist <" (distance (nodedp ct1) (nodedp ct2) <= coverdist ct1) $

@@ -55,6 +55,7 @@ import qualified Data.Vector.Generic as VG
 import Prelude (map)
 import SubHask
 import SubHask.Monad
+import SubHask.Compatibility.Containers
 
 import HLearn.Models.Distributions.Univariate.Normal
 
@@ -159,16 +160,21 @@ class
 stMaxDescendentDistance :: (Eq dp, SpaceTree t dp) => t dp -> Scalar dp
 stMaxDescendentDistance t = maximum_ 0 $ map (distance (stNode t)) $ stDescendents t
 
-{-# INLINABLE stToListDFS #-}
-stToListDFS :: SpaceTree t dp => t dp -> [dp]
-stToListDFS t
-    = stNode t
-    : (toList $ stLeaves t)
-    + (concat $ map stToListDFS $ stChildrenList t)
+{-# INLINABLE stToSeqDFS #-}
+stToSeqDFS :: SpaceTree t dp => t dp -> Seq dp
+stToSeqDFS t
+    = stNode t `cons` (fromList $ toList $ stLeaves t)
+    + (foldl' (+) empty $ map stToSeqDFS $ stChildrenList t)
+    {-
+    + ( if stHasNoChildren t
+        then empty
+        else foldtree1 $ map stToSeqDFS $ stChildrenList t
+      )
+    -}
 
 {-# INLINABLE stToList #-}
 stToList :: SpaceTree t dp => t dp -> [dp]
-stToList = stToListDFS
+stToList = toList . stToSeqDFS
 
 -- {-# INLINABLE stToList #-}
 -- stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
