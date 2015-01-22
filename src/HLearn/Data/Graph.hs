@@ -302,8 +302,6 @@ loadPLG debug filepath = {-# SCC loadPLG #-} do
 
     when debug $ do
         putStrLn $ filepath++"; num vertices = "++show numVertices++"; num edges = "++show numEdges
---         putStrLn $ "num vertices = " ++ show numVertices
---         putStrLn $ "num edges = " ++ show numEdges
 
     let ret = edgeList2UndirectedGraph numVertices edgeList
     deepseq ret $ return ret
