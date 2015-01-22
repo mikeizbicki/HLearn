@@ -234,6 +234,7 @@ main = do
 
             runTest params rs Nothing l2ct l2nl
 
+{-
         DF_Images -> do
             let nl=Proxy::Proxy (NeighborList (Static 1) (ColorSig Float))
                 ct=Proxy::Proxy (CoverTree_ (13/10) Array Array (ColorSig Float))
@@ -256,6 +257,7 @@ main = do
                 isFileTypePLG
                 isNonemptyGraph
             runTest params rs Nothing ct nl
+-}
 
 --         DF_String -> do
 --             let wordsnl=Proxy::Proxy (NeighborList (Static 1) (Lexical (Levenshtein (UnboxedArray Char))))
@@ -373,11 +375,11 @@ runTest params rs mqs tree knn = do
         sortedResults =
             ( map getknnL
             . values
-            . --parallel
+            . parallel
                 ( mapIndices (qs_index!)
                 . fromList
-                . toList
                 )
+            . toList
             ) res
     time "sorting results" sortedResults
 
@@ -454,7 +456,7 @@ buildTree params xs = do
             TrainInsert_Sort     -> trainInsert addChild_nothing
             TrainInsert_Parent   -> trainInsert addChild_parent
             TrainInsert_Ancestor -> trainInsert addChild_ancestor
---             TrainMonoid          -> trainMonoid
+            TrainMonoid          -> trainMonoid
 
     let (Just' reftree) = parallel trainmethod $ toList xs
     time "building tree" reftree

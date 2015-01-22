@@ -104,6 +104,10 @@ instance (ValidNeighbor dp, Eq_ dp) => Eq_ (NeighborList k dp) where
     NL_Err         == NL_Err         = True
     _              == _              = False
 
+instance (ValidNeighbor dp, Eq_ dp) => POrd_ (NeighborList k dp) where
+instance (ValidNeighbor dp, Eq_ dp) => Lattice_ (NeighborList k dp) where
+instance (ValidNeighbor dp, Eq_ dp) => Ord_ (NeighborList k dp) where
+
 property_orderedNeighborList :: (Logic dp~Bool, MetricSpace dp) => NeighborList k dp -> Bool
 property_orderedNeighborList NL_Nil = True
 property_orderedNeighborList (NL_Cons n NL_Nil) = True
