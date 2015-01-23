@@ -17,7 +17,7 @@
 
 import Control.Monad
 import Control.Monad.Random hiding (fromList)
-import Data.List (zip,intersperse,init,tail,isSuffixOf)
+import Data.List (zip,intersperse,init,tail,isSuffixOf,sortBy)
 import Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as VG
 import Data.Version
@@ -220,8 +220,8 @@ main = do
 
     case data_format params of
         DF_CSV -> do
-            let l2nl=Proxy::Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
-                l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+            let l2nl=Proxy::Proxy (NeighborList (Static 1) (Labeled' (L2 UnboxedVector Float) Int))
+                l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
             let dataparams = DataParams
                     { datafile = filepath
                     , labelcol = Nothing
@@ -232,7 +232,9 @@ main = do
             putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
             putStrLn ""
 
-            runTest params rs Nothing l2ct l2nl
+            let rs' = VG.zipWith Labeled' rs $ VG.fromList [0::Int ..]
+
+            runTest params rs' Nothing l2ct l2nl
 
 {-
         DF_Images -> do
@@ -312,29 +314,37 @@ main = do
 -- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 100) DP -> IO () #-}
 -- {-# SPECIALIZE runTest :: Param_k (NeighborList RunTime DP) => Params -> Tree -> NeighborList RunTime DP -> IO ()#-}
 
+instance (NFData x, NFData y) => NFData (Labeled' x y) where
+    rnf (Labeled' x y) = deepseq x $ rnf y
+
+instance (Show x, Show y) => Show (Labeled' x y) where
+    show (Labeled' x y) = show x
 
 -- | Given our data, perform the actual tests.
 -- For efficiency, it is extremely important that this function get specialized to the exact types it is called on.
 {-# INLINE runTest #-}
-runTest :: forall k exprat childC leafC dp proxy1 proxy2.
-    ( ValidCT exprat childC leafC dp
+runTest :: forall k exprat childC leafC dp l proxy1 proxy2.
+    ( ValidCT exprat childC leafC (Labeled' dp l)
     , P.Fractional (Scalar dp)
-    , Param_k (NeighborList k dp)
+    , Param_k (NeighborList k (Labeled' dp l))
     , RationalField (Scalar dp)
     , ValidNeighbor dp
 
     , VG.Vector childC Int
     , VG.Vector childC Bool
+    , P.Ord l
+    , NFData l
+    , Show l
 
 --     , exprat ~ (13/10)
 --     , childC ~ Array
 --     , leafC ~ UnboxedArray
 --     , dp ~ L2 UnboxedVector Float
     ) => Params
-      -> Array dp
+      -> Array (Labeled' dp l)
       -> Maybe (Array dp)
-      -> proxy1 (CoverTree_ exprat childC leafC dp)
-      -> proxy2 (NeighborList k dp)
+      -> proxy1 (CoverTree_ exprat childC leafC (Labeled' dp l))
+      -> proxy2 (NeighborList k (Labeled' dp l))
       -> IO ()
 runTest params rs mqs tree knn = do
 
@@ -348,7 +358,7 @@ runTest params rs mqs tree knn = do
             Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
 
     -- build the trees
-    reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC dp)
+    reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC (Labeled' dp l))
 
     (querytree,qs) <- case mqs of
         Nothing -> return $ (reftree,rs)
@@ -360,27 +370,15 @@ runTest params rs mqs tree knn = do
     let res = parallel
             ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
             ( stToList querytree )
-            :: Seq (dp, NeighborList k dp)
+            :: Seq (Labeled' dp l, NeighborList k (Labeled' dp l))
     time "computing parFindNeighborMap" res
 
     -- output to files
-    let qs_index = parallel fromList $ zip (VG.toList qs) [0::Int ..] :: Map' dp Int
-        rs_index = case mqs of
-            Nothing -> qs_index
-            Just _  -> parallel fromList $ zip (VG.toList rs_shuffle) [0::Int ..] :: Map' dp Int
-    time "qs_index" qs_index
-    time "rs_index" rs_index
-
-    let sortedResults :: [[Neighbor dp]]
-        sortedResults =
-            ( map getknnL
-            . values
-            . parallel
-                ( mapIndices (qs_index!)
-                . fromList
-                )
-            . toList
-            ) res
+    let sortedResults :: [[Neighbor (Labeled' dp l)]]
+        sortedResults
+            = map (getknnL . snd)
+            . sortBy (\(Labeled' _ y1,_) (Labeled' _ y2,_) -> P.compare y1 y2)
+            $ toList res
     time "sorting results" sortedResults
 
     -- output distances
@@ -392,8 +390,7 @@ runTest params rs mqs tree knn = do
         hClose hDistances
 
     -- output neighbors
-    let neighborL = {-parallel-} (map (map ((rs_index!) . neighbor))) sortedResults
-    time "finding neighbors" neighborL
+    let neighborL = (map (map (yLabeled' . neighbor))) sortedResults
 
     timeIO "outputting neighbors" $ do
         hNeighbors <- openFile (neighbors_file params) WriteMode
@@ -456,7 +453,7 @@ buildTree params xs = do
             TrainInsert_Sort     -> trainInsert addChild_nothing
             TrainInsert_Parent   -> trainInsert addChild_parent
             TrainInsert_Ancestor -> trainInsert addChild_ancestor
-            TrainMonoid          -> trainMonoid
+--             TrainMonoid          -> trainMonoid
 
     let (Just' reftree) = parallel trainmethod $ toList xs
     time "building tree" reftree

@@ -192,130 +192,42 @@ instance
 --     basicUnsafeCopy mv v = VG.basicUnsafeCopy (vecM mv) (vec v)
 
 -------------------------------------------------------------------------------
--- L2'
+-- Labeled'
 
+instance (VUM.Unbox x, VUM.Unbox y) => VUM.Unbox (Labeled' x y)
 
--- newtype L2' v a = L2' { unL2' :: v a }
---     deriving (Read,Show,Eq,Ord,FromRecord,NFData)
---
--- deriving instance F.Foldable v => F.Foldable (L2' v)
--- deriving instance Functor v => Functor (L2' v)
---
--- instance VG.Vector v a => VG.Vector (L2' v) a where
---     {-# INLINE basicUnsafeFreeze #-}
---     {-# INLINE basicUnsafeThaw #-}
---     {-# INLINE basicLength #-}
---     {-# INLINE basicUnsafeSlice #-}
---     {-# INLINE basicUnsafeIndexM #-}
---     {-# INLINE basicUnsafeCopy #-}
---     {-# INLINE elemseq #-}
---     basicUnsafeFreeze (L2'M v) = liftM L2' $ VG.basicUnsafeFreeze v
---     basicUnsafeThaw (L2' v) = liftM L2'M $ VG.basicUnsafeThaw v
---     basicLength (L2' v) = VG.basicLength v
---     basicUnsafeSlice s t (L2' v) = L2' $ VG.basicUnsafeSlice s t v
---     basicUnsafeIndexM (L2' v) i = VG.basicUnsafeIndexM v i
---     basicUnsafeCopy (L2'M vm) (L2' v) = VG.basicUnsafeCopy vm v
---     elemseq (L2' v) a b = VG.elemseq v a b
---
--- newtype L2'M v s a = L2'M { unL2'M :: v s a }
---
--- instance VGM.MVector v a => VGM.MVector (L2'M v) a where
---     {-# INLINE basicLength #-}
---     {-# INLINE basicUnsafeSlice #-}
---     {-# INLINE basicOverlaps #-}
---     {-# INLINE basicUnsafeNew #-}
---     {-# INLINE basicUnsafeReplicate #-}
---     {-# INLINE basicUnsafeRead #-}
---     {-# INLINE basicUnsafeWrite #-}
---     basicLength (L2'M v) = VGM.basicLength v
---     basicUnsafeSlice s t (L2'M v) = L2'M $ VGM.basicUnsafeSlice s t v
---     basicOverlaps (L2'M v1) (L2'M v2) = VGM.basicOverlaps v1 v2
---     basicUnsafeNew n = liftM L2'M $ VGM.basicUnsafeNew n
---     basicUnsafeReplicate i a = liftM L2'M $ VGM.basicUnsafeReplicate i a
---     basicUnsafeRead (L2'M v) i = VGM.basicUnsafeRead v i
---     basicUnsafeWrite (L2'M v) i a = VGM.basicUnsafeWrite v i a
---
---     {-# INLINE basicUnsafeCopy #-}
---     {-# INLINE basicUnsafeMove #-}
---     {-# INLINE basicUnsafeGrow #-}
---     basicUnsafeCopy (L2'M v1) (L2'M v2) = VGM.basicUnsafeCopy v1 v2
---     basicUnsafeMove (L2'M v1) (L2'M v2) = VGM.basicUnsafeMove v1 v2
---     basicUnsafeGrow (L2'M v1) i = L2'M `liftM` VGM.basicUnsafeGrow v1 i
---
--- type instance VG.Mutable (L2' v) = L2'M (VG.Mutable v)
---
--- ---------------------------------------
---
--- type instance Scalar (L2' v r) = r
---
--- instance (VG.Vector v r, Normed r, Ord r, Floating r, IsScalar r) => MetricSpace (L2' v r) where
--- -- instance MetricSpace (L2' VU.Vector Float) where
---
--- --     {-# INLINE distance #-}
--- --     distance (L2' v1) (L2' v2) = sqrt $ plusHorizontalX4 $ go 0 (VG.length v1'-1)
--- --         where
--- --             v1' = unsafeVectorizeUnboxedX4 v1
--- --             v2' = unsafeVectorizeUnboxedX4 v2
--- --
--- --             go tot (-1) = tot
--- --             go tot i = go tot' (i-1)
--- --                 where
--- --                     tot' = tot+diff*diff
--- --                     diff = v1' `VG.unsafeIndex` i - v2' `VG.unsafeIndex` i
---
---     {-# INLINE distance #-}
---     distance !(L2' v1) !(L2' v2) = {-# SCC distance #-} sqrt $ go 0 (VG.length v1-1)
---         where
---             go !tot (-1) = tot
---             go !tot !i = go (tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
---                                 *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)) (i-1)
---
---     {-# INLINE isFartherThanWithDistanceCanError #-}
---     isFartherThanWithDistanceCanError (L2' v1) (L2' v2) !dist = {-# SCC isFartherThanWithDistanceCanError #-}
---         sqrt $ go 0 0
--- --         sqrt $ plusHorizontalX4 $ go 0 0
---         where
--- --             v1' = unsafeVectorizeUnboxedX4 v1
--- --             v2' = unsafeVectorizeUnboxedX4 v2
--- --
--- --             go tot (-1) = tot
--- --             go tot i = go tot' (i-1)
--- --                 where
--- --                     tot' = tot+diff*diff
--- --                     diff = v1' `VG.unsafeIndex` i - v2' `VG.unsafeIndex` i
---
---             dist2=dist*dist
---
---             go !tot !i = if i>VG.length v1-8
---                 then goEach tot i
---                 else if tot'>dist2
---                     then errorVal
---                     else go tot' (i+8)
---                 where
---                     tot' = tot
---                         +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
---                         *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
---                         +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
---                         *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
---                         +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
---                         *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
---                         +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
---                         *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
---                         +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
---                         *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
---                         +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
---                         *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
---                         +(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
---                         *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
---                         +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
---                         *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
---
---             {-# INLINE goEach #-}
---             goEach !tot !i = if i>= VG.length v1
---                 then tot
---                 else if tot'>dist2
---                     then errorVal
---                     else goEach tot' (i+1)
---                 where
---                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
---                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+newtype instance VUM.MVector s (Labeled' x y) = UMV_Labeled' (VUM.MVector s (x,y))
+
+instance
+    ( VUM.Unbox x
+    , VUM.Unbox y
+    ) => VGM.MVector VUM.MVector (Labeled' x y)
+        where
+
+    basicLength (UMV_Labeled' v) = VGM.basicLength v
+    basicUnsafeSlice i len (UMV_Labeled' v) = UMV_Labeled' $ VGM.basicUnsafeSlice i len v
+    basicOverlaps (UMV_Labeled' v1) (UMV_Labeled' v2) = VGM.basicOverlaps v1 v2
+    basicUnsafeNew len = liftM UMV_Labeled' $ VGM.basicUnsafeNew len
+    basicUnsafeRead (UMV_Labeled' v) i = do
+        (x,y) <- VGM.basicUnsafeRead v i
+        return $ Labeled' x y
+    basicUnsafeWrite (UMV_Labeled' v) i (Labeled' x y) = VGM.basicUnsafeWrite v i (x,y)
+    basicUnsafeCopy (UMV_Labeled' v1) (UMV_Labeled' v2) = VGM.basicUnsafeCopy v1 v2
+    basicUnsafeMove (UMV_Labeled' v1) (UMV_Labeled' v2) = VGM.basicUnsafeMove v1 v2
+    basicSet (UMV_Labeled' v1) (Labeled' x y) = VGM.basicSet v1 (x,y)
+
+newtype instance VU.Vector (Labeled' x y) = UV_Labeled' (VU.Vector (x,y))
+
+instance
+    ( VUM.Unbox x
+    , VUM.Unbox y
+    ) => VG.Vector VU.Vector (Labeled' x y)
+        where
+
+    basicUnsafeFreeze (UMV_Labeled' v) = liftM UV_Labeled' $ VG.basicUnsafeFreeze v
+    basicUnsafeThaw (UV_Labeled' v) = liftM UMV_Labeled' $ VG.basicUnsafeThaw v
+    basicLength (UV_Labeled' v) = VG.basicLength v
+    basicUnsafeSlice i len (UV_Labeled' v) = UV_Labeled' $ VG.basicUnsafeSlice i len v
+    basicUnsafeIndexM (UV_Labeled' v) i = do
+        (x,y) <- VG.basicUnsafeIndexM v i
+        return $ Labeled' x y

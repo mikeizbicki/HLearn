@@ -155,10 +155,10 @@ type ValidCT exprat childC leafC dp =
     , VG.Vector childC (CoverTree_ exprat childC leafC dp)
     , VG.Vector childC (Scalar dp)
 
-    , exprat ~ (13/10)
-    , childC ~ Array
-    , leafC ~ UnboxedArray
-    , dp ~ L2 UnboxedVector Float
+--     , exprat ~ (13/10)
+--     , childC ~ Array
+--     , leafC ~ UnboxedArray
+--     , dp ~ Labeled' (L2 UnboxedVector Float) Int
     )
 
 instance
@@ -996,22 +996,22 @@ instance
 --   #-}
 --
 
--- {-# INLINABLE trainMonoid #-}
--- trainMonoid ::
---     ( ValidCT exprat childC leafC (Elem xs)
---     , Foldable xs
---     ) => xs
---       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+{-# INLINABLE trainMonoid #-}
 trainMonoid ::
-    ( --KnownFrac exprat
-    ) => [ L2 UnboxedVector Float ]
-      -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+    ( ValidCT exprat childC leafC (Elem xs)
+    , Foldable xs
+    ) => xs
+      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+-- trainMonoid ::
+--     ( --KnownFrac exprat
+--     ) => [ L2 UnboxedVector Float ]
+--       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
 trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
 
--- instance
---     ( ValidCT exprat childC leafC dp
---     ) => Semigroup (CoverTree_ exprat childC leafC dp)
-instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+instance
+    ( ValidCT exprat childC leafC dp
+    ) => Semigroup (CoverTree_ exprat childC leafC dp)
+-- instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
         where
 
     {-# INLINABLE (+) #-}
@@ -1029,8 +1029,8 @@ instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Floa
             maxlevel = maximum
                 [ level ct1
                 , level ct2
-                , dist2level_down (Proxy::Proxy (13/10)) dist
-                -- , dist2level_down (Proxy::Proxy exprat) dist
+--                 , dist2level_down (Proxy::Proxy (13/10)) dist
+                , dist2level_down (Proxy::Proxy exprat) dist
                 ]
 
             ct1_ = if level ct1 < maxlevel then raiseRootLevel maxlevel ct1 else ct1
@@ -1079,7 +1079,6 @@ instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Floa
 
 {-# INLINABLE ctmerge_ #-}
 -- {-# INLINE ctmerge_ #-}
-{-
 ctmerge_ :: forall exprat childC leafC  dp.
     ( ValidCT exprat childC leafC  dp
     ) => CoverTree_ exprat childC leafC  dp
@@ -1088,14 +1087,13 @@ ctmerge_ :: forall exprat childC leafC  dp.
       -> ( CoverTree_ exprat childC leafC  dp
          , [CoverTree_ exprat childC leafC  dp]
          )
-      -}
-ctmerge_
-    :: (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
-    -> (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
-    -> Float
-    -> ( (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
-       , [CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float)]
-       )
+-- ctmerge_
+--     :: (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+--     -> (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+--     -> Float
+--     -> ( (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+--        , [CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float)]
+--        )
 ctmerge_ ct1 ct2 dist =
 --   assert "ctmerge_ level  ==" (level ct1==level ct2) $
 --   assert "ctmerge_ covdist <" (distance (nodedp ct1) (nodedp ct2) <= coverdist ct1) $
