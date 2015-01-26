@@ -11,7 +11,7 @@ module HLearn.Models.Distributions.Common
     , PDF(..)
     , Mean(..)
     , Variance(..)
-    
+
     -- * Utility functions
 --     , nonoverlap
 --     , stddev
@@ -38,7 +38,7 @@ class PDF dist where
 
 class Mean dist where
     mean :: dist -> Scalar dist
-    
+
 class Variance dist where
     variance :: dist -> Scalar dist
 
@@ -48,7 +48,7 @@ class Variance dist where
 -------------------------------------------------------------------------------
 -- Continuity
 
-data Discrete 
+data Discrete
 data Continuous
 
 type family Continuity t :: *
@@ -69,7 +69,7 @@ type instance Continuity Rational = Continuous
 -- This function is used by the HomTree classifier.
 
 {-
-nonoverlap :: 
+nonoverlap ::
     ( Enum (Scalar dist)
     , Field (Scalar dist)
     , Ord (Scalar dist)
@@ -82,13 +82,13 @@ nonoverlap xs = (sum scoreL)/(fromIntegral $ length scoreL)
         samplelen = length sampleL
         sampleL = concat $ map sampleDist xs
         sampleDist dist = map (cdfInverse dist . (/100)) [1..99]
-        
+
 diffscore :: Group prob => [prob] -> prob
 diffscore (x1:x2:xs) = x1-x2
 
 weightedscore :: Semigroup prob => [prob] -> prob
 weightedscore = foldl1 (+) . map (\(i,v) -> (fromIntegral i)*v) . zip [0..]
-        
+
 normalizeL :: Field a => [a] -> [a]
 normalizeL xs = map (/tot) xs
     where

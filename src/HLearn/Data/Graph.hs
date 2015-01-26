@@ -103,9 +103,9 @@ type instance Logic Graph = Bool
 instance Eq_ Graph where
     g1==g2 = graph g1==graph g2
 
-instance POrd_ Graph
-instance Lattice_ Graph
-instance Ord_ Graph
+-- instance POrd_ Graph
+-- instance Lattice_ Graph
+-- instance Ord_ Graph
 
 instance NFData Graph where
     rnf (Graph g m) = deepseq g $ rnf m
@@ -161,11 +161,11 @@ instance NFData Graph_ where
           $ deepseq (startVec g)
           $ rnf (stopVec g)
 
-instance POrd_ Graph_
-instance Lattice_ Graph_ where
-    pcompare g1 g2 = pcompare (toVector $ transitionMatrix g1) (toVector $ transitionMatrix g2)
-
-instance Ord_ Graph_
+-- instance POrd_ Graph_
+-- instance Lattice_ Graph_ where
+--     pcompare g1 g2 = pcompare (toVector $ transitionMatrix g1) (toVector $ transitionMatrix g2)
+--
+-- instance Ord_ Graph_
 
 productGraph_ :: Graph_ -> Graph_ -> Graph_
 productGraph_ g1 g2 = Graph_

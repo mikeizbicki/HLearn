@@ -46,10 +46,10 @@ exprat_ = fromRational $ unsafePerformIO $ readIORef expratIORef
 
 -------------------------------------------------------------------------------
 
-type CoverTree dp = CoverTree_ (13/10) Array Array dp
+type CoverTree dp = CoverTree_ (Static (13/10)) Array Array dp
 
 data CoverTree_
-        ( exprat                :: Frac )
+        ( exprat                :: Config Frac )
         ( childC                :: * -> * )
         ( leafC                 :: * -> * )
         ( dp                    :: * )
@@ -62,6 +62,8 @@ data CoverTree_
         , children              :: !(childC (CoverTree_ exprat childC leafC dp))
         , leaves                :: !(leafC dp)
         }
+
+mkParams ''CoverTree_
 
 type instance Scalar (CoverTree_ exprat childC leafC dp) = Scalar dp
 type instance Logic (CoverTree_ exprat childC leafC dp) = Bool
@@ -117,19 +119,18 @@ type ValidCT exprat childC leafC dp =
     , Floating (Scalar dp)
     , Bounded (Scalar dp)
     , CanError (Scalar dp)
-    , Ord dp
-    , KnownFrac exprat
     , Logic dp ~ Bool
     , Logic (CoverTree_ exprat childC leafC dp) ~ Bool
     , Logic (Scalar (leafC dp)) ~ Bool
     , NFData (CoverTree_ exprat childC leafC dp)
     , HasScalar dp
 
+    , Param_exprat (CoverTree_ exprat childC leafC dp)
+
     , ClassicalLogic (leafC dp)
     , ClassicalLogic (leafC (CoverTree_ exprat childC leafC dp))
     , ClassicalLogic (childC (CoverTree_ exprat childC leafC dp))
     , Container (leafC dp)
---     , Container (leafC (CoverTree_ exprat childC leafC dp))
     , Container (childC (CoverTree_ exprat childC leafC dp))
 
     -- these constraints come from hlearn-allknn
@@ -142,6 +143,7 @@ type ValidCT exprat childC leafC dp =
     , Integral (Scalar (childC (CoverTree_ exprat childC leafC dp)))
     , NFData (Scalar dp)
     , NFData dp
+--     , Ord dp
 
     -- debugging constraints
     , Show (Scalar dp)
@@ -169,8 +171,8 @@ instance
     type ChildContainer (CoverTree_ exprat childC leafC ) = childC
     type LeafContainer (CoverTree_ exprat childC leafC ) = leafC
 
-    {-# INLINE stMinDistanceWithDistance #-}
-    {-# INLINE stMaxDistanceWithDistance #-}
+--     {-# INLINE stMinDistanceWithDistance #-}
+--     {-# INLINE stMaxDistanceWithDistance #-}
 
     stMinDistanceWithDistance !ct1 !ct2 =
         (# dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2), dist #)
@@ -180,8 +182,8 @@ instance
         (# dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2)
 
-    {-# INLINE stMinDistanceDpWithDistance #-}
-    {-# INLINE stMaxDistanceDpWithDistance #-}
+--     {-# INLINE stMinDistanceDpWithDistance #-}
+--     {-# INLINE stMaxDistanceDpWithDistance #-}
 
     stMinDistanceDpWithDistance !ct !dp =
         (# dist - maxDescendentDistance ct, dist #)
@@ -191,8 +193,8 @@ instance
         (# dist + maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
 
-    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
-    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
+--     {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
+--     {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
 
     stIsMinDistanceDpFartherThanWithDistanceCanError !ct !dp !b =
         isFartherThanWithDistanceCanError (nodedp ct) dp (b+maxDescendentDistance ct)
@@ -200,26 +202,26 @@ instance
     stIsMaxDistanceDpFartherThanWithDistanceCanError !ct !dp !b =
         isFartherThanWithDistanceCanError (nodedp ct) dp (b-maxDescendentDistance ct)
 
-    {-# INLINE stMinDistanceDpFromDistance #-}
-    {-# INLINE stMaxDistanceDpFromDistance #-}
+--     {-# INLINE stMinDistanceDpFromDistance #-}
+--     {-# INLINE stMaxDistanceDpFromDistance #-}
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
-    {-# INLINE stChildren #-}
-    {-# INLINE stNode #-}
-    {-# INLINE stLeaves #-}
-    {-# INLINE stHasNode #-}
+--     {-# INLINE stChildren #-}
+--     {-# INLINE stNode #-}
+--     {-# INLINE stLeaves #-}
+--     {-# INLINE stHasNode #-}
     stChildren  = children
     stLeaves    = leaves
     stNode      = nodedp
     stWeight    = nodeWeight
     stHasNode _ = True
 
-    {-# INLINE ro #-}
+--     {-# INLINE ro #-}
     ro _ = 0
 
-    {-# INLINE lambda #-}
+--     {-# INLINE lambda #-}
     lambda !ct = maxDescendentDistance ct
 
 ---------------------------------------
@@ -568,6 +570,7 @@ packCT ct = {-# SCC packCT #-} snd $ go 0 ct
 
 -------------------------------------------------------------------------------
 
+{-
 -- FIXME: add proper container hierarchy
 instance
     ( ValidCT exprat childC leafC dp
@@ -610,6 +613,7 @@ instance
 instance
     ( ValidCT exprat childC leafC dp
     ) => Monoid (CoverTree_ exprat childC leafC dp)
+-}
 
 -------------------------------------------------------------------------------
 -- construction
@@ -981,9 +985,9 @@ rmleaf ct = {-# SCC rmleaf #-} if stHasNoChildren (head childL)
 
 --------------------------------------------------------------------------------
 
-instance
-    ( ValidCT exprat childC leafC dp
-    ) => Abelian (CoverTree_ exprat childC leafC dp)
+-- instance
+--     ( ValidCT exprat childC leafC dp
+--     ) => Abelian (CoverTree_ exprat childC leafC dp)
 
 -- FIXME:
 -- This specialize pragma never fires in GHC 7.8.2
@@ -997,21 +1001,24 @@ instance
 --
 
 {-# INLINABLE trainMonoid #-}
-trainMonoid ::
-    ( ValidCT exprat childC leafC (Elem xs)
-    , Foldable xs
-    ) => xs
-      -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
 -- trainMonoid ::
---     ( --KnownFrac exprat
+--     ( ValidCT exprat childC leafC (Elem xs)
+--     , Foldable xs
+--     ) => xs
+--       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
+trainMonoid ::
+    ( --KnownFrac exprat
 --     ) => [ L2 UnboxedVector Float ]
 --       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+    ) => [ Labeled' (L2 UnboxedVector Float) Int ]
+      -> Maybe' (CoverTree_ (Static (13/10)) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
 trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
 
 instance
     ( ValidCT exprat childC leafC dp
     ) => Semigroup (CoverTree_ exprat childC leafC dp)
 -- instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+-- instance Semigroup (CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
         where
 
     {-# INLINABLE (+) #-}
@@ -1029,8 +1036,8 @@ instance
             maxlevel = maximum
                 [ level ct1
                 , level ct2
---                 , dist2level_down (Proxy::Proxy (13/10)) dist
-                , dist2level_down (Proxy::Proxy exprat) dist
+                , dist2level_down (Proxy::Proxy (13/10)) dist
+--                 , dist2level_down (Proxy::Proxy exprat) dist
                 ]
 
             ct1_ = if level ct1 < maxlevel then raiseRootLevel maxlevel ct1 else ct1
@@ -1093,6 +1100,13 @@ ctmerge_ :: forall exprat childC leafC  dp.
 --     -> Float
 --     -> ( (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
 --        , [CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float)]
+--        )
+-- ctmerge_
+--     :: (CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
+--     -> (CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
+--     -> Float
+--     -> ( (CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
+--        , [CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int)]
 --        )
 ctmerge_ ct1 ct2 dist =
 --   assert "ctmerge_ level  ==" (level ct1==level ct2) $
@@ -1200,7 +1214,8 @@ rmleaf ct = {-# SCC rmleaf #-} if stHasNoChildren (head childL)
 
 ---------------------------------------
 
-coverdist :: (QuotientField (Scalar dp) Int, Floating (Scalar dp)) => CoverTree_ exprat childC leafC  dp -> Scalar dp
+coverdist :: (QuotientField (Scalar dp) Int, Floating (Scalar dp)) =>
+    CoverTree_ exprat childC leafC  dp -> Scalar dp
 coverdist node = sepdist node*exprat_
 
 sepdist :: forall exprat childC leafC dp. (QuotientField (Scalar dp) Int, Floating (Scalar dp)) =>
@@ -1214,11 +1229,11 @@ level2coverdist :: (QuotientField f r, Floating f) => r -> f
 level2coverdist i = level2sepdist (i+1)
 
 dist2level_down :: forall exprat num.
-    (KnownFrac exprat, Floating num, QuotientField num Int) => Proxy exprat -> num -> Int
+    ({-KnownFrac exprat, -}Floating num, QuotientField num Int) => Proxy exprat -> num -> Int
 dist2level_down _ d = floor $ log d / log exprat_
 
 dist2level_up :: forall exprat num.
-    (KnownFrac exprat, Floating num, QuotientField num Int) => Proxy exprat -> num -> Int
+    ({-KnownFrac exprat,-} Floating num, QuotientField num Int) => Proxy exprat -> num -> Int
 dist2level_up _ d = ceiling $ log d / log exprat_
 
 

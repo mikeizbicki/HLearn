@@ -23,12 +23,14 @@ import qualified Data.Vector.Generic as VG
 import Data.Version
 import Numeric
 import System.Console.CmdArgs.Implicit
+import System.Exit
 import System.IO
 
 import qualified Prelude as P
 import SubHask
 import SubHask.Algebra.Container
 import SubHask.Algebra.Ord
+import SubHask.Algebra.Parallel
 import SubHask.Compatibility.Containers
 import SubHask.Compatibility.Vector.HistogramMetrics
 import SubHask.Compatibility.Vector.Lebesgue
@@ -50,6 +52,12 @@ import HLearn.Models.Distributions.Univariate.Normal
 
 import Paths_HLearn
 
+
+import qualified Prelude as P
+import Control.Concurrent
+import Control.Parallel
+import Control.Parallel.Strategies
+import System.IO.Unsafe
 
 -------------------------------------------------------------------------------
 -- command line parameters
@@ -218,112 +226,64 @@ main = do
     -- load the data
     let filepath = fromJust $ reference_file params
 
+    let k = Proxy::Proxy (Static 1)
+
     case data_format params of
         DF_CSV -> do
-            let l2nl=Proxy::Proxy (NeighborList (Static 1) (Labeled' (L2 UnboxedVector Float) Int))
-                l2ct=Proxy::Proxy (CoverTree_ (13/10) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
-            let dataparams = DataParams
-                    { datafile = filepath
-                    , labelcol = Nothing
-                    , pca      = pca_data params
-                    , varshift = varshift_data params
-                    }
-            rs <- loaddata dataparams
-            putStrLn $ "  numdim: " ++ show ( VG.length $ rs VG.! 0 )
-            putStrLn ""
+            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array UnboxedArray)
+                dp = Proxy::Proxy (Labeled' (L2 UnboxedVector Float) Int)
 
-            let rs' = VG.zipWith Labeled' rs $ VG.fromList [0::Int ..]
+            let {-# INLINE loadfile_dfcsv #-}
+                loadfile_dfcsv filepath = do
+                    let dataparams = DataParams
+                            { datafile = filepath
+                            , labelcol = Nothing
+                            , pca      = pca_data params
+                            , varshift = varshift_data params
+                            }
+                    rs :: Array (L2 UnboxedVector Float) <- loaddata dataparams
+                    when (size rs > 0) $ do
+                        putStrLn $ "  numdim:  " ++ show ( VG.length $ rs VG.! 0 )
+                        putStrLn ""
+                        setptsize $ VG.length $ VG.head rs
 
-            runTest params rs' Nothing l2ct l2nl
+                    return $ VG.zipWith Labeled' rs $ VG.fromList [0::Int ..]
 
-{-
+            allknn params loadfile_dfcsv ct dp k
+
+        {-
         DF_Images -> do
-            let nl=Proxy::Proxy (NeighborList (Static 1) (ColorSig Float))
-                ct=Proxy::Proxy (CoverTree_ (13/10) Array Array (ColorSig Float))
-            rs <- loadDirectory
-                (maxrefdp params)
-                filepath
-                (loadColorSig False)
-                (isSuffixOf ".sig.all")
-                true
-            runTest params rs Nothing ct nl
+            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array Array)
+                dp = Proxy::Proxy (Labeled' (ColorSig Float) FilePath)
+
+            let {-# INLINE loaddata #-}
+                loaddata = loadDirectory
+                    (maxrefdp params)
+                    (loadColorSig False)
+                    (isSuffixOf ".sig.all")
+                    true
+
+            allknn params loaddata ct dp k
+
 
         DF_PLG -> do
-            let nl=Proxy::Proxy (NeighborList (Static 1) Graph)
-                ct=Proxy::Proxy (CoverTree_ (13/10) Array Array Graph)
---             rs <- timeIO "loadDirectory_PLG" $ loadDirectory_PLG filepath
-            rs <- loadDirectory
-                (maxrefdp params)
-                filepath
-                (loadPLG False)
-                isFileTypePLG
-                isNonemptyGraph
-            runTest params rs Nothing ct nl
--}
+            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array Array)
+                dp = Proxy::Proxy (Labeled' Graph FilePath)
 
---         DF_String -> do
---             let wordsnl=Proxy::Proxy (NeighborList (Static 1) (Lexical (Levenshtein (UnboxedArray Char))))
---                 wordsct=Proxy::Proxy (CoverTree_ (13/10) Array Array (Lexical (Levenshtein (UnboxedArray Char))))
---
---             rs <- loadWords filepath
---             timeIO "loading data" $ return rs
---             runTest params rs Nothing wordsct wordsnl
---
---         DF_BagOfWords -> do
---             let bownl=Proxy::Proxy (NeighborList (Static 1) (Map' Int Float))
---                 bowct=Proxy::Proxy (CoverTree_ (13/10) Array Array (Map' Int Float))
---
---             let dataparams = DataParams
---             rs <- loadBagOfWords filepath
---             timeIO "loading data" $ return rs
---             runTest params rs Nothing bowct bownl
+            let {-# INLINE loaddata #-}
+                loaddata = loadDirectory
+                    (maxrefdp params)
+                    (loadPLG False)
+                    isFileTypePLG
+                    isNonemptyGraph
 
-
---     runTest params (undefined :: Tree) (undefined :: NeighborList (Static 1) DP)
---     if kForceSlow params || k params > 3
---         then do
---             putStrLn "WARNING: using slow version of k"
---             apWith1Param'
---                 (undefined :: NeighborList RunTime DP)
---                 _k
---                 (k params)
---                 (runTest params (undefined::Tree))
---                 (undefined :: NeighborList RunTime DP)
---         else case k params of
---             1 -> runTest params (undefined :: Tree) (undefined :: NeighborList (Static 1) DP)
---             2 -> runTest params (undefined :: Tree) (undefined :: NeighborList (Static 2) DP)
---             3 -> runTest params (undefined :: Tree) (undefined :: NeighborList (Static 3) DP)
---             4 -> runTest params (undefined :: Tree) (undefined :: NeighborList (Static 4) DP)
---             5 -> runTest params (undefined :: Tree) (undefined :: NeighborList (Static 5) DP)
---             100 -> runTest params (undefined :: Tree) (undefined :: NeighborList (Static 100) DP)
-
--- {-# SPECIALIZE runTest
---         :: Params
---         -> Array (L2 UnboxedVector Float)
---         -> Proxy (Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float)))
---         -> Proxy (NeighborList (Static 1) (L2 UnboxedVector Float))
---         -> IO ()
---         #-}
---             let l2nl=Proxy::Proxy
---                 l2ct=Proxy::Proxy (
--- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 1) DP -> IO () #-}
--- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 2) DP -> IO () #-}
--- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 3) DP -> IO () #-}
--- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 4) DP -> IO () #-}
--- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 5) DP -> IO () #-}
--- {-# SPECIALIZE runTest :: Params -> Tree -> NeighborList (Static 100) DP -> IO () #-}
--- {-# SPECIALIZE runTest :: Param_k (NeighborList RunTime DP) => Params -> Tree -> NeighborList RunTime DP -> IO ()#-}
-
-instance (NFData x, NFData y) => NFData (Labeled' x y) where
-    rnf (Labeled' x y) = deepseq x $ rnf y
-
-instance (Show x, Show y) => Show (Labeled' x y) where
-    show (Labeled' x y) = show x
+            allknn params loaddata ct dp k
+        -}
 
 -- | Given our data, perform the actual tests.
 -- For efficiency, it is extremely important that this function get specialized to the exact types it is called on.
-{-# INLINE runTest #-}
-runTest :: forall k exprat childC leafC dp l proxy1 proxy2.
+{-# INLINE allknn #-}
+allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     ( ValidCT exprat childC leafC (Labeled' dp l)
     , P.Fractional (Scalar dp)
     , Param_k (NeighborList k (Labeled' dp l))
@@ -335,20 +295,23 @@ runTest :: forall k exprat childC leafC dp l proxy1 proxy2.
     , P.Ord l
     , NFData l
     , Show l
+--     , Semigroup (CoverTree_ exprat childC leafC (Labeled' dp l))
 
 --     , exprat ~ (13/10)
 --     , childC ~ Array
 --     , leafC ~ UnboxedArray
 --     , dp ~ L2 UnboxedVector Float
     ) => Params
-      -> Array (Labeled' dp l)
-      -> Maybe (Array dp)
-      -> proxy1 (CoverTree_ exprat childC leafC (Labeled' dp l))
-      -> proxy2 (NeighborList k (Labeled' dp l))
+      -> (FilePath -> IO (Array (Labeled' dp l)))
+      -> proxy1 (CoverTree_ exprat childC leafC)
+      -> proxy2 (Labeled' dp l)
+      -> proxy3 k
       -> IO ()
-runTest params rs mqs tree knn = do
+allknn params loaddata _ _ _ = do
 
-    -- modify the dataset
+    -- load the dataset
+    rs <- loaddata $ fromJust $ reference_file params
+
     let rs_take = case maxrefdp params of
             Nothing -> toList rs
             Just n  -> P.take n $ toList rs
@@ -360,14 +323,18 @@ runTest params rs mqs tree knn = do
     -- build the trees
     reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC (Labeled' dp l))
 
-    (querytree,qs) <- case mqs of
+    (querytree,qs) <- case query_file params of
         Nothing -> return $ (reftree,rs)
---         Just qs -> do
---             querytree <- buildTree params qs
---             return (querytree, qs)
+        Just qfile -> do
+            when (qfile=="/dev/null") $ do
+                exitSuccess
+
+            qs <- loaddata qfile
+            querytree <- buildTree params qs
+            return (querytree, qs)
 
     -- do knn search
-    let res = parallel
+    let res = unsafeParallelInterleaved
             ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
             ( stToList querytree )
             :: Seq (Labeled' dp l, NeighborList k (Labeled' dp l))
@@ -411,7 +378,7 @@ runTest params rs mqs tree knn = do
 
 -- "subhask/distance_l2_float_unboxed"         distance = distance_l2_float_unboxed
 -- "subhask/isFartherThan_l2_float_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_float_unboxed
--- "subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
+"subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
 -- "subhask/isFartherThan_l2_m128_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_m128_unboxed
 
 -- "subhask/distance_l2_m128_storable"        distance = distance_l2_m128_storable
@@ -421,21 +388,14 @@ runTest params rs mqs tree knn = do
 
   #-}
 
--- {-# SPECIALIZE insertCT
---     :: KnownFrac exprat
---     => AddChildMethod (L2 UnboxedVector Float)
---     -> L2 UnboxedVector Float
---     -> CoverTree_ exprat Array UnboxedArray (L2 UnboxedVector Float)
---     -> CoverTree_ exprat Array UnboxedArray (L2 UnboxedVector Float)
---   #-}
 -- | Gives us many possible ways to construct our cover trees based on the input parameters.
 -- This is important so we can compare their runtime features.
-
 buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
 
+--     , Semigroup (CoverTree_ exprat childC leafC dp)
 --     , exprat ~ (13/10)
 --     , childC ~ Array
 --     , leafC ~ UnboxedArray
@@ -458,36 +418,40 @@ buildTree params xs = do
     let (Just' reftree) = parallel trainmethod $ toList xs
     time "building tree" reftree
 
-    let reftree_adopt = if adopt_children params
-            then ctAdoptNodes reftree
-            else reftree
-    time "adopting" reftree_adopt
+    -- Everything below here uses a sequential algorithm (may change in the future).
+    -- These run faster if we disable multithreading.
+    disableMultithreading $ do
 
-    let reftree_sort = case sortMethod params of
-            NoSort -> reftree_adopt
-            NumDP_Distance  -> sortChildren cmp_numdp_distance  reftree_adopt
-            NumDP_Distance' -> sortChildren cmp_numdp_distance' reftree_adopt
-            Distance_NumDP  -> sortChildren cmp_distance_numdp  reftree_adopt
-            Distance_NumDP' -> sortChildren cmp_distance_numdp' reftree_adopt
-    time "sorting children" reftree_sort
+        let reftree_adopt = if adopt_children params
+                then ctAdoptNodes reftree
+                else reftree
+        time "adopting" reftree_adopt
 
-    let reftree_prune = case packMethod params of
-            NoPack    -> reftree_sort
-            SetLeaves -> setLeaves 0 $ reftree_sort
-            PackCT    -> packCT $ setLeaves 0 $ reftree_sort
-    time "packing reference tree" reftree_prune
+        let reftree_sort = case sortMethod params of
+                NoSort -> reftree_adopt
+                NumDP_Distance  -> sortChildren cmp_numdp_distance  reftree_adopt
+                NumDP_Distance' -> sortChildren cmp_numdp_distance' reftree_adopt
+                Distance_NumDP  -> sortChildren cmp_distance_numdp  reftree_adopt
+                Distance_NumDP' -> sortChildren cmp_distance_numdp' reftree_adopt
+        time "sorting children" reftree_sort
 
-    let reftree_cache = if cache_dists params
-            then setMaxDescendentDistance reftree_prune
-            else reftree_prune
-    time "caching distances" reftree_cache
+        let reftree_prune = case packMethod params of
+                NoPack    -> reftree_sort
+                SetLeaves -> setLeaves 0 $ reftree_sort
+                PackCT    -> packCT $ setLeaves 0 $ reftree_sort
+        time "packing reference tree" reftree_prune
 
-    when (verbose params) $ do
-        putStrLn ""
-        printTreeStats "reftree      " $ reftree
-        printTreeStats "reftree_prune" $ reftree_prune
+        let reftree_cache = if cache_dists params
+                then setMaxDescendentDistance reftree_prune
+                else reftree_prune
+        time "caching distances" reftree_cache
 
-    return reftree_cache
+        when (verbose params) $ do
+            putStrLn ""
+            printTreeStats "reftree      " $ reftree
+            printTreeStats "reftree_prune" $ reftree_prune
+
+        return reftree_cache
 
 -- | Print out debugging information about our cover trees.
 --

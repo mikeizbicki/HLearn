@@ -30,18 +30,6 @@ import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, 
 import SubHask.Compatibility.Vector.HistogramMetrics
 import SubHask.Compatibility.Vector.Lebesgue
 
--------------------
-
-data UVector = UVector {-#UNPACK#-}!Int {-#UNPACK#-}!Int {-#UNPACK#-}!ByteArray
-
--- instance Hashable (L2 VU.Vector Float) where
---     hash (L2 v) = addr+off
---         where
---             addr = addrToInt $ byteArrayContents arr
---             UVector size off arr = unsafeCoerce v
---
--- addrToInt (Addr addr#) = I# (addr2Int# addr#)
-
 -------------------------------------------------------------------------------
 -- unsafe globals
 
@@ -61,14 +49,7 @@ ptalign = unsafePerformIO $ readIORef ptalignIO
 setptsize :: Int -> IO ()
 setptsize len = do
     writeIORef ptsizeIO len
---     writeIORef ptalignIO (1::Int)
     writeIORef ptalignIO (4::Int)
---     writeIORef ptalignIO (((len+4) `div` 4)*4)
---     writeIORef ptalignIO len
-
-
--- x = VU.fromList [1..10::Float]
--- v = VU.fromList $ replicate 10 x
 
 -------------------------------------------------------------------------------
 -- l2 vector ops
@@ -104,7 +85,6 @@ instance
     {-# INLINE basicUnsafeNew #-}
     basicUnsafeNew lenM' = do
         let elemsizeM'=ptsize
---         let elemsizerealM'=ptalign*(ptsize `mod` ptalign)+ptalign
         let elemsizerealM'=ptalign*(ptsize `div` ptalign)
                           +if ptsize `mod` ptalign == 0 then 0 else ptalign
 

@@ -37,6 +37,7 @@ module HLearn.Data.SpaceTree
     , prunefoldA
     , prunefoldB
     , prunefoldB_CanError
+--     , prunefoldB_CanError_sort
     , prunefoldC
     , prunefoldD
 --     , prunefoldM
@@ -90,7 +91,7 @@ class
 --     , Container (LeafContainer t dp)
 --     , Container (LeafContainer t (t dp))
 
-    , Unfoldable (t dp)
+--     , Unfoldable (t dp)
     , dp ~ Elem (t dp)
     ) => SpaceTree t dp
         where
@@ -172,9 +173,17 @@ stToSeqDFS t
       )
     -}
 
+{-# INLINABLE stToSeqBFS #-}
+stToSeqBFS :: SpaceTree t dp => t dp -> Seq dp
+stToSeqBFS t = stNode t `cons` go t
+    where
+        go t = (fromList $ toList $ stLeaves t)
+             + (fromList $ map stNode $ toList $ stChildren t)
+             + (foldl' (+) empty $ map go $ stChildrenList t)
+
 {-# INLINABLE stToList #-}
 stToList :: SpaceTree t dp => t dp -> [dp]
-stToList = toList . stToSeqDFS
+stToList = toList . stToSeqBFS
 
 -- {-# INLINABLE stToList #-}
 -- stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]
@@ -387,8 +396,8 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
 --                     !res = f2 t b
 --                     !b'' = {-# SCC b'' #-} ckfoldl' (flip f1) res (stLeaves t)
 
--- {-# INLINABLE prunefoldB_CanError #-}
-{-# INLINE prunefoldB_CanError #-}
+{-# INLINABLE prunefoldB_CanError #-}
+-- {-# INLINE prunefoldB_CanError #-}
 prunefoldB_CanError :: (SpaceTree t a, CanError b) =>
     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
 prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
@@ -400,6 +409,69 @@ prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
                 where
                     res = {-# SCC res #-} f2 t b
                     b'' = {-# SCC b'' #-} foldr' f1 res (stLeaves t)
+
+{-# INLINABLE prunefoldB_CanError_sort #-}
+prunefoldB_CanError_sort :: (SpaceTree t a, CanError b) =>
+    a -> (a -> b -> b) -> (Scalar a -> t a -> b -> b) -> b -> t a -> b
+prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort #-}
+    go ( distance (stNode t) query, t ) b
+    where
+        go !( dist,t ) !b =  if isError res
+            then b
+            else foldr' go b'' children' -- $ stChildren t
+                where
+                    res = f2 dist t b
+                    b'' = foldr' f1 res (stLeaves t)
+
+                    children'
+                        = {-# SCC children' #-} qsortHalf (\( d1,_ ) ( d2,_ ) -> compare d2 d1)
+                        $  map (\x -> ( distance (stNode x) query, x ))
+                        $ toList
+                        $ stChildren t
+
+-- | This is a version of quicksort that only descends on its lower half.
+-- That is, it only "approximately" sorts a list.
+-- It is modified from http://en.literateprograms.org/Quicksort_%28Haskell%29
+{-# INLINABLE qsortHalf #-}
+qsortHalf :: (a -> a -> Ordering) -> [a] -> [a]
+qsortHalf cmp x = go x []
+    where
+        go [] y     = y
+        go [x] y    = x:y
+        go (x:xs) y = part xs [] [x] []
+            where
+                part [] l e g = go l (e ++ g ++ y)
+                part (z:zs) l e g = case cmp z x of
+                    GT -> part zs l e (z:g)
+                    LT -> part zs (z:l) e g
+                    EQ -> part zs l (z:e) g
+
+-- sortBy cmp = mergeAll . sequences
+--   where
+--     sequences (a:b:xs)
+--       | a `cmp` b == GT = descending b [a]  xs
+--       | otherwise       = ascending  b (a:) xs
+--     sequences xs = [xs]
+--
+--     descending a as (b:bs)
+--       | a `cmp` b == GT = descending b (a:as) bs
+--     descending a as bs  = (a:as): sequences bs
+--
+--     ascending a as (b:bs)
+--       | a `cmp` b /= GT = ascending b (\ys -> as (a:ys)) bs
+--     ascending a as bs   = as [a]: sequences bs
+--
+--     mergeAll [x] = x
+--     mergeAll xs  = mergeAll (mergePairs xs)
+--
+--     mergePairs (a:b:xs) = merge a b: mergePairs xs
+--     mergePairs xs       = xs
+--
+--     merge as@(a:as') bs@(b:bs')
+--       | a `cmp` b == GT = b:merge as  bs'
+--       | otherwise       = a:merge as' bs
+--     merge [] bs         = bs
+--     merge as []         = as
 
 {-# INLINABLE prunefoldD #-}
 -- {-# INLINE prunefoldD #-}

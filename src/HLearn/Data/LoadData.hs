@@ -24,11 +24,15 @@ import System.Directory
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel as LA
 
+import qualified Data.List as L
+import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions.Univariate.Normal
 -- import Test.QuickCheck hiding (verbose,sample,label)
 -- import Control.Parallel.Strategies
 
 import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 import SubHask.Algebra.Container
+import SubHask.Algebra.Parallel
 import SubHask.Compatibility.ByteString
 import SubHask.Compatibility.Cassava
 import SubHask.Compatibility.Containers
@@ -100,31 +104,37 @@ getDirectoryContentsRecursive = fmap toList . go
                         else return empty
                     return $ file' `cons` contents
 
--- | A generic method for loading unlabeled data points
--- where each file in a directory hierarchy corresponds to a single data point.
+-- | A generic method for loading data points.
+-- Each file in a directory hierarchy corresponds to a single data point.
+--
+-- The label assigned to the data point is simply the name of the file.
+-- This means each data point will have a distinct label.
+-- For typical supervised learning tasks, you will want to prune the
 loadDirectory ::
     ( Eq a
     , NFData a
     ) => Maybe Int            -- ^ maximum number of datapoints to load; Nothing for unlimitted
-      -> FilePath             -- ^ directory to load data from
       -> (FilePath -> IO a)   -- ^ function to load an individual file
       -> (FilePath -> Bool)   -- ^ function to filter out invalid filenames
       -> (a -> Bool)          -- ^ function to filter out malformed results
-      -> IO (Array a)         -- ^
-loadDirectory numdp dirpath loadFile validFilepath validResult = {-# SCC loadDirectory #-} do
+      -> FilePath             -- ^ directory to load data from
+      -> IO (Array (Labeled' a FilePath))         -- ^
+loadDirectory numdp loadFile validFilepath validResult dirpath = {-# SCC loadDirectory #-} do
 
-    let takedp = case numdp of
-            Nothing -> id
-            Just n -> fmap (take n)
+    files <- timeIO "getDirectoryContentsRecursive" $ do
+        xs <- getDirectoryContentsRecursive dirpath
 
-    files <-  timeIO "getDirectoryContentsRecursive"
-        $ takedp
-        $ fmap (filter validFilepath)
-        $ getDirectoryContentsRecursive dirpath
+        let takedp = case numdp of
+                Nothing -> id
+                Just n -> fmap (take n)
 
-    results <- timeIO "loadDirectory"
-        $ fmap (filter validResult)
-        $ mapM loadFile files
+        return $ takedp $ filter validFilepath xs
+
+    results <- timeIO "loadDirectory" $ do
+        xs <- forM files $ \filepath -> do
+            res <- loadFile filepath
+            return $ Labeled' res filepath
+        return $ filter (validResult . xLabeled') xs
 
     putStrLn $ "  numdp: " ++ show (length files)
 --     when debug $ do
@@ -170,7 +180,6 @@ loadCSV filepath = do
 
     putStrLn "  dataset info:"
     putStrLn $ "    num dp:  " ++ show (size rs)
---     putStrLn $ "    size dp: " ++ show (size $ head rs)
     putStrLn ""
 
     return rs
@@ -179,115 +188,98 @@ loadCSV filepath = do
 loaddata ::
     ( VG.Vector v f
     , NFData (v f)
+    , NFData  f
     , FromRecord (v f)
     , Eq (v f)
     , Ord f
+    , POrd_ (v f)
 --     , Normed (v f)
     , Show (Scalar (v f))
     , Floating f
+    , f~Float
     , VUM.Unbox f
     ) => DataParams -> IO (Array (v f))
 loaddata params = do
-    (ArrayT rs) <- loadCSV $ datafile params
+    rs <- loadCSV $ datafile params
 
-    setptsize $ VG.length $ VG.head rs
+    -- These algorithms are implemented sequentially,
+    -- so they run faster if we temporarily disable the RTS multithreading
+    disableMultithreading $ do
 
-    rs' <- if pca params
-        then error "pca disabled"
---         then time "calculating PCA" $ VG.convert $ rotatePCA rs
-        else return rs
+        rs' <- if pca params
+            then error "pca disabled"
+    --         then time "calculating PCA" $ VG.convert $ rotatePCA rs
+            else return rs
 
-    rs'' <- if varshift params
-        then time "varshifting data" $
-            VG.convert $ VG.map (shuffleVec $ VU.map fst $ mkShuffleMap rs') rs'
-        else return rs'
+        let shuffleMap = mkShuffleMap $ VG.map ArrayT rs'
+        time "mkShuffleMap" shuffleMap
 
-    return $ ArrayT rs''
+        rs'' <- if varshift params
+            then time "varshifting data" $ VG.map (shuffleVec shuffleMap) rs'
+            else return rs'
 
-{-
-{-# INLINABLE loadLabeledNumericData #-}
-loadLabeledNumericData :: forall v f.
-    ( VG.Vector v f
-    , NFData (v f)
-    , FromRecord (V.Vector f)
-    , Read f
-    , f ~ Double
-    ) => DataParams -> IO (V.Vector (MaybeLabeled String (v f)))
-loadLabeledNumericData params = do
-    let filename = datafile params
-        colindex = fromJust $ labelcol params
+        return $ rs''
 
-    xse :: Either String (V.Vector (V.Vector String))
-        <- timeIO ("loading ["++datafile params++"] ")
-         $ fmap (decode HasHeader)
-         $ BS.readFile $ datafile params
-    xs <- case xse of
-        Right rs -> return rs
-        Left str -> error $ "failed to parse CSV file " ++ datafile params ++ ": " ++ take 1000 str
-
-    let numdp = VG.length xs
-    let numdim = VG.length $ xs VG.! 0
-    let numlabels = Set.size $ Set.fromList $ VG.toList $ VG.map (VG.! colindex) xs
-
-    hPutStrLn stderr "  dataset info:"
-    hPutStrLn stderr $ "    num dp:     " ++ show numdp
-    hPutStrLn stderr $ "    num dim:    " ++ show numdim
-    hPutStrLn stderr $ "    num labels: " ++ show numlabels
-
-    let ys = VG.map (\x -> MaybeLabeled
-            { label = Just $ x VG.! colindex
-            , attr = VG.convert (
-                VG.map read $ VG.fromList $ (:) "1" $ VG.toList $ VG.take (colindex) x VG.++ VG.drop (colindex+1) x
---                 VG.map read $ VG.fromList $ VG.toList $ VG.take label_index x <> VG.drop (label_index+1) x
-                :: V.Vector f
-                )
-            })
-            xs
---             :: V.Vector (MaybeLabeled String (LA.Vector Double))
-
-    let rs=VG.map attr ys
-
-    rs' <- if pca params
-        then time "calculating PCA" $ VG.convert $ rotatePCADouble rs
-        else return rs
-
-    rs'' <- if varshift params
-        then time "varshifting data" $ error "FIXME: varshift not implemented"
---             VG.convert $ VG.map (shuffleVec $ VU.map fst $ mkShuffleMap rs') rs'
-        else return rs'
-
-    let ys' = VG.zipWith (\y r -> MaybeLabeled (label y) r) ys rs''
-
-    deepseq ys' $ return ys'
-    -}
 
 -------------------------------------------------------------------------------
 -- data preprocessing
 
-{-# INLINABLE mkShuffleMap #-}
 -- | calculate the variance of each column, then sort so that the highest variance is first
+{-# INLINABLE mkShuffleMap #-}
 mkShuffleMap :: forall v a s.
     ( VG.Vector v a
+    , Elem (v a) ~ a
+    , Foldable (v a)
     , Floating a
     , Ord a
     , VU.Unbox a
-    ) => V.Vector (v a) -> VU.Vector (Int,a)
-mkShuffleMap v = runST ( do
-    let numdim = VG.length (v V.! 0)
-        numdpf = fromIntegral $ VG.length v
+    , Eq_ (v a)
+    , ClassicalLogic (v a)
+    , NFData a
+    , a~Float
+    ) => Array (v a) -> UnboxedArray Int
+mkShuffleMap v = if VG.length v == 0
+    then empty
+    else runST ( do
+        let numdim = VG.length (v VG.! 0)
 
-    let m1V = VG.foldl1 (VG.zipWith (+)) v
-        m2V = VG.foldl1 (VG.zipWith (+)) $ VG.map (VG.map (\x -> x*x)) v
-        varV = VG.zipWith (\m1 m2 -> m2/numdpf-m1/numdpf*m1/numdpf) m1V m2V
+        -- Use an efficient 1-pass algorithm for the variance.
+        -- This is much faster (due to cache issues) than 2-pass algorithms on large datasets.
+        -- Since this is only used as a speed heuristic, perfect numerical stability doesn't matter.
+        -- See http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf
+        let varV = VG.map ((\(_,_,q) -> q) . VG.foldl' go (1,0,0)) v
+            go (k,mk,qk) x = (k+1,mk',qk')
+                where
+                    mk'=mk+(x-mk)/k
+                    qk'=qk+(x-mk)*(x-mk)
 
-        sortV = VG.zip (VG.fromList [0..numdim-1::Int]) $ VG.convert varV :: VU.Vector (Int, a)
+            sortV = VG.zip (VG.fromList [0..numdim-1::Int])
+                  $ VG.convert varV :: UnboxedArray (Int, a)
 
-    msortV <- VG.unsafeThaw sortV
-    Intro.sortBy (\(_,v2) (_,v1) -> compare v1 v2) msortV
-    sortV' <- VG.unsafeFreeze msortV
+        msortV <- VG.unsafeThaw sortV
+        Intro.sortBy (\(_,v2) (_,v1) -> compare v1 v2) msortV
+        sortV' <- VG.unsafeFreeze msortV
 
-    return sortV'
-    )
+        return $ VG.map fst sortV'
+        )
+
+--     let numdim = VG.length (v VG.! 0)
+--         numdpf = fromIntegral $ VG.length v
+
+--     let m1V = VG.foldl1 (VG.zipWith (+)) v
+--         m2V = VG.foldl1 (VG.zipWith (+)) $ VG.map (VG.map (\x -> x*x)) v
+--         varV = VG.zipWith (\m1 m2 -> m2/numdpf-m1/numdpf*m1/numdpf) m1V m2V
+
+--         sortV = VG.zip (VG.fromList [0..numdim-1::Int])
+--               $ VG.convert varV :: UnboxedArray (Int, a)
+--
+--     msortV <- VG.unsafeThaw sortV
+--     Intro.sortBy (\(_,v2) (_,v1) -> compare v1 v2) msortV
+--     sortV' <- VG.unsafeFreeze msortV
+--
+--     return $ VG.map fst sortV'
+--     )
+
 --     meanV :: VUM.MVector s a <- VGM.new numdim
 --     varV  :: VUM.MVector s a <- VGM.new numdim
 --     let go (-1) = return ()
@@ -323,10 +315,21 @@ mkShuffleMap v = runST ( do
 --             var  = variance dist
 --         VGM.write varV i (i,var)
 
+-- mkShuffleMap xs
+--     = fromList
+--     $ map fst
+--     $ L.sortBy (\(a,_) (b,_) -> compare a b)
+--     $ zip [0..]
+--     $ map (variance . trainNormal)
+--     $ L.transpose
+--     $ map toList
+--     $ toList xs
+
 {-# INLINABLE shuffleVec #-}
 -- | apply the shufflemap to the data set to get a better ordering of the data
-shuffleVec :: VG.Vector v a => VU.Vector Int -> v a -> v a
-shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v VG.! (vmap VG.! i)
+shuffleVec :: VG.Vector v a => UnboxedArray Int -> v a -> v a
+shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v `VG.unsafeIndex` (vmap `VG.unsafeIndex` i)
+-- shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v VG.! (vmap VG.! i)
 
 -- shuffleVec vmap v = runST $ do
 --     ret <- VGM.new (VG.length v)
