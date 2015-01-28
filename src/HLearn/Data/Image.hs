@@ -1,6 +1,12 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module HLearn.Metrics.EMD
+module HLearn.Data.Image
+    ( CIELab
+    , RGB
+    , rgb2cielab
+    , ColorSig
+    , loadColorSig
+    )
     where
 
 import SubHask
@@ -15,23 +21,18 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Generic as VG
 
 import System.IO
+import System.IO.Unsafe
+
 import Foreign.C
 import Foreign.Ptr
 import Foreign.ForeignPtr
 import Foreign.Marshal.Array
-import System.IO.Unsafe
-import Unsafe.Coerce
 
 import qualified Prelude as P
 
-import Debug.Trace
-import SubHask.Algebra.Container
-import SubHask.Compatibility.Vector.Lebesgue
-import qualified Data.Vector.Generic as VG
-
 --------------------------------------------------------------------------------
 
--- |
+-- | An alternative way to represent colors than RGB that is closer to how humans actually perceive color.
 --
 -- See wikipedia on <https://en.wikipedia.org/wiki/Color_difference color difference>
 data CIELab a = CIELab
@@ -69,7 +70,7 @@ instance Storable a => Storable (CIELab a) where
         poke (plusPtr p $ 1*sizeOf (undefined::a)) a
         poke (plusPtr p $ 2*sizeOf (undefined::a)) b
 
--- | Formulas taken from the opencv page:
+-- | Implements formulas taken from the opencv page:
 -- http://docs.opencv.org/modules/imgproc/doc/miscellaneous_transformations.html?highlight=cvtcolor
 --
 -- FIXME:
@@ -101,12 +102,14 @@ rgb2cielab (RGB r g b) = CIELab l_ a_ b_
         delta=0
 
 instance MetricSpace (CIELab Float) where
+    {-# INLINABLE distance #-}
     distance c1 c2 = sqrt $ (l c1-l c2)*(l c1-l c2)
                           + (a c1-a c2)*(a c1-a c2)
                           + (b c1-b c2)*(b c1-b c2)
 
 --------------------------------------------------------------------------------
 
+-- | The standard method for representing colors on most computer monitors and display formats.
 data RGB a = RGB
     { red   :: !a
     , green :: !a
@@ -149,6 +152,8 @@ instance MetricSpace (RGB Float) where
 
 --------------------------------------------------------------------------------
 
+-- | A signature is sparse representation of a histogram.
+-- This is used to implement the earth mover distance between images.
 data ColorSig a = ColorSig
     { rgbV    :: !(StorableArray (CIELab a))
     , weightV :: !(StorableArray a)
@@ -162,19 +167,9 @@ instance NFData a => NFData (ColorSig a) where
     rnf a = deepseq (rgbV a)
           $ rnf (weightV a)
 
--- instance (Storable a, ValidEq a) => Eq_ (ColorSig a) where
 instance Eq_ (ColorSig Float) where
     sig1==sig2 = rgbV sig1 == rgbV sig2
               && weightV sig1 == weightV sig2
-
--- FIXME: these are unlawful, but they're needed for the way allknn currently works
--- instance (Storable a, ValidEq a, POrd_ a) => POrd_ (ColorSig a) where
--- instance (Storable a, ValidEq a, Lattice_ a) => Lattice_ (ColorSig a) where
--- instance (Storable a, ValidEq a, Ord_ a) => Ord_ (ColorSig a) where
-instance POrd_ (ColorSig Float) where
-instance Lattice_ (ColorSig Float) where
-instance Ord_ (ColorSig Float) where
-    compare sig1 sig2 = compare (Lexical $ weightV sig1) (Lexical $ weightV sig2)
 
 loadColorSig ::
     (
@@ -265,173 +260,3 @@ lb2isFartherThanWithDistance lb p q bound = {-# SCC lb2isFartherThanWithDistance
         else dist'
     where
         dist' = distance p q
-
---------------------------------------------------------------------------------
-
-{-
-type HistogramSignature_ a = EMD (Lexical (StorableArray Float), Lexical (Array a))
-type HistogramSignature = HistogramSignature_ (L2 Vector Float)
-
-loadHistogramSignature
-    :: Bool     -- ^ print debug info?
-    -> FilePath -- ^ path of signature file
-    -> IO HistogramSignature
-loadHistogramSignature debug filepath = {-# SCC loadHistogramSignature #-} do
-    filedata <- liftM P.lines $ readFile filepath
-
-    let (fs,as) = P.unzip
-            $ map (\[b,g,r,v] -> (v,VG.fromList [r,g,b]))
-            $ map ((read :: String -> [Float]).(\x->"["+x+"]")) filedata
-
-        ret = (fromList fs, fromList as)
-
-    when debug $ do
-        putStrLn $ "filepath="++show filepath
-        putStrLn $ "  filedata="++show filedata
-        putStrLn $ "signature length=" ++ show (length filedata)
-
-    deepseq ret $ return $ EMD ret
-
-
-newtype EMD a = EMD a
-    deriving (Show,NFData,Arbitrary,Eq_,POrd_,Lattice_,Ord_)
-
-type instance Scalar (EMD a) = Float
-type instance Logic (EMD a) = Logic a
-type instance Elem (EMD a) = Elem a
--- deriveHierarchy ''EMD [ ''Ord ]
-
-{-# INLINE emd_float #-}
-emd_float ::
-    ( Scalar a ~ Float
-    , MetricSpace a
-    ) => (Lexical (StorableArray Float), Lexical (Array a))
-      -> (Lexical (StorableArray Float), Lexical (Array a))
-      -> Float
-emd_float
-    (Lexical (ArrayT v1s), Lexical (ArrayT v1a))
-    (Lexical (ArrayT v2s), Lexical (ArrayT v2a))
-    = {-# SCC emd_float #-} unsafeDupablePerformIO $
-        withForeignPtr fp1 $ \p1 ->
-        withForeignPtr fp2 $ \p2 ->
-        withForeignPtr fpcost $ \pcost ->
-            emd_float_ p1 n1 p2 n2 pcost
-
-    where
-        (fp1,n1) = VS.unsafeToForeignPtr0 v1s
-        (fp2,n2) = VS.unsafeToForeignPtr0 v2s
-
-        vcost = {-# SCC vcost #-} VS.generate (n1*n2) $ \i -> distance
-            (v1a V.! (i`div`n2))
-            (v2a V.! (i`mod`n2))
-
-        (fpcost,_) = VS.unsafeToForeignPtr0 vcost
-
-emlb_float ::
-    ( a ~ EMD (Lexical (StorableArray Float), Lexical (Array (L2 Vector Float)))
-    ) => a -> a -> Scalar a
-emlb_float (EMD p1) (EMD p2) = {-# SCC emlb_float #-} distance (centroid p1) (centroid p2)
-
-centroid :: (Lexical (StorableArray Float), Lexical (Array (L2 Vector Float))) -> L2 Vector Float
-centroid (Lexical (ArrayT ws), Lexical (ArrayT vs)) = {-trace "centroid" $-} go (VG.length ws-1) zero
-    where
-        go :: Int -> L2 Vector Float -> L2 Vector Float
-        go (-1) (L2 tot) = L2 tot
-        go i (L2 tot) = -- trace ("  go "++show i) $
-                      L2 $ tot + ((ws `VG.unsafeIndex` i) *. (unL2 $ vs `VG.unsafeIndex` i))
-
--- {-# INLINABLE emd_float #-}
--- emd_float ::
---     ( Scalar a ~ Float
---     , MetricSpace a
---     ) => [(Float,a)]
---       -> [(Float,a)]
---       -> Float
--- emd_float xs ys = unsafeDupablePerformIO $
---     withForeignPtr fp1 $ \p1 ->
---     withForeignPtr fp2 $ \p2 ->
---     withForeignPtr fpcost $ \pcost ->
---         {-# SCC emd_float_ #-}
---         emd_float_ p1 n1 p2 n2 pcost
---
---     where
---         v1s = VS.fromList $ map fst xs
---         v2s = VS.fromList $ map fst ys
---         (fp1,n1) = VS.unsafeToForeignPtr0 v1s
---         (fp2,n2) = VS.unsafeToForeignPtr0 v2s
---
---         v1 = V.fromList $ map snd xs
---         v2 = V.fromList $ map snd ys
---         vcost :: Vector Float
---         vcost =
--- --           trace ("n1="++show n1++"; length v1="++show (VG.length v1)) $
--- --           trace ("n2="++show n2++"; length v2="++show (VG.length v2)) $
---           VS.generate (n1*n2) $ \i -> distance
---             (v1 V.! (i`div`n2))
---             (v2 V.! (i`mod`n2))
---
---         (fpcost,_) = VS.unsafeToForeignPtr0 vcost
-
-emd_float_lb ::
-    ( Scalar a ~ Float
-    , MetricSpace a
-    , VectorSpace a
-    ) => [(Float,a)]
-      -> [(Float,a)]
-      -> Float
-emd_float_lb xs ys = {-# SCC emd_float_lb #-} distance xbar ybar
-    where
-        xbar = (sum $ map (\(r,a) -> r*.a) xs) ./ (sum $ map fst xs)
-        ybar = (sum $ map (\(r,a) -> r*.a) ys) ./ (sum $ map fst xs)
-
-
--- type instance Scalar (L2 v s) = Scalar (v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), Semigroup (v s)) => Semigroup (L2 v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), Group (v s)) => Group (L2 v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), Monoid (v s)) => Monoid (L2 v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), Cancellative (v s)) => Cancellative (L2 v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), Abelian (v s)) => Abelian (L2 v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), Module (v s)) => Module (L2 v s)
-deriving instance (Scalar (v s) ~ Scalar (L2 v s), VectorSpace (v s)) => VectorSpace (L2 v s)
-
-
--- instance
---     ( Foldable a
---     , Eq a
---     , Ord (Scalar a)
---     , HasScalar a
---     , Elem a ~ (Float,b)
---     , MetricSpace b
---     , Scalar b ~ Float
---     ) => MetricSpace (EMD a)
--- instance MetricSpace (EMD (Lexical (Array ((Float, L2 Vector Float)))))
-instance MetricSpace (EMD (Lexical (StorableArray Float), Lexical (Array (L2 Vector Float))))
-        where
-
-    {-# INLINE distance #-}
-    distance (EMD a1) (EMD a2) = emd_float a1 a2
-
-    isFartherThan=lb2isFartherThan emlb_float
-
-    isFartherThanWithDistanceCanError = lb2isFartherThanWithDistance emlb_float
--}
-
----------------------------------------
--- FIXME:
--- why is it *here?
-
-type instance Logic (a,b) = Logic a
-
-instance (Ord a, Ord b) => POrd_ (a,b) where
-    inf (a1,b1) (a2,b2) = case compare a1 a2 of
-        LT -> (a1,b1)
-        GT -> (a2,b2)
-        EQ -> (a1,inf b1 b2)
-
-instance (Ord a, Ord b) => Lattice_ (a,b) where
-    sup (a1,b1) (a2,b2) = case compare a1 a2 of
-        LT -> (a2,b2)
-        GT -> (a1,b1)
-        EQ -> (a1,sup b1 b2)
-
-instance (Ord a, Ord b) => Ord_ (a,b)

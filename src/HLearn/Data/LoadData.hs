@@ -4,8 +4,8 @@ module HLearn.Data.LoadData
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.ST
-import Data.List hiding (insert,length,concat,partition,head)
 import Data.Maybe
+import qualified Data.List as L
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -24,7 +24,6 @@ import System.Directory
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel as LA
 
-import qualified Data.List as L
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal
 -- import Test.QuickCheck hiding (verbose,sample,label)
@@ -42,7 +41,6 @@ import SubHask.TemplateHaskell.Deriving
 import HLearn.Data.UnsafeVector
 import HLearn.History.Timing
 import HLearn.Models.Classifiers.Common
-import HLearn.Metrics.EMD
 
 import Debug.Trace
 import Prelude (asTypeOf,unzip)
@@ -62,7 +60,7 @@ loadBagOfWords filepath = do
     ret <- VGM.replicate numdp zero
     forM [0..numlines-1] $ \i -> do
         line <- hGetLine hin
-        let [dp,dim,val] :: [Int] = map read $ words line
+        let [dp,dim,val] :: [Int] = map read $ L.words line
         curdp <- VGM.read ret (dp-1)
         VGM.write ret (dp-1) $ insert (dim,fromIntegral val) curdp
 
@@ -76,7 +74,7 @@ loadWords :: (Elem dp~Char, Eq dp, Unfoldable dp) => FilePath -> IO (Array dp)
 loadWords filepath = do
     hin <- openFile filepath ReadMode
     contents <- hGetContents hin
-    return $ fromList $ map fromList $ lines contents
+    return $ fromList $ map fromList $ L.lines contents
 
 
 --------------------------------------------------------------------------------
@@ -126,15 +124,15 @@ loadDirectory numdp loadFile validFilepath validResult dirpath = {-# SCC loadDir
 
         let takedp = case numdp of
                 Nothing -> id
-                Just n -> fmap (take n)
+                Just n -> fmap (L.take n)
 
-        return $ takedp $ filter validFilepath xs
+        return $ takedp $ L.filter validFilepath xs
 
     results <- timeIO "loadDirectory" $ do
         xs <- forM files $ \filepath -> do
             res <- loadFile filepath
             return $ Labeled' res filepath
-        return $ filter (validResult . xLabeled') xs
+        return $ L.filter (validResult . xLabeled') xs
 
     putStrLn $ "  numdp: " ++ show (length files)
 --     when debug $ do
@@ -176,7 +174,7 @@ loadCSV filepath = do
 
     rs <- case rse of
         Right rs -> return rs
-        Left str -> error $ "failed to parse CSV file " ++ filepath ++ ": " ++ take 1000 str
+        Left str -> error $ "failed to parse CSV file " ++ filepath ++ ": " ++ L.take 1000 str
 
     putStrLn "  dataset info:"
     putStrLn $ "    num dp:  " ++ show (size rs)
@@ -207,8 +205,8 @@ loaddata params = do
     disableMultithreading $ do
 
         rs' <- if pca params
-            then error "pca disabled"
-    --         then time "calculating PCA" $ VG.convert $ rotatePCA rs
+--             then error "pca disabled"
+            then time "calculating PCA" $ VG.convert $ rotatePCA rs
             else return rs
 
         let shuffleMap = mkShuffleMap $ VG.map ArrayT rs'
@@ -373,13 +371,13 @@ rotatePCA dps' = {-# SCC rotatePCA #-} VG.map rotate dps
 
         (eigv,eigm) = {-# SCC eigSH #-} LA.eigSH $ LA.double gramMatrix
 
-        gramMatrix = {-# SCC gramMatrix #-} gramMatrix_ $ map VG.convert $ VG.toList dps
+--         gramMatrix = {-# SCC gramMatrix #-} gramMatrix_ $ map VG.convert $ VG.toList dps
 --         gramMatrix = {-# SCC gramMatrix #-} LA.trans tmpm LA.<> tmpm
 --             where
 --                 tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
 
---         gramMatrix = {-# SCC gramMatrix #-} foldl1' (+)
---             [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
+        gramMatrix = {-# SCC gramMatrix #-} foldl1' (P.+)
+            [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
 
 gramMatrix_ :: (Ring a, Storable a) => [Vector a] -> LA.Matrix a
 gramMatrix_ xs = runST ( do

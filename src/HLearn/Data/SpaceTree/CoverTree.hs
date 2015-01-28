@@ -640,7 +640,29 @@ trainInsertOrig ::
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
 trainInsertOrig xs = {-# SCC trainInsertOrig #-}case unCons xs of
     Nothing -> Nothing'
-    Just (dp,dps) -> Just' $ foldr' insertCTOrig (singletonCT dp) dps
+    Just (dp,dps) -> Just' $ rmSingletons $ foldr' insertCTOrig (singletonCT dp) dps
+
+-- | This function is a helper function for trainInsertOrig.
+-- It deletes any "singleton" nodes in the tree.
+-- These are nodes that have only a single child, and that child is equal to the node.
+-- This can't occur in the new insertion methods;
+-- it only occurs within "trainInsertorig".
+{-# INNLINABLE rmSingletons #-}
+rmSingletons ::
+    ( ValidCT exprat childC leafC dp
+    ) => CoverTree_ exprat childC leafC dp
+      -> CoverTree_ exprat childC leafC dp
+rmSingletons ct =  if isSingleton
+            then {-trace "rm" $-} rmSingletons onlyChild
+            else ct
+                { children = fromList $ map rmSingletons $ toList $ children ct
+                }
+            where
+                isSingleton = size (children ct) == 1
+                           && nodedp onlyChild == nodedp ct
+
+                onlyChild = head $ toList $ children ct
+
 
 {-# INLINABLE insertCTOrig #-}
 insertCTOrig ::

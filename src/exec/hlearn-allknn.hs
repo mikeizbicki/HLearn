@@ -39,6 +39,7 @@ import SubHask.Compatibility.Vector.Lebesgue
 import Data.Params
 
 import HLearn.Data.Graph
+import HLearn.Data.Image
 import HLearn.Data.LoadData
 import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
@@ -46,7 +47,6 @@ import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Data.UnsafeVector
 import HLearn.Evaluation.CrossValidation
 import HLearn.History.Timing
-import HLearn.Metrics.EMD
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal
 
@@ -278,7 +278,7 @@ main = do
                     isNonemptyGraph
 
             allknn params loaddata ct dp k
-        -}
+            -}
 
 -- | Given our data, perform the actual tests.
 -- For efficiency, it is extremely important that this function get specialized to the exact types it is called on.
