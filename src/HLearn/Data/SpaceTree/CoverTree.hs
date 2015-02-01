@@ -61,6 +61,12 @@ data CoverTree_
         , maxDescendentDistance :: !(Scalar dp)
         , children              :: !(childC (CoverTree_ exprat childC leafC dp))
         , leaves                :: !(leafC dp)
+--         , nodeWeight            :: {-#UNPACK#-}!Float
+--         , level                 :: {-#UNPACK#-}!Int
+--         , numdp                 :: {-#UNPACK#-}!Float
+--         , maxDescendentDistance :: {-#UNPACK#-}!Float
+--         , children              :: {-#UNPACK#-}!(Array (CoverTree_ exprat childC leafC dp))
+--         , leaves                :: {-#UNPACK#-}!(UnboxedArray dp)
         }
 
 mkParams ''CoverTree_
@@ -80,6 +86,7 @@ deriving instance
     , Show (leafC dp)
     , Show dp
     , Show (Scalar dp)
+    , ValidCT exprat childC leafC dp
     ) => Show (CoverTree_ exprat childC leafC dp)
 
 instance
@@ -132,6 +139,13 @@ type ValidCT exprat childC leafC dp =
     , ClassicalLogic (childC (CoverTree_ exprat childC leafC dp))
     , Container (leafC dp)
     , Container (childC (CoverTree_ exprat childC leafC dp))
+
+    -- unpack
+--     , Scalar dp~Float
+--     , childC~Array
+--     , leafC~UnboxedArray
+--     , VU.Unbox dp
+--     , VU.Unbox (Scalar dp)
 
     -- these constraints come from hlearn-allknn
     , Scalar (leafC dp) ~ Scalar (childC (CoverTree_ exprat childC leafC dp))

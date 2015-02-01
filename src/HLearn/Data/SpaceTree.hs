@@ -166,12 +166,6 @@ stToSeqDFS :: SpaceTree t dp => t dp -> Seq dp
 stToSeqDFS t
     = stNode t `cons` (fromList $ toList $ stLeaves t)
     + (foldl' (+) empty $ map stToSeqDFS $ stChildrenList t)
-    {-
-    + ( if stHasNoChildren t
-        then empty
-        else foldtree1 $ map stToSeqDFS $ stChildrenList t
-      )
-    -}
 
 {-# INLINABLE stToSeqBFS #-}
 stToSeqBFS :: SpaceTree t dp => t dp -> Seq dp
@@ -183,7 +177,7 @@ stToSeqBFS t = stNode t `cons` go t
 
 {-# INLINABLE stToList #-}
 stToList :: SpaceTree t dp => t dp -> [dp]
-stToList = toList . stToSeqBFS
+stToList = toList . stToSeqDFS
 
 -- {-# INLINABLE stToList #-}
 -- stToList :: (Eq dp, SpaceTree t dp) => t dp -> [dp]

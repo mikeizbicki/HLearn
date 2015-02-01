@@ -14,6 +14,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 
 import Control.Monad
 import Control.Monad.Random hiding (fromList)
@@ -58,6 +59,8 @@ import Control.Concurrent
 import Control.Parallel
 import Control.Parallel.Strategies
 import System.IO.Unsafe
+
+import Foreign.Ptr
 
 -------------------------------------------------------------------------------
 -- command line parameters
@@ -247,7 +250,8 @@ main = do
                         putStrLn ""
                         setptsize $ VG.length $ VG.head rs
 
-                    return $ VG.zipWith Labeled' rs $ VG.fromList [0::Int ..]
+--                     return $ VG.zipWith Labeled' rs $ VG.fromList [0::Int ..]
+                    return rs
 
             allknn params loadfile_dfcsv ct dp k
 
@@ -285,10 +289,13 @@ main = do
 {-# INLINE allknn #-}
 allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     ( ValidCT exprat childC leafC (Labeled' dp l)
+    , ValidCT exprat childC leafC dp
     , P.Fractional (Scalar dp)
+    , Param_k (NeighborList k dp)
     , Param_k (NeighborList k (Labeled' dp l))
     , RationalField (Scalar dp)
     , ValidNeighbor dp
+--     , ValidNeighbor (Labeled' dp l)
 
     , VG.Vector childC Int
     , VG.Vector childC Bool
@@ -302,7 +309,8 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
 --     , leafC ~ UnboxedArray
 --     , dp ~ L2 UnboxedVector Float
     ) => Params
-      -> (FilePath -> IO (Array (Labeled' dp l)))
+--       -> (FilePath -> IO (Array (Labeled' dp l)))
+      -> (FilePath -> IO (Array dp))
       -> proxy1 (CoverTree_ exprat childC leafC)
       -> proxy2 (Labeled' dp l)
       -> proxy3 k
@@ -321,7 +329,8 @@ allknn params loaddata _ _ _ = do
             Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
 
     -- build the trees
-    reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC (Labeled' dp l))
+--     reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC (Labeled' dp l))
+    reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC dp)
 
     (querytree,qs) <- case query_file params of
         Nothing -> return $ (reftree,rs)
@@ -335,11 +344,14 @@ allknn params loaddata _ _ _ = do
 
     -- do knn search
     let res = unsafeParallelInterleaved
-            ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
+            ( findAllNeighbors' (convertRationalField $ searchEpsilon params) reftree  )
             ( stToList querytree )
-            :: Seq (Labeled' dp l, NeighborList k (Labeled' dp l))
+            :: Seq (Labeled' dp (NeighborList k dp))
+--             :: Seq (dp, NeighborList k dp)
+--             :: Seq (Labeled' dp l, NeighborList k (Labeled' dp l))
     time "computing parFindNeighborMap" res
 
+    {-
     -- output to files
     let sortedResults :: [[Neighbor (Labeled' dp l)]]
         sortedResults
@@ -364,10 +376,33 @@ allknn params loaddata _ _ _ = do
         forM_ neighborL (hPutStrLn hNeighbors . init . tail . show)
         hClose hNeighbors
 
+    -}
     putStrLn "done"
 
+foreign import ccall unsafe "distance" distance_l2_lang_
+    :: Ptr Float -> Ptr Float -> Int -> IO Float
+
+distance_l2_lang :: L2 UnboxedVector Float -> L2 UnboxedVector Float -> Float
+distance_l2_lang (L2 v1) (L2 v2) = {-# SCC l2_distance_m128_unboxed #-}
+    unsafeDupablePerformIO $ distance_l2_lang_ p1 p2 n1
+    where
+        (p1,n1) = unsafeUV2Ptr v1
+        (p2,n2) = unsafeUV2Ptr v2
+
+foreign import ccall unsafe "isFartherThan" isFartherThan_l2_lang_
+    :: Ptr Float -> Ptr Float -> Float -> Int -> IO Float
+
+isFartherThan_l2_lang :: L2 UnboxedVector Float -> L2 UnboxedVector Float -> Float -> Float
+isFartherThan_l2_lang (L2 v1) (L2 v2) d = {-# SCC l2_distance_m128_unboxed #-}
+    unsafeDupablePerformIO $ isFartherThan_l2_lang_ p1 p2 d n1
+    where
+        (p1,n1) = unsafeUV2Ptr v1
+        (p2,n2) = unsafeUV2Ptr v2
 
 {-# RULES
+
+-- "test1"     distance = distance_l2_lang
+-- "test1"     isFartherThanWithDistanceCanError = isFartherThan_l2_lang
 
 "subhask/eqVectorDouble"  (==) = eqVectorDouble
 "subhask/eqVectorFloat"  (==) = eqVectorFloat

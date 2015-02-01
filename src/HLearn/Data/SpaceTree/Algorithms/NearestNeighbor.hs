@@ -17,6 +17,7 @@ module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 
     -- * functions
     , findAllNeighbors
+    , findAllNeighbors'
 
     , findNeighborList
     , findEpsilonNeighborListWith
@@ -28,6 +29,7 @@ import qualified Prelude as P
 import SubHask
 import SubHask.Algebra.Container
 import SubHask.Compatibility.Containers
+import SubHask.Compatibility.Vector
 import SubHask.Compatibility.Vector.Lebesgue
 import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
@@ -242,8 +244,8 @@ findEpsilonNeighborListWith ::
 findEpsilonNeighborListWith !knn !epsilon !t !query =
     {-# SCC findEpsilonNeighborListWith #-}
 --     prunefoldC (knn_catadp smudge query) knn t
---     prunefoldB_CanError_sort query (knn_catadp smudge query) (knn_cata_dist smudge query) knn t
-    prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
+    prunefoldB_CanError_sort query (knn_catadp smudge query) (knn_cata_dist smudge query) knn t
+--     prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
 --     prunefoldD (knn_catadp smudge query) (knn_cata2 smudge query) knn t
     where
         smudge = 1/(1+epsilon)
@@ -305,8 +307,9 @@ prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort
 
                     children'
                         = {-# SCC children' #-} qsortHalf (\( d1,_ ) ( d2,_ ) -> compare d2 d1)
---                         $  map (\x -> ( distance (stNode x) query, x ))
                         $  map (\x -> ( stIsMinDistanceDpFartherThanWithDistanceCanError x query $ maxdist, x ))
+--                         $ map (\x -> ( distanceUB (stNode x) query (lambda t+maxdist), x ))
+--                         $ map (\x -> ( distance (stNode x) query , x ))
                         $ toList
                         $ stChildren t
 
@@ -317,14 +320,14 @@ prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort
 -- It is modified from http://en.literateprograms.org/Quicksort_%28Haskell%29
 {-# INLINABLE qsortHalf #-}
 qsortHalf :: (a -> a -> Ordering) -> [a] -> [a]
-qsortHalf cmp x = go x []
+qsortHalf !cmp !x = {-# SCC qsortHalf #-} go x []
     where
-        go [] y     = y
-        go [x] y    = x:y
-        go (x:xs) y = part xs [] [x] []
+        go [] !y     = y
+        go [x] !y    = x:y
+        go (x:xs) !y = part xs [] [x] []
             where
-                part [] l e g = go l (e ++ g ++ y)
-                part (z:zs) l e g = case cmp z x of
+                part [] !l !e !g = go l (e ++ g ++ y)
+                part (z:zs) !l !e !g = case cmp z x of
                     GT -> part zs l e (z:g)
                     LT -> part zs (z:l) e g
                     EQ -> part zs l (z:e) g
@@ -367,3 +370,22 @@ findAllNeighbors epsilon rtree qs = reduce $ map
     (\dp -> singletonAt dp $ findEpsilonNeighborListWith zero epsilon rtree dp)
     qs
 
+{-# INLINABLE findAllNeighbors' #-}
+findAllNeighbors' :: forall k dp t.
+    ( ViewParam Param_k (NeighborList k dp)
+    , SpaceTree t dp
+    , NFData (Scalar dp)
+    , NFData dp
+    , Floating (Scalar dp)
+    , CanError (Scalar dp)
+    , ValidNeighbor dp
+    ) => Scalar dp -> t dp -> [dp] -> Seq (Labeled' dp (NeighborList k dp))
+findAllNeighbors' epsilon rtree qs = fromList $ map
+    (\dp -> mkLabeled' dp $ findEpsilonNeighborListWith zero epsilon rtree dp)
+    qs
+-- findAllNeighbors' epsilon rtree qs = reduce $ map
+--     (\dp -> singleton $ mkLabeled' dp $ findEpsilonNeighborListWith zero epsilon rtree dp)
+--     qs
+
+mkLabeled' :: x -> y -> Labeled' x y
+mkLabeled' x y = Labeled' x y
