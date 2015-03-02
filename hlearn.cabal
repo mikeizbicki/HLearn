@@ -126,7 +126,7 @@ Library
 --         HLearn.Models.Classifiers.Perceptron
 --         HLearn.Models.Classifiers.Centroid
 
-        HLearn.Metrics.EMD
+        HLearn.Data.Image
 --         HLearn.Metrics.Mahalanobis
 --         HLearn.Metrics.Mahalanobis.ITML
 --         HLearn.Metrics.Mahalanobis.Lego
