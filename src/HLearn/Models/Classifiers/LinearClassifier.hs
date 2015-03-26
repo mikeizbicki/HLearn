@@ -210,7 +210,7 @@ trainLinearClassifier :: forall dp vec r container m.
     , Module r
     , HasScalar dp
     , OuterProductSpace (vec r)
-    , InnerProductSpace (vec r)
+    , Hilbert (vec r)
     , VectorSpace (Outer (vec r))
     , Floating r
     , F.Foldable container
@@ -256,7 +256,7 @@ warmStartLinearClassifier :: forall dp vec r container m.
     , Module r
     , HasScalar dp
     , OuterProductSpace (vec r)
-    , InnerProductSpace (vec r)
+    , Hilbert (vec r)
     , VectorSpace (Outer (vec r))
     , Floating r
     , F.Foldable container
@@ -334,7 +334,7 @@ type OptimizationMethod m dp =
       ) => container dp -> C2Loss dp -> Attributes dp -> m (Attributes dp)
 
 cgd ::
-    ( InnerProductSpace (Attributes dp)
+    ( Hilbert (Attributes dp)
     , BoundedField (Scalar (Attributes dp))
     , Normed (Scalar (Attributes dp))
     , Floating (Scalar (Attributes dp))
@@ -414,7 +414,7 @@ elasticNet w =
 -------------------
 
 -- logloss ::
---     ( InnerProductSpace (Attributes dp)
+--     ( Hilbert (Attributes dp)
 --     , Ord (Scalar dp)
 --     , Ord (Scalar (Attributes dp))
 --     , Labeled dp
@@ -581,7 +581,7 @@ type instance Scalar (LinearClassifier dp) = Scalar dp
 instance
 --     ( Labeled dp
 --     , Scalar (Attributes dp) ~ Scalar dp
---     , InnerProductSpace (Attributes dp)
+--     , Hilbert (Attributes dp)
 --     , Floating (Scalar dp)
 --     , Ord (Scalar dp)
 --     , Attributes dp ~ vec (Scalar dp)
@@ -590,7 +590,7 @@ instance
 --     , Show (Label dp)
     ( Labeled dp
     , P.Ord (Scalar (Datapoint (LinearClassifier dp)))
-    , InnerProductSpace (Attributes (Datapoint (LinearClassifier dp)))
+    , Hilbert (Attributes (Datapoint (LinearClassifier dp)))
     ) => Classifier (LinearClassifier dp)
         where
     classify m attr

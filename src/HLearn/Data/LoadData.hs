@@ -29,6 +29,8 @@ import HLearn.Models.Distributions.Univariate.Normal
 -- import Test.QuickCheck hiding (verbose,sample,label)
 -- import Control.Parallel.Strategies
 
+import Data.List (take,drop,zipWith)
+
 import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
 import SubHask.Algebra.Container
 import SubHask.Algebra.Parallel
@@ -62,7 +64,7 @@ loadBagOfWords filepath = do
         line <- hGetLine hin
         let [dp,dim,val] :: [Int] = map read $ L.words line
         curdp <- VGM.read ret (dp-1)
-        VGM.write ret (dp-1) $ insert (dim,fromIntegral val) curdp
+        VGM.write ret (dp-1) $ insertAt dim (fromIntegral val) curdp
 
     hClose hin
     VG.unsafeFreeze ret
@@ -70,7 +72,7 @@ loadBagOfWords filepath = do
 -- | Loads a dataset of strings in the unix words file format (i.e. one word per line).
 -- This format is also used by the UCI Bag Of Words dataset.
 -- See: https://archive.ics.uci.edu/ml/machine-learning-databases/bag-of-words/readme.txt
-loadWords :: (Elem dp~Char, Eq dp, Unfoldable dp) => FilePath -> IO (Array dp)
+loadWords :: (Monoid dp, Elem dp~Char, Eq dp, Constructible dp) => FilePath -> IO (Array dp)
 loadWords filepath = do
     hin <- openFile filepath ReadMode
     contents <- hGetContents hin
@@ -153,7 +155,7 @@ data DataParams = DataParams
     , varshift :: Bool
     }
 
-head x = case unCons x of
+head x = case uncons x of
     Nothing -> error "head on empty"
     Just (x,_) -> x
 
@@ -162,7 +164,6 @@ loadCSV ::
     ( NFData a
     , FromRecord a
     , Eq a
---     , Normed a
     , Show (Scalar a)
     ) => FilePath -> IO (Array a)
 loadCSV filepath = do
@@ -181,6 +182,23 @@ loadCSV filepath = do
     putStrLn ""
 
     return rs
+
+{-# INLINABLE loadCSVLabeled #-}
+loadCSVLabeled ::
+    ( Read k
+    , Read v2
+    , v ~ (v1 v2)
+    , VG.Vector v1 v2
+    , Eq v
+    ) => FilePath -> Int -> IO (Array (Labeled' v k))
+loadCSVLabeled filepath n = do
+    xs :: [[String]]
+       <- fmap toList $ loadCSV filepath
+
+    let ks = map (head . drop n) xs
+        vs = map (take n + drop (n+1)) xs
+
+    return $ fromList $ zipWith Labeled' (map (listToVector . map read) vs) (map read ks)
 
 {-# INLINABLE loaddata #-}
 loaddata ::

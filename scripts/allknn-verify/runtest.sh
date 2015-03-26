@@ -2,7 +2,8 @@
 
 K=1
 
-tmpdir=$(mktemp --tmpdir -d)
+#tmpdir=$(mktemp --tmpdir -d)
+tmpdir="."
 echo "--------------------------------------------------------------------------------"
 echo "tempdir=$tmpdir"
 echo "--------------------------------------------------------------------------------"
@@ -13,11 +14,11 @@ mlpack_distances="$tmpdir/distances_mlpack.csv"
 
 #verbose="--verbose"
 optimization="--varshift"
-method="--train-method=traininsert_ancestor"
-#method="--train-method=trainmonoid"
+#method="--train-method=traininsert_ancestor"
+#method="--train-method=traininsert_orig"
 
-time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N2
-#time ./hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N
+time hlearn-allknn -k $K -r $@ $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N1
+#time hlearn-allknn -k $K -r $1 $optimization $method $verbose -n "$hlearn_neighbors" --distances-file="$hlearn_distances" +RTS -K1000M -N
 
 time allknn -r $1 -n $mlpack_neighbors -d $mlpack_distances -k $K -v -S
 #time allknn -r $1 -n "$mlpack_neighbors" -d "$mlpack_distances" -k $K -v

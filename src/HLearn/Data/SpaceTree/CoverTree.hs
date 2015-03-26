@@ -40,7 +40,7 @@ expratIORef = unsafePerformIO $ newIORef (1.3::Rational)
 setexpratIORef :: Rational -> P.IO ()
 setexpratIORef r = writeIORef expratIORef r
 
-{-# INLINE exprat_ #-}
+{-# INLINABLE exprat_ #-}
 exprat_ :: Field r => r
 exprat_ = fromRational $ unsafePerformIO $ readIORef expratIORef
 
@@ -55,8 +55,8 @@ data CoverTree_
         ( dp                    :: * )
     = Node
         { nodedp                :: !dp
-        , nodeWeight            :: !(Scalar dp)
         , level                 :: {-#UNPACK#-}!Int
+        , nodeWeight            :: !(Scalar dp)
         , numdp                 :: !(Scalar dp)
         , maxDescendentDistance :: !(Scalar dp)
         , children              :: !(childC (CoverTree_ exprat childC leafC dp))
@@ -113,15 +113,15 @@ instance
 type ValidCT exprat childC leafC dp =
     ( Foldable (childC (CoverTree_ exprat childC leafC dp))
     , Foldable (leafC dp)
-    , Unfoldable (childC (CoverTree_ exprat childC leafC dp))
-    , Unfoldable (leafC dp)
+    , Constructible (childC (CoverTree_ exprat childC leafC dp))
+    , Constructible (leafC dp)
     , Normed (childC (CoverTree_ exprat childC leafC dp))
     , Normed (leafC dp)
     , Elem (childC (CoverTree_ exprat childC leafC dp)) ~ CoverTree_ exprat childC leafC dp
     , Elem (leafC dp) ~ dp
     , VG.Vector leafC dp
     , VG.Vector leafC (Scalar dp)
-    , MetricSpace dp
+    , Metric dp
     , QuotientField (Scalar dp) Int
     , Floating (Scalar dp)
     , Bounded (Scalar dp)
@@ -131,6 +131,7 @@ type ValidCT exprat childC leafC dp =
     , Logic (Scalar (leafC dp)) ~ Bool
     , NFData (CoverTree_ exprat childC leafC dp)
     , HasScalar dp
+    , Eq_ (childC (CoverTree_ exprat childC leafC dp))
 
     , Param_exprat (CoverTree_ exprat childC leafC dp)
 
@@ -185,8 +186,8 @@ instance
     type ChildContainer (CoverTree_ exprat childC leafC ) = childC
     type LeafContainer (CoverTree_ exprat childC leafC ) = leafC
 
---     {-# INLINE stMinDistanceWithDistance #-}
---     {-# INLINE stMaxDistanceWithDistance #-}
+    {-# INLINABLE stMinDistanceWithDistance #-}
+    {-# INLINABLE stMaxDistanceWithDistance #-}
 
     stMinDistanceWithDistance !ct1 !ct2 =
         (# dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2), dist #)
@@ -196,8 +197,8 @@ instance
         (# dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2)
 
---     {-# INLINE stMinDistanceDpWithDistance #-}
---     {-# INLINE stMaxDistanceDpWithDistance #-}
+    {-# INLINABLE stMinDistanceDpWithDistance #-}
+    {-# INLINABLE stMaxDistanceDpWithDistance #-}
 
     stMinDistanceDpWithDistance !ct !dp =
         (# dist - maxDescendentDistance ct, dist #)
@@ -207,40 +208,46 @@ instance
         (# dist + maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
 
---     {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
---     {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
 
     stIsMinDistanceDpFartherThanWithDistanceCanError !ct !dp !b =
         isFartherThanWithDistanceCanError (nodedp ct) dp (b+maxDescendentDistance ct)
+            where
+                isFartherThanWithDistanceCanError p q b = if d > b then errorVal else d
+                    where d = distanceUB p q b
 
     stIsMaxDistanceDpFartherThanWithDistanceCanError !ct !dp !b =
         isFartherThanWithDistanceCanError (nodedp ct) dp (b-maxDescendentDistance ct)
+            where
+                isFartherThanWithDistanceCanError p q b = if d > b then errorVal else d
+                    where d = distanceUB p q b
 
---     {-# INLINE stMinDistanceDpFromDistance #-}
---     {-# INLINE stMaxDistanceDpFromDistance #-}
+    {-# INLINABLE stMinDistanceDpFromDistance #-}
+    {-# INLINABLE stMaxDistanceDpFromDistance #-}
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
---     {-# INLINE stChildren #-}
---     {-# INLINE stNode #-}
---     {-# INLINE stLeaves #-}
---     {-# INLINE stHasNode #-}
+    {-# INLINABLE stChildren #-}
+    {-# INLINABLE stNode #-}
+    {-# INLINABLE stLeaves #-}
+    {-# INLINABLE stHasNode #-}
     stChildren  = children
     stLeaves    = leaves
     stNode      = nodedp
     stWeight    = nodeWeight
     stHasNode _ = True
 
---     {-# INLINE ro #-}
+    {-# INLINABLE ro #-}
     ro _ = 0
 
---     {-# INLINE lambda #-}
+    {-# INLINABLE lambda #-}
     lambda !ct = maxDescendentDistance ct
 
 ---------------------------------------
 
-{-# INLINE indicator #-}
+{-# INLINABLE indicator #-}
 indicator :: Ring r => Bool -> r
 indicator True = 1
 indicator False = 0
@@ -608,7 +615,7 @@ instance
 
 instance
     ( ValidCT exprat childC leafC dp
-    ) => Unfoldable (CoverTree_ exprat childC leafC dp)
+    ) => Constructible (CoverTree_ exprat childC leafC dp)
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -652,7 +659,7 @@ trainInsertOrig ::
     , Foldable xs
     ) => xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsertOrig xs = {-# SCC trainInsertOrig #-}case unCons xs of
+trainInsertOrig xs = {-# SCC trainInsertOrig #-}case uncons xs of
     Nothing -> Nothing'
     Just (dp,dps) -> Just' $ rmSingletons $ foldr' insertCTOrig (singletonCT dp) dps
 
@@ -743,7 +750,7 @@ trainInsertNoSort ::
     , Foldable xs
     ) => xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsertNoSort xs = {-# SCC trainInsertNoSort #-}case unCons xs of
+trainInsertNoSort xs = {-# SCC trainInsertNoSort #-}case uncons xs of
     Nothing -> Nothing'
     Just (dp,dps) -> Just' $ foldr' insertCTNoSort (singletonCT dp) dps
 
@@ -800,7 +807,7 @@ trainInsert ::
     ) => AddChildMethod exprat childC leafC (Elem xs)
       -> xs
       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainInsert addChild xs = {-# SCC trainInsert #-} case unCons xs of
+trainInsert addChild xs = {-# SCC trainInsert #-} case uncons xs of
     Nothing -> Nothing'
     Just (dp,dps) -> Just' $ foldr' (insertCT addChild) (singletonCT dp) $ toList dps
 

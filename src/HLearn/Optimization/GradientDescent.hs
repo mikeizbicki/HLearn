@@ -7,7 +7,7 @@ module HLearn.Optimization.GradientDescent
     , conjugateGradientDescent_
 
     -- ** conjugate method
---     , ConjugateMethod
+--     , ConjugateMethod v
     , steepestDescent
     , fletcherReeves
     , polakRibiere
@@ -53,22 +53,22 @@ instance Has_stepSize ConjugateGradientDescent v where stepSize = _alpha
 ---------------------------------------
 
 -- | method for determining the conjugate direction; See <https://en.wikipedia.org/wiki/Nonlinear_conjugate_gradient>
-type ConjugateMethod = forall v. InnerProductSpace v => v -> v -> v -> Scalar v
+type ConjugateMethod v = VectorSpace v => v -> v -> v -> Scalar v
 
 {-# INLINABLE steepestDescent #-}
-steepestDescent :: ConjugateMethod
+steepestDescent :: ConjugateMethod v
 steepestDescent _ _ _ = 0
 
 {-# INLINABLE fletcherReeves #-}
-fletcherReeves :: ConjugateMethod
+fletcherReeves :: Hilbert v => ConjugateMethod v
 fletcherReeves f'x1 f'x0 _ = f'x1 <> f'x1 / f'x0 <> f'x0
 
 {-# INLINABLE polakRibiere #-}
-polakRibiere :: ConjugateMethod
+polakRibiere :: Hilbert v => ConjugateMethod v
 polakRibiere f'x1 f'x0 _ = (f'x1 <> (f'x1 - f'x0)) / (f'x0 <> f'x0)
 
 {-# INLINABLE hestenesStiefel #-}
-hestenesStiefel :: ConjugateMethod
+hestenesStiefel :: Hilbert v => ConjugateMethod v
 hestenesStiefel f'x1 f'x0 s0 = -(f'x1 <> (f'x1 - f'x0)) / (s0 <> (f'x1 - f'x0))
 
 -------------------
@@ -82,22 +82,20 @@ hestenesStiefel f'x1 f'x0 s0 = -(f'x1 <> (f'x1 - f'x0)) / (s0 <> (f'x1 - f'x0))
 
 -- | Conjugate gradient descent with reasonable default parameters
 conjugateGradientDescent ::
-    ( InnerProductSpace v
+    ( Hilbert v
     , BoundedField (Scalar v)
     , HistoryMonad m
     , Reportable m (Scalar v)
     , Reportable m (LineBracket (Scalar v))
     , Reportable m (Brent (Scalar v))
     , Reportable m (ConjugateGradientDescent v)
+    , ClassicalLogic v
     , Show (Scalar v)
-    , Show v
-    , Logic v~Bool
     ) => (v -> Scalar v)
       -> (v -> v)
       -> v
       -> m (ConjugateGradientDescent v)
 conjugateGradientDescent f f' x0 =
-    trace ("x0="++show x0) $
     conjugateGradientDescent_
         ( lineSearchBrent ( brentTollerance 1e-12 || maxIterations 20 ))
         polakRibiere
@@ -107,11 +105,12 @@ conjugateGradientDescent f f' x0 =
 
 -- | A generic method for conjugate gradient descent that gives you more control over the optimization parameters
 conjugateGradientDescent_ ::
-    ( InnerProductSpace v
+    ( VectorSpace v
+    , ClassicalLogic v
     , HistoryMonad m
     , Reportable m (ConjugateGradientDescent v)
     ) => MultivariateLineSearch m v
-      -> ConjugateMethod
+      -> ConjugateMethod v
       -> (v -> Scalar v)
       -> (v -> v)
       -> v
@@ -131,10 +130,11 @@ conjugateGradientDescent_ searchMethod conjugateMethod f f' x0 = {-# SCC conjuga
 
 -- | performs a single iteration of the conjugate gradient descent algorithm
 step_conjugateGradientDescent ::
-    ( InnerProductSpace v
+    ( VectorSpace v
+    , ClassicalLogic v
     , HistoryMonad m
     ) => MultivariateLineSearch m v
-      -> ConjugateMethod
+      -> ConjugateMethod v
       -> (v -> Scalar v)
       -> (v -> v)
       -> ConjugateGradientDescent v

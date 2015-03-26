@@ -48,7 +48,7 @@ makeLenses ''Backtracking
 -- In this case, the overall minimization problem can converge significantly
 -- faster than if one of the safer methods is used.
 backtracking ::
-    ( InnerProductSpace v
+    ( Hilbert v
     , Normed (Scalar v)
     , Ord (Scalar v)
     , HistoryMonad m
@@ -95,7 +95,7 @@ step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
 
 {-# INLINABLE wolfe #-}
 wolfe ::
-    ( InnerProductSpace v
+    ( Hilbert v
     , Normed (Scalar v)
     , Ord (Scalar v)
     , HistoryMonad m
@@ -107,7 +107,7 @@ wolfe !c1 !c2 !bt0 !bt1 = {-# SCC wolfe #-} do
 
 {-# INLINABLE amijo #-}
 amijo ::
-    ( InnerProductSpace v
+    ( Hilbert v
     , Ord (Scalar v)
     , HistoryMonad m
     ) => Scalar v -> StopCondition m (Backtracking v)
@@ -116,7 +116,7 @@ amijo !c1 _ !bt = {-# SCC amijo #-} return $
 
 {-# INLINABLE weakCurvature #-}
 weakCurvature ::
-    ( InnerProductSpace v
+    ( Hilbert v
     , Ord (Scalar v)
     , HistoryMonad m
     ) => Scalar v -> StopCondition m (Backtracking v)
@@ -125,7 +125,7 @@ weakCurvature !c2 _ !bt = {-# SCC weakCurvature #-} return $
 
 {-# INLINABLE strongCurvature #-}
 strongCurvature ::
-    ( InnerProductSpace v
+    ( Hilbert v
     , Ord (Scalar v)
     , Normed (Scalar v)
     , HistoryMonad m
@@ -141,7 +141,7 @@ type MultivariateLineSearch m v =
     (v -> Scalar v) -> (v -> v) -> v -> v -> Scalar v -> m (Scalar v)
 
 -- lineSearchBrent ::
---     ( InnerProductSpace v
+--     ( Hilbert v
 --     , HistoryMonad m
 --     , Reportable m (Scalar v)
 --     , Reportable m (LineBracket (Scalar v))

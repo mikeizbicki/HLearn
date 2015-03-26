@@ -101,7 +101,7 @@ rgb2cielab (RGB r g b) = CIELab l_ a_ b_
 
         delta=0
 
-instance MetricSpace (CIELab Float) where
+instance Metric (CIELab Float) where
     {-# INLINABLE distance #-}
     distance c1 c2 = sqrt $ (l c1-l c2)*(l c1-l c2)
                           + (a c1-a c2)*(a c1-a c2)
@@ -145,7 +145,7 @@ instance Storable a => Storable (RGB a) where
         poke (plusPtr p $ 1*sizeOf (undefined::a)) g
         poke (plusPtr p $ 2*sizeOf (undefined::a)) b
 
-instance MetricSpace (RGB Float) where
+instance Metric (RGB Float) where
     distance c1 c2 = sqrt $ (red   c1-red   c2)*(red   c1-red   c2)
                           + (green c1-green c2)*(green c1-green c2)
                           + (blue  c1-blue  c2)*(blue  c1-blue  c2)
@@ -198,10 +198,9 @@ loadColorSig debug filepath = {-# SCC loadColorSig #-} do
 
     deepseq ret $ return ret
 
-instance MetricSpace (ColorSig Float) where
+instance Metric (ColorSig Float) where
     distance = emd_float
-    isFartherThan = lb2isFartherThan emlb_float
-    isFartherThanWithDistanceCanError = lb2isFartherThanWithDistance emlb_float
+    distanceUB = lb2distanceUB emlb_float
 
 foreign import ccall unsafe "emd_float" emd_float_
     :: Ptr Float -> Int -> Ptr Float -> Int -> Ptr Float -> IO Float
@@ -238,25 +237,3 @@ centroid (ColorSig rgbV weightV) = go (VG.length rgbV-1) (CIELab 0 0 0)
             , b = b tot + b (rgbV `VG.unsafeIndex` i) * (weightV `VG.unsafeIndex` i)
             }
 
-lb2isFartherThan ::
-    ( MetricSpace a
-    , Logic a ~ Bool
-    ) => (a -> a -> Scalar a)
-      -> (a -> a -> Scalar a -> Bool)
-lb2isFartherThan lb p q bound = {-# SCC lb2isFartherThan #-} if lb p q > bound
-    then True
-    else distance p q > bound
-
-lb2isFartherThanWithDistance ::
-    ( MetricSpace a
-    , CanError (Scalar a)
-    , Logic a ~ Bool
-    ) => (a -> a -> Scalar a)
-      -> (a -> a -> Scalar a -> Scalar a)
-lb2isFartherThanWithDistance lb p q bound = {-# SCC lb2isFartherThanWithDistance #-} if lb p q > bound
-    then errorVal
-    else if dist' > bound
-        then errorVal
-        else dist'
-    where
-        dist' = distance p q

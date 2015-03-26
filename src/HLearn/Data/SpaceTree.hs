@@ -72,18 +72,19 @@ snd# :: (# a,b #) -> b
 snd# (# a,b #) = b
 
 class
-    ( MetricSpace dp
+    ( Metric dp
     , Logic (t dp) ~ Bool
     , Logic dp ~ Bool
     , Logic (LeafContainer t dp) ~ Bool
     , Logic (LeafContainer t (t dp)) ~ Bool
     , Logic (ChildContainer t (t dp)) ~ Bool
     , Eq_ (t dp)
+    , Eq_ (ChildContainer t (t dp))
     , Scalar dp ~ Scalar (t dp)
     , Elem (ChildContainer t (t dp)) ~ t dp
     , Elem (LeafContainer t dp) ~ dp
-    , Unfoldable (LeafContainer t dp)
-    , Unfoldable  (ChildContainer t (t dp))
+    , Constructible (LeafContainer t dp)
+    , Constructible  (ChildContainer t (t dp))
     , Normed (LeafContainer t dp)
     , Normed (ChildContainer t (t dp))
     , Foldable (LeafContainer t dp)
@@ -91,7 +92,7 @@ class
 --     , Container (LeafContainer t dp)
 --     , Container (LeafContainer t (t dp))
 
---     , Unfoldable (t dp)
+--     , Constructible (t dp)
     , dp ~ Elem (t dp)
     ) => SpaceTree t dp
         where
@@ -102,8 +103,8 @@ class
     type ChildContainer t :: * -> *
     type ChildContainer t = V.Vector
 
-    {-# INLINE stMinDistance #-}
-    {-# INLINE stMaxDistance #-}
+    {-# INLINABLE stMinDistance #-}
+    {-# INLINABLE stMaxDistance #-}
     stMinDistance :: t dp -> t dp -> Scalar dp
     stMinDistance t1 t2 = fst# (stMinDistanceWithDistance t1 t2)
     stMaxDistance :: t dp -> t dp -> Scalar dp
@@ -112,8 +113,8 @@ class
     stMinDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
     stMaxDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
 
-    {-# INLINE stMinDistanceDp #-}
-    {-# INLINE stMaxDistanceDp #-}
+    {-# INLINABLE stMinDistanceDp #-}
+    {-# INLINABLE stMaxDistanceDp #-}
     stMinDistanceDp :: t dp -> dp -> Scalar dp
     stMinDistanceDp t dp = fst# (stMinDistanceDpWithDistance t dp)
     stMaxDistanceDp :: t dp -> dp -> Scalar dp
@@ -135,19 +136,19 @@ class
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Scalar dp
 
-    {-# INLINE stHasNoChildren #-}
+    {-# INLINABLE stHasNoChildren #-}
     stHasNoChildren :: t dp -> Bool
     stHasNoChildren t = isEmpty $ stChildren t
 
-    {-# INLINE stChildrenList #-}
+    {-# INLINABLE stChildrenList #-}
     stChildrenList :: t dp -> [t dp]
     stChildrenList t = toList $ stChildren t
 
-    {-# INLINE stLeaves #-}
+    {-# INLINABLE stLeaves #-}
     stLeaves :: t dp -> LeafContainer t dp
     stLeaves t = zero
 
-    {-# INLINE stNodeW #-}
+    {-# INLINABLE stNodeW #-}
     stNodeW :: t dp -> Weighted# dp
     stNodeW t = (# stWeight t, stNode t #)
 

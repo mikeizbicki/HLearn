@@ -34,17 +34,16 @@ import SubHask.Compatibility.Vector.Lebesgue
 -- unsafe globals
 
 {-# NOINLINE ptsizeIO #-}
-ptsizeIO = unsafePerformIO $ newIORef (16::Int)
+ptsizeIO = unsafeDupablePerformIO $ newIORef (16::Int)
 
 {-# NOINLINE ptalignIO #-}
-ptalignIO = unsafePerformIO $ newIORef (16::Int)
+ptalignIO = unsafeDupablePerformIO $ newIORef (16::Int)
 
--- {-# NOINLINE ptsize #-}
-{-# INLINE ptsize #-}
-ptsize = unsafePerformIO $ readIORef ptsizeIO
+{-# NOINLINE ptsize #-}
+ptsize = unsafeDupablePerformIO $ readIORef ptsizeIO
 
 {-# NOINLINE ptalign #-}
-ptalign = unsafePerformIO $ readIORef ptalignIO
+ptalign = unsafeDupablePerformIO $ readIORef ptalignIO
 
 setptsize :: Int -> IO ()
 setptsize len = do
@@ -57,10 +56,10 @@ setptsize len = do
 instance VUM.Unbox elem => VUM.Unbox (L2 VU.Vector elem)
 
 data instance VUM.MVector s (L2 VU.Vector elem) = UnsafeMVector
-    { elemsizeM :: !Int
-    , elemsizerealM :: !Int
-    , lenM :: !Int
-    , vecM :: !(VUM.MVector s elem)
+    { elemsizeM     :: {-#UNPACK#-} !Int
+    , elemsizerealM :: {-#UNPACK#-} !Int
+    , lenM          :: {-#UNPACK#-} !Int
+    , vecM          :: !(VUM.MVector s elem)
     }
 
 instance
@@ -68,10 +67,10 @@ instance
     , VGM.MVector VUM.MVector elem
     ) => VGM.MVector VUM.MVector (L2 VU.Vector elem)
         where
-    {-# INLINE basicLength #-}
+    {-# INLINABLE basicLength #-}
     basicLength uv = lenM uv
 
-    {-# INLINE basicUnsafeSlice #-}
+    {-# INLINABLE basicUnsafeSlice #-}
     basicUnsafeSlice i lenM' uv = UnsafeMVector
         { elemsizeM = elemsizeM uv
         , elemsizerealM = elemsizerealM uv
@@ -79,12 +78,13 @@ instance
         , vecM = VGM.basicUnsafeSlice (i*elemsizerealM uv) (lenM'*elemsizerealM uv) $ vecM uv
         }
 
-    {-# INLINE basicOverlaps #-}
+    {-# INLINABLE basicOverlaps #-}
     basicOverlaps uv1 uv2 = VGM.basicOverlaps (vecM uv1) (vecM uv2)
 
-    {-# INLINE basicUnsafeNew #-}
+    {-# INLINABLE basicUnsafeNew #-}
     basicUnsafeNew lenM' = do
         let elemsizeM'=ptsize
+--         let elemsizerealM'=20
         let elemsizerealM'=ptalign*(ptsize `div` ptalign)
                           +if ptsize `mod` ptalign == 0 then 0 else ptalign
 
@@ -99,11 +99,21 @@ instance
             , vecM=vecM'
             }
 
-    {-# INLINE basicUnsafeRead #-}
+    {-# INLINABLE basicUnsafeRead #-}
     basicUnsafeRead uv i =
         liftM L2 $ VG.freeze $ VGM.unsafeSlice (i*elemsizerealM uv) (elemsizeM uv) (vecM uv)
 
-    {-# INLINE basicUnsafeWrite #-}
+    {-# INLINABLE basicUnsafeWrite #-}
+--     FIXME: this is probably better, but it causes GHC to panic
+--     basicUnsafeWrite uv loc v = go 0
+--         where
+--             go i = if i <= elemsizerealM uv
+--                 then do
+--                     VGM.unsafeWrite (vecM uv) (start+i) $ v `VG.unsafeIndex` i
+--                     go (i+1)
+--                 else return ()
+--             start = loc*elemsizerealM uv
+
     basicUnsafeWrite uv loc v =
         forM_ [0..elemsizeM uv-1] $ \i -> do
             let x = v `VG.unsafeIndex` i
@@ -111,23 +121,23 @@ instance
         where
             start = loc*elemsizerealM uv
 
---     {-# INLINE basicUnsafeCopy #-}
---     basicUnsafeCopy v1 v2 = VGM.basicUnsafeCopy (vecM v1) (vecM v2)
---
---     {-# INLINE basicUnsafeMove #-}
---     basicUnsafeMove v1 v2 = VGM.basicUnsafeMove (vecM v1) (vecM v2)
+    {-# INLINABLE basicUnsafeCopy #-}
+    basicUnsafeCopy v1 v2 = VGM.basicUnsafeCopy (vecM v1) (vecM v2)
 
---     {-# INLINE basicSet #-}
+    {-# INLINABLE basicUnsafeMove #-}
+    basicUnsafeMove v1 v2 = VGM.basicUnsafeMove (vecM v1) (vecM v2)
+
+--     {-# INLINABLE basicSet #-}
 --     basicSet v x = VGM.basicSet (vecM v) x
 
 -------------------------------------------------------------------------------
 -- immutable vector
 
 data instance VU.Vector (L2 VU.Vector elem) = UnsafeVector
-    { elemsize :: !Int
-    , elemsizereal :: !Int
-    , len :: !Int
-    , vec :: !(L2 VU.Vector elem)
+    { elemsize     :: {-# UNPACK #-} !Int
+    , elemsizereal :: {-# UNPACK #-} !Int
+    , len          :: {-# UNPACK #-} !Int
+    , vec          :: !(L2 VU.Vector elem)
     }
 
 instance
@@ -136,7 +146,7 @@ instance
     ) => VG.Vector VU.Vector (L2 VU.Vector elem)
         where
 
-    {-# INLINE basicUnsafeFreeze #-}
+    {-# INLINABLE basicUnsafeFreeze #-}
     basicUnsafeFreeze uv = do
         vec' <- VG.basicUnsafeFreeze (vecM uv)
         return $ UnsafeVector
@@ -146,7 +156,7 @@ instance
             , vec = L2 vec'
             }
 
-    {-# INLINE basicUnsafeThaw #-}
+    {-# INLINABLE basicUnsafeThaw #-}
     basicUnsafeThaw uv = do
         vecM' <- VG.basicUnsafeThaw (unL2 $ vec uv)
         return $ UnsafeMVector
@@ -156,19 +166,19 @@ instance
             , vecM = vecM'
             }
 
-    {-# INLINE basicLength #-}
+    {-# INLINABLE basicLength #-}
     basicLength uv = len uv
 
-    {-# INLINE basicUnsafeSlice #-}
+    {-# INLINABLE basicUnsafeSlice #-}
     basicUnsafeSlice i len' uv = uv
         { len = len'
         , vec = VG.basicUnsafeSlice (i*elemsizereal uv) (len'*elemsizereal uv) (vec uv)
         }
 
-    {-# INLINE basicUnsafeIndexM #-}
+    {-# INLINABLE basicUnsafeIndexM #-}
     basicUnsafeIndexM uv i = return $ VG.basicUnsafeSlice (i*elemsizereal uv) (elemsize uv) (vec uv)
 
---     {-# INLINE basicUnsafeCopy #-}
+--     {-# INLINABLE basicUnsafeCopy #-}
 --     basicUnsafeCopy mv v = VG.basicUnsafeCopy (vecM mv) (vec v)
 
 -------------------------------------------------------------------------------
@@ -184,12 +194,21 @@ instance
     ) => VGM.MVector VUM.MVector (Labeled' x y)
         where
 
+    {-# INLINABLE basicLength #-}
+    {-# INLINABLE basicUnsafeSlice #-}
+    {-# INLINABLE basicOverlaps #-}
+    {-# INLINABLE basicUnsafeNew #-}
+    {-# INLINABLE basicUnsafeRead #-}
+    {-# INLINABLE basicUnsafeWrite #-}
+    {-# INLINABLE basicUnsafeCopy #-}
+    {-# INLINABLE basicUnsafeMove #-}
+    {-# INLINABLE basicSet #-}
     basicLength (UMV_Labeled' v) = VGM.basicLength v
     basicUnsafeSlice i len (UMV_Labeled' v) = UMV_Labeled' $ VGM.basicUnsafeSlice i len v
     basicOverlaps (UMV_Labeled' v1) (UMV_Labeled' v2) = VGM.basicOverlaps v1 v2
     basicUnsafeNew len = liftM UMV_Labeled' $ VGM.basicUnsafeNew len
     basicUnsafeRead (UMV_Labeled' v) i = do
-        (x,y) <- VGM.basicUnsafeRead v i
+        (!x,!y) <- VGM.basicUnsafeRead v i
         return $ Labeled' x y
     basicUnsafeWrite (UMV_Labeled' v) i (Labeled' x y) = VGM.basicUnsafeWrite v i (x,y)
     basicUnsafeCopy (UMV_Labeled' v1) (UMV_Labeled' v2) = VGM.basicUnsafeCopy v1 v2
@@ -204,10 +223,15 @@ instance
     ) => VG.Vector VU.Vector (Labeled' x y)
         where
 
+    {-# INLINABLE basicUnsafeFreeze #-}
+    {-# INLINABLE basicUnsafeThaw #-}
+    {-# INLINABLE basicLength #-}
+    {-# INLINABLE basicUnsafeSlice #-}
+    {-# INLINABLE basicUnsafeIndexM #-}
     basicUnsafeFreeze (UMV_Labeled' v) = liftM UV_Labeled' $ VG.basicUnsafeFreeze v
     basicUnsafeThaw (UV_Labeled' v) = liftM UMV_Labeled' $ VG.basicUnsafeThaw v
     basicLength (UV_Labeled' v) = VG.basicLength v
     basicUnsafeSlice i len (UV_Labeled' v) = UV_Labeled' $ VG.basicUnsafeSlice i len v
     basicUnsafeIndexM (UV_Labeled' v) i = do
-        (x,y) <- VG.basicUnsafeIndexM v i
+        (!x,!y) <- VG.basicUnsafeIndexM v i
         return $ Labeled' x y

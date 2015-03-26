@@ -21,17 +21,18 @@ import System.Exit
 import System.IO
 import System.Process
 
-import Control.Lens
+import Control.Lens hiding (cons)
 import Pipes hiding (Foldable (..))
 import Pipes.Core
 -- import Text.InterpolatedString.QQ
 
 import qualified Prelude as P
 import Prelude (take,drop,map,filter,zip)
-import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask
+import SubHask.Compatibility.Containers
 import SubHask.Compatibility.HMatrix
 
-import HLearn.History
+import HLearn.History hiding (cons)
 import HLearn.Optimization.Common
 import HLearn.Optimization.LineMinimization.Univariate
 import HLearn.Optimization.LineMinimization.Multivariate
@@ -201,6 +202,12 @@ data SummaryStatistics = SummaryStatistics
     }
     deriving (Show,Typeable)
 
+type instance Logic SummaryStatistics = Bool
+
+instance Eq_ SummaryStatistics where
+    s1==s2 = numOccurances s1==numOccurances s2
+          && totalCPUTime s1==totalCPUTime s2
+
 instance Semigroup SummaryStatistics where
     ss1 + ss2 = SummaryStatistics
         { numOccurances = numOccurances ss1 + numOccurances ss2
@@ -216,11 +223,11 @@ instance Monoid SummaryStatistics where
 -- instance (Ord k, Semigroup g) => Monoid (Map.Map k g) where
 --     zero = Map.empty
 
-summaryStatistics :: DisplayMethod' (Map.Map TypeRep SummaryStatistics)
+summaryStatistics :: DisplayMethod' (Map' TypeRep SummaryStatistics)
 summaryStatistics rep = do
     m <- get
     let nextType = dynTypeRep $ dyn rep
-        newStats = case Map.lookup nextType m of
+        newStats = case m!?nextType of
             Nothing -> SummaryStatistics
                 { numOccurances = 1
                 , totalCPUTime = cpuTimeDiff rep
@@ -229,12 +236,14 @@ summaryStatistics rep = do
                 { numOccurances = numOccurances oldStats+1
                 , totalCPUTime = totalCPUTime oldStats + cpuTimeDiff rep
                 }
-    put $ Map.insert nextType newStats m
+    put $ insertAt nextType newStats m
+--     put $ (nextType,newStats) `cons` m
     lastCall rep $ do
         liftIO $ putStrLn "======================================================="
         liftIO $ putStrLn "| type                 | numOccurances | totalCPUTime | "
         liftIO $ putStrLn "======================================================="
-        forM (Map.toList m) $ \(k,v) -> do
+--         forM (Map.toList m) $ \(k,v) -> do
+        forM (toIxList m) $ \(k,v) -> do
             liftIO $ putStr $ "| "
             liftIO $ putStr $ padString (head $ words $ show k) 20
             liftIO $ putStr $ " | "
@@ -343,7 +352,7 @@ mkOptimizationPlot :: forall opt v v'.
     , v ~ v' (Scalar v)
     , VG.Vector v' (Scalar v)
     , Ord (Scalar v)
-    , InnerProductSpace v
+    , Hilbert v
     , Bounded (Scalar v)
     ) => opt v -> FilePath -> DisplayMethod' [opt v]
 mkOptimizationPlot opt path rep = do
@@ -363,7 +372,7 @@ mkOptimizationPlot opt path rep = do
     mkOptimization2d' basis f opt path rep
 
 optpath2file :: forall opt v.
-    ( InnerProductSpace v
+    ( Hilbert v
     , Show (Scalar v)
     , Has_fx1 opt v
     , Has_x1 opt v
@@ -399,7 +408,7 @@ mkOptimizationPlot' :: forall opt v v'.
     , VG.Vector v' (Scalar v)
     , Ord (Scalar v)
     , Bounded (Scalar v)
-    , InnerProductSpace v
+    , Hilbert v
     ) => V.Vector v -> (v -> Scalar v) -> opt v -> FilePath -> DisplayMethod' [opt v]
 mkOptimizationPlot' basis f opt path rep = do
     xs <- get
@@ -514,7 +523,7 @@ mkOptimization2d' :: forall opt v v'.
     , VG.Vector v' (Scalar v)
     , Ord (Scalar v)
     , Bounded (Scalar v)
-    , InnerProductSpace v
+    , Hilbert v
     ) => V.Vector v -> (v -> Scalar v) -> opt v -> FilePath -> DisplayMethod' [opt v]
 mkOptimization2d' basis f opt path rep = do
     xs <- get

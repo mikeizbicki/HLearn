@@ -25,6 +25,7 @@ module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
     where
 
 import qualified Prelude as P
+import Data.Strict.Tuple (Pair(..))
 
 import SubHask
 import SubHask.Algebra.Container
@@ -51,7 +52,7 @@ type instance Scalar (Neighbor dp) = Bool
 type instance Logic (Neighbor dp) = Bool
 
 type ValidNeighbor dp =
-    ( MetricSpace dp
+    ( Metric dp
     , Bounded (Scalar dp)
     , CanError (Scalar dp)
     , Logic dp~Bool
@@ -77,7 +78,7 @@ instance (NFData dp, NFData (Scalar dp)) => NFData (Neighbor dp) where
 data NeighborList (k :: Config Nat) dp
     = NL_Nil
     | NL_Cons {-#UNPACK#-}!(Neighbor dp) !(NeighborList k dp)
-    | NL_Err
+--     | NL_Err
 
 mkParams ''NeighborList
 
@@ -94,17 +95,17 @@ deriving instance (Show dp, Show (Scalar dp)) => Show (NeighborList k dp)
 
 instance (NFData dp, NFData (Scalar dp)) => NFData (NeighborList k dp) where
     rnf NL_Nil = ()
-    rnf NL_Err = ()
+--     rnf NL_Err = ()
     rnf (NL_Cons n ns) = ()
 --     rnf (NL_Cons n ns) = deepseq n $ rnf ns
 
 instance (ValidNeighbor dp, Eq_ dp) => Eq_ (NeighborList k dp) where
     (NL_Cons x xs) == (NL_Cons y ys) = x==y && xs==ys
     NL_Nil         == NL_Nil         = True
-    NL_Err         == NL_Err         = True
+--     NL_Err         == NL_Err         = True
     _              == _              = False
 
-property_orderedNeighborList :: (Logic dp~Bool, MetricSpace dp) => NeighborList k dp -> Bool
+property_orderedNeighborList :: (Logic dp~Bool, Metric dp) => NeighborList k dp -> Bool
 property_orderedNeighborList NL_Nil = True
 property_orderedNeighborList (NL_Cons n NL_Nil) = True
 property_orderedNeighborList (NL_Cons n (NL_Cons n2 ns)) = if neighborDistance n < neighborDistance n2
@@ -129,7 +130,7 @@ getknnL ::
     ) => NeighborList k dp -> [Neighbor dp]
 getknnL NL_Nil = []
 getknnL (NL_Cons n ns) = n:getknnL ns
-getknnL NL_Err = error "getknnL: NL_Err"
+-- getknnL NL_Err = error "getknnL: NL_Err"
 
 {-# INLINE nlMaxDist #-}
 nlMaxDist ::
@@ -140,7 +141,7 @@ nlMaxDist !nl = go nl
         go (NL_Cons n NL_Nil) = neighborDistance n
         go (NL_Cons n ns) = go ns
         go NL_Nil = maxBound
-        go NL_Err = maxBound
+--         go NL_Err = maxBound
 
 instance CanError (NeighborList k dp) where
     {-# INLINE errorVal #-}
@@ -155,7 +156,7 @@ instance CanError (NeighborList k dp) where
 instance
 --     ( KnownNat k
     ( ViewParam Param_k (NeighborList k dp)
-    , MetricSpace dp
+    , Metric dp
     , Eq dp
     , ValidNeighbor dp
     ) => Monoid (NeighborList k dp)
@@ -166,7 +167,7 @@ instance
 
 instance
     ( ViewParam Param_k (NeighborList k dp)
-    , MetricSpace dp
+    , Metric dp
     , Eq dp
     , ValidNeighbor dp
     ) => Semigroup (NeighborList k dp)
@@ -244,8 +245,8 @@ findEpsilonNeighborListWith ::
 findEpsilonNeighborListWith !knn !epsilon !t !query =
     {-# SCC findEpsilonNeighborListWith #-}
 --     prunefoldC (knn_catadp smudge query) knn t
-    prunefoldB_CanError_sort query (knn_catadp smudge query) (knn_cata_dist smudge query) knn t
---     prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
+--     prunefoldB_CanError_sort query (knn_catadp smudge query) (knn_cata_dist smudge query) knn t
+    prunefoldB_CanError (knn_catadp smudge query) (knn_cata smudge query) knn t
 --     prunefoldD (knn_catadp smudge query) (knn_cata2 smudge query) knn t
     where
         smudge = 1/(1+epsilon)
@@ -255,7 +256,7 @@ findEpsilonNeighborListWith !knn !epsilon !t !query =
 knn_catadp :: forall k dp.
 --     ( KnownNat k
     ( ViewParam Param_k (NeighborList k dp)
-    , MetricSpace dp
+    , Metric dp
     , Eq dp
     , CanError (Scalar dp)
     , ValidNeighbor dp
@@ -263,12 +264,15 @@ knn_catadp :: forall k dp.
 knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
     -- dist==0 is equivalent to query==dp,
     -- but we have to calculate dist anyways so it's faster
-    if dist==0 || isError dist
+    if dist==0 || dist>bound
+--     if dist==0 || isError dist
         then knn
         else nlAddNeighbor knn $ Neighbor dp dist
     where
-        dist = isFartherThanWithDistanceCanError dp query
-             $ nlMaxDist knn * smudge
+        dist = distanceUB dp query bound
+        bound = smudge*nlMaxDist knn
+--         dist = isFartherThanWithDistanceCanError dp query
+--              $ nlMaxDist knn * smudge
 
 -- {-# INLINABLE knn_cata #-}
 {-# INLINE knn_cata #-}
@@ -293,12 +297,19 @@ knn_cata !smudge !query !t !knn = {-# SCC knn_cata #-}
              $ nlMaxDist knn * smudge
 
 {-# INLINABLE prunefoldB_CanError_sort #-}
-prunefoldB_CanError_sort :: (SpaceTree t a, b ~ NeighborList k a, ClassicalLogic a, CanError (Scalar a), Bounded (Scalar a)) =>
+prunefoldB_CanError_sort ::
+    ( SpaceTree t a
+    , ValidNeighbor a
+    , b ~ NeighborList k a
+    , ClassicalLogic a
+    , CanError (Scalar a)
+    , Bounded (Scalar a)
+    ) =>
     a -> (a -> b -> b) -> (Scalar a -> t a -> b -> b) -> b -> t a -> b
 prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort #-}
-    go ( distance (stNode t) query, t ) b
+    go ( distance (stNode t) query :!: t ) b
     where
-        go !( dist,t ) !b =  if isError res
+        go !( dist :!: t ) !b =  if isError res
             then b
             else foldr' go b'' children'
                 where
@@ -306,8 +317,9 @@ prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort
                     b'' = foldr' f1 res (stLeaves t)
 
                     children'
-                        = {-# SCC children' #-} qsortHalf (\( d1,_ ) ( d2,_ ) -> compare d2 d1)
-                        $  map (\x -> ( stIsMinDistanceDpFartherThanWithDistanceCanError x query $ maxdist, x ))
+                        = {-# SCC children' #-} qsortHalf (\( d1 :!: _ ) ( d2 :!: _ ) -> compare d2 d1)
+                        $  map (\x -> ( stIsMinDistanceDpFartherThanWithDistanceCanError x query maxdist
+                                      :!: x ))
 --                         $ map (\x -> ( distanceUB (stNode x) query (lambda t+maxdist), x ))
 --                         $ map (\x -> ( distance (stNode x) query , x ))
                         $ toList
@@ -367,7 +379,7 @@ findAllNeighbors :: forall k dp t.
     , ValidNeighbor dp
     ) => Scalar dp -> t dp -> [dp] -> Seq (dp,NeighborList k dp)
 findAllNeighbors epsilon rtree qs = reduce $ map
-    (\dp -> singletonAt dp $ findEpsilonNeighborListWith zero epsilon rtree dp)
+    (\dp -> singleton (dp, findEpsilonNeighborListWith zero epsilon rtree dp))
     qs
 
 {-# INLINABLE findAllNeighbors' #-}

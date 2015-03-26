@@ -19,7 +19,7 @@ import System.Directory
 --------------------------------------------------------------------------------
 
 class
-    ( MetricSpace v
+    ( Metric v
     , Ord (Scalar v)
     , HasScalar v
     , Floating (Scalar v)
@@ -84,7 +84,7 @@ instance KernelSpace v => KernelSpace (SelfKernel v) where
 instance KernelSpace v => Normed (SelfKernel v) where
     size = kernelNorm
 
-instance KernelSpace v => MetricSpace (SelfKernel v) where
+instance KernelSpace v => Metric (SelfKernel v) where
     distance = kernelDistance
 
 --------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ mkGraph g_ = Graph
             where
                 tm'' = tm' * transitionMatrix g_
 
-instance MetricSpace Graph where
+instance Metric Graph where
     distance (Graph _ xs) (Graph _ ys) = sqrt $ sum
         [ lambda * (x-y)**2
         | (lambda,x,y) <- zip3 lambdas xs ys
@@ -230,7 +230,7 @@ mkKernelGraph_ xs g1 g2 = go xs one 0
 mag :: Graph_ -> Double
 mag g = startVec g <> (transitionMatrix g `mXv` stopVec g)
 
-instance MetricSpace Graph_ where
+instance Metric Graph_ where
     distance = kernelDistance
 
 edgeList2UndirectedGraph :: Int -> [(Int,Int)] -> Graph

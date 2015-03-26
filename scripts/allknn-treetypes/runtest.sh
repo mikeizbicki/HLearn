@@ -24,9 +24,8 @@ echo "--------------------------------------------------------------------------
 hlearn_neighbors="./neighbors_hlearn.csv"
 hlearn_distances="./distances_hlearn.csv"
 
-verbose="--verbose"
+#verbose="--verbose"
 optimization="--varshift"
-#method="--train-method=traininsert"
 
 #methodlist="trainmonoid traininsert_nosort traininsert_sort traininsert_parent traininsert_ancestor traininsert_orig"
 methodlist="traininsert_orig"

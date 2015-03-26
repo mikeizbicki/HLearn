@@ -130,7 +130,7 @@ validateM :: forall model g container m.
     , Eq (Label (Datapoint model))
     , F.Foldable container
     , Foldable (container (Datapoint model))
-    , Unfoldable (container (Datapoint model))
+    , Constructible (container (Datapoint model))
     , Elem (container (Datapoint model)) ~ Datapoint model
     , HistoryMonad m
     ) => SamplingMethod

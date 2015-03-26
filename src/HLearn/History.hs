@@ -1,6 +1,6 @@
 module HLearn.History
     (
-    DynamicHistory
+    DynamicHistory (..)
     , runDynamicHistory
     , runDynamicHistoryWithState
 --     , report
