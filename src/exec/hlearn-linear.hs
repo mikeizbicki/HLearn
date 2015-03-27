@@ -5,10 +5,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
 
-import Control.Applicative
+-- import Control.Applicative
 import Control.DeepSeq
-import Control.Monad
+-- import Control.Monad
 import Control.Monad.Random
 import Data.List.Extras
 import Data.Maybe
@@ -34,7 +36,7 @@ import Data.Version
 import Paths_HLearn
 
 import SubHask
-import SubHask.Algebra.HMatrix
+import SubHask.Compatibility.HMatrix
 -- import HLearn.Algebra
 import HLearn.Evaluation.CrossValidation
 import HLearn.History
@@ -55,8 +57,18 @@ import HLearn.Optimization.GradientDescent
 -- import qualified HLearn.Optimization.Common as Recipe
 -- import HLearn.Optimization.Trace
 
-import Timing
-import LoadData
+import HLearn.History.Timing
+import HLearn.Data.LoadData
+
+instance
+    ( Logic (Scalar x)~Bool
+    , HasScalar x
+    ) => Labeled (Labeled' x y) where
+    type Label (Labeled' x y) = y
+    type Attributes (Labeled' x y) = x
+
+    getLabel = yLabeled'
+    getAttributes = xLabeled'
 
 -------------------------------------------------------------------------------
 -- command line parameters
@@ -181,13 +193,15 @@ main = do
     -----------------------------------
     -- load data
 
-    dps :: V.Vector (MaybeLabeled String (Vector Double))
-        <- loadLabeledNumericData $ DataParams
-            { datafile  = fromJust $ data_file params
-            , labelcol  = Just $ label_col params
-            , pca       = pca_data params
-            , varshift  = False
-            }
+--     dps :: V.Vector (Labeled' (Vector Double) Int)
+--         <- loadLabeledNumericData $ DataParams
+--             { datafile  = fromJust $ data_file params
+--             , labelcol  = Just $ label_col params
+--             , pca       = pca_data params
+--             , varshift  = False
+--             }
+    dps :: Array (Labeled' (Vector Double) Int)
+        <- loadCSVLabeled (fromJust $ data_file params) (label_col params)
 
     -----------------------------------
     -- test parameters
@@ -196,7 +210,7 @@ main = do
             []
 --             [ traceBFGS
 --             , traceNewtonRaphson
---             , traceLinearClassifier (undefined::MaybeLabeled String (Vector Double))
+--             , traceLinearClassifier (undefined::Labeled' (Vector Double) Int)
 --             ]
 
 --     let withMonoid :: ( Monad m )
@@ -206,20 +220,23 @@ main = do
 --                    -> ( [dp] -> m model )
 --         withMonoid f n _train dps = liftM (F.foldl1 f) $ mapM _train $ partition n dps
 
-    let reg = case regType params of
+    let reg :: C2Function (Vector Double)
+        reg = case regType params of
             "L1" -> l1reg
             "L2" -> l2reg
             "ElasticNet" -> elasticNet
 
-    let readMonoidType = read $ monoidType params :: MonoidType
-    let monoidOperation = case readMonoidType of
+    let monoidOperation = error "monoidOperation"
+    let readMonoidType = MappendAverage
+--     let readMonoidType = read $ monoidType params :: MonoidType
+--     let monoidOperation = case readMonoidType of
 --             MappendAverage -> mappendAverage
 --             MappendTaylor -> mappendQuadratic
 --             MappendUpperBound -> mappendQuadratic
 --             MixtureUpperTaylor _ -> mappendQuadratic
 --             MixtureAveTaylor _ -> mappendQuadratic
 --             MixtureAveUpper _ -> mappendQuadratic
-            otherwise -> error $ "monoidtype ["++monoidType params++"] not supported"
+--             otherwise -> error $ "monoidtype ["++monoidType params++"] not supported"
 --     seq monoidOperation $ return ()
 
     let maxdpselector :: SamplingMethod -> SamplingMethod
@@ -250,7 +267,7 @@ main = do
             , Reportable m (LineBracket Double)
             , Reportable m (Brent Double)
             , Reportable m (ConjugateGradientDescent (Vector Double))
-            ) => OptimizationMethod m (MaybeLabeled String (Vector Double))
+            ) => OptimizationMethod m (Labeled' (Vector Double) Int)
         optMethod = cgd
 --         optMethod = sgd
 --             [ maxIterations $ maxitr params ]
@@ -262,27 +279,27 @@ main = do
     -----------------------------------
     -- single models
 
-    when (noCV params) $ do
-        model <- runDynamicHistory
-            ( summaryStatistics
-          === removeLineMin
-            ||| linearTrace
-          === allowFirstPass (undefined::ConjugateGradientDescent (Vector Double))
-            ||| mkOptimizationPlot
-                ( undefined::ConjugateGradientDescent (Vector Double))
-                "optplot.dat"
-            )
-            ( trainLinearClassifier
-                readMonoidType
-                ( regAmount params )
-                reg
-                logloss
-                optMethod
-                dps
-            )
-
-        timeIO "training model" $ deepseq model $ return ()
-        exitSuccess
+--     when (noCV params) $ do
+--         model <- runDynamicHistory
+--             ( summaryStatistics
+--           === removeLineMin
+--             ||| linearTrace
+--           === allowFirstPass (undefined::ConjugateGradientDescent (Vector Double))
+--             ||| mkOptimizationPlot
+--                 ( undefined::ConjugateGradientDescent (Vector Double))
+--                 "optplot.dat"
+--             )
+--             ( trainLinearClassifier
+--                 readMonoidType
+--                 ( regAmount params )
+--                 reg
+--                 logloss
+--                 optMethod
+--                 dps
+--             )
+--
+--         timeIO "training model" $ deepseq model $ return ()
+--         exitSuccess
 
     -----------------------------------
     -- run cv tests
@@ -299,7 +316,7 @@ main = do
             ( --withMonoid monoidOperation (monoidSplits params) $
                 trainLinearClassifier
                     ( readMonoidType )
-                    ( regAmount params )
+                    ( 0 ) -- regAmount params )
                     reg
                     logloss
                     optMethod

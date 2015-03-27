@@ -3,10 +3,10 @@
 module HLearn.History.DisplayMethods
     where
 
-import Control.Monad.Identity
+-- import Control.Monad.Identity
 import Control.Monad.Random
-import Control.Monad.State.Strict
-import Control.Monad.Trans
+import Control.Monad.State.Strict (get,put,runStateT)
+-- import Control.Monad.Trans
 import Data.List hiding (concat,elem,maximum,minimum,length,(!!))
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
@@ -31,6 +31,7 @@ import Prelude (take,drop,map,filter,zip)
 import SubHask
 import SubHask.Compatibility.Containers
 import SubHask.Compatibility.HMatrix
+import SubHask.Monad
 
 import HLearn.History hiding (cons)
 import HLearn.Optimization.Common
@@ -165,13 +166,13 @@ infixl 6 ===
 
 -------------------
 
-firstCall :: Monad m => Report DynamicHistory -> m () -> m ()
+firstCall :: Monad Hask m => Report DynamicHistory -> m () -> m ()
 firstCall rep f = forEach StartHistory rep $ \_ -> f
 
-lastCall :: Monad m => Report DynamicHistory -> m () -> m ()
+lastCall :: Monad Hask m => Report DynamicHistory -> m () -> m ()
 lastCall rep f = forEach EndHistory rep $ \_ -> f
 
-forEach :: forall a m. (Typeable a, Monad m) => a -> Report DynamicHistory -> (a -> m ()) -> m ()
+forEach :: forall a m. (Typeable a, Monad Hask m) => a -> Report DynamicHistory -> (a -> m ()) -> m ()
 forEach a rep f = case fromDynamic $ dyn rep :: Maybe a of
     Nothing -> return ()
     Just x -> f x

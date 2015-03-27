@@ -28,22 +28,24 @@ module HLearn.History
     , StartHistory (..)
     , EndHistory (..)
 
-    , module Control.Applicative
+--     , module Control.Applicative
     , module Control.DeepSeq
     , module Control.Lens
-    , module Control.Monad
+--     , module Control.Monad
     , module Data.Typeable
     , module Data.Dynamic
+
+    , module SubHask.Monad
     )
     where
 
-import Control.Applicative
+import qualified Prelude as P
+
 import Control.DeepSeq
 import Control.Lens
-import Control.Monad
-import Control.Monad.Identity
-import Control.Monad.State.Strict
-import Control.Monad.Trans
+import Control.Monad.Identity     hiding (Functor (..), Monad(..), join)
+import Control.Monad.State.Strict hiding (Functor (..), Monad(..), join)
+import Control.Monad.Trans        hiding (Functor (..), Monad(..))
 import Data.Dynamic
 import Data.Typeable
 import System.CPUTime
@@ -51,12 +53,13 @@ import System.IO
 
 import Pipes
 
-import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask
+import SubHask.Monad
 
 -------------------------------------------------------------------------------
 -- data types
 
-class (Functor m, Monad m, Boolean (m Bool)) => HistoryMonad m where
+class (P.Monad m, P.Functor m, Functor Hask m, Monad Hask m, Boolean (m Bool)) => HistoryMonad m where
     type Reportable m a :: Constraint
     type Reportable m a = ()
 
@@ -106,7 +109,17 @@ idDisplayMethod _ = return ()
 -- SimpleHistory
 
 newtype SimpleHistory a = SimpleHistory (State [Int] a)
-    deriving (Functor,Applicative,Monad)
+    deriving (P.Functor,P.Monad)
+
+instance Functor Hask SimpleHistory where
+    fmap f (SimpleHistory s) = SimpleHistory (fmap f s)
+
+instance Then SimpleHistory where
+    (>>) = haskThen
+
+instance Monad Hask SimpleHistory where
+    return_ a = SimpleHistory $ return_ a
+    join (SimpleHistory s) = SimpleHistory $ join (fmap (\(SimpleHistory s)->s) s)
 
 type instance Logic (SimpleHistory a) = SimpleHistory (Logic a)
 
@@ -194,7 +207,17 @@ instance HistoryMonad SimpleHistory where
 -- DynamicHistory
 
 newtype DynamicHistory a = DynamicHistory (Producer (Report DynamicHistory) (StateT [Report DynamicHistory] IO) a)
-    deriving (Functor,Applicative,Monad)
+    deriving (P.Functor,P.Monad)
+
+instance Functor Hask DynamicHistory where
+    fmap f (DynamicHistory s) = DynamicHistory (fmap f s)
+
+instance Then DynamicHistory where
+    (>>) = haskThen
+
+instance Monad Hask DynamicHistory where
+    return_ a = DynamicHistory $ return_ a
+    join (DynamicHistory s) = DynamicHistory $ join (fmap (\(DynamicHistory s)->s) s)
 
 type instance Logic (DynamicHistory a) = DynamicHistory (Logic a)
 

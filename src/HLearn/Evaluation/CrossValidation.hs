@@ -2,10 +2,10 @@
 module HLearn.Evaluation.CrossValidation
     where
 
-import Control.Monad
+-- import Control.Monad
 import Control.Monad.Random hiding (fromList)
-import Control.Monad.ST
-import Control.Monad.Trans
+-- import Control.Monad.ST
+import Control.Monad.Trans (lift)
 import Data.Array.ST
 import qualified GHC.Arr as Arr
 import qualified Data.Foldable as F
@@ -19,7 +19,9 @@ import Debug.Trace
 import qualified Data.DList as D
 import Prelude (take,drop,map,filter,zip)
 
-import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask
+import SubHask.Monad
+
 import HLearn.History
 import HLearn.Models.Distributions.Common
 import HLearn.Models.Distributions.Univariate.Normal
@@ -29,7 +31,9 @@ import HLearn.Models.Classifiers.Common
 -------------------------------------------------------------------------------
 -- standard k-fold cross validation
 
-type SamplingMethod = forall dp r. (Eq dp, MonadRandom r) => [dp] -> r [([dp],[dp])]
+type MonadRandom_ m = (Monad Hask m, MonadRandom m)
+
+type SamplingMethod = forall dp r. (Eq dp, MonadRandom_ r) => [dp] -> r [([dp],[dp])]
 
 repeatExperiment :: Int -> SamplingMethod -> SamplingMethod
 repeatExperiment n f xs =
@@ -84,7 +88,7 @@ kfold k xs = do
 -- numSamples n f dps = f $ take n dps
 
 -- | randomly shuffles a list in time O(n log n); see http://www.haskell.org/haskellwiki/Random_shuffle
-shuffle :: (Eq a, MonadRandom m) => [a] -> m [a]
+shuffle :: (Eq a, MonadRandom_ m) => [a] -> m [a]
 shuffle xs = do
     let l = length xs
     rands <- take l `liftM` getRandomRs (0, l-1)
@@ -128,7 +132,6 @@ validateM :: forall model g container m.
     , RandomGen g
     , Eq (Datapoint model)
     , Eq (Label (Datapoint model))
-    , F.Foldable container
     , Foldable (container (Datapoint model))
     , Constructible (container (Datapoint model))
     , Elem (container (Datapoint model)) ~ Datapoint model
@@ -139,7 +142,7 @@ validateM :: forall model g container m.
       -> (container (Datapoint model) -> m model)
       -> RandT g m (Normal Double)
 validateM samplingMethod loss xs trainM = do
-    xs' <- samplingMethod $ F.toList xs
+    xs' <- samplingMethod $ toList xs
     lift $ collectReports $ fmap trainNormal $ forM xs' $ \(trainingset, testset) -> do
         model <- trainM (fromList trainingset)
         return $ loss model testset

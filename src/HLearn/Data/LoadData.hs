@@ -45,7 +45,7 @@ import HLearn.History.Timing
 import HLearn.Models.Classifiers.Common
 
 import Debug.Trace
-import Prelude (asTypeOf,unzip)
+import Prelude (asTypeOf,unzip,head)
 import qualified Prelude as P
 
 --------------------------------------------------------------------------------
@@ -155,9 +155,9 @@ data DataParams = DataParams
     , varshift :: Bool
     }
 
-head x = case uncons x of
-    Nothing -> error "head on empty"
-    Just (x,_) -> x
+-- head x = case uncons x of
+--     Nothing -> error "head on empty"
+--     Just (x,_) -> x
 
 {-# INLINABLE loadCSV #-}
 loadCSV ::
@@ -190,6 +190,8 @@ loadCSVLabeled ::
     , v ~ (v1 v2)
     , VG.Vector v1 v2
     , Eq v
+    , NFData (v1 v2)
+    , NFData k
     ) => FilePath -> Int -> IO (Array (Labeled' v k))
 loadCSVLabeled filepath n = do
     xs :: [[String]]
@@ -198,7 +200,8 @@ loadCSVLabeled filepath n = do
     let ks = map (head . drop n) xs
         vs = map (take n + drop (n+1)) xs
 
-    return $ fromList $ zipWith Labeled' (map (listToVector . map read) vs) (map read ks)
+    x <- return $ fromList $ zipWith Labeled' (map (listToVector . map read) vs) (map read ks)
+    deepseq x $ trace "loaded" $ return x
 
 {-# INLINABLE loaddata #-}
 loaddata ::

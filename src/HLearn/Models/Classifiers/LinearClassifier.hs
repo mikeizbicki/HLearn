@@ -5,14 +5,13 @@ module HLearn.Models.Classifiers.LinearClassifier
 import Data.Data
 import Control.DeepSeq
 import Control.Lens
-import Control.Monad
+-- import Control.Monad
 import Control.Monad.Random
 import Data.Dynamic
 import Data.List.Extras
 import Data.Maybe
 import Data.Typeable
 import qualified Data.ByteString.Lazy as BS
-import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Vector as V
@@ -29,6 +28,7 @@ import qualified Prelude as P
 import Prelude (take,drop,map,filter,zip,head)
 import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return, argmax)
 import SubHask.Compatibility.HMatrix
+import SubHask.Monad
 
 -- import HLearn.Algebra
 import HLearn.History
@@ -202,7 +202,9 @@ monoidMixRate _                     = 0
 
 trainLinearClassifier :: forall dp vec r container m.
     ( Labeled dp
-    , Ord (Label dp)
+--     , Ord (Label dp)
+    , Logic (Label dp)~Bool
+    , Eq_ (Label dp)
     , Attributes dp ~ vec r
     , Scalar dp ~ r
     , Normed r
@@ -213,7 +215,8 @@ trainLinearClassifier :: forall dp vec r container m.
     , Hilbert (vec r)
     , VectorSpace (Outer (vec r))
     , Floating r
-    , F.Foldable container
+    , Foldable (container dp)
+    , Elem (container dp)~dp
     , VG.Vector vec r
     , P.Ord (Label dp)
     , Eq dp
@@ -248,7 +251,9 @@ trainLinearClassifier monoidtype lambda c2reg c2loss optMethod dps
 
 warmStartLinearClassifier :: forall dp vec r container m.
     ( Labeled dp
-    , Ord (Label dp)
+--     , Ord (Label dp)
+    , Logic (Label dp)~Bool
+    , Eq_ (Label dp)
     , Attributes dp ~ vec r
     , Scalar dp ~ r
     , Normed r
@@ -259,7 +264,8 @@ warmStartLinearClassifier :: forall dp vec r container m.
     , Hilbert (vec r)
     , VectorSpace (Outer (vec r))
     , Floating r
-    , F.Foldable container
+    , Foldable (container dp)
+    , Elem (container dp)~dp
     , VG.Vector vec r
     , P.Ord (Label dp)
     , Eq dp
@@ -294,12 +300,12 @@ warmStartLinearClassifier monoidtype lambda c2reg c2loss optMethod dps weights0 
     weights' <- collectReports $ fmap Map.fromList $ go $ Map.assocs weights0
     report $ LinearClassifier
         { weights = weights'
-        , datapoints = V.fromList $ F.toList dps
+        , datapoints = V.fromList $ toList dps
         , reg= lambda
         }
     where
         n :: Label dp -> Scalar dp
-        n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ F.toList dps
+        n l = fromIntegral $ length $ filter (\dp -> getLabel dp ==l) $ toList dps
 
         -- the weights for the last label are set to zero;
         -- this is equivalent to running the optimization procedure,
@@ -329,7 +335,8 @@ type OptimizationMethod m dp =
     , Reportable m (Scalar (Attributes dp))
     , Reportable m dp
     ) => forall container.
-      ( F.Foldable container
+      ( Foldable (container dp)
+      , dp ~ Elem (container dp)
       , Typeable container
       ) => container dp -> C2Loss dp -> Attributes dp -> m (Attributes dp)
 
@@ -465,8 +472,8 @@ logSumOfExp2 x1 x2 = m + log ( exp (x1-m) + exp (x2-m) )
         m = max x1 x2
 
 -- sumOver :: (F.Foldable container, Semigroup r) => container x -> (x -> r) -> r
-sumOver :: (F.Foldable container, Monoid r) => container x -> (x -> r) -> r
-sumOver xs f = F.foldl' (\a b -> a + f b) zero xs
+sumOver :: (x~Elem (container x),Foldable (container x), Monoid r) => container x -> (x -> r) -> r
+sumOver xs f = foldl' (\a b -> a + f b) zero xs
 
 
 -- zeroWeights :: forall dp vec r container.
@@ -488,8 +495,8 @@ sumOver xs f = F.foldl' (\a b -> a + f b) zero xs
 --     ) => container dp -> Map.Map (Label dp) (Attributes dp)
 zeroWeights dps = Map.fromList [ (label,VG.replicate dim zero) | label <- labels ]
     where
-        labels = map getLabel $ F.toList dps
-        dim = VG.length $ getAttributes $ head $ F.toList dps
+        labels = map getLabel $ toList dps
+        dim = VG.length $ getAttributes $ head $ toList dps
 
 -- centroidtrain :: forall dp vec r container.
 --     ( Ord dp
