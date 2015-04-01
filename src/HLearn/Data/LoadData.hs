@@ -226,7 +226,6 @@ loaddata params = do
     disableMultithreading $ do
 
         rs' <- if pca params
---             then error "pca disabled"
             then time "calculating PCA" $ VG.convert $ rotatePCA rs
             else return rs
 

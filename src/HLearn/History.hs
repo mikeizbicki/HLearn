@@ -1,47 +1,27 @@
+{-# LANGUAGE OverlappingInstances #-}
 module HLearn.History
     (
-    DynamicHistory (..)
-    , runDynamicHistory
-    , runDynamicHistoryWithState
---     , report
---     , collectReports
+    History
+--     , History_DW
+--     , History'
+    , History_
+    , runHistory
+    , beginFunction
+
+    , DisplayWrapper(..)
+
+    , report
+    , collectReports
 --     , prevReport
---     , currentItr
+    , currentItr
 
-    , SimpleHistory
-    , runSimpleHistory
-
-    , HistoryMonad (..)
-    , Reportable (..)
-    , Report (..)
-    , CPUTime
-
-    , mkDisplayFunction
-    , idDisplayFilter
-    , idDisplayMethod
-    , DisplayFunction
-    , DisplayFilter
-    , DisplayFilter'
-    , DisplayMethod
-    , DisplayMethod'
-    , StartCollection (..)
-    , StartHistory (..)
-    , EndHistory (..)
-
---     , module Control.Applicative
-    , module Control.DeepSeq
     , module Control.Lens
---     , module Control.Monad
-    , module Data.Typeable
-    , module Data.Dynamic
-
     , module SubHask.Monad
     )
     where
 
 import qualified Prelude as P
 
-import Control.DeepSeq
 import Control.Lens
 import Control.Monad.Identity     hiding (Functor (..), Monad(..), join)
 import Control.Monad.State.Strict hiding (Functor (..), Monad(..), join)
@@ -55,10 +35,11 @@ import Pipes
 
 import SubHask
 import SubHask.Monad
+import SubHask.Category.Trans.Constrained
 
 -------------------------------------------------------------------------------
--- data types
 
+{-
 class (P.Monad m, P.Functor m, Functor Hask m, Monad Hask m, Boolean (m Bool)) => HistoryMonad m where
     type Reportable m a :: Constraint
     type Reportable m a = ()
@@ -70,8 +51,6 @@ class (P.Monad m, P.Functor m, Functor Hask m, Monad Hask m, Boolean (m Bool)) =
     prevReport :: m (Report m)
     currentItr :: Ring r => m r
 
-type CPUTime = Integer
-
 data StartCollection = StartCollection
     deriving (Show,Typeable)
 
@@ -80,271 +59,167 @@ data StartHistory = StartHistory
 
 data EndHistory = EndHistory
     deriving (Show,Typeable)
-
-type DisplayFilter = DisplayFilter' ()
-type DisplayMethod = DisplayMethod' ()
-
-type DisplayFilter' s = Report DynamicHistory -> StateT s IO Bool
-type DisplayMethod' s = Report DynamicHistory -> StateT s IO ()
-
+-}
 
 -------------------------------------------------------------------------------
 
-type DisplayFunction = Report DynamicHistory -> String
+class DisplayWrapper disp a where
+    display :: Report -> proxy disp -> a -> IO ()
 
-mkDisplayFunction :: forall a. Typeable a => (a -> String) -> DisplayFunction
-mkDisplayFunction f x = case fromDynamic $ dyn x :: Maybe a of
-    Nothing -> ""
-    Just y -> f y
+-- type History a = forall (disp :: *). DisplayWrapper disp a => History_ disp a
+-- type History a = Show a => forall (disp :: *). History_ disp a
+type History a = Show a => History' a
+type History' a = forall disp. History_ disp a
 
-{-# INLINE idDisplayFilter #-}
-idDisplayFilter :: DisplayFilter
-idDisplayFilter _ = return True
+-- type History' disp a =
+--     ( DisplayWrapper (disp :: *) a
+--     , DisplayWrapper disp [Char]
+--     , DisplayWrapper disp Bool
+--     ) => History_ disp a
+-- type History_DW a = Show a => forall (disp :: *).
+--     ( DisplayWrapper disp a
+--     , DisplayWrapper disp [Char]
+--     , DisplayWrapper disp Bool
+-- --     , DisplayWrapper disp b
+--     )=> History_ disp a
 
-{-# INLINE idDisplayMethod #-}
-idDisplayMethod :: DisplayMethod
-idDisplayMethod _ = return ()
+newtype History_ (disp :: *) a = History_ (StateT [Report] IO a)
 
--------------------------------------------------------------------------------
--- SimpleHistory
-
-newtype SimpleHistory a = SimpleHistory (State [Int] a)
-    deriving (P.Functor,P.Monad)
-
-instance Functor Hask SimpleHistory where
-    fmap f (SimpleHistory s) = SimpleHistory (fmap f s)
-
-instance Then SimpleHistory where
-    (>>) = haskThen
-
-instance Monad Hask SimpleHistory where
-    return_ a = SimpleHistory $ return_ a
-    join (SimpleHistory s) = SimpleHistory $ join (fmap (\(SimpleHistory s)->s) s)
-
-type instance Logic (SimpleHistory a) = SimpleHistory (Logic a)
-
-runSimpleHistory :: SimpleHistory a -> a
-runSimpleHistory (SimpleHistory m) = (fst.runState m) [0]
-
-instance Eq_ a => Eq_ (SimpleHistory a) where
-    a==b = do
-        a' <- a
-        b' <- b
-        return $ a'==b'
-
-instance POrd_ a => POrd_ (SimpleHistory a) where
-    {-# INLINABLE inf #-}
-    inf a b = do
-        a' <- a
-        b' <- b
-        return $ inf a' b'
-
-instance Lattice_ a => Lattice_ (SimpleHistory a) where
-    {-# INLINABLE sup #-}
-    sup a b = do
-        a' <- a
-        b' <- b
-        return $ sup a' b'
-
-instance MinBound_ a => MinBound_ (SimpleHistory a) where
-    minBound = return $ minBound
-
-instance Bounded a => Bounded (SimpleHistory a) where
-    maxBound = return $ maxBound
-
-instance Heyting a => Heyting (SimpleHistory a) where
-    (==>) a b = do
-        a' <- a
-        b' <- b
-        return $ a' ==> b'
-
-instance Complemented a => Complemented (SimpleHistory a) where
-    not a = do
-        a' <- a
-        return $ not a'
-
-instance Boolean a => Boolean (SimpleHistory a)
-
-instance HistoryMonad SimpleHistory where
-    type Reportable SimpleHistory a = ()
-    newtype Report SimpleHistory = Report_SimpleHistory Int
-
-    {-# INLINE report #-}
-    report a = SimpleHistory $ do
-        x:xs <- get
-        put $ (x+1):xs
-        return a
-
-    {-# INLINE collectReports #-}
-    collectReports (SimpleHistory m) = SimpleHistory $ do
-        x:xs <- get
-        put $ 0:x:xs
-        a <- m
-        put $ x:xs
-        return a
-
-    {-# INLINE prevReport #-}
-    prevReport = SimpleHistory $ do
-        x:_ <- get
-        return $ Report_SimpleHistory x
-
-    {-# INLINE currentItr #-}
-    currentItr = SimpleHistory $ do
-        x:_ <- get
-        return $ fromIntegral x
---     type Reportable m a :: Constraint
---     type Reportable m a = ()
---
---     data Report m
---
---     report :: Reportable m a => a -> m a
---     collectReports :: m a -> m a
---     prevReport :: m (Report m)
---     currentItr :: Ring r => m r
-
-
--------------------------------------------------------------------------------
--- DynamicHistory
-
-newtype DynamicHistory a = DynamicHistory (Producer (Report DynamicHistory) (StateT [Report DynamicHistory] IO) a)
-    deriving (P.Functor,P.Monad)
-
-instance Functor Hask DynamicHistory where
-    fmap f (DynamicHistory s) = DynamicHistory (fmap f s)
-
-instance Then DynamicHistory where
-    (>>) = haskThen
-
-instance Monad Hask DynamicHistory where
-    return_ a = DynamicHistory $ return_ a
-    join (DynamicHistory s) = DynamicHistory $ join (fmap (\(DynamicHistory s)->s) s)
-
-type instance Logic (DynamicHistory a) = DynamicHistory (Logic a)
-
-instance Eq_ a => Eq_ (DynamicHistory a) where
-    a==b = do
-        a' <- a
-        b' <- b
-        return $ a'==b'
-
-runDynamicHistory :: Monoid s => DisplayMethod' s -> DynamicHistory a -> IO a
-runDynamicHistory = runDynamicHistoryWithState zero
-
-runDynamicHistoryWithState :: forall s a. s -> DisplayMethod' s -> DynamicHistory a -> IO a
-runDynamicHistoryWithState s f hist = do
+-- runHistory :: forall a disp. DisplayWrapper disp a => History_ (disp :: *) a -> IO a
+runHistory :: forall a disp. History_ disp a -> IO a
+runHistory (History_ hist) = do
     time <- getCPUTime
-    let startReport =
-            Report
-                { cpuTime       = time
-                , cpuTimeDiff   = 0
-                , dyn           = toDyn StartCollection
-                , numReports    = 0
-                , reportLevel   = 0
-                }
-    let (DynamicHistory hist') = do
-            report StartHistory
-            a <- hist
-            report EndHistory
-            return a
-    evalStateT (runEffect $ hist' >-> go s) [startReport]
+    let startReport = Report
+            { cpuTime       = time
+            , cpuTimeDiff   = 0
+            , numReports    = 0
+            , reportLevel   = 0
+            }
 
+    evalStateT hist [startReport]
+
+beginFunction :: (Show a, Show b) => b -> History_ disp a -> History_ disp a
+-- beginFunction :: (DisplayWrapper disp a, DisplayWrapper disp b) => b -> History_ disp a -> History_ disp a
+beginFunction b ha = collectReports $ do
+    report b
+    collectReports ha
+
+type CPUTime = Integer
+
+data Report = Report
+    { cpuTime       :: {-#UNPACK#-}!CPUTime
+    , cpuTimeDiff   :: {-#UNPACK#-}!CPUTime
+    , numReports    :: {-#UNPACK#-}!Int
+    , reportLevel   :: {-#UNPACK#-}!Int
+    }
+    deriving Show
+
+
+{-# INLINABLE report #-}
+-- report :: DisplayWrapper disp a => a -> History_ disp a
+report :: a -> History_ disp a
+report a = {-# SCC report #-} History_ $ do
+    time <- liftIO getCPUTime
+    prevReport:xs <- get
+    let newReport = Report
+            { cpuTime       = time
+            , cpuTimeDiff   = time - cpuTime prevReport
+            , numReports    = numReports prevReport+1
+            , reportLevel   = reportLevel $ prevReport
+            }
+    put $ newReport:xs
+--     liftIO $ do
+--         putStrLn $ (concat $ P.replicate (reportLevel newReport) " - ") ++ show a
+    return a
+
+{-# INLINABLE collectReports #-}
+collectReports :: History_ disp a -> History_ disp a
+collectReports (History_ hist) = {-# SCC collectReports #-} History_ $ do
+    mkLevel
+    a <- hist
+    rmLevel
+    return a
     where
-        go s = do
-            next <- await
-            ((),s') <- liftIO $ runStateT (f next) s
-            go s'
+        mkLevel = do
+            prevReport:xs <- get
+            time <- liftIO getCPUTime
+            let newReport = Report
+                    { cpuTime       = time
+                    , cpuTimeDiff   = 0
+                    , numReports    = -1
+                    , reportLevel   = reportLevel prevReport+1
+                    }
+            put $ newReport:prevReport:xs
 
-instance POrd_ a => POrd_ (DynamicHistory a) where
+        rmLevel = do
+            newReport:xs <- get
+            put xs
+
+-- {-# INLINABLE prevReport #-}
+-- prevReport = {-# SCC prevReport #-} History_ $ do
+--     x:_ <- get
+--     return x
+--
+{-# INLINABLE currentItr #-}
+currentItr :: History_ disp Int
+currentItr = {-# SCC currentItr #-} History_ $ do
+    x:_ <- get
+    return {-. fromInteger . fromIntegral -}$ numReports x
+
+---------------------------------------
+-- monad hierarchy
+
+instance Functor Hask (History_ disp) where
+    fmap f (History_ s) = History_ (fmap f s)
+
+instance Then (History_ disp) where
+    (>>) = haskThen
+
+instance Monad Hask (History_ disp) where
+    return_ a = History_ $ return_ a
+    join (History_ s) = History_ $ join (fmap (\(History_ s)->s) s)
+
+---------------------------------------
+-- comparison hierarchy
+
+type instance Logic (History_ disp a) = History_ disp (Logic a)
+
+instance Eq_ a => Eq_ (History_ disp a) where
+    a==b = do
+        a' <- a
+        b' <- b
+        return $ a'==b'
+
+instance POrd_ a => POrd_ (History_ disp a) where
     {-# INLINABLE inf #-}
     inf a b = do
         a' <- a
         b' <- b
         return $ inf a' b'
 
-instance Lattice_ a => Lattice_ (DynamicHistory a) where
+instance Lattice_ a => Lattice_ (History_ disp a) where
     {-# INLINABLE sup #-}
     sup a b = do
         a' <- a
         b' <- b
         return $ sup a' b'
 
-instance MinBound_ a => MinBound_ (DynamicHistory a) where
+instance MinBound_ a => MinBound_ (History_ disp a) where
     minBound = return $ minBound
 
-instance Bounded a => Bounded (DynamicHistory a) where
+instance Bounded a => Bounded (History_ disp a) where
     maxBound = return $ maxBound
 
-instance Heyting a => Heyting (DynamicHistory a) where
+instance Heyting a => Heyting (History_ disp a) where
     (==>) a b = do
         a' <- a
         b' <- b
         return $ a' ==> b'
 
-instance Complemented a => Complemented (DynamicHistory a) where
+instance Complemented a => Complemented (History_ disp a) where
     not a = do
         a' <- a
         return $ not a'
 
-instance Boolean a => Boolean (DynamicHistory a)
+instance Boolean a => Boolean (History_ disp a)
 
-instance HistoryMonad DynamicHistory where
-
-    type Reportable DynamicHistory a = Typeable a
-
-    data Report DynamicHistory = Report
-        { cpuTime       :: {-#NOUNPACK#-}!CPUTime
-        , cpuTimeDiff   :: {-#NOUNPACK#-}!CPUTime
-        , dyn           :: {-#UNPACK#-}!Dynamic
-        , numReports    :: {-#UNPACK#-}!Int
-        , reportLevel   :: {-#UNPACK#-}!Int
-        }
-        deriving Show
-
-
-    {-# INLINE report #-}
-    report a = {-# SCC report #-} DynamicHistory $ do
-        time <- liftIO getCPUTime
-        prevReport:xs <- get
-        let newReport = Report
-                { cpuTime       = time
-                , cpuTimeDiff   = time - cpuTime prevReport
-                , dyn           = toDyn a
-                , numReports    = numReports prevReport+1
-                , reportLevel   = reportLevel $ prevReport
-                }
-        yield newReport
-        put $ newReport:xs
-        return a
-
-    {-# INLINE collectReports #-}
-    collectReports (DynamicHistory hist) = {-# SCC collectReports #-} DynamicHistory $ do
-        mkLevel
-        a <- hist
-        rmLevel
-        return a
-        where
-            mkLevel = do
-                prevReport:xs <- get
-                time <- liftIO getCPUTime
-                let newReport = Report
-                        { cpuTime       = time
-                        , cpuTimeDiff   = 0
-                        , dyn           = toDyn StartCollection
-                        , numReports    = -1
-                        , reportLevel   = reportLevel prevReport+1
-                        }
-                put $ newReport:prevReport:xs
-
-            rmLevel = do
-                newReport:xs <- get
-                put xs
-
-    {-# INLINE prevReport #-}
-    prevReport = {-# SCC prevReport #-} DynamicHistory $ do
-        x:_ <- get
-        return x
-
-    {-# INLINE currentItr #-}
-    currentItr = {-# SCC currentItr #-} DynamicHistory $ do
-        x:_ <- get
-        return . fromInteger . fromIntegral $ numReports x

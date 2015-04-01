@@ -20,14 +20,14 @@ module HLearn.Optimization.Common
 --     )
     where
 
-import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask
 
 import HLearn.History
 
 -------------------------------------------------------------------------------
 
 class LearningRate init step v | init -> step, step -> init where
-    lrStep  :: HistoryMonad m => init v -> step v -> v -> m (step v)
+    lrStep  :: init v -> step v -> v -> History (step v)
     lrInit  :: init v -> v -> step v
     lrApply :: init v -> step v -> v -> v
 
@@ -48,18 +48,21 @@ class Has_stepSize opt v    where stepSize  :: Lens' (opt v) (Scalar v)
 
 ---------------------------------------
 
+type StopCondition opt = forall disp. opt -> opt -> History_ disp Bool
+
 {-# INLINE optimize #-}
-optimize :: (HistoryMonad m, Reportable m opt)
-    => (opt -> m opt)               -- ^ step function
+optimize :: forall disp opt. (Show opt)
+-- optimize :: forall disp opt. (DisplayWrapper disp opt)
+    => (opt -> History_ disp opt)               -- ^ step function
     -> opt                          -- ^ initial conditions
-    -> StopCondition m opt          -- ^ stop conditions
-    -> m opt
-optimize step opt0 stop = {-# SCC optimize #-} collectReports $ do
-    report opt0
+    -> StopCondition opt          -- ^ stop conditions
+    -> History_ disp opt
+optimize step opt0 stop = {-# SCC optimize #-} {-collectReports $-} do
     report opt0
     opt1 <- step opt0
     go opt0 opt1
     where
+        go :: opt -> opt -> History_ disp opt
         go prevopt curopt = {-# SCC optimize_go #-} do
             report curopt
             done <- stop prevopt curopt
@@ -69,9 +72,8 @@ optimize step opt0 stop = {-# SCC optimize #-} collectReports $ do
                     opt' <- step curopt
                     go curopt opt'
 
-type StopCondition m opt = (Boolean (m Bool), HistoryMonad m) => opt -> opt -> m Bool
 
-maxIterations :: HistoryMonad m => Int -> StopCondition m opt
+maxIterations :: Int -> StopCondition opt
 maxIterations i _ _ = {-# SCC maxIterations #-} do
     t <- currentItr
     return $ t >= i
@@ -79,8 +81,7 @@ maxIterations i _ _ = {-# SCC maxIterations #-} do
 lowerBound ::
     ( Has_fx1 opt v
     , Ord (Scalar v)
-    , HistoryMonad m
-    )  => Scalar v -> StopCondition m (opt v)
+    )  => Scalar v -> StopCondition (opt v)
 lowerBound threshold _ opt = {-# SCC lowerBound #-} return $ opt^.fx1 < threshold
 
 -- fx1grows ::

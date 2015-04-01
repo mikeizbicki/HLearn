@@ -413,7 +413,7 @@ prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort
     where
         go !( dist,t ) !b =  if isError res
             then b
-            else foldr' go b'' children' -- $ stChildren t
+            else foldr' go b'' children'
                 where
                     res = f2 dist t b
                     b'' = foldr' f1 res (stLeaves t)

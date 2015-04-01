@@ -24,6 +24,7 @@ class
     getLabel :: dp -> Label dp
     getAttributes :: dp -> Attributes dp
 
+{-
 ---------------------------------------
 
 -- instance Labeled (label,attr) where
@@ -92,6 +93,7 @@ instance Metric attr => Metric (MaybeLabeled label attr) where
 --     isFartherThan dp1 dp2 = isFartherThan (getAttributes dp1) (getAttributes dp2)
 --     isFartherThanWithDistance dp1 dp2 = isFartherThanWithDistance (getAttributes dp1) (getAttributes dp2)
 
+-}
 -------------------------------------------------------------------------------
 -- Classification
 

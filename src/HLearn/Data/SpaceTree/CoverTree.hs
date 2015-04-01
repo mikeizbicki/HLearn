@@ -703,7 +703,7 @@ insertCTOrig_ :: forall exprat childC leafC dp.
 insertCTOrig_ !dp !ct !dist = {-# SCC insertCTOrig_ #-}
     if dist > coverdist ct
 
-        -- | ct can't cover dp, so create a new node at dp that covers ct
+        -- ct can't cover dp, so create a new node at dp that covers ct
         then Node
             { nodedp                = dp
             , nodeWeight            = 1
@@ -716,7 +716,7 @@ insertCTOrig_ !dp !ct !dist = {-# SCC insertCTOrig_ #-}
             , leaves                = empty
             }
 
-        -- | insert dp underneath ct
+        -- insert dp underneath ct
         else ct
             { numdp                 = numdp ct+1
             , maxDescendentDistance = max dist (maxDescendentDistance ct)
@@ -772,7 +772,7 @@ insertCTNoSort_ :: forall exprat childC leafC dp.
 insertCTNoSort_ dp ct dist = {-# SCC insertCTNoSort_ #-}
     if dist > coverdist ct
 
-        -- | ct can't cover dp, so create a new node at dp that covers ct
+        -- ct can't cover dp, so create a new node at dp that covers ct
         then Node
             { nodedp                = dp
             , nodeWeight            = 1
@@ -785,7 +785,7 @@ insertCTNoSort_ dp ct dist = {-# SCC insertCTNoSort_ #-}
             , leaves                = empty
             }
 
-        -- | insert dp underneath ct
+        -- insert dp underneath ct
         else ct
             { numdp                 = numdp ct+1
             , maxDescendentDistance = max dist (maxDescendentDistance ct)
@@ -848,7 +848,7 @@ insertCT_ :: forall exprat childC leafC dp.
       -> CoverTree_ exprat childC leafC dp
 insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
     if dist > coverdist ct
-        -- | ct can't cover dp, so create a new node at dp that covers ct
+        -- ct can't cover dp, so create a new node at dp that covers ct
         then {-# SCC insertCT_greater #-} Node
             { nodedp                = dp
             , nodeWeight            = 1
@@ -861,7 +861,7 @@ insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
             , leaves                = empty
             }
 
-        -- | insert dp underneath ct
+        -- insert dp underneath ct
         else {-# SCC insertCT_under #-}ct
             { numdp                 = numdp ct+1
             , maxDescendentDistance = max dist (maxDescendentDistance ct)

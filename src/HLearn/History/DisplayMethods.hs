@@ -7,6 +7,7 @@ module HLearn.History.DisplayMethods
 import Control.Monad.Random
 import Control.Monad.State.Strict (get,put,runStateT)
 -- import Control.Monad.Trans
+import Data.Dynamic
 import Data.List hiding (concat,elem,maximum,minimum,length,(!!))
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
