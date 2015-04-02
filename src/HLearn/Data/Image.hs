@@ -13,9 +13,6 @@ import SubHask
 import SubHask.Compatibility.Vector
 import SubHask.TemplateHaskell.Deriving
 
--- import SubHask.Monad
-import Control.Monad
-
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Generic as VG

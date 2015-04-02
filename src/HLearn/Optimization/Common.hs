@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 module HLearn.Optimization.Common
---     ( optimize
+--     ( iterate
 --     , runOptimization
 --     , unsafeRunOptimization
 --
@@ -26,10 +26,10 @@ import HLearn.History
 
 -------------------------------------------------------------------------------
 
-class LearningRate init step v | init -> step, step -> init where
-    lrStep  :: init v -> step v -> v -> History (step v)
-    lrInit  :: init v -> v -> step v
-    lrApply :: init v -> step v -> v -> v
+-- class LearningRate init step v | init -> step, step -> init where
+--     lrStep  :: init v -> step v -> v -> History (step v)
+--     lrInit  :: init v -> v -> step v
+--     lrApply :: init v -> step v -> v -> v
 
 class Has_f opt v           where flens     :: Lens' (opt v) (v -> Scalar v)
 
@@ -48,22 +48,21 @@ class Has_stepSize opt v    where stepSize  :: Lens' (opt v) (Scalar v)
 
 ---------------------------------------
 
-type StopCondition opt = forall disp. opt -> opt -> History_ disp Bool
+type StopCondition = forall a. a -> a -> History Bool
+type StopCondition_ a = a -> a -> History Bool
 
-{-# INLINE optimize #-}
-optimize :: forall disp opt. (Show opt)
--- optimize :: forall disp opt. (DisplayWrapper disp opt)
-    => (opt -> History_ disp opt)               -- ^ step function
-    -> opt                          -- ^ initial conditions
-    -> StopCondition opt          -- ^ stop conditions
-    -> History_ disp opt
-optimize step opt0 stop = {-# SCC optimize #-} {-collectReports $-} do
+{-# INLINE iterate #-}
+iterate :: forall a. Optimizable a
+    => (a -> History a)         -- ^ step function
+    -> a                        -- ^ start parameters
+    -> StopCondition_ a         -- ^ stop conditions
+    -> History a
+iterate step opt0 stop = {-# SCC iterate #-} do
     report opt0
     opt1 <- step opt0
     go opt0 opt1
     where
-        go :: opt -> opt -> History_ disp opt
-        go prevopt curopt = {-# SCC optimize_go #-} do
+        go prevopt curopt = {-# SCC iterate_go #-} do
             report curopt
             done <- stop prevopt curopt
             if done
@@ -73,15 +72,15 @@ optimize step opt0 stop = {-# SCC optimize #-} {-collectReports $-} do
                     go curopt opt'
 
 
-maxIterations :: Int -> StopCondition opt
+maxIterations :: Int -> StopCondition
 maxIterations i _ _ = {-# SCC maxIterations #-} do
-    t <- currentItr
+    t <- getNumReports
     return $ t >= i
 
 lowerBound ::
     ( Has_fx1 opt v
     , Ord (Scalar v)
-    )  => Scalar v -> StopCondition (opt v)
+    )  => Scalar v -> StopCondition_ (opt v)
 lowerBound threshold _ opt = {-# SCC lowerBound #-} return $ opt^.fx1 < threshold
 
 -- fx1grows ::

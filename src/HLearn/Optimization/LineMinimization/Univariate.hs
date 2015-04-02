@@ -1,20 +1,92 @@
-{-# LANGUAGE TemplateHaskell,DataKinds,RebindableSyntax #-}
+-- | This module provides numerical routines for minimizing/maximizing one dimensional functions.
+-- All function are translated from "Numerical Recipes in C".
+-- The module is divided into simple and advanced sections.
 module HLearn.Optimization.LineMinimization.Univariate
     (
-    -- * advanced functions
-    -- ** bracket
-    LineBracket (..)
+
+    -- * Simple interface
+    -- | These simple functions provide an interface similar to Matlab/Ocatave's optimization toolkit.
+    -- They are recommended for quick prototypes and working from within GHCI.
+    -- Here's an example:
+    --
+    -- >>> let f x = (x-5)**2 :: Double
+    -- >>> fminunc f
+    -- 5.000000000000001
+    --
+    -- In many applications, we want to nest these optimization calls.
+    -- Debugging these nested optimiztions is notoriously difficult.
+    -- Consider the following example:
+    --
+    -- >>> let g x y = x*x + (y-5)**2
+    -- >>> fminunc (\x -> fminunc (\y -> g y x))
+    -- -2.821859578658409
+    --
+    -- It's clear that the value of @x@ that minimizes @g x y@ should be zero;
+    -- but we get a ridiculous answer instead.
+    -- The advanced interface gives us much more debugging information and control over the optimization process.
+    -- We can use it to solve problems that can't be solved with the simple interface.
+    fminunc
+    , fmaxunc
+    , fminuncM
+    , fmaxuncM
+
+    -- * Advanced interface
+    -- | The advanced interface is more complex, but has two advantages.
+    -- First, it lets us specify a level of debugging information we want.
+    -- Second, it lets us specify in more detail the algorithms used in the optimization.
+    --
+    -- Let's repeat the first example from the simple interface.
+    -- This time we will use Brent's method on "Rational" numbers and ask for higher precision than we could get with floating point numbers.
+    --
+    -- >>> let f x = (x-5)*(x-5) :: Rational
+    -- >>> :{
+    -- >>> traceHistory $ do
+    -- >>>     lb <- lineBracket f 0 1
+    -- >>>     fminuncM_brent_ (return . f) lb (maxIterations 10 || stop_brent 1e-10)
+    -- >>> }:
+    -- Iterator_brent; x=5%1; f(x)=0%1
+    --
+    -- In this case, we get an exact answer.
+    -- The "traceHistory" command also gives us a record of how our optimization proceded.
+
+    -- ** Brent's Method
+    -- | Brent's method uses parabolic interpolation to find the minimum.
+    --
+    -- See <http://en.wikipedia.org/wiki/Iterator_brent%27s_method wikipedia>
+    -- and Section 10.2 of "Numerical Recipes in C" for more details.
+    , fminunc_brent
+    , fminuncM_brent
+    , fminuncM_brent_
+    , stop_brent
+    , Iterator_brent (..)
+
+    -- ** Brent's method with derivatives
+    -- |
+    --
+    -- FIXME: implement using Section 10.3 of "Numerical Recipes in C"
+
+    -- ** Golden section search
+    -- | Golden section search is used to find the minimum of "poorly behaved" functions.
+    -- Other methods almost always converge faster.
+    --
+    -- See <http://en.wikipedia.org/wiki/Golden_section_search wikipedia>
+    -- and Section 10.1 of "Numerical Recipes in C" for more details.
+    , fminunc_gss
+    , fminuncM_gss
+    , fminuncM_gss_
+    , stop_gss
+    , Iterator_gss (..)
+
+    -- ** Line bracketing
+    -- | The univariate optimization methods above require an interval within which a minimum is guaranteed to exist.
+    --
+    -- FIXME: switch LineBracket to the Interval type provided by subhask
+    --
+    -- See Section 10.1 of "Numerical Recipes in C" for more details.
     , lineBracket
+    , lineBracketM
+    , LineBracket (..)
 
-    -- ** minimizers
-    , GoldenSectionSearch (..)
-    , goldenSectionSearch
-    , goldenSectionSearch_
-    , goldenSectionSearchM
-
-    , Brent (..)
-    , brent
-    , brentTollerance
     )
     where
 
@@ -23,26 +95,45 @@ import SubHask
 import HLearn.History
 import HLearn.Optimization.Common
 
-import System.IO
+import Debug.Trace
 
 -------------------------------------------------------------------------------
 
-tester :: History (GoldenSectionSearch Double)
-tester = do
-    goldenSectionSearchM f (maxIterations 50)
+tester :: Double
+tester = fminuncM_gss f
     where
         f x = do
-            b <- brent (\a -> abs x + (a+5-x)*(a+5)) (maxIterations 5)
-            return $ _fx b
+            let f a = abs x + (a+5-x)*(a+5)
 
-data PrintLine
+            lb <- lineBracket f 0 1
+            b <- fminuncM_brent_
+                (return . f)
+                lb
+                (maxIterations 10)
+            return $ _brent_fx b
 
-instance DisplayWrapper PrintLine a where
-    display _ _ _ = putStrLn "hello"
+-------------------------------------------------------------------------------
+
+-- | Finds the minimum of a function
+fminunc :: (Optimizable a, OrdField a) => (a -> a) -> a
+fminunc = fminunc_brent
+
+-- | Finds the maximum of a function
+fmaxunc :: (Optimizable a, OrdField a) => (a -> a) -> a
+fmaxunc f = fminunc_brent (-f)
+
+-- | Finds the minimum of a monadic function
+fminuncM :: (Optimizable a, OrdField a) => (a -> History a) -> a
+fminuncM = fminuncM_brent
+
+-- | Finds the maximum of a monadic function
+fmaxuncM :: (Optimizable a, OrdField a) => (a -> History a) -> a
+fmaxuncM f = fminuncM_brent (-f)
 
 -------------------------------------------------------------------------------
 -- line bracketing
 
+-- | Variable names correspond to the algorithm in "Numerical Recipes in C"
 data LineBracket a = LineBracket
     { _ax :: !a
     , _bx :: !a
@@ -51,13 +142,10 @@ data LineBracket a = LineBracket
     , _fb :: !a
     , _fc :: !a
     }
---     deriving (Read,Show,Typeable)
+    deriving (Typeable)
 
 instance Show a => Show (LineBracket a) where
     show lb = "LineBracket; a="++show (_ax lb)++"; b="++show (_bx lb)++"; c="++show (_cx lb)
-
--- instance Show a where
---     show _ = "[no show instance]"
 
 -- | finds two points ax and cx between which a minimum is guaranteed to exist
 -- this is a transliteration of the 'lineBracket' function from the \"Numerical
@@ -67,17 +155,15 @@ lineBracket ::
     ) => (a -> a) -- ^ the function we're bracketing
       -> a        -- ^ an initial guess for the lower bound
       -> a        -- ^ an initial guess for the upper bound
-      -> History (LineBracket a)
---       -> Show a => History (LineBracket a)
+      -> Optimizable a => History (LineBracket a)
 lineBracket f = lineBracketM (return . f)
 
 lineBracketM ::
     ( OrdField a
-    ) => (a -> forall disp. History_ (disp :: *) a)   -- ^ the function we're bracketing
-      -> a                  -- ^ an initial guess for the lower bound
-      -> a                  -- ^ an initial guess for the upper bound
-      -> History (LineBracket a)
---       -> Show a => History (LineBracket a)
+    ) => (a -> History a)       -- ^ the function we're bracketing
+      -> a                      -- ^ an initial guess for the lower bound
+      -> a                      -- ^ an initial guess for the upper bound
+      -> Optimizable a => History (LineBracket a)
 lineBracketM !f !pt1 !pt2 = beginFunction "lineBracketM" $ do
     let gold = 1.618034
 
@@ -99,8 +185,8 @@ lineBracketM !f !pt1 !pt2 = beginFunction "lineBracketM" $ do
             , _fc = fcx
             }
 
-    optimize
-        (step_LineBracketM f)
+    iterate
+        (step_LineBracket f)
         lb0
         stop_LineBracket
 
@@ -109,11 +195,11 @@ stop_LineBracket _ lb = if _fb lb /= _fb lb
     then error "NaN in linebracket"
     else return $ _fb lb <= _fc lb
 
-step_LineBracketM :: OrdField a
-    => (a -> forall (disp :: *). History_ disp a)
+step_LineBracket :: OrdField a
+    => (a -> History a)
     -> LineBracket a
-    ->  History (LineBracket a)
-step_LineBracketM !f lb@(LineBracket ax bx cx fa fb fc) = do
+    -> History (LineBracket a)
+step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = do
 
     let sign a b = if b>0 then abs a else -(abs a)
         tiny = 1e-20
@@ -192,18 +278,19 @@ step_LineBracketM !f lb@(LineBracket ax bx cx fa fb fc) = do
 -------------------------------------------------------------------------------
 -- golden section search
 
-data GoldenSectionSearch a = GoldenSectionSearch
+-- | Variable names correspond to the algorithm in "Numerical Recipes in C"
+data Iterator_gss a = Iterator_gss
     { _gss_fxb :: !a
     , _gss_fxc :: !a
-    , _gss_xa :: !a
-    , _gss_xb :: !a
-    , _gss_xc :: !a
-    , _gss_xd :: !a
+    , _gss_xa  :: !a
+    , _gss_xb  :: !a
+    , _gss_xc  :: !a
+    , _gss_xd  :: !a
     }
     deriving (Typeable)
 
-instance (ClassicalLogic a, Show a, OrdField a) => Show (GoldenSectionSearch a) where
-    show gss = "GoldenSectionSearch; "++"x="++show x++"; f(x)="++show fx
+instance (ClassicalLogic a, Show a, OrdField a) => Show (Iterator_gss a) where
+    show gss = "Iterator_gss; "++"x="++show x++"; f(x)="++show fx
         where
             x  = gss_x  gss
             fx = gss_fx gss
@@ -215,64 +302,36 @@ gss_x gss = if _gss_fxb gss < _gss_fxc gss
 
 gss_fx gss =  min (_gss_fxb gss) (_gss_fxc gss)
 
-
--- instance (Ord a, IsScalar a) => Has_fx1 GoldenSectionSearch a where
---     fx1 = lens getter setter
---         where
---             getter gss = min (_gss_fxb gss) (_gss_fxc gss)
---             setter = error "GoldenSectionSearch fx1 setter"
---
--- instance (Ord a, IsScalar a) => Has_x1 GoldenSectionSearch a where
---     x1 = lens getter setter
---         where
---             getter gss = if _gss_fxb gss < _gss_fxc gss
---                 then _gss_xb gss
---                 else _gss_xc gss
---             setter = error "GoldenSectionSearch x1 setter"
-
 ---------------------------------------
 
-goldenSectionSearch :: OrdField a
-    => (a -> a)                                     -- ^ the function we're minimizing
-    -> StopCondition (GoldenSectionSearch a)        -- ^ the conditions to stop
-    -> Show a => History (GoldenSectionSearch a)
-goldenSectionSearch f stop = do
-    lb <- lineBracket f 0 1
-    goldenSectionSearch_ (return . f) lb stop
+-- | A simple interface to golden section search
+fminunc_gss :: ( Optimizable a , OrdField a ) => (a -> a) -> a
+fminunc_gss f = fminuncM_gss (return . f)
 
-goldenSectionSearchM :: OrdField a
-    => (a -> forall (disp :: *). History_ disp a)
-    -> StopCondition (GoldenSectionSearch a)
-    -> Show a => History (GoldenSectionSearch a)
-goldenSectionSearchM f stop = do
+-- | A simple monadic interface to golden section search
+fminuncM_gss :: forall a. ( Optimizable a , OrdField a ) => (a -> History a) -> a
+fminuncM_gss f = evalHistory $ do
     lb <- lineBracketM f 0 1
-    goldenSectionSearch_ f lb stop
+    gss <- fminuncM_gss_ f lb (maxIterations 200 || stop_gss (1e-12 :: a))
+    return $ gss_x gss
 
--- | Finds the minimum of a "poorly behaved" function; usually brent's
--- method is much better.
--- This is a transliteration of the gss routine from the \"Numerical
--- Recipes\" series
-goldenSectionSearch_ :: OrdField a
-    => (a -> forall (disp :: *). History_ disp a)
-    -> LineBracket a
-    -> StopCondition (GoldenSectionSearch a)
-    -> History (GoldenSectionSearch a)
-goldenSectionSearch_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "goldenSectionSearch_" $ do
+-- | The most generic interface to golden section search
+fminuncM_gss_ :: ( Optimizable a , OrdField a )
+    => (a -> History a)                 -- ^ the function we're minimizing
+    -> LineBracket a                    -- ^ bounds between which a minimum must exist
+    -> StopCondition_ (Iterator_gss a)  -- ^ controls the number of iterations
+    -> History (Iterator_gss a)
+fminuncM_gss_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "goldenSectionSearch_" $ do
     let r = 0.61803399
         c = 1-r
 
-    let xb = if abs (cx-bx) > abs (bx-ax)
-            then bx
-            else bx-c*(bx-ax)
-
-    let xc = if abs (cx-bx) > abs (bx-ax)
-            then bx+c*(cx-bx)
-            else bx
+    let xb = if abs (cx-bx) > abs (bx-ax) then bx           else bx-c*(bx-ax)
+        xc = if abs (cx-bx) > abs (bx-ax) then bx+c*(cx-bx) else bx
 
     fxb <- f xb
     fxc <- f xc
 
-    let gss0 = GoldenSectionSearch
+    let gss0 = Iterator_gss
             { _gss_fxb = fxb
             , _gss_fxc = fxc
             , _gss_xa = ax
@@ -281,164 +340,161 @@ goldenSectionSearch_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "gol
             , _gss_xd = cx
             }
 
-    optimize
-        (step_GoldenSectionSearch f)
+    iterate
+        (step_gss f)
         gss0
         stop
 
-stop_GoldenSectionSearch ::
-    ( OrdField a
-    ) => a -> GoldenSectionSearch a -> History_ disp Bool
-stop_GoldenSectionSearch tol (GoldenSectionSearch _ _ !x0 !x1 !x2 !x3 ) = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
-
-step_GoldenSectionSearch ::
-    ( OrdField a
-    ) => (a -> forall disp. History_ disp a)
-      -> GoldenSectionSearch a
-      -> History_ (disp :: *) (GoldenSectionSearch a)
-step_GoldenSectionSearch f (GoldenSectionSearch f1 f2 x0 x1 x2 x3) = if f2 < f1
-    then do
-        let x' = r*x2+c*x3
-        fx' <- f x'
-        return $ GoldenSectionSearch f2 fx' x1 x2 x' x3
-    else do
-        let x' = r*x1+c*x0
-        fx' <- f x'
-        return $ GoldenSectionSearch fx' f1 x0 x' x1 x2
     where
-        r = 0.61803399
-        c = 1-r
+        step_gss :: OrdField a => (a -> History a) -> Iterator_gss a -> History (Iterator_gss a)
+        step_gss f (Iterator_gss f1 f2 x0 x1 x2 x3) = if f2 < f1
+            then do
+                let x' = r*x2+c*x3
+                fx' <- f x'
+                return $ Iterator_gss f2 fx' x1 x2 x' x3
+            else do
+                let x' = r*x1+c*x0
+                fx' <- f x'
+                return $ Iterator_gss fx' f1 x0 x' x1 x2
+            where
+                r = 0.61803399
+                c = 1-r
+
+-- | Does not stop until the independent variable is accurate to within the tolerance passed in.
+stop_gss :: OrdField a => a -> StopCondition_ (Iterator_gss a)
+stop_gss tol _ (Iterator_gss _ _ !x0 !x1 !x2 !x3 )
+    = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
 
 -------------------------------------------------------------------------------
 -- Brent's method
 
-data Brent a = Brent
-    { _a :: !a
-    , _b :: !a
-    , _d :: !a
-    , _e :: !a
-    , _fv :: !a
-    , _fw :: !a
-    , _fx :: !a
-    , _v :: !a
-    , _w :: !a
-    , _x :: !a
+-- | Variable names correspond to the algorithm in "Numerical Recipes in C"
+data Iterator_brent a = Iterator_brent
+    { _brent_a :: !a
+    , _brent_b :: !a
+    , _brent_d :: !a
+    , _brent_e :: !a
+    , _brent_fv :: !a
+    , _brent_fw :: !a
+    , _brent_fx :: !a
+    , _brent_v :: !a
+    , _brent_w :: !a
+    , _brent_x :: !a
     }
+    deriving Typeable
 
-instance Show a => Show (Brent a) where
-    show b = "Brent; x="++show (_x b)++"; f(x)="++show (_fx b)
+instance Show a => Show (Iterator_brent a) where
+    show b = "Iterator_brent; x="++show (_brent_x b)++"; f(x)="++show (_brent_fx b)
 
--- instance IsScalar v => Has_x1 Brent v where
---     x1 = x
+-- | A simple interface to Brent's method
+fminunc_brent :: ( Optimizable a, OrdField a ) => (a -> a) -> a
+fminunc_brent f = fminuncM_brent (return . f)
+
+-- | A simple monadic interface to Brent's method
+fminuncM_brent :: ( Optimizable a, OrdField a ) => (a -> History a) -> a
+fminuncM_brent f = evalHistory $ do
+    lb <- lineBracketM f 0 1
+    b <- fminuncM_brent_ f lb ( maxIterations 200 || stop_brent 1e-12 )
+    return $ _brent_x b
+
+-- | The most generic interface to Brent's method
+fminuncM_brent_ ::
+    ( Optimizable a , OrdField a
+    ) => (a -> History a)                   -- ^ the function we're minimizing
+      -> LineBracket a                      -- ^ bounds between which a minimum must exist
+      -> StopCondition_ (Iterator_brent a)  -- ^ controls the number of iterations
+      -> History (Iterator_brent a)
+fminuncM_brent_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "brent" $ do
+    fbx <- f bx
+    iterate
+        (step_brent f)
+        ( Iterator_brent
+            { _brent_a = min ax cx
+            , _brent_b = max ax cx
+            , _brent_d = zero
+            , _brent_e = zero
+            , _brent_v = bx
+            , _brent_w = bx
+            , _brent_x = bx
+            , _brent_fv = fbx
+            , _brent_fw = fbx
+            , _brent_fx = fbx
+            }
+        )
+        stop
+
+    where
+        step_brent ::
+            ( OrdField a
+            ) => (a -> History a) -> Iterator_brent a -> History (Iterator_brent a)
+        step_brent f brent@(Iterator_brent a b d e fv fw fx v w x) = do
+            let cgold = 0.3819660
+                zeps = 1e-10
+                sign a b = if b>0 then abs a else -(abs a)
+                tol = 1e-6
+
+                xm = 0.5*(a+b)
+                tol1' = tol*(abs x)+zeps
+                tol2' = 2*tol1'
+
+                (d',e') = if abs e > tol1'
+                    then let
+                        r' = (x-w)*(fx-fv)
+                        q' = (x-v)*(fx-fw)
+                        p' = (x-v)*q'-(x-w)*r'
+                        q'' = 2*(q'-r')
+                        p'' = if q''>0 then -p' else p'
+                        q''' = abs q''
+                        etemp' = e
+                        in if abs p'' >= abs (0.5*q'''*etemp') || p'' <= q'''*(a-x) || p'' >= q'''*(b-x)
+                            then let e'' = if x>=xm then a-x else b-x in (cgold*e'',e'')
+                            else let d''=p''/q'''; u''=x+d'' in
+                                if u''-a < tol2' || b-u'' < tol2'
+                                    then (sign tol1' (xm-x),d)
+                                    else (d'',d)
+                    else let e'' = if x>=xm then a-x else b-x in (cgold*e'',e'')
+
+                u' = if abs d' >= tol1'
+                    then x+d'
+                    else x+sign tol1' d'
+
+            fu' <- f u'
+
+            return $ if fu' <= fx
+                then brent
+                    { _brent_e = e'
+                    , _brent_d = d'
+                    , _brent_a = if u' >= x then x else a
+                    , _brent_b = if u' >= x then b else x
+                    , _brent_v = w
+                    , _brent_w = x
+                    , _brent_x = u'
+                    , _brent_fv = fw
+                    , _brent_fw = fx
+                    , _brent_fx = fu'
+                    }
+                else brent
+                    { _brent_e = e'
+                    , _brent_d = d'
+                    , _brent_a = if u' < x then u' else a
+                    , _brent_b = if u' < x then b  else u'
+                    , _brent_v  = if fu' <= fw || w==x then w   else if fu' <= fv || v==x || v==w then u'  else v
+                    , _brent_fv = if fu' <= fw || w==x then fw  else if fu' <= fv || v==x || v==w then fu' else fv
+                    , _brent_w  = if fu' <= fw || w==x then u'  else e
+                    , _brent_fw = if fu' <= fw || w==x then fu' else fw
+                    }
+
+-- | Does not stop until the independent variable is accurate to within the tolerance passed in.
 --
--- instance IsScalar v => Has_fx1 Brent v where
---     fx1 = lens getter setter
---         where
---             getter s = (s^.fv + s^.fw + s^.fx)/3
---             setter = error "Brent.fx1 undefined"
-
-
-brent :: OrdField a
-    => (a -> a)
-    -> StopCondition (Brent a)
-    -> Show a => History (Brent a)
-brent f stop = do
-    lb <- lineBracket f 0 1
-    brent_ f lb stop
-
--- | Brent's method uses parabolic interpolation.
--- This function is a transliteration of the method found in numerical recipes.
-brent_ ::
-    ( OrdField a
-    ) => (a -> a)
-      -> LineBracket a
-      -> StopCondition (Brent a)
-      -> History (Brent a)
-brent_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "brent" $ optimize
-    (step_Brent f)
-    ( Brent
-        { _a = min ax cx
-        , _b = max ax cx
-        , _d = zero
-        , _e = zero
-        , _v = bx
-        , _w = bx
-        , _x = bx
-        , _fv = f bx
-        , _fw = f bx
-        , _fx = f bx
-        }
-    )
-    stop
-
-brentTollerance ::
-    ( OrdField a
-    ) => a -> Brent a -> Brent a -> History Bool
-brentTollerance tol _ opt = return $ abs (x-xm) <= tol2'-0.5*(b-a)
+-- FIXME: if we get an exact solution this doesn't stop the optimization
+stop_brent :: (Show a, OrdField a) => a -> StopCondition_ (Iterator_brent a)
+-- stop_brent tol _ opt = trace ("a="++show a++"; b="++show b++"; left="++show (abs (x-xm))++"; right="++show (tol2'-0.5*(b-a))) $
+--     return $ abs (x-xm) <  tol2'-0.5*(b-a)
+stop_brent tol _ opt = return $ abs (x-xm) <  tol2'-0.5*(b-a)
     where
-        (Brent a b d e fv fw fx v w x) = opt
+        (Iterator_brent a b d e fv fw fx v w x) = opt
         xm = 0.5*(a+b)
         tol1' = tol*(abs x)+zeps
         tol2' = 2*tol1'
         zeps = 1e-10
-
-step_Brent ::
-    ( OrdField a
-    ) => (a -> a) -> Brent a -> History (Brent a)
-step_Brent f brent@(Brent a b d e fv fw fx v w x) = return brent'
-    where
-        cgold = 0.3819660
-        zeps = 1e-10
-        sign a b = if b>0 then abs a else -(abs a)
-        tol = 1e-6
-
-        xm = 0.5*(a+b)
-        tol1' = tol*(abs x)+zeps
-        tol2' = 2*tol1'
-
-        (d',e') = if abs e > tol1'
-            then let
-                r' = (x-w)*(fx-fv)
-                q' = (x-v)*(fx-fw)
-                p' = (x-v)*q'-(x-w)*r'
-                q'' = 2*(q'-r')
-                p'' = if q''>0 then -p' else p'
-                q''' = abs q''
-                etemp' = e
-                in if abs p'' >= abs (0.5*q'''*etemp') || p'' <= q'''*(a-x) || p'' >= q'''*(b-x)
-                    then let e'' = if x>=xm then a-x else b-x in (cgold*e'',e'')
-                    else let d''=p''/q'''; u''=x+d'' in
-                        if u''-a < tol2' || b-u'' < tol2'
-                            then (sign tol1' (xm-x),d)
-                            else (d'',d)
-            else let e'' = if x>=xm then a-x else b-x in (cgold*e'',e'')
-
-        u' = if abs d' >= tol1'
-            then x+d'
-            else x+sign tol1' d'
-        fu' = f u'
-
-        brent' = if fu' <= fx
-            then brent
-                { _e = e'
-                , _d = d'
-                , _a = if u' >= x then x else a
-                , _b = if u' >= x then b else x
-                , _v = w
-                , _w = x
-                , _x = u'
-                , _fv = fw
-                , _fw = fx
-                , _fx = fu'
-                }
-            else brent
-                { _e = e'
-                , _d = d'
-                , _a = if u' < x then u' else a
-                , _b = if u' < x then b  else u'
-                , _v  = if fu' <= fw || w==x then w   else if fu' <= fv || v==x || v==w then u'  else v
-                , _fv = if fu' <= fw || w==x then fw  else if fu' <= fv || v==x || v==w then fu' else fv
-                , _w  = if fu' <= fw || w==x then u'  else e
-                , _fw = if fu' <= fw || w==x then fu' else fw
-                }
 

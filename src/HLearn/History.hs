@@ -1,22 +1,22 @@
-{-# LANGUAGE OverlappingInstances #-}
 module HLearn.History
     (
+    -- * The History Monad
     History
---     , History_DW
---     , History'
-    , History_
     , runHistory
+    , evalHistory
+    , traceHistory
     , beginFunction
 
-    , DisplayWrapper(..)
-
     , report
-    , collectReports
---     , prevReport
-    , currentItr
+    , getNumReports
 
-    , module Control.Lens
-    , module SubHask.Monad
+    -- * Display Functions
+    , Optimizable
+    , DisplayFunction
+    , nodisplay
+    , dhist
+
+    , module Control.Lens -- FIXME: remove this as a dependency
     )
     where
 
@@ -24,117 +24,110 @@ import qualified Prelude as P
 
 import Control.Lens
 import Control.Monad.Identity     hiding (Functor (..), Monad(..), join)
+import Control.Monad.Reader       hiding (Functor (..), Monad(..), join)
 import Control.Monad.State.Strict hiding (Functor (..), Monad(..), join)
 import Control.Monad.Trans        hiding (Functor (..), Monad(..))
 import Data.Dynamic
 import Data.Typeable
 import System.CPUTime
 import System.IO
-
-import Pipes
+import System.IO.Unsafe
 
 import SubHask
 import SubHask.Monad
-import SubHask.Category.Trans.Constrained
 
 -------------------------------------------------------------------------------
 
-{-
-class (P.Monad m, P.Functor m, Functor Hask m, Monad Hask m, Boolean (m Bool)) => HistoryMonad m where
-    type Reportable m a :: Constraint
-    type Reportable m a = ()
+type Optimizable a = (Typeable a, Show a)
+type DisplayFunction = forall a. Optimizable a => Report -> a -> IO ()
 
-    data Report m
+nodisplay :: DisplayFunction
+nodisplay _ _ = return ()
 
-    report :: Reportable m a => a -> m a
-    collectReports :: m a -> m a
-    prevReport :: m (Report m)
-    currentItr :: Ring r => m r
+dhist :: DisplayFunction
+dhist r a = do
+    putStrLn $ (concat $ P.replicate (reportLevel r) " - ") ++ show a
 
-data StartCollection = StartCollection
-    deriving (Show,Typeable)
-
-data StartHistory = StartHistory
-    deriving (Show,Typeable)
-
-data EndHistory = EndHistory
-    deriving (Show,Typeable)
--}
+instance Semigroup a => Semigroup (IO a) where
+    ioa1 + ioa2 = do
+        a1 <- ioa1
+        a2 <- ioa2
+        return $ a1+a2
 
 -------------------------------------------------------------------------------
-
-class DisplayWrapper disp a where
-    display :: Report -> proxy disp -> a -> IO ()
-
--- type History a = forall (disp :: *). DisplayWrapper disp a => History_ disp a
--- type History a = Show a => forall (disp :: *). History_ disp a
-type History a = Show a => History' a
-type History' a = forall disp. History_ disp a
-
--- type History' disp a =
---     ( DisplayWrapper (disp :: *) a
---     , DisplayWrapper disp [Char]
---     , DisplayWrapper disp Bool
---     ) => History_ disp a
--- type History_DW a = Show a => forall (disp :: *).
---     ( DisplayWrapper disp a
---     , DisplayWrapper disp [Char]
---     , DisplayWrapper disp Bool
--- --     , DisplayWrapper disp b
---     )=> History_ disp a
-
-newtype History_ (disp :: *) a = History_ (StateT [Report] IO a)
-
--- runHistory :: forall a disp. DisplayWrapper disp a => History_ (disp :: *) a -> IO a
-runHistory :: forall a disp. History_ disp a -> IO a
-runHistory (History_ hist) = do
-    time <- getCPUTime
-    let startReport = Report
-            { cpuTime       = time
-            , cpuTimeDiff   = 0
-            , numReports    = 0
-            , reportLevel   = 0
-            }
-
-    evalStateT hist [startReport]
-
-beginFunction :: (Show a, Show b) => b -> History_ disp a -> History_ disp a
--- beginFunction :: (DisplayWrapper disp a, DisplayWrapper disp b) => b -> History_ disp a -> History_ disp a
-beginFunction b ha = collectReports $ do
-    report b
-    collectReports ha
 
 type CPUTime = Integer
 
 data Report = Report
-    { cpuTime       :: {-#UNPACK#-}!CPUTime
-    , cpuTimeDiff   :: {-#UNPACK#-}!CPUTime
+    { cpuTimeStart  :: !CPUTime
+    , cpuTimeDiff   :: !CPUTime
     , numReports    :: {-#UNPACK#-}!Int
     , reportLevel   :: {-#UNPACK#-}!Int
     }
     deriving Show
 
+-------------------------------------------------
+
+newtype History a = History (ReaderT DisplayFunction (StateT [Report] IO) a)
+
+{-# INLINABLE evalHistory #-}
+evalHistory :: History a -> a
+evalHistory = unsafePerformIO . runHistory nodisplay
+
+{-# INLINABLE traceHistory #-}
+traceHistory :: History a -> a
+traceHistory = unsafePerformIO . runHistory dhist
+
+{-# INLINABLE runHistory #-}
+runHistory :: forall a. DisplayFunction -> History a -> IO a
+runHistory f (History hist) = {-# SCC runHistory #-} do
+    time <- getCPUTime
+    let startReport = Report
+            { cpuTimeStart  = time
+            , cpuTimeDiff   = 0
+            , numReports    = 0
+            , reportLevel   = 0
+            }
+
+    -- the nasty type signature below is needed for -XImpredicativeTypes
+    evalStateT
+        ( (runReaderT :: forall m. ReaderT DisplayFunction m a -> DisplayFunction -> m a )
+            hist
+            f
+        ) [startReport]
+
+{-# INLINABLE beginFunction #-}
+beginFunction :: String -> History a -> History a
+beginFunction b ha = collectReports $ do
+    report b
+    collectReports ha
+
 
 {-# INLINABLE report #-}
--- report :: DisplayWrapper disp a => a -> History_ disp a
-report :: a -> History_ disp a
-report a = {-# SCC report #-} History_ $ do
+report :: forall disp a. Optimizable a => a -> History a
+report a = {-# SCC report #-} History $ do
     time <- liftIO getCPUTime
+
     prevReport:xs <- get
     let newReport = Report
-            { cpuTime       = time
-            , cpuTimeDiff   = time - cpuTime prevReport
+            { cpuTimeStart  = time
+            , cpuTimeDiff   = time - cpuTimeStart prevReport
             , numReports    = numReports prevReport+1
-            , reportLevel   = reportLevel $ prevReport
+            , reportLevel   = reportLevel prevReport
             }
     put $ newReport:xs
---     liftIO $ do
---         putStrLn $ (concat $ P.replicate (reportLevel newReport) " - ") ++ show a
+
+    -- get our DisplayFunction and call it
+    -- the cumbersome type annotation is required for -XImpredicativeTypes
+    (f::DisplayFunction) <- (ask :: ReaderT DisplayFunction (StateT [Report] IO) DisplayFunction)
+    liftIO $ f newReport a
+
     return a
 
+
 {-# INLINABLE collectReports #-}
-collectReports :: History_ disp a -> History_ disp a
-collectReports (History_ hist) = {-# SCC collectReports #-} History_ $ do
+collectReports :: History a -> History a
+collectReports (History hist) = {-# SCC collectReports #-} History $ do
     mkLevel
     a <- hist
     rmLevel
@@ -144,7 +137,7 @@ collectReports (History_ hist) = {-# SCC collectReports #-} History_ $ do
             prevReport:xs <- get
             time <- liftIO getCPUTime
             let newReport = Report
-                    { cpuTime       = time
+                    { cpuTimeStart  = time
                     , cpuTimeDiff   = 0
                     , numReports    = -1
                     , reportLevel   = reportLevel prevReport+1
@@ -155,71 +148,91 @@ collectReports (History_ hist) = {-# SCC collectReports #-} History_ $ do
             newReport:xs <- get
             put xs
 
--- {-# INLINABLE prevReport #-}
--- prevReport = {-# SCC prevReport #-} History_ $ do
---     x:_ <- get
---     return x
---
-{-# INLINABLE currentItr #-}
-currentItr :: History_ disp Int
-currentItr = {-# SCC currentItr #-} History_ $ do
+{-# INLINABLE getNumReports #-}
+getNumReports :: History Int
+getNumReports = History $ do
     x:_ <- get
-    return {-. fromInteger . fromIntegral -}$ numReports x
+    return $ numReports x
 
 ---------------------------------------
 -- monad hierarchy
 
-instance Functor Hask (History_ disp) where
-    fmap f (History_ s) = History_ (fmap f s)
+instance Functor Hask History where
+    fmap f (History s) = History (fmap f s)
 
-instance Then (History_ disp) where
+instance Then History where
     (>>) = haskThen
 
-instance Monad Hask (History_ disp) where
-    return_ a = History_ $ return_ a
-    join (History_ s) = History_ $ join (fmap (\(History_ s)->s) s)
+instance Monad Hask History where
+    return_ a = History $ return_ a
+    join (History s) = History $ join (fmap (\(History s)->s) s)
+
+---------------------------------------
+-- algebra hierarchy
+
+type instance Scalar (History a) = Scalar a
+
+instance Semigroup a => Semigroup (History a) where
+    ha1 + ha2 = do
+        a1 <- ha1
+        a2 <- ha2
+        return $ a1+a2
+
+instance Cancellative a => Cancellative (History a) where
+    ha1 - ha2 = do
+        a1 <- ha1
+        a2 <- ha2
+        return $ a1-a2
+
+instance Monoid a => Monoid (History a) where
+    zero = return zero
+
+instance Group a => Group (History a) where
+    negate ha = do
+        a <- ha
+        return $ negate a
 
 ---------------------------------------
 -- comparison hierarchy
 
-type instance Logic (History_ disp a) = History_ disp (Logic a)
+type instance Logic (History a) = History (Logic a)
 
-instance Eq_ a => Eq_ (History_ disp a) where
+instance Eq_ a => Eq_ (History a) where
     a==b = do
         a' <- a
         b' <- b
         return $ a'==b'
 
-instance POrd_ a => POrd_ (History_ disp a) where
+instance POrd_ a => POrd_ (History a) where
     {-# INLINABLE inf #-}
     inf a b = do
         a' <- a
         b' <- b
         return $ inf a' b'
 
-instance Lattice_ a => Lattice_ (History_ disp a) where
+instance Lattice_ a => Lattice_ (History a) where
     {-# INLINABLE sup #-}
     sup a b = do
         a' <- a
         b' <- b
         return $ sup a' b'
 
-instance MinBound_ a => MinBound_ (History_ disp a) where
+instance MinBound_ a => MinBound_ (History a) where
     minBound = return $ minBound
 
-instance Bounded a => Bounded (History_ disp a) where
+instance Bounded a => Bounded (History a) where
     maxBound = return $ maxBound
 
-instance Heyting a => Heyting (History_ disp a) where
+instance Heyting a => Heyting (History a) where
     (==>) a b = do
         a' <- a
         b' <- b
         return $ a' ==> b'
 
-instance Complemented a => Complemented (History_ disp a) where
+instance Complemented a => Complemented (History a) where
     not a = do
         a' <- a
         return $ not a'
 
-instance Boolean a => Boolean (History_ disp a)
+instance Boolean a => Boolean (History a)
 

@@ -2,7 +2,7 @@ module HLearn.Data.LoadData
     where
 
 import Control.DeepSeq
-import Control.Monad
+-- import Control.Monad
 import Control.Monad.ST
 import Data.Maybe
 import qualified Data.List as L
@@ -31,7 +31,7 @@ import HLearn.Models.Distributions.Univariate.Normal
 
 import Data.List (take,drop,zipWith)
 
-import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask
 import SubHask.Algebra.Container
 import SubHask.Algebra.Parallel
 import SubHask.Compatibility.ByteString

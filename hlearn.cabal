@@ -105,7 +105,7 @@ Library
     Exposed-modules:
 
         HLearn.History
-        HLearn.History.DisplayMethods
+--         HLearn.History.DisplayMethods
         HLearn.History.Timing
 
         HLearn.Data.Graph
@@ -117,11 +117,11 @@ Library
 --         HLearn.Data.SpaceTree.Algorithms.RangeSearch
         HLearn.Data.UnsafeVector
 
-        HLearn.Evaluation.CrossValidation
+--         HLearn.Evaluation.CrossValidation
 --
 --         HLearn.Models.Classifiers
-        HLearn.Models.Classifiers.Common
-        HLearn.Models.Classifiers.LinearClassifier
+--         HLearn.Models.Classifiers.Common
+--         HLearn.Models.Classifiers.LinearClassifier
 -- --         HLearn.Models.Classifiers.KernelizedLinearClassifier
 --         HLearn.Models.Classifiers.NearestNeighbor
 --         HLearn.Models.Classifiers.NaiveNN
@@ -153,18 +153,18 @@ Library
 --         HLearn.Optimization.Conic
         HLearn.Optimization.Common
 --         HLearn.Optimization.Trace
-        HLearn.Optimization.GradientDescent
+--         HLearn.Optimization.GradientDescent
 --         HLearn.Optimization.StochasticGradientDescent
         HLearn.Optimization.LineMinimization.Univariate
-        HLearn.Optimization.LineMinimization.Multivariate
+--         HLearn.Optimization.LineMinimization.Multivariate
 
-        HLearn.Optimization.StepSize
+--         HLearn.Optimization.StepSize
 --         HLearn.Optimization.NewtonRaphson
 --         HLearn.Optimization.QuasiNewton
 
-        HLearn.Optimization.StepSize.Linear
-        HLearn.Optimization.StepSize.Const
-        HLearn.Optimization.StepSize.AlmeidaLanglois
+--         HLearn.Optimization.StepSize.Linear
+--         HLearn.Optimization.StepSize.Const
+--         HLearn.Optimization.StepSize.AlmeidaLanglois
 
 --         HLearn.NPHard.Scheduling
 --         HLearn.NPHard.BinPacking
@@ -201,168 +201,169 @@ Library
         MagicHash
         PolymorphicComponents
         ExplicitNamespaces
+        EmptyDataDecls
 
-executable hlearn-linear
-    main-is:
-        hlearn-linear.hs
+-- executable hlearn-linear
+--     main-is:
+--         hlearn-linear.hs
+--
+--     hs-source-dirs:
+--         src/exec
+--
+--     ghc-options:
+--         -O
+--         -funbox-strict-fields
+--
+--     build-depends:
+--
+--         base                >= 4.7,
+--         HLearn              >= 2.0,
+--         subhask             >= 0.1,
+--
+--         vector              >= 0.10.11,
+--         hmatrix             >= 0.15.2.2,
+--         containers          >= 0.5.5.1,
+--
+--         cmdargs             >= 0.10.7,
+--         cassava             >= 0.4.1,
+--         bytestring          >= 0.10.4,
+--         deepseq             >= 1.3.0.2,
+--         QuickCheck          >= 2.7.5,
+--         parallel            >= 3.2.0.4,
+--         time                >= 1.4.2,
+--
+--         vector-algorithms   >= 0.6.0.1,
+--         MonadRandom         >= 0.1.13,
+--         list-extras         >= 0.4.1.3
+--
+--     c-sources:
+--         cbits/emd.c
+--         cbits/ct.c
+--
+--     cc-options:
+--         -- optimization options
+--         -O3
+--         -msse2
+-- --         -mavx
+--         -ffast-math
+--         -fassociative-math
+--         -ftree-vectorize
+-- --         -march=native
+--         -mfpmath=sse
+--
+--         -- opencv options
+--         -fPIC
+--
+--     extra-libraries:
+--         opencv_core
+--         opencv_highgui
+--         opencv_imgproc
+--         opencv_imgcodecs
 
-    hs-source-dirs:
-        src/exec
+-- executable hlearn-embed
+--     main-is:
+--         hlearn-embed.hs
+--
+--     hs-source-dirs:
+--         src/exec
+--
+--     ghc-options:
+--         -threaded
+--         -rtsopts
+--
+--         -O
+--         -funbox-strict-fields
+--         -fexcess-precision
+--         -fcontext-stack=100
+--
+--         -fllvm
+--         -optlo-O3
+--         -optlo-enable-fp-mad
+--         -optlo-enable-no-infs-fp-math
+--         -optlo-enable-no-nans-fp-math
+--         -optlo-enable-unsafe-fp-math
+--
+--     build-depends:
+--
+--         base            >=4.7,
+--         HLearn          >=2.0,
+--         typeparams      >=0.0.6,
+--         subhask         >=0.0.1,
+--
+--         MonadRandom     >=0.1.13,
+--         mtl             >=2.1.3
 
-    ghc-options:
-        -O
-        -funbox-strict-fields
-
-    build-depends:
-
-        base                >= 4.7,
-        HLearn              >= 2.0,
-        subhask             >= 0.1,
-
-        vector              >= 0.10.11,
-        hmatrix             >= 0.15.2.2,
-        containers          >= 0.5.5.1,
-
-        cmdargs             >= 0.10.7,
-        cassava             >= 0.4.1,
-        bytestring          >= 0.10.4,
-        deepseq             >= 1.3.0.2,
-        QuickCheck          >= 2.7.5,
-        parallel            >= 3.2.0.4,
-        time                >= 1.4.2,
-
-        vector-algorithms   >= 0.6.0.1,
-        MonadRandom         >= 0.1.13,
-        list-extras         >= 0.4.1.3
-
-    c-sources:
-        cbits/emd.c
-        cbits/ct.c
-
-    cc-options:
-        -- optimization options
-        -O3
-        -msse2
---         -mavx
-        -ffast-math
-        -fassociative-math
-        -ftree-vectorize
---         -march=native
-        -mfpmath=sse
-
-        -- opencv options
-        -fPIC
-
-    extra-libraries:
-        opencv_core
-        opencv_highgui
-        opencv_imgproc
-        opencv_imgcodecs
-
-executable hlearn-embed
-    main-is:
-        hlearn-embed.hs
-
-    hs-source-dirs:
-        src/exec
-
-    ghc-options:
-        -threaded
-        -rtsopts
-
-        -O
-        -funbox-strict-fields
-        -fexcess-precision
-        -fcontext-stack=100
-
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
-
-    build-depends:
-
-        base            >=4.7,
-        HLearn          >=2.0,
-        typeparams      >=0.0.6,
-        subhask         >=0.0.1,
-
-        MonadRandom     >=0.1.13,
-        mtl             >=2.1.3
-
-executable hlearn-allknn
-    main-is:
-        hlearn-allknn.hs
-
-    hs-source-dirs:
-        src/exec
-
-    ghc-options:
---         -Wall
-        -threaded
-        -rtsopts
---         -with-rtsopts=-N
-
-        -O
---         -O2
-        -funbox-strict-fields
-        -fexcess-precision
-        -fcontext-stack=100
-
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
-
-        -ddump-to-file
-
---         -ddump-rule-firings
---         -ddump-rule-rewrites
---         -ddump-rules
---         -ddump-simpl
---         -ddump-simpl-stats
---         -dppr-debug
---         -dsuppress-module-prefixes
---         -dsuppress-uniques
---         -dsuppress-idinfo
---         -dsuppress-coercions
---         -dsuppress-type-applications
-
---         -ddump-cmm
-
-    build-depends:
-
-        base            >=4.7,
-        HLearn          >=2.0,
-        ConstraintKinds >=1.3,
---         simd            >=0.1,
-        typeparams      >=0.0.6,
-        subhask         >=0.0.1,
-
-        directory           >= 1.2,
-        filepath        >= 1.3.0.2,
-        deepseq >=1.3,
-        cassava >=0.3,
-        containers >=0.5,
-        unordered-containers >=0.2.4,
-        vector >=0.10,
-        bytestring >=0.10,
-        tagged >=0.7,
-        reflection >=1.3,
-        time >=1.4,
-        cmdargs >=0.10,
-        QuickCheck >=2.6,
-        parallel >=3.2,
-        MonadRandom >=0.1,
-        vector-algorithms >= 0.5,
-        strict >=0.3,
-        vector-th-unbox >= 0.2,
-        primitive >= 0.5,
-        deepseq >= 1.3,
---         hmatrix             == 0.15.2.2
-        hmatrix             >= 0.16.0.5
-
+-- executable hlearn-allknn
+--     main-is:
+--         hlearn-allknn.hs
+--
+--     hs-source-dirs:
+--         src/exec
+--
+--     ghc-options:
+-- --         -Wall
+--         -threaded
+--         -rtsopts
+-- --         -with-rtsopts=-N
+--
+--         -O
+-- --         -O2
+--         -funbox-strict-fields
+--         -fexcess-precision
+--         -fcontext-stack=100
+--
+--         -fllvm
+--         -optlo-O3
+--         -optlo-enable-fp-mad
+--         -optlo-enable-no-infs-fp-math
+--         -optlo-enable-no-nans-fp-math
+--         -optlo-enable-unsafe-fp-math
+--
+--         -ddump-to-file
+--
+-- --         -ddump-rule-firings
+-- --         -ddump-rule-rewrites
+-- --         -ddump-rules
+-- --         -ddump-simpl
+-- --         -ddump-simpl-stats
+-- --         -dppr-debug
+-- --         -dsuppress-module-prefixes
+-- --         -dsuppress-uniques
+-- --         -dsuppress-idinfo
+-- --         -dsuppress-coercions
+-- --         -dsuppress-type-applications
+--
+-- --         -ddump-cmm
+--
+--     build-depends:
+--
+--         base            >=4.7,
+--         HLearn          >=2.0,
+--         ConstraintKinds >=1.3,
+-- --         simd            >=0.1,
+--         typeparams      >=0.0.6,
+--         subhask         >=0.0.1,
+--
+--         directory           >= 1.2,
+--         filepath        >= 1.3.0.2,
+--         deepseq >=1.3,
+--         cassava >=0.3,
+--         containers >=0.5,
+--         unordered-containers >=0.2.4,
+--         vector >=0.10,
+--         bytestring >=0.10,
+--         tagged >=0.7,
+--         reflection >=1.3,
+--         time >=1.4,
+--         cmdargs >=0.10,
+--         QuickCheck >=2.6,
+--         parallel >=3.2,
+--         MonadRandom >=0.1,
+--         vector-algorithms >= 0.5,
+--         strict >=0.3,
+--         vector-th-unbox >= 0.2,
+--         primitive >= 0.5,
+--         deepseq >= 1.3,
+-- --         hmatrix             == 0.15.2.2
+--         hmatrix             >= 0.16.0.5
+--
