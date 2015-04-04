@@ -18,10 +18,9 @@ module HLearn.Optimization.LineMinimization.Multivariate
     )
     where
 
-import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return)
+import SubHask
 
 import HLearn.History
-import HLearn.Optimization.Common
 import HLearn.Optimization.LineMinimization.Univariate
 
 -------------------------------------------------------------------------------
@@ -38,7 +37,9 @@ data Backtracking v = Backtracking
     , _init_x   :: !v
     }
     deriving (Typeable)
-makeLenses ''Backtracking
+
+instance Show (Backtracking v) where
+    show _ = "Backtracking"
 
 -- instance (IsScalar (Scalar v), ValidTensor1 v) => Has_x1 Backtracking v where x1 = bt_x
 -- instance (IsScalar (Scalar v), ValidTensor1 v) => Has_fx1 Backtracking v where fx1 = bt_fx
@@ -51,15 +52,14 @@ backtracking ::
     ( Hilbert v
     , Normed (Scalar v)
     , Ord (Scalar v)
-    , HistoryMonad m
-    , Reportable m (Backtracking v)
-    ) => StopCondition m (Backtracking v)
-      -> MultivariateLineSearch m v
+    , Optimizable v
+    ) => StopCondition_ (Backtracking v)
+      -> MultivariateLineSearch v
 backtracking stops f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
     let g y = {-# backtracking_g #-} f $ x0 + y *. f'x0
     let grow=2.1
 
-    fmap _bt_x $ optimize (step_backtracking 0.5 f f')
+    fmap _bt_x $ iterate (step_backtracking 0.5 f f')
         (Backtracking
             { _bt_x = (grow*stepGuess)
             , _bt_fx = g (grow*stepGuess)
@@ -73,12 +73,11 @@ backtracking stops f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
 
 step_backtracking ::
     ( Module v
-    , HistoryMonad m
     ) => Scalar v
       -> (v -> Scalar v)
       -> (v -> v)
       -> Backtracking v
-      -> m (Backtracking v)
+      -> History (Backtracking v)
 step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
     let x1 = tao * _bt_x bt
     return $ bt
@@ -98,8 +97,7 @@ wolfe ::
     ( Hilbert v
     , Normed (Scalar v)
     , Ord (Scalar v)
-    , HistoryMonad m
-    ) => Scalar v -> Scalar v -> StopCondition m (Backtracking v)
+    ) => Scalar v -> Scalar v -> StopCondition_ (Backtracking v)
 wolfe !c1 !c2 !bt0 !bt1 = {-# SCC wolfe #-} do
     a <- amijo c1 bt0 bt1
     b <- strongCurvature c2 bt0 bt1
@@ -109,8 +107,7 @@ wolfe !c1 !c2 !bt0 !bt1 = {-# SCC wolfe #-} do
 amijo ::
     ( Hilbert v
     , Ord (Scalar v)
-    , HistoryMonad m
-    ) => Scalar v -> StopCondition m (Backtracking v)
+    ) => Scalar v -> StopCondition_ (Backtracking v)
 amijo !c1 _ !bt = {-# SCC amijo #-} return $
     _bt_fx bt <= _init_fx bt + c1 * (_bt_x bt) * ((_init_f'x bt) <> (_init_dir bt))
 
@@ -118,8 +115,7 @@ amijo !c1 _ !bt = {-# SCC amijo #-} return $
 weakCurvature ::
     ( Hilbert v
     , Ord (Scalar v)
-    , HistoryMonad m
-    ) => Scalar v -> StopCondition m (Backtracking v)
+    ) => Scalar v -> StopCondition_ (Backtracking v)
 weakCurvature !c2 _ !bt = {-# SCC weakCurvature #-} return $
     _init_dir bt <> _bt_f'x bt >= c2 * (_init_dir bt <> _init_f'x bt)
 
@@ -128,8 +124,7 @@ strongCurvature ::
     ( Hilbert v
     , Ord (Scalar v)
     , Normed (Scalar v)
-    , HistoryMonad m
-    ) => Scalar v -> StopCondition m (Backtracking v)
+    ) => Scalar v -> StopCondition_ (Backtracking v)
 strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
     abs (_init_dir bt <> _bt_f'x bt) <= c2 * abs (_init_dir bt <> _init_f'x bt)
 
@@ -137,8 +132,8 @@ strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
 -------------------------------------------------------------------------------
 
 -- | determine how far to go in a particular direction
-type MultivariateLineSearch m v =
-    (v -> Scalar v) -> (v -> v) -> v -> v -> Scalar v -> m (Scalar v)
+type MultivariateLineSearch v =
+    (v -> Scalar v) -> (v -> v) -> v -> v -> Scalar v -> History (Scalar v)
 
 -- lineSearchBrent ::
 --     ( Hilbert v
@@ -151,5 +146,5 @@ type MultivariateLineSearch m v =
 lineSearchBrent !stops !f _ !x0 !f'x0 !stepGuess = {-# SCC lineSearchBrent #-} do
     let g y = f $ x0 + y *. f'x0
     bracket <- lineBracket g (stepGuess/2) (stepGuess*2)
-    brent <- brent g bracket stops
-    return $ _x brent
+    brent <- fminuncM_brent_ (return . g) bracket stops
+    return $ _brent_x brent

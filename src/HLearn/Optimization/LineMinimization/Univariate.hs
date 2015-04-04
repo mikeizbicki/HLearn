@@ -91,16 +91,15 @@ module HLearn.Optimization.LineMinimization.Univariate
     where
 
 import SubHask
-
 import HLearn.History
-import HLearn.Optimization.Common
-
-import Debug.Trace
 
 -------------------------------------------------------------------------------
 
-tester :: Double
-tester = fminuncM_gss f
+tester :: History Double
+tester = do
+    lb <- lineBracketM f 0 1
+    gss <- fminuncM_gss_ f lb (maxIterations 5)
+    return $ gss_x gss
     where
         f x = do
             let f a = abs x + (a+5-x)*(a+5)
