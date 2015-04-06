@@ -143,6 +143,11 @@ type MultivariateLineSearch v =
 --     , Reportable m (Brent (Scalar v))
 --     ) => StopCondition m (Brent (Scalar v))
 --       -> MultivariateLineSearch m v
+lineSearchBrent :: 
+    ( Hilbert v 
+    , OrdField (Scalar v) 
+    , Optimizable (Scalar v) 
+    ) => StopCondition_ (Iterator_brent (Scalar v)) -> MultivariateLineSearch v
 lineSearchBrent !stops !f _ !x0 !f'x0 !stepGuess = {-# SCC lineSearchBrent #-} do
     let g y = f $ x0 + y *. f'x0
     bracket <- lineBracket g (stepGuess/2) (stepGuess*2)
