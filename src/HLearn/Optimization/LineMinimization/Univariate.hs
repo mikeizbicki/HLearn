@@ -63,7 +63,13 @@ module HLearn.Optimization.LineMinimization.Univariate
     -- ** Brent's method with derivatives
     -- |
     --
-    -- FIXME: implement using Section 10.3 of "Numerical Recipes in C"
+    -- FIXME: approve implementation of Section 10.3 of "Numerical Recipes in C"
+    , dbrent_test_
+    , fminunc_dbrent
+    , fminuncM_dbrent
+    , fminuncM_dbrent_
+    , stop_dbrent
+    , Iterator_dbrent (..)
 
     -- ** Golden section search
     -- | Golden section search is used to find the minimum of "poorly behaved" functions.
@@ -496,4 +502,181 @@ stop_brent tol _ opt = return $ abs (x-xm) <  tol2'-0.5*(b-a)
         tol1' = tol*(abs x)+zeps
         tol2' = 2*tol1'
         zeps = 1e-10
+
+
+
+-------------------------------------------------------------------------------
+-- Brent's method with derivatives
+
+-- | Variable names correspond to the algorithm in "Numerical Recipes in C"
+data Iterator_dbrent a = Iterator_dbrent
+    { _dbrent_a :: !a
+    , _dbrent_b :: !a
+    , _dbrent_d :: !a
+    , _dbrent_e :: !a
+    , _dbrent_fv :: !a
+    , _dbrent_fw :: !a
+    , _dbrent_fx :: !a
+    , _dbrent_dv :: !a
+    , _dbrent_dw :: !a
+    , _dbrent_dx :: !a
+    , _dbrent_v :: !a
+    , _dbrent_w :: !a
+    , _dbrent_x :: !a
+    , _dbrent_break :: Bool
+    }
+    deriving Typeable
+
+instance Show a => Show (Iterator_dbrent a) where
+    show b = "Iterator_brent; x="++show (_dbrent_x b)++"; f(x)="++show (_dbrent_fx b)
+
+-- | A simple interface to Brent's method with derivatives
+fminunc_dbrent :: ( Optimizable a, OrdField a ) => (a -> a) -> (a -> a) -> a
+fminunc_dbrent f df = fminuncM_dbrent (return . f) (return . df)
+
+-- | A simple monadic interface to Brent's method with derivatives
+fminuncM_dbrent :: ( Optimizable a, OrdField a ) => (a -> History a) -> (a -> History a) -> a
+fminuncM_dbrent f df = evalHistory $ do
+    lb <- lineBracketM f 0 1
+    b <- fminuncM_dbrent_ f df lb ( maxIterations 200 || stop_dbrent 1e-12 )
+    return $ _dbrent_x b
+
+-- | The most generic interface to Brent's method with derivatives
+fminuncM_dbrent_ ::
+    ( Optimizable a , OrdField a
+    ) => (a -> History a)                    -- ^ the function we're minimizing
+      -> (a -> History a)                    -- ^ the function's derivative
+      -> LineBracket a                       -- ^ bounds between which a minimum must exist
+      -> StopCondition_ (Iterator_dbrent a)  -- ^ controls the number of iterations
+      -> History (Iterator_dbrent a)
+fminuncM_dbrent_ f df (LineBracket ax bx cx fa fb fc) stop = beginFunction "dbrent" $ do
+    fbx <- f bx
+    dfx <- df bx
+    iterate
+        (step_dbrent f df)
+        ( Iterator_dbrent
+            { _dbrent_a = min ax cx
+            , _dbrent_b = max ax cx
+            , _dbrent_d = zero
+            , _dbrent_e = zero
+            , _dbrent_v = bx
+            , _dbrent_w = bx
+            , _dbrent_x = bx
+            , _dbrent_fv = fbx
+            , _dbrent_fw = fbx
+            , _dbrent_fx = fbx
+            , _dbrent_dv = dfx
+            , _dbrent_dw = dfx
+            , _dbrent_dx = dfx
+            , _dbrent_break = False
+            }
+        )
+        stop
+
+    where
+        step_dbrent ::
+            ( OrdField a
+            ) => (a -> History a) -> (a -> History a) -> Iterator_dbrent a -> History (Iterator_dbrent a)
+        step_dbrent f df dbrent@(Iterator_dbrent a b d e fv fw fx dv dw dx v w x _) = do
+            let zeps = 1e-10
+                sign a b = if b>0 then abs a else -(abs a)
+                tol = 1e-6
+
+                xm = 0.5*(a+b)
+                tol1' = tol*(abs x)+zeps
+                tol2' = 2*tol1'
+
+                (d',e') = if abs e > tol1' 
+                    then let 
+                        d1 = if dw /= dx then (w-x)*dx/(dx-dw) else 2*(b-a) 
+                        d2 = if dv /= dx then (v-x)*dx/(dx-dv) else 2*(b-a)
+                        u1 = x+d1
+                        u2 = x+d2
+                        ok1 = (a-u1)*(u1-b) > 0 && dx*d1 <= 0
+                        ok2 = (a-u2)*(u2-b) > 0 && dx*d2 <= 0
+                        in if ok1 || ok2 
+                            then let 
+                                d'' = if ok1 && ok2 
+                                    then if abs d1 < abs d2 then d1 else d2
+                                    else if ok1 then d1 else d2
+                                in if abs d'' <= abs (0.5 * e) 
+                                    then let u' = x + d''
+                                        in if u'-a < tol2' || b-u' < tol2'
+                                            then (sign tol1' xm-x, d)
+                                            else (d'', d)
+                                    else 
+                                        let e'' = if dx>=0 then a-x else b-x 
+                                        in (0.5*e'',e'')            
+                            else 
+                                let e'' = if dx>=0 then a-x else b-x 
+                                in (0.5*e'',e'')            
+                    else 
+                        let e'' = if dx>=0 then a-x else b-x 
+                        in (0.5*e'',e'')
+
+                u' = if abs d' >= tol1' then x+d' else x+sign tol1' d'
+            
+
+            fu' <- f u'
+            du' <- df u'
+
+            return $ if abs d' < tol1' && fu' > fx  
+                then dbrent 
+                    { _dbrent_x = x
+                    , _dbrent_fx = fx
+                    , _dbrent_break = True
+                    }
+                else
+                    if fu' <= fx
+                        then dbrent
+                            { _dbrent_e = e'
+                            , _dbrent_d = d'
+                            , _dbrent_a = if u' >= x then x else a
+                            , _dbrent_b = if u' >= x then b else x
+                            , _dbrent_v = w
+                            , _dbrent_w = x
+                            , _dbrent_x = u'
+                            , _dbrent_fv = fw
+                            , _dbrent_fw = fx
+                            , _dbrent_fx = fu'
+                            , _dbrent_dv = dw
+                            , _dbrent_dw = dx
+                            , _dbrent_dx = du'
+                            }
+                        else dbrent
+                            { _dbrent_e = e'
+                            , _dbrent_d = d'
+                            , _dbrent_a = if u' < x then u' else a
+                            , _dbrent_b = if u' < x then b  else u'
+                            , _dbrent_v  = if fu' <= fw || w==x then w   else if fu' <= fv || v==x || v==w then u'  else v
+                            , _dbrent_fv = if fu' <= fw || w==x then fw  else if fu' <= fv || v==x || v==w then fu' else fv
+                            , _dbrent_dv = if fu' <= fw || w==x then dw  else if fu' <= fv || v==x || v==w then du' else dv
+                            , _dbrent_w  = if fu' <= fw || w==x then u'  else w
+                            , _dbrent_fw = if fu' <= fw || w==x then fu' else fw
+                            , _dbrent_dw = if fu' <= fw || w==x then du' else dw
+                            }
+
+-- | Does not stop until the independent variable is accurate to within the tolerance passed in.
+--
+-- FIXME: if we get an exact solution this doesn't stop the optimization
+stop_dbrent :: (Show a, OrdField a) => a -> StopCondition_ (Iterator_dbrent a)
+-- stop_brent tol _ opt = trace ("a="++show a++"; b="++show b++"; left="++show (abs (x-xm))++"; right="++show (tol2'-0.5*(b-a))) $
+--     return $ abs (x-xm) <  tol2'-0.5*(b-a)
+stop_dbrent tol _ opt = return $ should_break || abs (x-xm) < tol2'-0.5*(b-a)
+    where
+        (Iterator_dbrent a b d e fv fw fx dv dw dx v w x should_break) = opt
+        xm = 0.5*(a+b)
+        tol1' = tol*(abs x)+zeps
+        tol2' = 2*tol1'
+        zeps = 1e-10
+
+dbrent_test_ = let
+    f :: Rational -> Rational
+    f x = (x-5)*(x-5)
+    df :: Rational -> Rational
+    df x = 2*x - 10
+    
+    in traceHistory $ do 
+        lb <- lineBracket f 0 1
+        fminuncM_dbrent_ (return . f) (return . df) lb (maxIterations 10 || stop_dbrent 1e-10)
 
