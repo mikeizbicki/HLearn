@@ -156,7 +156,7 @@ Library
         HLearn.Optimization.GradientDescent
 --         HLearn.Optimization.StochasticGradientDescent
         HLearn.Optimization.LineMinimization.Univariate
---         HLearn.Optimization.LineMinimization.Multivariate
+        HLearn.Optimization.LineMinimization.Multivariate
 
 --         HLearn.Optimization.StepSize
 --         HLearn.Optimization.NewtonRaphson

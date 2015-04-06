@@ -586,77 +586,75 @@ fminuncM_dbrent_ f df (LineBracket ax bx cx fa fb fc) stop = beginFunction "dbre
                 tol1' = tol*(abs x)+zeps
                 tol2' = 2*tol1'
 
-                (d',e') = if abs e > tol1' then 
-                            let
-                              d1 = if dw /= dx then (w-x)*dx/(dx-dw) else 2*(b-a) 
-                              d2 = if dv /= dx then (v-x)*dx/(dx-dv) else 2*(b-a)
-                              u1 = x+d1
-                              u2 = x+d2
-                              ok1 = (a-u1)*(u1-b) > 0 && dx*d1 <= 0
-                              ok2 = (a-u2)*(u2-b) > 0 && dx*d2 <= 0
-                            in 
-                              if ok1 || ok2 then
-                                let d'' = if ok1 && ok2 then
-                                            if abs d1 < abs d2 then d1 else d2
-                                          else 
-                                            if ok1 then d1 else d2
-                                in if abs d'' <= abs (0.5 * e) then
-                                     let u' = x + d''
-                                     in if u'-a < tol2' || b-u' < tol2'
-                                        then (sign tol1' xm-x, d)
-                                        else (d'', d)
-                                   else 
-                                     let e'' = if dx>=0 then a-x else b-x 
-                                     in (0.5*e'',e'')            
-                              else 
+                (d',e') = if abs e > tol1' 
+                    then let 
+                        d1 = if dw /= dx then (w-x)*dx/(dx-dw) else 2*(b-a) 
+                        d2 = if dv /= dx then (v-x)*dx/(dx-dv) else 2*(b-a)
+                        u1 = x+d1
+                        u2 = x+d2
+                        ok1 = (a-u1)*(u1-b) > 0 && dx*d1 <= 0
+                        ok2 = (a-u2)*(u2-b) > 0 && dx*d2 <= 0
+                        in if ok1 || ok2 
+                            then let 
+                                d'' = if ok1 && ok2 
+                                    then if abs d1 < abs d2 then d1 else d2
+                                    else if ok1 then d1 else d2
+                                in if abs d'' <= abs (0.5 * e) 
+                                    then let u' = x + d''
+                                        in if u'-a < tol2' || b-u' < tol2'
+                                            then (sign tol1' xm-x, d)
+                                            else (d'', d)
+                                    else 
+                                        let e'' = if dx>=0 then a-x else b-x 
+                                        in (0.5*e'',e'')            
+                            else 
                                 let e'' = if dx>=0 then a-x else b-x 
                                 in (0.5*e'',e'')            
-                          else 
-                            let e'' = if dx>=0 then a-x else b-x 
-                            in (0.5*e'',e'')
+                    else 
+                        let e'' = if dx>=0 then a-x else b-x 
+                        in (0.5*e'',e'')
 
                 u' = if abs d' >= tol1' then x+d' else x+sign tol1' d'
-
+            
 
             fu' <- f u'
             du' <- df u'
 
-            return $ 
-                if abs d' < tol1' && fu' > fx  
-                    then dbrent 
-                        { _dbrent_x = x
-                        , _dbrent_fx = fx
-                        , _dbrent_break = True
-                        }
+            return $ if abs d' < tol1' && fu' > fx  
+                then dbrent 
+                    { _dbrent_x = x
+                    , _dbrent_fx = fx
+                    , _dbrent_break = True
+                    }
                 else
-                if fu' <= fx
-                then dbrent
-                    { _dbrent_e = e'
-                    , _dbrent_d = d'
-                    , _dbrent_a = if u' >= x then x else a
-                    , _dbrent_b = if u' >= x then b else x
-                    , _dbrent_v = w
-                    , _dbrent_w = x
-                    , _dbrent_x = u'
-                    , _dbrent_fv = fw
-                    , _dbrent_fw = fx
-                    , _dbrent_fx = fu'
-                    , _dbrent_dv = dw
-                    , _dbrent_dw = dx
-                    , _dbrent_dx = du'
-                    }
-                else dbrent
-                    { _dbrent_e = e'
-                    , _dbrent_d = d'
-                    , _dbrent_a = if u' < x then u' else a
-                    , _dbrent_b = if u' < x then b  else u'
-                    , _dbrent_v  = if fu' <= fw || w==x then w   else if fu' <= fv || v==x || v==w then u'  else v
-                    , _dbrent_fv = if fu' <= fw || w==x then fw  else if fu' <= fv || v==x || v==w then fu' else fv
-                    , _dbrent_dv = if fu' <= fw || w==x then dw  else if fu' <= fv || v==x || v==w then du' else dv
-                    , _dbrent_w  = if fu' <= fw || w==x then u'  else w
-                    , _dbrent_fw = if fu' <= fw || w==x then fu' else fw
-                    , _dbrent_dw = if fu' <= fw || w==x then du' else dw
-                    }
+                    if fu' <= fx
+                        then dbrent
+                            { _dbrent_e = e'
+                            , _dbrent_d = d'
+                            , _dbrent_a = if u' >= x then x else a
+                            , _dbrent_b = if u' >= x then b else x
+                            , _dbrent_v = w
+                            , _dbrent_w = x
+                            , _dbrent_x = u'
+                            , _dbrent_fv = fw
+                            , _dbrent_fw = fx
+                            , _dbrent_fx = fu'
+                            , _dbrent_dv = dw
+                            , _dbrent_dw = dx
+                            , _dbrent_dx = du'
+                            }
+                        else dbrent
+                            { _dbrent_e = e'
+                            , _dbrent_d = d'
+                            , _dbrent_a = if u' < x then u' else a
+                            , _dbrent_b = if u' < x then b  else u'
+                            , _dbrent_v  = if fu' <= fw || w==x then w   else if fu' <= fv || v==x || v==w then u'  else v
+                            , _dbrent_fv = if fu' <= fw || w==x then fw  else if fu' <= fv || v==x || v==w then fu' else fv
+                            , _dbrent_dv = if fu' <= fw || w==x then dw  else if fu' <= fv || v==x || v==w then du' else dv
+                            , _dbrent_w  = if fu' <= fw || w==x then u'  else w
+                            , _dbrent_fw = if fu' <= fw || w==x then fu' else fw
+                            , _dbrent_dw = if fu' <= fw || w==x then du' else dw
+                            }
 
 -- | Does not stop until the independent variable is accurate to within the tolerance passed in.
 --
@@ -679,6 +677,6 @@ dbrent_test_ = let
     df x = 2*x - 10
     
     in traceHistory $ do 
-            lb <- lineBracket f 0 1
-            fminuncM_dbrent_ (return . f) (return . df) lb (maxIterations 10 || stop_dbrent 1e-10)
+        lb <- lineBracket f 0 1
+        fminuncM_dbrent_ (return . f) (return . df) lb (maxIterations 10 || stop_dbrent 1e-10)
 
