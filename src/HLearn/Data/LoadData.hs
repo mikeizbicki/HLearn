@@ -281,86 +281,11 @@ mkShuffleMap v = if VG.length v == 0
         return $ VG.map fst sortV'
         )
 
---     let numdim = VG.length (v VG.! 0)
---         numdpf = fromIntegral $ VG.length v
-
---     let m1V = VG.foldl1 (VG.zipWith (+)) v
---         m2V = VG.foldl1 (VG.zipWith (+)) $ VG.map (VG.map (\x -> x*x)) v
---         varV = VG.zipWith (\m1 m2 -> m2/numdpf-m1/numdpf*m1/numdpf) m1V m2V
-
---         sortV = VG.zip (VG.fromList [0..numdim-1::Int])
---               $ VG.convert varV :: UnboxedArray (Int, a)
---
---     msortV <- VG.unsafeThaw sortV
---     Intro.sortBy (\(_,v2) (_,v1) -> compare v1 v2) msortV
---     sortV' <- VG.unsafeFreeze msortV
---
---     return $ VG.map fst sortV'
---     )
-
---     meanV :: VUM.MVector s a <- VGM.new numdim
---     varV  :: VUM.MVector s a <- VGM.new numdim
---     let go (-1) = return ()
---         go i = do
---             let go_inner (-1) = return ()
---                 go_inner j = do
---                     let tmp = v VG.! i VG.! j
---                     meanVtmp <- (+tmp    ) `liftM` VGM.read meanV j
---                     varVtmp  <- (+tmp*tmp) `liftM` VGM.read varV  j
---                     VUM.write meanV
---
---             let xs   = fmap (VG.! i) v
---                 dist = train xs :: Normal a a
---                 var  = variance dist
---             VGM.write varV i (i,var)
---             go (i-1)
-
---     msortV :: VUM.MVector s (Int, a) <- VGM.new numdim
---
---     let go (-1) = return ()
---         go i = do
--- --             let !xs   = fmap (VG.! i) v
---             let !xs   = fmap (`VG.unsafeIndex` i) v
---                 !dist = train xs :: Normal a a
---                 !var  = variance dist
---             VGM.write msortV i (i,var)
---             go (i-1)
---     go (numdim-1)
-
---     forM [0..numdim-1] $ \i -> do
---         let xs   = fmap (VG.! i) v
---             dist = train xs :: Normal a a
---             var  = variance dist
---         VGM.write varV i (i,var)
-
--- mkShuffleMap xs
---     = fromList
---     $ map fst
---     $ L.sortBy (\(a,_) (b,_) -> compare a b)
---     $ zip [0..]
---     $ map (variance . trainNormal)
---     $ L.transpose
---     $ map toList
---     $ toList xs
 
 {-# INLINABLE shuffleVec #-}
 -- | apply the shufflemap to the data set to get a better ordering of the data
 shuffleVec :: VG.Vector v a => UnboxedArray Int -> v a -> v a
 shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v `VG.unsafeIndex` (vmap `VG.unsafeIndex` i)
--- shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v VG.! (vmap VG.! i)
-
--- shuffleVec vmap v = runST $ do
---     ret <- VGM.new (VG.length v)
---
---     let go (-1) = return ()
---         go i = do
---             VGM.write ret i $ v VG.! (vmap VG.! i)
---             go (i-1)
---     go (VG.length v-1)
---
--- --     forM [0..VG.length v-1] $ \i -> do
--- --         VGM.write ret i $ v VG.! (vmap VG.! i)
---     VG.freeze ret
 
 {-# INLINABLE meanCenter #-}
 -- | translate a dataset so the mean is zero
@@ -385,16 +310,10 @@ rotatePCA ::
     ) => container dp -> container dp
 rotatePCA dps' = {-# SCC rotatePCA #-} VG.map rotate dps
     where
---         rotate dp = VG.convert $ LA.single $ eigm LA.<> LA.double (VG.convert dp :: VS.Vector Float)
         rotate dp = {-# SCC convert #-} VG.convert $ LA.single $ (LA.trans eigm) LA.<> LA.double (VG.convert dp :: VS.Vector Float)
         dps =  meanCenter dps'
 
         (eigv,eigm) = {-# SCC eigSH #-} LA.eigSH $ LA.double gramMatrix
-
---         gramMatrix = {-# SCC gramMatrix #-} gramMatrix_ $ map VG.convert $ VG.toList dps
---         gramMatrix = {-# SCC gramMatrix #-} LA.trans tmpm LA.<> tmpm
---             where
---                 tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
 
         gramMatrix = {-# SCC gramMatrix #-} foldl1' (P.+)
             [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
