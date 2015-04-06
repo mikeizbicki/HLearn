@@ -479,7 +479,7 @@ fminuncM_brent_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "brent" $
                     , _brent_b = if u' < x then b  else u'
                     , _brent_v  = if fu' <= fw || w==x then w   else if fu' <= fv || v==x || v==w then u'  else v
                     , _brent_fv = if fu' <= fw || w==x then fw  else if fu' <= fv || v==x || v==w then fu' else fv
-                    , _brent_w  = if fu' <= fw || w==x then u'  else e
+                    , _brent_w  = if fu' <= fw || w==x then u'  else w
                     , _brent_fw = if fu' <= fw || w==x then fu' else fw
                     }
 
