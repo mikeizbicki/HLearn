@@ -135,14 +135,13 @@ strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
 type MultivariateLineSearch v =
     (v -> Scalar v) -> (v -> v) -> v -> v -> Scalar v -> History (Scalar v)
 
--- lineSearchBrent ::
---     ( Hilbert v
---     , HistoryMonad m
---     , Reportable m (Scalar v)
---     , Reportable m (LineBracket (Scalar v))
---     , Reportable m (Brent (Scalar v))
---     ) => StopCondition m (Brent (Scalar v))
---       -> MultivariateLineSearch m v
+lineSearchBrent ::
+    ( Hilbert v
+    , OrdField (Scalar v)
+    , Optimizable v
+    , Optimizable (Scalar v)
+    ) => StopCondition_ (Iterator_brent (Scalar v))
+      -> MultivariateLineSearch v
 lineSearchBrent !stops !f _ !x0 !f'x0 !stepGuess = {-# SCC lineSearchBrent #-} do
     let g y = f $ x0 + y *. f'x0
     bracket <- lineBracket g (stepGuess/2) (stepGuess*2)
