@@ -19,6 +19,7 @@ module HLearn.History
     , beginFunction
     , report
     , iterate
+    , currentItr
 
     -- *** stop conditions
     , StopCondition
@@ -212,6 +213,13 @@ collectReports (History hist) = {-# SCC collectReports #-} History $ do
         rmLevel = do
             (s, newReport:xs) <- get
             put (s,xs)
+
+
+{-# INLINABLE currentItr #-}
+currentItr :: History Int
+currentItr = History $ do
+    (_ , x:_) <- get
+    return $ numReports x
 
 ---------------------------------------
 -- monad hierarchy

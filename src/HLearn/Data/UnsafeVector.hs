@@ -27,7 +27,7 @@ import GHC.Int
 import GHC.Types
 
 import SubHask hiding (Functor(..), Applicative(..), Monad(..), Then(..), fail, return, liftM, forM_)
-import SubHask.Compatibility.Vector.HistogramMetrics
+-- import SubHask.Compatibility.Vector.HistogramMetrics
 import SubHask.Compatibility.Vector.Lebesgue
 
 -------------------------------------------------------------------------------

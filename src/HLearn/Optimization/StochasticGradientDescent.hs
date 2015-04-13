@@ -10,15 +10,19 @@ module HLearn.Optimization.StochasticGradientDescent
 --     )
     where
 
-import Control.Lens
-
 import SubHask
 
 import HLearn.History
-import HLearn.Optimization.Common
-import HLearn.Optimization.LineMinimization.Multivariate 
+import HLearn.Optimization.Multivariate
 
 import qualified Data.Vector.Generic as VG
+
+-------------------------------------------------------------------------------
+
+class LearningRate init step v | init -> step, step -> init where
+    lrStep :: init v -> step v -> v -> History (step v)
+    lrInit :: init v -> v -> step v
+    lrApply :: init v -> step v -> v -> v
 
 -------------------------------------------------------------------------------
 
@@ -28,15 +32,16 @@ data SGD container step dp v = SGD
     , __step    :: !(step v)
     }
     deriving Typeable
-makeLenses ''SGD
 
-instance Has_x1 (SGD container step dp) v where x1 = _x1
--- instance Has_stepSize (SGD container dp) v where stepSize = _step
+instance Show (SGD a b c d) where
+    show _ = "SGD"
 
-type StochasticMethod container dp v 
+instance Has_x1 (SGD container step dp) v where x1 = __x1
+
+type StochasticMethod container dp v
     = container dp -> (dp -> v -> v) -> History (v -> v)
 
-randomSample :: 
+randomSample ::
     ( VG.Vector container dp
     ) => StochasticMethod container dp v
 randomSample !dataset !f = do
@@ -50,7 +55,7 @@ linearScan ::
     ) => StochasticMethod container dp v
 linearScan !dataset !f = do
     t <- currentItr
-    return $ f $ dataset VG.! ( t `mod` VG.length dataset ) 
+    return $ f $ dataset VG.! ( t `mod` VG.length dataset )
 
 minibatch :: forall container dp v.
     ( VG.Vector container dp
@@ -80,30 +85,30 @@ stochasticGradientDescent ::
       -> container dp
       -> (dp -> v -> v)
       -> v
-      -> [StopCondition (SGD container params dp v)]
+      -> StopCondition_ (SGD container params dp v)
       -> History (SGD container params dp v)
-stochasticGradientDescent !sm !lr !dataset !f' !x0 !stops = optimize
+stochasticGradientDescent !sm !lr !dataset !f' !x0 !stops = iterate
     ( stepSGD sm lr f' )
     ( SGD dataset x0 $ lrInit lr x0 )
     stops
 
-stepSGD :: 
+stepSGD ::
     ( VectorSpace v
     , LearningRate hyperparams params v
     , Typeable v
     , Typeable container
     , Typeable dp
-    , Typeable params 
+    , Typeable params
     ) => StochasticMethod container dp v
       -> hyperparams v
       -> (dp -> v -> v)
       -> SGD container params dp v
       -> History (SGD container params dp v)
-stepSGD !sm !hyperparams !f' !sgd = do    
+stepSGD !sm !hyperparams !f' !sgd = do
     calcgrad <- sm (__dataset sgd) f'
     let grad = calcgrad $ __x1 sgd
     step <- lrStep hyperparams (__step sgd) grad
-    report $ sgd 
-        { __x1 = __x1 sgd - (lrApply hyperparams step grad) 
+    report $ sgd
+        { __x1 = __x1 sgd - (lrApply hyperparams step grad)
         , __step = step
         }

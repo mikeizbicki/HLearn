@@ -1,7 +1,7 @@
 -- | This module provides numerical routines for minimizing/maximizing one dimensional functions.
 -- All function are translated from "Numerical Recipes in C".
 -- The module is divided into simple and advanced sections.
-module HLearn.Optimization.LineMinimization.Univariate
+module HLearn.Optimization.Univariate
     (
 
     -- * Simple interface
@@ -384,6 +384,12 @@ data Iterator_brent a = Iterator_brent
 
 instance Show a => Show (Iterator_brent a) where
     show b = "Iterator_brent; x="++show (_brent_x b)++"; f(x)="++show (_brent_fx b)
+
+instance IsScalar a => Has_x1 Iterator_brent a where
+    x1 = _brent_x
+
+instance IsScalar a => Has_fx1 Iterator_brent a where
+    fx1 = _brent_fx
 
 -- | A simple interface to Brent's method
 fminunc_brent :: ( Optimizable a, OrdField a ) => (a -> a) -> a

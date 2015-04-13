@@ -1,6 +1,7 @@
 module HLearn.Optimization.Amoeba
     where
 
+import Prelude
 import Control.Monad
 import Control.Monad.ST
 import Data.List
@@ -16,7 +17,7 @@ import Numeric.LinearAlgebra hiding ((<>))
 import qualified Numeric.LinearAlgebra as LA
 
 findMinAmoeba f x0 = runST $ do
-    
+
     -- initialize simplex
     vec <- VM.new (VG.length x0+1)
     VGM.write vec 0 (f x0,x0)
@@ -25,7 +26,7 @@ findMinAmoeba f x0 = runST $ do
         VGM.write e_i (i-1) 1
         e_i' <- VG.freeze e_i
         let x_i = x0 `LA.add` e_i'
-        VGM.write vec i (f x_i,x_i) 
+        VGM.write vec i (f x_i,x_i)
 
     -- iterate
     vec' <- itrM 1000 (stepAmoeba f) vec
@@ -36,7 +37,7 @@ findMinAmoeba f x0 = runST $ do
 
 stepAmoeba f vec = stepAmoebaRaw 1 2 (-1/2) (1/2) f vec
 
-stepAmoebaRaw :: 
+stepAmoebaRaw ::
     ( Fractional b
     , Ord b
     , VGM.MVector vec (b,a)
@@ -45,12 +46,12 @@ stepAmoebaRaw ::
     , Field b
     , vec ~ VM.MVector
     , b ~ Double
-    ) => b 
+    ) => b
       -> b
       -> b
       -> b
       -> (a -> b)
-      -> vec s (b,a) 
+      -> vec s (b,a)
       -> ST s (vec s (b,a))
 stepAmoebaRaw alpha gamma ro sigma f vec = do
 
@@ -60,9 +61,9 @@ stepAmoebaRaw alpha gamma ro sigma f vec = do
     (f_2,x_2) <- VGM.read vec 1
     (f_n1,x_n1) <- VGM.read vec $ VGM.length vec -1
 
-    x_0 <- liftM ( scale (1/fromIntegral (VGM.length vec-1)) 
-                 . foldl1' (LA.add) 
-                 . init 
+    x_0 <- liftM ( scale (1/fromIntegral (VGM.length vec-1))
+                 . foldl1' (LA.add)
+                 . init
                  . map snd
                  . V.toList
                  ) $ VG.unsafeFreeze vec
@@ -85,11 +86,11 @@ stepAmoebaRaw alpha gamma ro sigma f vec = do
             then if f_e < f_r
                 then VGM.write vec (VGM.length vec-1) (f_e,x_e)
                 else VGM.write vec (VGM.length vec-1) (f_r,x_r)
-            
+
             -- check contraction
             else if f_c < f_n1
                 then VGM.write vec (VGM.length vec-1) (f_c,x_c)
-                
+
                 -- reduction
                 else forM_ [1..VGM.length vec-1] $ \i -> do
                     (f_i,x_i) <- VGM.read vec i
@@ -108,7 +109,7 @@ stepAmoebaRaw alpha gamma ro sigma f vec = do
 --             else do
 --                 writeSTRef refMinVal $ fst ival
 --                 writeSTRef refMinIndex i
---     undefined 
+--     undefined
 
 itrM :: Monad m => Int -> (a -> m a) -> a -> m a
 itrM 0 f a = return a

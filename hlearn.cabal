@@ -151,16 +151,11 @@ Library
 
 --         HLearn.Optimization.Amoeba
 --         HLearn.Optimization.Conic
---         HLearn.Optimization.Common
---         HLearn.Optimization.Trace
-        HLearn.Optimization.GradientDescent
---         HLearn.Optimization.StochasticGradientDescent
-        HLearn.Optimization.LineMinimization.Univariate
-        HLearn.Optimization.LineMinimization.Multivariate
-
 --         HLearn.Optimization.StepSize
---         HLearn.Optimization.NewtonRaphson
---         HLearn.Optimization.QuasiNewton
+--         HLearn.Optimization.StochasticGradientDescent
+        HLearn.Optimization.Multivariate
+        HLearn.Optimization.Univariate
+
 
 --         HLearn.Optimization.StepSize.Linear
 --         HLearn.Optimization.StepSize.Const
