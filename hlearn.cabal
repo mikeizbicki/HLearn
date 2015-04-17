@@ -44,9 +44,9 @@ Library
 --         simd                >= 0.1.0.1,
 
         -- math dependencies
-        erf                 >= 2.0,
-        gamma               >= 0.9,
-        logfloat            >= 0.12,
+--         erf                 >= 2.0,
+--         gamma               >= 0.9,
+--         logfloat            >= 0.12,
 --         hmatrix             == 0.15.2.2,
         hmatrix             >= 0.16.0.5,
         MonadRandom         >= 0.1,

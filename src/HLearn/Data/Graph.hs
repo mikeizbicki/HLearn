@@ -20,7 +20,7 @@ class
     ( Metric v
     , Ord (Scalar v)
     , HasScalar v
-    , Floating (Scalar v)
+    , ExpField (Scalar v)
     ) => KernelSpace v
         where
     kernel :: v -> v -> Scalar v

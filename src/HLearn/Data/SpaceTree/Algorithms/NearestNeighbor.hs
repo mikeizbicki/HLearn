@@ -226,7 +226,7 @@ findNeighborList ::
     ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Eq dp
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , CanError (Scalar dp)
     , ValidNeighbor dp
     ) => t dp -> dp -> NeighborList k dp
@@ -238,7 +238,7 @@ findEpsilonNeighborListWith ::
     ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
     , Eq dp
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , CanError (Scalar dp)
     , ValidNeighbor dp
     ) => NeighborList k dp -> Scalar dp -> t dp -> dp -> NeighborList k dp
@@ -279,7 +279,7 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
 knn_cata :: forall k t dp.
     ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , Eq dp
     , CanError (Scalar dp)
     , ValidNeighbor dp
@@ -348,7 +348,7 @@ qsortHalf !cmp !x = {-# SCC qsortHalf #-} go x []
 knn_cata_dist :: forall k t dp.
     ( ViewParam Param_k (NeighborList k dp)
     , SpaceTree t dp
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , Eq dp
     , CanError (Scalar dp)
     , ValidNeighbor dp
@@ -374,7 +374,7 @@ findAllNeighbors :: forall k dp t.
     , SpaceTree t dp
     , NFData (Scalar dp)
     , NFData dp
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , CanError (Scalar dp)
     , ValidNeighbor dp
     ) => Scalar dp -> t dp -> [dp] -> Seq (dp,NeighborList k dp)
@@ -388,7 +388,7 @@ findAllNeighbors' :: forall k dp t.
     , SpaceTree t dp
     , NFData (Scalar dp)
     , NFData dp
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , CanError (Scalar dp)
     , ValidNeighbor dp
     ) => Scalar dp -> t dp -> [dp] -> Seq (Labeled' dp (NeighborList k dp))

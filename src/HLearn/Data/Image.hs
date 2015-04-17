@@ -76,7 +76,7 @@ instance Storable a => Storable (CIELab a) where
 --  * use the haskell package
 --  * use opencv
 --
-rgb2cielab :: (ClassicalLogic a, Ord a, Floating a) => RGB a -> CIELab a
+rgb2cielab :: (ClassicalLogic a, Ord a, ExpField a) => RGB a -> CIELab a
 rgb2cielab (RGB r g b) = CIELab l_ a_ b_
     where
         x = 0.412453*r + 0.357580*g + 0.180423*b

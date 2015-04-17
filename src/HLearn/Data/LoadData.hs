@@ -214,7 +214,7 @@ loaddata ::
     , POrd_ (v f)
 --     , Normed (v f)
     , Show (Scalar (v f))
-    , Floating f
+    , Real f
     , f~Float
     , VUM.Unbox f
     ) => DataParams -> IO (Array (v f))
@@ -248,7 +248,7 @@ mkShuffleMap :: forall v a s.
     ( VG.Vector v a
     , Elem (v a) ~ a
     , Foldable (v a)
-    , Floating a
+    , Real a
     , Ord a
     , VU.Unbox a
     , Eq_ (v a)
@@ -367,7 +367,7 @@ shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v `VG.unsafeIndex` (vma
 meanCenter ::
     ( VG.Vector v1 (v2 a)
     , VG.Vector v2 a
-    , Floating a
+    , Real a
     ) => v1 (v2 a) -> v1 (v2 a)
 meanCenter dps = {-# SCC meanCenter #-} VG.map (\v -> VG.zipWith (-) v meanV) dps
     where

@@ -123,7 +123,7 @@ type ValidCT exprat childC leafC dp =
     , VG.Vector leafC (Scalar dp)
     , Metric dp
     , QuotientField (Scalar dp) Int
-    , Floating (Scalar dp)
+    , Real (Scalar dp)
     , Bounded (Scalar dp)
     , CanError (Scalar dp)
     , Logic dp ~ Bool
@@ -1257,26 +1257,26 @@ rmleaf ct = {-# SCC rmleaf #-} if stHasNoChildren (head childL)
 
 ---------------------------------------
 
-coverdist :: (QuotientField (Scalar dp) Int, Floating (Scalar dp)) =>
+coverdist :: (QuotientField (Scalar dp) Int, Real (Scalar dp)) =>
     CoverTree_ exprat childC leafC  dp -> Scalar dp
 coverdist node = sepdist node*exprat_
 
-sepdist :: forall exprat childC leafC dp. (QuotientField (Scalar dp) Int, Floating (Scalar dp)) =>
+sepdist :: forall exprat childC leafC dp. (QuotientField (Scalar dp) Int, Real (Scalar dp)) =>
     CoverTree_ exprat childC leafC dp -> Scalar dp
 sepdist ct = exprat_**(fromIntegral $ level ct)
 
-level2sepdist :: (QuotientField f r, Floating f) => r -> f
+level2sepdist :: (QuotientField f r, Real f) => r -> f
 level2sepdist i = exprat_**(fromIntegral i)
 
-level2coverdist :: (QuotientField f r, Floating f) => r -> f
+level2coverdist :: (QuotientField f r, Real f) => r -> f
 level2coverdist i = level2sepdist (i+1)
 
 dist2level_down :: forall exprat num.
-    ({-KnownFrac exprat, -}Floating num, QuotientField num Int) => Proxy exprat -> num -> Int
+    ({-KnownFrac exprat, -}Real num, QuotientField num Int) => Proxy exprat -> num -> Int
 dist2level_down _ d = floor $ log d / log exprat_
 
 dist2level_up :: forall exprat num.
-    ({-KnownFrac exprat,-} Floating num, QuotientField num Int) => Proxy exprat -> num -> Int
+    ({-KnownFrac exprat,-} Real num, QuotientField num Int) => Proxy exprat -> num -> Int
 dist2level_up _ d = ceiling $ log d / log exprat_
 
 

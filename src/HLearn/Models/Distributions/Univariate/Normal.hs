@@ -7,9 +7,6 @@ module HLearn.Models.Distributions.Univariate.Normal
     )
     where
 
-import Math.Gamma
-import Data.Number.Erf
-
 import SubHask
 import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
@@ -74,13 +71,13 @@ mul x (Normal moments) = Normal $ moments
 -------------------------------------------------------------------------------
 -- distribution
 
-instance Floating r => PDF (Normal r) where
+instance Real r => PDF (Normal r) where
     pdf dist dp = (1 / (sqrt $ sigma2 * 2 * pi))*(exp $ (-1)*(dp-mu)*(dp-mu)/(2*sigma2))
         where
             sigma2 = variance dist
             mu = mean dist
 
-instance (Floating r, Erf r) => CDF (Normal r) where
+instance Real r => CDF (Normal r) where
     cdf dist dp = ( 0.5 * ( 1 + erf ( (dp - mu) / (sqrt $ sigma2 *2) )))
         where
             sigma2 = variance dist
@@ -93,7 +90,7 @@ instance Field r => Variance (Normal r) where
     variance normal@(Normal dist) = m2 dist / m0 dist - (mean normal)*(mean normal)
 
 -- instance
---     ( Floating r
+--     ( Real r
 --     , Enum r
 --     , Show r
 --     , Ord r

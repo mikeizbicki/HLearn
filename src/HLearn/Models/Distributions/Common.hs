@@ -42,7 +42,7 @@ class Mean dist where
 class Variance dist where
     variance :: dist -> Scalar dist
 
-    stddev :: (Variance dist, Floating (Scalar dist)) => dist -> Scalar dist
+    stddev :: (Variance dist, ExpField (Scalar dist)) => dist -> Scalar dist
     stddev = sqrt . variance
 
 -------------------------------------------------------------------------------
