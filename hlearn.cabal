@@ -135,19 +135,7 @@ Library
 --         HLearn.Metrics.Mahalanobis.Mega
 --         HLearn.Metrics.Mahalanobis.Normal
 --
---         HLearn.Models.Distributions
-        HLearn.Models.Distributions.Common
---         HLearn.Models.Distributions.Visualization.Gnuplot
---         HLearn.Models.Distributions.Univariate.Binomial
---         HLearn.Models.Distributions.Univariate.Categorical
---         HLearn.Models.Distributions.Univariate.Exponential
---         HLearn.Models.Distributions.Univariate.Geometric
---         HLearn.Models.Distributions.Univariate.LogNormal
-        HLearn.Models.Distributions.Univariate.Normal
---         HLearn.Models.Distributions.Univariate.Poisson
---         HLearn.Models.Distributions.Univariate.Internal.MissingData
-        HLearn.Models.Distributions.Univariate.Internal.Moments
---         HLearn.Models.Distributions.Multivariate.MultiNormalFast
+        HLearn.Models.Distributions
 
 --         HLearn.Optimization.Amoeba
 --         HLearn.Optimization.Conic
