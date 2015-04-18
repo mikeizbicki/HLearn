@@ -619,7 +619,6 @@ fminuncM_dbrent_ f df (LineBracket ax bx cx fa fb fc) stop = beginFunction "dbre
 
                 u' = if abs d' >= tol1' then x+d' else x+sign tol1' d'
 
-
             fu' <- f u'
             du' <- df u'
 
@@ -670,5 +669,4 @@ stop_dbrent tol _ opt = return $ should_break || abs (x-xm) < tol2'-0.5*(b-a)
         tol1' = tol*(abs x)+zeps
         tol2' = 2*tol1'
         zeps = 1e-10
-
 
