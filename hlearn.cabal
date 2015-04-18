@@ -156,7 +156,6 @@ Library
         HLearn.Optimization.Multivariate
         HLearn.Optimization.Univariate
 
-
 --         HLearn.Optimization.StepSize.Linear
 --         HLearn.Optimization.StepSize.Const
 --         HLearn.Optimization.StepSize.AlmeidaLanglois
