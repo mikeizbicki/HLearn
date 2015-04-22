@@ -3,4 +3,4 @@
 	url = https://github.com/mikeizbicki/datasets.git
 [submodule "subhask"]
 	path = subhask
-	url = ./subhask
+	url = https://github.com/mikeizbicki/subhask.git
