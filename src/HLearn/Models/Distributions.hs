@@ -41,6 +41,8 @@ data Moments v = Moments
     , m2 :: !(v><v)
     }
 
+mkMutable [t| forall v. Moments v |]
+
 type instance Scalar (Moments v) = Scalar v
 type instance Logic (Moments v) = Logic v
 type instance Elem (Moments v) = v
@@ -89,20 +91,34 @@ instance Hilbert v => Constructible (Moments v) where
 -- | FIXME: I haven't properly tested this code
 newtype Normal v = Normal (Moments v)
 
--- deriveHierarchy ''Normal [ ''Group , ''Constructible ]
---
--- instance (FiniteModule v, Hilbert v) => Distribution (Normal v) where
---
---     mean (Normal (Moments m0 m1 m2)) = m1 ./ m0
---
---     pdf (Normal (Moments m0 m1 m2)) v
---         = (2*pi*size sigma)**(-dim v/2)*exp((-1/2)*(v' `vXm` reciprocal sigma)<>v')
---         where
---             v' = v - mu
---
---             mu    = m1 ./ m0
---             sigma = 1 + m2 ./ m0 - mu><mu
---
+mkMutable [t| forall v. Normal v |]
+
+-- deriveHierarchy ''Normal [ ''Hilbert, ''Constructible ]
+
+type instance Scalar (Normal v) = Scalar v
+type instance Elem (Normal v) = v
+
+instance Hilbert v => Semigroup (Normal v) where
+    (Normal n1)+(Normal n2)=Normal $ n1+n2
+
+instance Hilbert v => Monoid (Normal v) where
+    zero = Normal zero
+
+train1Normal :: Hilbert v => v -> Normal v
+train1Normal v = Normal $ singleton v
+
+instance (FiniteModule v, Hilbert v) => Distribution (Normal v) where
+
+    mean (Normal (Moments m0 m1 m2)) = m1 ./ m0
+
+    pdf (Normal (Moments m0 m1 m2)) v
+        = (2*pi*size sigma)**(-dim v/2)*exp((-1/2)*(v' `vXm` reciprocal sigma)<>v')
+        where
+            v' = v - mu
+
+            mu    = m1 ./ m0
+            sigma = 1 + m2 ./ m0 - mu><mu
+
 -- variance :: Hilbert v => Normal v -> v><v
 -- variance (Normal (Moments m0 m1 m2)) = m2 ./ m0 - mu><mu
 --     where

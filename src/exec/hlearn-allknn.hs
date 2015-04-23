@@ -14,9 +14,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RebindableSyntax #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
-import Control.Monad
+-- import Control.Monad
 import Control.Monad.Random hiding (fromList)
 import Data.List (zip,intersperse,init,tail,isSuffixOf,sortBy)
 import Data.Maybe (fromJust)
@@ -33,11 +33,11 @@ import SubHask.Algebra.Container
 import SubHask.Algebra.Ord
 import SubHask.Algebra.Parallel
 import SubHask.Compatibility.Containers
-import SubHask.Compatibility.Vector.HistogramMetrics
+-- import SubHask.Compatibility.Vector.HistogramMetrics
 import SubHask.Compatibility.Vector.Lebesgue
 -- import SubHask.Monad
 
-import Data.Params
+-- import Data.Params
 
 import HLearn.Data.Graph
 import HLearn.Data.Image
@@ -46,10 +46,9 @@ import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
 import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Data.UnsafeVector
-import HLearn.Evaluation.CrossValidation
+-- import HLearn.Evaluation.CrossValidation
 import HLearn.History.Timing
-import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Univariate.Normal
+import HLearn.Models.Distributions
 
 import Paths_HLearn
 
@@ -229,12 +228,13 @@ main = do
     -- load the data
     let filepath = fromJust $ reference_file params
 
-    let k = Proxy::Proxy (Static 1)
+--     let k = Proxy::Proxy (Static 1)
+    let k = Proxy::Proxy (1)
 
     case data_format params of
         DF_CSV -> do
-            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array UnboxedArray)
---             let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array Array)
+--             let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array UnboxedArray)
+            let ct = Proxy::Proxy (CoverTree_ 2 Array UnboxedArray)
                 dp = Proxy::Proxy (Labeled' (L2 UnboxedVector Float) Int)
 
             let {-# INLINE loadfile_dfcsv #-}
@@ -292,8 +292,8 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     ( ValidCT exprat childC leafC (Labeled' dp l)
     , ValidCT exprat childC leafC dp
     , P.Fractional (Scalar dp)
-    , Param_k (NeighborList k dp)
-    , Param_k (NeighborList k (Labeled' dp l))
+--     , Param_k (NeighborList k dp)
+--     , Param_k (NeighborList k (Labeled' dp l))
     , RationalField (Scalar dp)
     , ValidNeighbor dp
     , ValidNeighbor (Labeled' dp l)
@@ -303,6 +303,7 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     , P.Ord l
     , NFData l
     , Show l
+    , _
 --     , Semigroup (CoverTree_ exprat childC leafC (Labeled' dp l))
 
 --     , exprat ~ (13/10)
@@ -314,7 +315,7 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
 --       -> (FilePath -> IO (Array dp))
       -> proxy1 (CoverTree_ exprat childC leafC)
       -> proxy2 (Labeled' dp l)
-      -> proxy3 k
+      -> Proxy (k::Nat)
       -> IO ()
 allknn params loaddata _ _ _ = do
 
@@ -327,7 +328,7 @@ allknn params loaddata _ _ _ = do
 
     let rs_shuffle = fromList $ case seed params of
             Nothing -> rs_take
-            Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
+--             Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
 
     -- build the trees
     reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC (Labeled' dp l))
@@ -402,6 +403,7 @@ buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
+    , _
 
 --     , Semigroup (CoverTree_ exprat childC leafC dp)
 --     , exprat ~ (13/10)
@@ -470,6 +472,7 @@ printTreeStats ::
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
+    , _
     ) => String
       -> CoverTree_ exprat childC leafC dp
       -> IO ()

@@ -6,7 +6,6 @@ import Control.DeepSeq
 import Control.Monad.ST
 import Data.Maybe
 import qualified Data.List as L
-import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Mutable as VM
@@ -15,7 +14,6 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
-import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Vector.Algorithms.Intro as Intro
 -- import System.Mem
 import System.IO
@@ -24,10 +22,7 @@ import System.Directory
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel as LA
 
-import HLearn.Models.Distributions.Common
-import HLearn.Models.Distributions.Univariate.Normal
--- import Test.QuickCheck hiding (verbose,sample,label)
--- import Control.Parallel.Strategies
+import HLearn.Models.Distributions
 
 import Data.List (take,drop,zipWith)
 

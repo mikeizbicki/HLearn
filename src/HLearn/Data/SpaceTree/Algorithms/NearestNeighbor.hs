@@ -12,8 +12,8 @@ module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
     , getknnL
     , nlMaxDist
 
-    , Param_k
-    , _k
+--     , Param_k
+--     , _k
 
     -- * functions
     , findAllNeighbors
@@ -37,7 +37,7 @@ import SubHask.TemplateHaskell.Deriving
 
 import HLearn.Data.SpaceTree
 
-import Data.Params
+-- import Data.Params
 
 -------------------------------------------------------------------------------
 
@@ -75,12 +75,13 @@ instance (NFData dp, NFData (Scalar dp)) => NFData (Neighbor dp) where
 
 ------------------------------------------------------------------------------
 
-data NeighborList (k :: Config Nat) dp
+data NeighborList (k :: Nat) dp
     = NL_Nil
     | NL_Cons {-#UNPACK#-}!(Neighbor dp) !(NeighborList k dp)
 --     | NL_Err
 
-mkParams ''NeighborList
+-- mkParams ''NeighborList
+mkMutable [t| forall k dp. NeighborList k dp |]
 
 -- | update the distances in the NeighborList based on a new data point
 resetNL :: ValidNeighbor dp => dp -> NeighborList k dp -> NeighborList k dp
@@ -154,9 +155,7 @@ instance CanError (NeighborList k dp) where
     isError _ = False
 
 instance
---     ( KnownNat k
-    ( ViewParam Param_k (NeighborList k dp)
-    , Metric dp
+    ( Metric dp
     , Eq dp
     , ValidNeighbor dp
     ) => Monoid (NeighborList k dp)
@@ -166,8 +165,7 @@ instance
     zero = NL_Nil
 
 instance
-    ( ViewParam Param_k (NeighborList k dp)
-    , Metric dp
+    ( Metric dp
     , Eq dp
     , ValidNeighbor dp
     ) => Semigroup (NeighborList k dp)
@@ -180,7 +178,11 @@ instance
     NL_Nil + nl2    = nl2
     nl1    + nl2    = {-# SCC notNiL #-} ret
         where
-            ret = go nl1 nl2 (viewParam _k nl1)
+            -- FIXME:
+            -- typeparams doesn't work with GHC 7.10,
+            -- so I'm hard coding the number of neighbors to check
+--             ret = go nl1 nl2 (viewParam _k nl1)
+            ret = go nl1 nl2 (1::Int)
 
             go _ _ 0 = NL_Nil
             go (NL_Cons n1 ns1) (NL_Cons n2 ns2) k = if neighborDistance n1 > neighborDistance n2
@@ -192,8 +194,7 @@ instance
 
 {-# INLINE nlAddNeighbor #-}
 nlAddNeighbor :: forall k dp.
-    ( ViewParam Param_k (NeighborList k dp)
-    , ValidNeighbor dp
+    ( ValidNeighbor dp
     ) => NeighborList k dp -> Neighbor dp -> NeighborList k dp
 -- nlAddNeighbor NL_Nil n' = NL_Cons n' NL_Nil
 -- nlAddNeighbor (NL_Cons n NL_Nil) n' = if neighborDistance n' > neighborDistance n
@@ -222,9 +223,7 @@ nlAddNeighbor !nl !n = {-# SCC nlAddNeighbor #-} nl + NL_Cons n NL_Nil
 
 {-# INLINABLE findNeighborList  #-}
 findNeighborList ::
---     ( KnownNat k
-    ( ViewParam Param_k (NeighborList k dp)
-    , SpaceTree t dp
+    ( SpaceTree t dp
     , Eq dp
     , Real (Scalar dp)
     , CanError (Scalar dp)
@@ -234,9 +233,7 @@ findNeighborList !t !query = findEpsilonNeighborListWith zero zero t query
 
 {-# INLINABLE findEpsilonNeighborListWith #-}
 findEpsilonNeighborListWith ::
---     ( KnownNat k
-    ( ViewParam Param_k (NeighborList k dp)
-    , SpaceTree t dp
+    ( SpaceTree t dp
     , Eq dp
     , Real (Scalar dp)
     , CanError (Scalar dp)
@@ -254,9 +251,7 @@ findEpsilonNeighborListWith !knn !epsilon !t !query =
 {-# INLINABLE knn_catadp #-}
 -- {-# INLINE knn_catadp #-}
 knn_catadp :: forall k dp.
---     ( KnownNat k
-    ( ViewParam Param_k (NeighborList k dp)
-    , Metric dp
+    ( Metric dp
     , Eq dp
     , CanError (Scalar dp)
     , ValidNeighbor dp
@@ -277,8 +272,7 @@ knn_catadp !smudge !query !dp !knn = {-# SCC knn_catadp #-}
 -- {-# INLINABLE knn_cata #-}
 {-# INLINE knn_cata #-}
 knn_cata :: forall k t dp.
-    ( ViewParam Param_k (NeighborList k dp)
-    , SpaceTree t dp
+    ( SpaceTree t dp
     , Real (Scalar dp)
     , Eq dp
     , CanError (Scalar dp)
@@ -346,8 +340,7 @@ qsortHalf !cmp !x = {-# SCC qsortHalf #-} go x []
 
 {-# INLINABLE knn_cata_dist #-}
 knn_cata_dist :: forall k t dp.
-    ( ViewParam Param_k (NeighborList k dp)
-    , SpaceTree t dp
+    ( SpaceTree t dp
     , Real (Scalar dp)
     , Eq dp
     , CanError (Scalar dp)
@@ -370,8 +363,7 @@ knn_cata_dist !smudge !query !dist !t !knn = {-# SCC knn_cata #-}
 
 {-# INLINABLE findAllNeighbors #-}
 findAllNeighbors :: forall k dp t.
-    ( ViewParam Param_k (NeighborList k dp)
-    , SpaceTree t dp
+    ( SpaceTree t dp
     , NFData (Scalar dp)
     , NFData dp
     , Real (Scalar dp)
@@ -384,8 +376,7 @@ findAllNeighbors epsilon rtree qs = reduce $ map
 
 {-# INLINABLE findAllNeighbors' #-}
 findAllNeighbors' :: forall k dp t.
-    ( ViewParam Param_k (NeighborList k dp)
-    , SpaceTree t dp
+    ( SpaceTree t dp
     , NFData (Scalar dp)
     , NFData dp
     , Real (Scalar dp)

@@ -12,7 +12,7 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector as V
 
-import Data.Params
+-- import Data.Params
 
 import SubHask
 import SubHask.Monad
@@ -24,9 +24,9 @@ import SubHask.Compatibility.Vector.Lebesgue
 import HLearn.Data.UnsafeVector
 
 import HLearn.Data.SpaceTree
-import HLearn.Models.Distributions.Univariate.Normal
+import HLearn.Models.Distributions
 
-import Diagrams.Prelude hiding (distance,trace,query,connect,Semigroup,(<>),Scalar,Monoid,size)
+import Diagrams.Prelude ()
 import qualified Diagrams.Prelude as D
 import Diagrams.Backend.SVG hiding (size)
 
@@ -46,10 +46,10 @@ exprat_ = fromRational $ unsafePerformIO $ readIORef expratIORef
 
 -------------------------------------------------------------------------------
 
-type CoverTree dp = CoverTree_ (Static (13/10)) Array Array dp
+type CoverTree dp = CoverTree_ 2 Array Array dp
 
 data CoverTree_
-        ( exprat                :: Config Frac )
+        ( exprat                :: Nat ) -- FIXME: should be "Frac" from typeparams
         ( childC                :: * -> * )
         ( leafC                 :: * -> * )
         ( dp                    :: * )
@@ -69,7 +69,8 @@ data CoverTree_
 --         , leaves                :: {-#UNPACK#-}!(UnboxedArray dp)
         }
 
-mkParams ''CoverTree_
+-- mkParams ''CoverTree_
+mkMutable [t| forall a b c d. CoverTree_ a b c d |]
 
 type instance Scalar (CoverTree_ exprat childC leafC dp) = Scalar dp
 type instance Logic (CoverTree_ exprat childC leafC dp) = Bool
@@ -133,7 +134,7 @@ type ValidCT exprat childC leafC dp =
     , HasScalar dp
     , Eq_ (childC (CoverTree_ exprat childC leafC dp))
 
-    , Param_exprat (CoverTree_ exprat childC leafC dp)
+--     , Param_exprat (CoverTree_ exprat childC leafC dp)
 
     , ClassicalLogic (leafC dp)
     , ClassicalLogic (leafC (CoverTree_ exprat childC leafC dp))
@@ -269,6 +270,7 @@ ctMaxCoverRatio ct = if size (children ct) + size (leaves ct) > 0
 ctAveCoverRatio ::
     ( ValidCT exprat childC leafC dp
     , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Scalar (leafC dp)
+    , _
     ) => CoverTree_ exprat childC leafC dp -> Normal (Scalar dp)
 ctAveCoverRatio ct = if size (children ct) + size (leaves ct) > 0
     then train1Normal (stMaxDescendentDistance ct / coverdist ct)
@@ -923,6 +925,7 @@ addChild_parent dp ct = {-# SCC addChild_parent #-} ret:acc'
 {-# INLINABLE addChild_ancestor #-}
 addChild_ancestor ::
     ( ValidCT exprat childC leafC dp
+    , _
     ) => AddChildMethod exprat childC leafC dp
 addChild_ancestor dp ct = {-# SCC addChild_ancestor #-}
 --     FIXME: it would be more efficient to use a proper monoid instance
@@ -1054,7 +1057,7 @@ trainMonoid ::
 --     ) => [ L2 UnboxedVector Float ]
 --       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
     ) => [ Labeled' (L2 UnboxedVector Float) Int ]
-      -> Maybe' (CoverTree_ (Static (13/10)) Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
+      -> Maybe' (CoverTree_ 2 Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
 trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
 
 instance
@@ -1079,8 +1082,8 @@ instance
             maxlevel = maximum
                 [ level ct1
                 , level ct2
-                , dist2level_down (Proxy::Proxy (13/10)) dist
---                 , dist2level_down (Proxy::Proxy exprat) dist
+--                 , dist2level_down (Proxy::Proxy (13/10)) dist
+                , dist2level_down (Proxy::Proxy exprat) dist
                 ]
 
             ct1_ = if level ct1 < maxlevel then raiseRootLevel maxlevel ct1 else ct1

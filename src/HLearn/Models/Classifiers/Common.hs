@@ -5,7 +5,7 @@ module HLearn.Models.Classifiers.Common
 
 import SubHask
 import SubHask.Monad
-import HLearn.Models.Distributions.Common
+import HLearn.Models.Distributions
 
 
 -------------------------------------------------------------------------------
@@ -97,6 +97,7 @@ instance Metric attr => Metric (MaybeLabeled label attr) where
 -------------------------------------------------------------------------------
 -- Classification
 
+{-
 class
     ( Labeled (Datapoint model)
     ) => ProbabilityClassifier model
@@ -112,6 +113,7 @@ class
     ) => Classifier model
         where
     classify :: model -> Attributes (Datapoint model) -> Label (Datapoint model)
+-}
 
 -- | this is a default instance that any instance of Classifier should satisfy if it is also an instance of ProbabilityClassifier
 -- instance
@@ -126,5 +128,5 @@ class
 -- Regression
 
 -- | Regression is classification where the class labels are (isomorphic to) real numbers.  The constraints could probably be better specified, but they're close enough for now.
-class (Classifier model, Scalar model ~ Label (Datapoint model)) => Regression model
-instance (Classifier model, Scalar model ~ Label (Datapoint model)) => Regression model
+-- class (Classifier model, Scalar model ~ Label (Datapoint model)) => Regression model
+-- instance (Classifier model, Scalar model ~ Label (Datapoint model)) => Regression model

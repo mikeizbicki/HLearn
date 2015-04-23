@@ -20,7 +20,7 @@ import qualified Data.Strict.Maybe as Strict
 import Data.Csv
 
 import Unsafe.Coerce
-import Data.Hashable
+-- import Data.Hashable
 import Data.Primitive.ByteArray
 import GHC.Prim
 import GHC.Int

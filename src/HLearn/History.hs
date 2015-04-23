@@ -93,6 +93,175 @@ data Report = Report
     }
     deriving Show
 
+mkMutable [t| Report |]
+
+-------------------------------------------------------------------------------
+-- display functions
+
+-- | This type synonym is a hack, that I'm not happy with.
+-- Any class that any display function might want just gets included here.
+type Optimizable a = (Typeable a, Show a)
+
+-- | When running a "History" monad, there are three times we might need to perform IO actions: the beginning, middle, and end.
+-- This type just wraps all three of those functions into a single type.
+data DisplayFunction s = DisplayFunction
+    { startDisplayFunction :: IO ()
+    , stepDisplayFunction  :: forall a. Optimizable a => Report -> s -> a -> (s, IO ())
+    , stopDisplayFunction  :: s -> IO ()
+    }
+
+mkMutable [t| forall s. DisplayFunction s |]
+
+instance Semigroup s => Semigroup (DisplayFunction s) where
+    df1+df2 = DisplayFunction
+        (startDisplayFunction df1+startDisplayFunction df2)
+        (stepDisplayFunction df1 +stepDisplayFunction df2 )
+        (stopDisplayFunction df1 +stopDisplayFunction df2 )
+
+instance Monoid s => Monoid (DisplayFunction s) where
+    zero = DisplayFunction zero zero zero
+
+----------------------------------------
+-- filtering
+
+-- | Functions of this type are used to prevent the "stepDisplayFunction" from being called in certain situaations.
+type DisplayFilter = forall a. Optimizable a => Report -> a -> Bool
+
+displayFilter :: Monoid s => DisplayFilter -> DisplayFunction s -> DisplayFunction s
+displayFilter f df = df
+    { stepDisplayFunction = \r s a -> if f r a
+        then stepDisplayFunction df r s a
+        else (zero, return ())
+    }
+
+maxReportLevel :: Int -> DisplayFilter
+maxReportLevel n r _ = reportLevel r <= n
+
+----------------------------------------
+-- summary table
+
+-- | Functions of this type are used as parameters to the "dispIteration_" function.
+type DisplayInfo = forall a. Optimizable a => Report -> a -> String
+
+-- | After each step in the optimization completes, print a single line describing what happened.
+dispIteration :: Monoid s => DisplayFunction s
+dispIteration = dispIteration_ (infoItr + infoType + infoDiffTime)
+
+-- | A more general version of "dispIteration" that let's you specify what information to display.
+dispIteration_ :: forall s. Monoid s => DisplayInfo -> DisplayFunction s
+dispIteration_ f = DisplayFunction zero g zero
+    where
+        -- type signature needed for -XImpredicativeTypes
+        g :: forall a. Optimizable a => Report -> s -> a -> (s, IO () )
+        g r s a = (zero, putStrLn $ (concat $ P.replicate (reportLevel r) " - ") ++ f r a)
+
+-- | Pretty-print a "CPUTime".
+showTime :: CPUTime -> String
+showTime t = showEFloat (Just $ len-4-4) (fromIntegral t * 1e-12 :: Double) "" ++ " sec"
+    where
+        len=12
+
+-- | Print a raw string.
+infoString :: String -> DisplayInfo
+infoString = const . const
+
+-- | Print the time used to complete the step.
+infoDiffTime :: DisplayInfo
+infoDiffTime r _ = "; " ++ showTime (cpuTimeDiff r)
+
+-- | Print the name of the optimization step.
+infoType :: DisplayInfo
+infoType _ a = "; "++if typeRep [a] == typeRep [""]
+    then P.init $ P.tail $ show a
+    else P.head $ P.words $ show $ typeRep [a]
+
+-- | Print the current iteration of the optimization.
+infoItr :: DisplayInfo
+infoItr r _ = "; "++show (numReports r)
+
+----------------------------------------
+-- summary table
+
+-- | Contains all the information that might get displayed by "summaryTable".
+--
+-- FIXME:
+-- There's a lot more information that could be included.
+-- We could make "summaryTable" take parameters describing which elements to actually calculate/display.
+data CountInfo = CountInfo
+    { numcalls :: Int
+    , tottime  :: Integer
+    }
+    deriving Show
+
+type instance Logic CountInfo = Bool
+
+instance Eq_ CountInfo where
+    ci1==ci2 = numcalls ci1 == numcalls ci2
+            && tottime  ci1 == tottime  ci2
+
+avetime :: CountInfo -> Integer
+avetime = round (fromIntegral tottime / fromIntegral numcalls :: CountInfo -> Double)
+
+-- | Call "runHistory" with this "DisplayFunction" to get a table summarizing the optimization.
+-- This does not affect output during the optimization itself, only at the end.
+summaryTable :: DisplayFunction (Map' (Lexical String) CountInfo)
+summaryTable = DisplayFunction zero step stop
+    where
+        -- type signature needed for -XImpredicativeTypes
+        step :: forall a. Optimizable a
+            => Report
+            -> Map' (Lexical String) CountInfo
+            -> a
+            -> ( Map' (Lexical String) CountInfo, IO () )
+        step r s a = (insertAt k ci s, return ())
+            where
+                t = typeRep (Proxy::Proxy a)
+
+                k = Lexical $ if t == typeRep (Proxy::Proxy String)
+                    then unsafeCoerce a
+                    else P.head $ P.words $ show t
+
+                ci0 = case lookup k s of
+                    Just x -> x
+                    Nothing -> CountInfo
+                        { numcalls = 0
+                        , tottime  = 0
+                        }
+
+                ci = ci0
+                    { numcalls = numcalls ci0+1
+                    , tottime  = tottime  ci0+cpuTimeDiff r
+                    }
+
+        stop :: Map' (Lexical String) CountInfo -> IO ()
+        stop m = do
+
+            let hline = putStrLn $ " " ++ P.replicate (maxlen_name+maxlen_count+maxlen_time+10) '-'
+
+            hline
+            putStrLn $ " | " ++ padString title_name  maxlen_name
+                    ++ " | " ++ padString title_count maxlen_count
+                    ++ " | " ++ padString title_time  maxlen_time
+                    ++ " | "
+            hline
+            forM_ (toIxList m) $ \(k,ci) -> do
+                putStrLn $ " | " ++ padString (unLexical k           ) maxlen_name
+                        ++ " | " ++ padString (show     $ numcalls ci) maxlen_count
+                        ++ " | " ++ padString (showTime $ tottime  ci) maxlen_time
+                        ++ " | "
+            hline
+
+            where
+                title_name  = "report name"
+                title_count = "number of calls"
+                title_time  = "average time per call"
+                maxlen_name  = maximum $ length title_name:(map (length .                       fst) $ toIxList m)
+                maxlen_count = maximum $ length title_count:(map (length . show     . numcalls . snd) $ toIxList m)
+                maxlen_time  = maximum $ length title_time: (map (length . showTime . tottime  . snd) $ toIxList m)
+
+padString :: String -> Int -> String
+padString a i = P.take i $ a ++ P.repeat ' '
+
 -------------------------------------------------
 
 -- | A (sometimes) more convenient version of "History_"
@@ -111,6 +280,8 @@ newtype History_ s a = History
         )
         a
     )
+
+mkMutable [t| forall s a. History_ s a |]
 
 -- | Run the "History" computation without any debugging information.
 -- This is the most efficient way to run an optimization.
@@ -372,169 +543,4 @@ mulTolerance tol prevopt curopt = {-# SCC multiplicativeTollerance #-} do
 -- | Stop the optimization if our function value has grown between iterations
 fx1grows :: ( Has_fx1 opt v , Ord (Scalar v) ) => StopCondition_ (opt v)
 fx1grows opt0 opt1 = {-# SCC fx1grows #-} return $ fx1 opt0 < fx1 opt1
-
--------------------------------------------------------------------------------
--- display functions
-
--- | This type synonym is a hack, that I'm not happy with.
--- Any class that any display function might want just gets included here.
-type Optimizable a = (Typeable a, Show a)
-
--- | When running a "History" monad, there are three times we might need to perform IO actions: the beginning, middle, and end.
--- This type just wraps all three of those functions into a single type.
-data DisplayFunction s = DisplayFunction
-    { startDisplayFunction :: IO ()
-    , stepDisplayFunction  :: forall a. Optimizable a => Report -> s -> a -> (s, IO ())
-    , stopDisplayFunction  :: s -> IO ()
-    }
-
-instance Semigroup s => Semigroup (DisplayFunction s) where
-    df1+df2 = DisplayFunction
-        (startDisplayFunction df1+startDisplayFunction df2)
-        (stepDisplayFunction df1 +stepDisplayFunction df2 )
-        (stopDisplayFunction df1 +stopDisplayFunction df2 )
-
-instance Monoid s => Monoid (DisplayFunction s) where
-    zero = DisplayFunction zero zero zero
-
-----------------------------------------
--- filtering
-
--- | Functions of this type are used to prevent the "stepDisplayFunction" from being called in certain situaations.
-type DisplayFilter = forall a. Optimizable a => Report -> a -> Bool
-
-displayFilter :: Monoid s => DisplayFilter -> DisplayFunction s -> DisplayFunction s
-displayFilter f df = df
-    { stepDisplayFunction = \r s a -> if f r a
-        then stepDisplayFunction df r s a
-        else (zero, return ())
-    }
-
-maxReportLevel :: Int -> DisplayFilter
-maxReportLevel n r _ = reportLevel r <= n
-
-----------------------------------------
--- summary table
-
--- | Functions of this type are used as parameters to the "dispIteration_" function.
-type DisplayInfo = forall a. Optimizable a => Report -> a -> String
-
--- | After each step in the optimization completes, print a single line describing what happened.
-dispIteration :: Monoid s => DisplayFunction s
-dispIteration = dispIteration_ (infoItr + infoType + infoDiffTime)
-
--- | A more general version of "dispIteration" that let's you specify what information to display.
-dispIteration_ :: forall s. Monoid s => DisplayInfo -> DisplayFunction s
-dispIteration_ f = DisplayFunction zero g zero
-    where
-        -- type signature needed for -XImpredicativeTypes
-        g :: forall a. Optimizable a => Report -> s -> a -> (s, IO () )
-        g r s a = (zero, putStrLn $ (concat $ P.replicate (reportLevel r) " - ") ++ f r a)
-
--- | Pretty-print a "CPUTime".
-showTime :: CPUTime -> String
-showTime t = showEFloat (Just $ len-4-4) (fromIntegral t * 1e-12 :: Double) "" ++ " sec"
-    where
-        len=12
-
--- | Print a raw string.
-infoString :: String -> DisplayInfo
-infoString = const . const
-
--- | Print the time used to complete the step.
-infoDiffTime :: DisplayInfo
-infoDiffTime r _ = "; " ++ showTime (cpuTimeDiff r)
-
--- | Print the name of the optimization step.
-infoType :: DisplayInfo
-infoType _ a = "; "++if typeRep [a] == typeRep [""]
-    then P.init $ P.tail $ show a
-    else P.head $ P.words $ show $ typeRep [a]
-
--- | Print the current iteration of the optimization.
-infoItr :: DisplayInfo
-infoItr r _ = "; "++show (numReports r)
-
-----------------------------------------
--- summary table
-
--- | Contains all the information that might get displayed by "summaryTable".
---
--- FIXME:
--- There's a lot more information that could be included.
--- We could make "summaryTable" take parameters describing which elements to actually calculate/display.
-data CountInfo = CountInfo
-    { numcalls :: Int
-    , tottime  :: Integer
-    }
-    deriving Show
-
-type instance Logic CountInfo = Bool
-
-instance Eq_ CountInfo where
-    ci1==ci2 = numcalls ci1 == numcalls ci2
-            && tottime  ci1 == tottime  ci2
-
-avetime :: CountInfo -> Integer
-avetime = round (fromIntegral tottime / fromIntegral numcalls :: CountInfo -> Double)
-
--- | Call "runHistory" with this "DisplayFunction" to get a table summarizing the optimization.
--- This does not affect output during the optimization itself, only at the end.
-summaryTable :: DisplayFunction (Map' (Lexical String) CountInfo)
-summaryTable = DisplayFunction zero step stop
-    where
-        -- type signature needed for -XImpredicativeTypes
-        step :: forall a. Optimizable a
-            => Report
-            -> Map' (Lexical String) CountInfo
-            -> a
-            -> ( Map' (Lexical String) CountInfo, IO () )
-        step r s a = (insertAt k ci s, return ())
-            where
-                t = typeRep (Proxy::Proxy a)
-
-                k = Lexical $ if t == typeRep (Proxy::Proxy String)
-                    then unsafeCoerce a
-                    else P.head $ P.words $ show t
-
-                ci0 = case lookup k s of
-                    Just x -> x
-                    Nothing -> CountInfo
-                        { numcalls = 0
-                        , tottime  = 0
-                        }
-
-                ci = ci0
-                    { numcalls = numcalls ci0+1
-                    , tottime  = tottime  ci0+cpuTimeDiff r
-                    }
-
-        stop :: Map' (Lexical String) CountInfo -> IO ()
-        stop m = do
-
-            let hline = putStrLn $ " " ++ P.replicate (maxlen_name+maxlen_count+maxlen_time+10) '-'
-
-            hline
-            putStrLn $ " | " ++ padString title_name  maxlen_name
-                    ++ " | " ++ padString title_count maxlen_count
-                    ++ " | " ++ padString title_time  maxlen_time
-                    ++ " | "
-            hline
-            forM_ (toIxList m) $ \(k,ci) -> do
-                putStrLn $ " | " ++ padString (unLexical k           ) maxlen_name
-                        ++ " | " ++ padString (show     $ numcalls ci) maxlen_count
-                        ++ " | " ++ padString (showTime $ tottime  ci) maxlen_time
-                        ++ " | "
-            hline
-
-            where
-                title_name  = "report name"
-                title_count = "number of calls"
-                title_time  = "average time per call"
-                maxlen_name  = maximum $ length title_name:(map (length .                       fst) $ toIxList m)
-                maxlen_count = maximum $ length title_count:(map (length . show     . numcalls . snd) $ toIxList m)
-                maxlen_time  = maximum $ length title_time: (map (length . showTime . tottime  . snd) $ toIxList m)
-
-padString :: String -> Int -> String
-padString a i = P.take i $ a ++ P.repeat ' '
 

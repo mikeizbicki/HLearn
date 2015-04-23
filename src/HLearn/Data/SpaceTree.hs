@@ -58,7 +58,7 @@ import SubHask
 import SubHask.Monad
 import SubHask.Compatibility.Containers
 
-import HLearn.Models.Distributions.Univariate.Normal
+import HLearn.Models.Distributions
 
 -------------------------------------------------------------------------------
 -- SpaceTree
