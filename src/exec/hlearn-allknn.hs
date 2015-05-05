@@ -21,6 +21,7 @@ import Control.Monad.Random hiding (fromList)
 import Data.List (zip,intersperse,init,tail,isSuffixOf,sortBy)
 import Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Unboxed as VU
 import Data.Version
 import Numeric
 import System.Console.CmdArgs.Implicit
@@ -33,20 +34,20 @@ import SubHask.Algebra.Container
 import SubHask.Algebra.Ord
 import SubHask.Algebra.Parallel
 import SubHask.Compatibility.Containers
--- import SubHask.Compatibility.Vector.HistogramMetrics
+-- import SubHask.Compatibility.StaticVector
+import SubHask.Compatibility.Vector
 import SubHask.Compatibility.Vector.Lebesgue
 -- import SubHask.Monad
 
 -- import Data.Params
 
-import HLearn.Data.Graph
+-- import HLearn.Data.Graph
 import HLearn.Data.Image
 import HLearn.Data.LoadData
 import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
 import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Data.UnsafeVector
--- import HLearn.Evaluation.CrossValidation
 import HLearn.History.Timing
 import HLearn.Models.Distributions
 
@@ -228,12 +229,10 @@ main = do
     -- load the data
     let filepath = fromJust $ reference_file params
 
---     let k = Proxy::Proxy (Static 1)
-    let k = Proxy::Proxy (1)
+    let k = Proxy::Proxy 1
 
     case data_format params of
         DF_CSV -> do
---             let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array UnboxedArray)
             let ct = Proxy::Proxy (CoverTree_ 2 Array UnboxedArray)
                 dp = Proxy::Proxy (Labeled' (L2 UnboxedVector Float) Int)
 
@@ -247,12 +246,26 @@ main = do
                             }
                     rs :: Array (L2 UnboxedVector Float) <- loaddata dataparams
                     when (size rs > 0) $ do
-                        putStrLn $ "  numdim:  " ++ show ( VG.length $ rs VG.! 0 )
+                        putStrLn $ "  numdim:  " ++ show ( VG.length $ rs!0 )
                         putStrLn ""
-                        setptsize $ VG.length $ VG.head rs
+                        setptsize $ VG.length $ rs!0
 
-                    return $ VG.zipWith Labeled' rs $ VG.fromList [0::Int ..]
---                     return rs
+--                         putStrLn $ "  numdim:  " ++ show ( dim $ rs!0 )
+--                         putStrLn ""
+--                         setptsize $ dim $ rs!0
+
+                    let rs' = VG.convert rs :: UnboxedArray (L2 UnboxedVector Float)
+
+--                     putStrLn $ "rs  VG.! 0 = "++ show (rs  VG.! 0)
+--                     putStrLn $ "rs' VG.! 0 = "++ show (rs' VG.! 0)
+--
+--                     putStrLn $ "VG.slice 5 20 rs  VG.! 10 = "++ show (VG.slice 5 20 rs  VG.! 10)
+--                     putStrLn $ "VG.slice 5 20 rs' VG.! 10 = "++ show (VG.slice 5 20 rs' VG.! 10)
+--
+--                     putStrLn $ "rs  VG.! 99 = "++ show (rs  VG.! 99)
+--                     putStrLn $ "rs' VG.! 99 = "++ show (rs' VG.! 99)
+
+                    return $ VG.zipWith Labeled' rs' $ VG.fromList [0::Int ..]
 
             allknn params loadfile_dfcsv ct dp k
 
@@ -291,32 +304,37 @@ main = do
 allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     ( ValidCT exprat childC leafC (Labeled' dp l)
     , ValidCT exprat childC leafC dp
-    , P.Fractional (Scalar dp)
---     , Param_k (NeighborList k dp)
---     , Param_k (NeighborList k (Labeled' dp l))
+--     , P.Fractional (Scalar dp)
     , RationalField (Scalar dp)
-    , ValidNeighbor dp
     , ValidNeighbor (Labeled' dp l)
+
+    , Index (leafC (Labeled' dp l)) ~ Int
+    , Scalar (leafC (Labeled' dp l)) ~ Int
+    , IxContainer (leafC (Labeled' dp l))
+    , Bounded (Scalar dp)
+    , VU.Unbox dp
+    , VU.Unbox l
+    , Scalar (childC (CoverTree_ exprat childC leafC (Labeled' dp l))) ~ Int
 
     , VG.Vector childC Int
     , VG.Vector childC Bool
     , P.Ord l
     , NFData l
     , Show l
-    , _
---     , Semigroup (CoverTree_ exprat childC leafC (Labeled' dp l))
-
---     , exprat ~ (13/10)
---     , childC ~ Array
---     , leafC ~ UnboxedArray
---     , dp ~ L2 UnboxedVector Float
     ) => Params
-      -> (FilePath -> IO (Array (Labeled' dp l)))
---       -> (FilePath -> IO (Array dp))
+      -> (FilePath -> IO (UnboxedArray (Labeled' dp l)))
       -> proxy1 (CoverTree_ exprat childC leafC)
       -> proxy2 (Labeled' dp l)
-      -> Proxy (k::Nat)
+      -> Proxy (1::Nat)
       -> IO ()
+-- allknn ::
+--     (
+--     ) => Params
+--       -> (FilePath -> IO (UnboxedArray (Labeled' (L2 UnboxedVector Float) Int)))
+--       -> Proxy (CoverTree_ 2 Array UnboxedArray)
+--       -> Proxy (Labeled' (L2 UnboxedVector Float) Int)
+--       -> Proxy 1
+--       -> IO ()
 allknn params loaddata _ _ _ = do
 
     -- load the dataset
@@ -328,10 +346,12 @@ allknn params loaddata _ _ _ = do
 
     let rs_shuffle = fromList $ case seed params of
             Nothing -> rs_take
---             Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
+            {-Just n  -> evalRand (shuffle rs_take) (mkStdGen n)-}
 
     -- build the trees
-    reftree <- buildTree params rs_shuffle :: IO (CoverTree_ exprat childC leafC (Labeled' dp l))
+    reftree :: CoverTree_ exprat childC leafC (Labeled' dp l)
+        <- buildTree params rs_shuffle
+--     reftree <- buildTree params rs_shuffle
 
     (querytree,qs) <- case query_file params of
         Nothing -> return $ (reftree,rs)
@@ -347,7 +367,7 @@ allknn params loaddata _ _ _ = do
     let res = unsafeParallelInterleaved
             ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
             ( stToList querytree )
-            :: Seq (Labeled' dp l, NeighborList k (Labeled' dp l))
+            :: Seq (Labeled' dp l, NeighborList 1 (Labeled' dp l))
     time "computing parFindNeighborMap" res
 
     -- output to files
@@ -376,43 +396,21 @@ allknn params loaddata _ _ _ = do
 
     putStrLn "done"
 
-{-# RULES
-
--- "subhask/eqVectorDouble"  (==) = eqVectorDouble
--- "subhask/eqVectorFloat"  (==) = eqVectorFloat
--- "subhask/eqVectorInt"  (==) = eqVectorInt
--- "subhask/eqUnboxedVectorDouble"  (==) = eqUnboxedVectorDouble
--- "subhask/eqUnboxedVectorFloat"  (==) = eqUnboxedVectorFloat
--- "subhask/eqUnboxedVectorInt"  (==) = eqUnboxedVectorInt
-
--- "subhask/distance_l2_float_unboxed"         distance = distance_l2_float_unboxed
--- "subhask/isFartherThan_l2_float_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_float_unboxed
--- "subhask/distance_l2_m128_unboxed"         distance = distance_l2_m128_unboxed
--- "subhask/isFartherThan_l2_m128_unboxed"    isFartherThanWithDistanceCanError=isFartherThan_l2_m128_unboxed
-
--- "subhask/distance_l2_m128_storable"        distance = distance_l2_m128_storable
--- "subhask/distance_l2_m128d_storable"       distance = distance_l2_m128d_storable
--- "subhask/isFartherThan_l2_m128_storable"   isFartherThanWithDistanceCanError=isFartherThan_l2_m128_storable
--- "subhask/isFartherThan_l2_m128d_storable"  isFartherThanWithDistanceCanError=isFartherThan_l2_m128d_storable
-
-  #-}
-
 -- | Gives us many possible ways to construct our cover trees based on the input parameters.
 -- This is important so we can compare their runtime features.
 buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
-    , _
-
---     , Semigroup (CoverTree_ exprat childC leafC dp)
---     , exprat ~ (13/10)
---     , childC ~ Array
---     , leafC ~ UnboxedArray
---     , dp ~ L2 UnboxedVector Float
+    , VU.Unbox dp
     ) => Params
-      -> Array dp
+      -> UnboxedArray dp
       -> IO (CoverTree_ exprat childC leafC dp)
+-- buildTree ::
+--     (
+--     ) => Params
+--       -> UnboxedArray (Labeled' (L2 UnboxedVector Float) Int)
+--       -> IO (CoverTree_ 2 Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
 buildTree params xs = do
 
     setexpratIORef $ P.toRational $ expansionRatio params
@@ -423,7 +421,6 @@ buildTree params xs = do
             TrainInsert_Sort     -> trainInsert addChild_nothing
             TrainInsert_Parent   -> trainInsert addChild_parent
             TrainInsert_Ancestor -> trainInsert addChild_ancestor
---             TrainMonoid          -> trainMonoid
 
     let (Just' reftree) = {-parallel-} trainmethod $ toList xs
     time "building tree" reftree
@@ -472,7 +469,6 @@ printTreeStats ::
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
-    , _
     ) => String
       -> CoverTree_ exprat childC leafC dp
       -> IO ()

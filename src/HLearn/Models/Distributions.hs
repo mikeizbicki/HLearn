@@ -112,7 +112,7 @@ instance (FiniteModule v, Hilbert v) => Distribution (Normal v) where
     mean (Normal (Moments m0 m1 m2)) = m1 ./ m0
 
     pdf (Normal (Moments m0 m1 m2)) v
-        = (2*pi*size sigma)**(-dim v/2)*exp((-1/2)*(v' `vXm` reciprocal sigma)<>v')
+        = (2*pi*size sigma)**(-fromIntegral (dim v)/2)*exp((-1/2)*(v' `vXm` reciprocal sigma)<>v')
         where
             v' = v - mu
 

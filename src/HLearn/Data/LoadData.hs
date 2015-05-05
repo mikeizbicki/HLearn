@@ -32,6 +32,7 @@ import SubHask.Algebra.Parallel
 import SubHask.Compatibility.ByteString
 import SubHask.Compatibility.Cassava
 import SubHask.Compatibility.Containers
+import SubHask.Compatibility.Vector
 import SubHask.Compatibility.Vector.Lebesgue
 import SubHask.TemplateHaskell.Deriving
 
@@ -200,38 +201,44 @@ loadCSVLabeled filepath n = do
 
 {-# INLINABLE loaddata #-}
 loaddata ::
-    ( VG.Vector v f
-    , NFData (v f)
-    , NFData  f
-    , FromRecord (v f)
-    , Eq (v f)
-    , Ord f
-    , POrd_ (v f)
---     , Normed (v f)
-    , Show (Scalar (v f))
-    , Real f
-    , f~Float
-    , VUM.Unbox f
-    ) => DataParams -> IO (Array (v f))
+--     ( VG.Vector v f
+--     , NFData (v f)
+--     , NFData  f
+--     , FromRecord (v f)
+--     , Eq (v f)
+--     , Ord f
+--     , POrd_ (v f)
+-- --     , Normed (v f)
+--     , Show (Scalar (v f))
+--     , Real f
+--     , f~Float
+--     , VUM.Unbox f
+    ( NFData a
+    , FromRecord a
+    , Eq a
+    , Show (Scalar a)
+    ) => DataParams -> IO (Array a)
 loaddata params = do
     rs <- loadCSV $ datafile params
 
+    return rs
+
     -- These algorithms are implemented sequentially,
     -- so they run faster if we temporarily disable the RTS multithreading
-    disableMultithreading $ do
-
-        rs' <- if pca params
-            then time "calculating PCA" $ VG.convert $ rotatePCA rs
-            else return rs
-
-        let shuffleMap = mkShuffleMap $ VG.map ArrayT rs'
-        time "mkShuffleMap" shuffleMap
-
-        rs'' <- if varshift params
-            then time "varshifting data" $ VG.map (shuffleVec shuffleMap) rs'
-            else return rs'
-
-        return $ rs''
+--     disableMultithreading $ do
+--
+--         rs' <- if pca params
+--             then time "calculating PCA" $ VG.convert $ rotatePCA rs
+--             else return rs
+--
+--         let shuffleMap = mkShuffleMap $ VG.map ArrayT rs'
+--         time "mkShuffleMap" shuffleMap
+--
+--         rs'' <- if varshift params
+--             then time "varshifting data" $ VG.map (shuffleVec shuffleMap) rs'
+--             else return rs'
+--
+--         return $ rs''
 
 
 -------------------------------------------------------------------------------

@@ -103,8 +103,8 @@ class
     type ChildContainer t :: * -> *
     type ChildContainer t = V.Vector
 
-    {-# INLINABLE stMinDistance #-}
-    {-# INLINABLE stMaxDistance #-}
+    {-# INLINE stMinDistance #-}
+    {-# INLINE stMaxDistance #-}
     stMinDistance :: t dp -> t dp -> Scalar dp
     stMinDistance t1 t2 = fst# (stMinDistanceWithDistance t1 t2)
     stMaxDistance :: t dp -> t dp -> Scalar dp
@@ -113,8 +113,8 @@ class
     stMinDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
     stMaxDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
 
-    {-# INLINABLE stMinDistanceDp #-}
-    {-# INLINABLE stMaxDistanceDp #-}
+    {-# INLINE stMinDistanceDp #-}
+    {-# INLINE stMaxDistanceDp #-}
     stMinDistanceDp :: t dp -> dp -> Scalar dp
     stMinDistanceDp t dp = fst# (stMinDistanceDpWithDistance t dp)
     stMaxDistanceDp :: t dp -> dp -> Scalar dp
@@ -136,19 +136,19 @@ class
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Scalar dp
 
-    {-# INLINABLE stHasNoChildren #-}
+    {-# INLINE stHasNoChildren #-}
     stHasNoChildren :: t dp -> Bool
     stHasNoChildren t = isEmpty $ stChildren t
 
-    {-# INLINABLE stChildrenList #-}
+    {-# INLINE stChildrenList #-}
     stChildrenList :: t dp -> [t dp]
     stChildrenList t = toList $ stChildren t
 
-    {-# INLINABLE stLeaves #-}
+    {-# INLINE stLeaves #-}
     stLeaves :: t dp -> LeafContainer t dp
     stLeaves t = zero
 
-    {-# INLINABLE stNodeW #-}
+    {-# INLINE stNodeW #-}
     stNodeW :: t dp -> Weighted# dp
     stNodeW t = (# stWeight t, stNode t #)
 
@@ -377,20 +377,6 @@ prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
         where
             b'' = {-# SCC b'' #-} foldr' f1 b' (stLeaves t)
 
--- {-# INLINABLE prunefoldB_CanError #-}
--- prunefoldB_CanError :: (SpaceTree t a, CanError b) =>
---     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
--- prunefoldB_CanError !f1 !f2 !b !t = go b t
---     where
---         go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
---             then {-# SCC prunefoldB_CanError_Nothing #-} b
---             else {-# SCC prunefoldB_CanError_Just #-}
---                 ckfoldl' go b'' (stChildren t)
---                 where
---                     ckfoldl' a = {-# SCC ckfoldl #-} CK.foldl' a
---                     !res = f2 t b
---                     !b'' = {-# SCC b'' #-} ckfoldl' (flip f1) res (stLeaves t)
-
 {-# INLINABLE prunefoldB_CanError #-}
 -- {-# INLINE prunefoldB_CanError #-}
 prunefoldB_CanError :: (SpaceTree t a, CanError b) =>
@@ -402,8 +388,8 @@ prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
             else {-# SCC prunefoldB_CanError_Just #-}
                 foldr' go b'' $ {-# SCC prunefoldB_CanError_stChildren #-} stChildren t
                 where
-                    res = {-# SCC res #-} f2 t b
-                    b'' = {-# SCC b'' #-} foldr' f1 res (stLeaves t)
+                    !res = {-# SCC res #-} f2 t b
+                    !b'' = {-# SCC b'' #-} foldr' f1 res (stLeaves t)
 
 {-# INLINABLE prunefoldB_CanError_sort #-}
 prunefoldB_CanError_sort :: (SpaceTree t a, CanError b) =>

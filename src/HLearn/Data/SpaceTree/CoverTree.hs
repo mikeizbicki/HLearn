@@ -142,6 +142,12 @@ type ValidCT exprat childC leafC dp =
     , Container (leafC dp)
     , Container (childC (CoverTree_ exprat childC leafC dp))
 
+    -- ghc7.10
+    , Elem (childC (CoverTree_ exprat childC leafC dp)) ~ (CoverTree_ exprat childC leafC dp)
+    , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Scalar (leafC dp)
+    , Hilbert (Scalar (Elem (childC (Scalar dp))))
+    , FiniteModule (Scalar (Elem (childC (Scalar dp))))
+
     -- unpack
 --     , Scalar dp~Float
 --     , childC~Array
@@ -187,8 +193,8 @@ instance
     type ChildContainer (CoverTree_ exprat childC leafC ) = childC
     type LeafContainer (CoverTree_ exprat childC leafC ) = leafC
 
-    {-# INLINABLE stMinDistanceWithDistance #-}
-    {-# INLINABLE stMaxDistanceWithDistance #-}
+    {-# INLINE stMinDistanceWithDistance #-}
+    {-# INLINE stMaxDistanceWithDistance #-}
 
     stMinDistanceWithDistance !ct1 !ct2 =
         (# dist-(maxDescendentDistance ct1)-(maxDescendentDistance ct2), dist #)
@@ -198,8 +204,8 @@ instance
         (# dist+(maxDescendentDistance ct1)+(maxDescendentDistance ct2), dist #)
         where dist = distance (nodedp ct1) (nodedp ct2)
 
-    {-# INLINABLE stMinDistanceDpWithDistance #-}
-    {-# INLINABLE stMaxDistanceDpWithDistance #-}
+    {-# INLINE stMinDistanceDpWithDistance #-}
+    {-# INLINE stMaxDistanceDpWithDistance #-}
 
     stMinDistanceDpWithDistance !ct !dp =
         (# dist - maxDescendentDistance ct, dist #)
@@ -209,8 +215,8 @@ instance
         (# dist + maxDescendentDistance ct, dist #)
         where dist = distance (nodedp ct) dp
 
-    {-# INLINABLE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
-    {-# INLINABLE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINE stIsMinDistanceDpFartherThanWithDistanceCanError #-}
+    {-# INLINE stIsMaxDistanceDpFartherThanWithDistanceCanError #-}
 
     stIsMinDistanceDpFartherThanWithDistanceCanError !ct !dp !b =
         isFartherThanWithDistanceCanError (nodedp ct) dp (b+maxDescendentDistance ct)
@@ -224,26 +230,26 @@ instance
                 isFartherThanWithDistanceCanError p q b = if d > b then errorVal else d
                     where d = distanceUB p q b
 
-    {-# INLINABLE stMinDistanceDpFromDistance #-}
-    {-# INLINABLE stMaxDistanceDpFromDistance #-}
+    {-# INLINE stMinDistanceDpFromDistance #-}
+    {-# INLINE stMaxDistanceDpFromDistance #-}
 
     stMinDistanceDpFromDistance !ct !dp !dist = dist-maxDescendentDistance ct
     stMaxDistanceDpFromDistance !ct !dp !dist = dist+maxDescendentDistance ct
 
-    {-# INLINABLE stChildren #-}
-    {-# INLINABLE stNode #-}
-    {-# INLINABLE stLeaves #-}
-    {-# INLINABLE stHasNode #-}
+    {-# INLINE stChildren #-}
+    {-# INLINE stNode #-}
+    {-# INLINE stLeaves #-}
+    {-# INLINE stHasNode #-}
     stChildren  = children
     stLeaves    = leaves
     stNode      = nodedp
     stWeight    = nodeWeight
     stHasNode _ = True
 
-    {-# INLINABLE ro #-}
+    {-# INLINE ro #-}
     ro _ = 0
 
-    {-# INLINABLE lambda #-}
+    {-# INLINE lambda #-}
     lambda !ct = maxDescendentDistance ct
 
 ---------------------------------------
@@ -257,7 +263,6 @@ indicator False = 0
 {-# INLINABLE ctMaxCoverRatio #-}
 ctMaxCoverRatio ::
     ( ValidCT exprat childC leafC dp
-    , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Scalar (leafC dp)
     ) => CoverTree_ exprat childC leafC dp -> Scalar dp
 ctMaxCoverRatio ct = if size (children ct) + size (leaves ct) > 0
     then maximum
@@ -269,8 +274,6 @@ ctMaxCoverRatio ct = if size (children ct) + size (leaves ct) > 0
 {-# INLINABLE ctAveCoverRatio #-}
 ctAveCoverRatio ::
     ( ValidCT exprat childC leafC dp
-    , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Scalar (leafC dp)
-    , _
     ) => CoverTree_ exprat childC leafC dp -> Normal (Scalar dp)
 ctAveCoverRatio ct = if size (children ct) + size (leaves ct) > 0
     then train1Normal (stMaxDescendentDistance ct / coverdist ct)
@@ -670,21 +673,21 @@ trainInsertOrig xs = {-# SCC trainInsertOrig #-}case uncons xs of
 -- These are nodes that have only a single child, and that child is equal to the node.
 -- This can't occur in the new insertion methods;
 -- it only occurs within "trainInsertorig".
-{-# INNLINABLE rmSingletons #-}
+{-# INLINABLE rmSingletons #-}
 rmSingletons ::
     ( ValidCT exprat childC leafC dp
     ) => CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
 rmSingletons ct =  if isSingleton
-            then {-trace "rm" $-} rmSingletons onlyChild
-            else ct
-                { children = fromList $ map rmSingletons $ toList $ children ct
-                }
-            where
-                isSingleton = size (children ct) == 1
-                           && nodedp onlyChild == nodedp ct
+    then  rmSingletons onlyChild
+    else ct
+        { children = fromList $ map rmSingletons $ toList $ children ct
+        }
+    where
+        isSingleton = size (children ct) == 1
+                   && nodedp onlyChild == nodedp ct
 
-                onlyChild = head $ toList $ children ct
+        onlyChild = head $ toList $ children ct
 
 
 {-# INLINABLE insertCTOrig #-}
@@ -925,17 +928,18 @@ addChild_parent dp ct = {-# SCC addChild_parent #-} ret:acc'
 {-# INLINABLE addChild_ancestor #-}
 addChild_ancestor ::
     ( ValidCT exprat childC leafC dp
-    , _
+--     , _
     ) => AddChildMethod exprat childC leafC dp
-addChild_ancestor dp ct = {-# SCC addChild_ancestor #-}
---     FIXME: it would be more efficient to use a proper monoid instance
---     toList $ children $ foldl' (+)  ct' dps
-    toList $ children $ foldr' (insertCT addChild_ancestor)  ct' $ concat $ map stToList dps
-    where
-        (acc',dps) = rmCloseChildren addChild_ancestor dp  $ toList $ children ct
-        ct' = ct
-            { children = ((singletonCT dp) { level = level ct-1 }) `cons` fromList acc'
-            }
+addChild_ancestor dp ct = trace "add_Child_ancestor broken" $ addChild_nothing dp ct
+-- addChild_ancestor dp ct = {-# SCC addChild_ancestor #-}
+-- --     FIXME: it would be more efficient to use a proper monoid instance
+-- --     toList $ children $ foldl' (+)  ct' dps
+--     toList $ children $ foldr' (insertCT addChild_ancestor)  ct' $ concat $ map stToList dps
+--     where
+--         (acc',dps) = rmCloseChildren addChild_ancestor dp  $ toList $ children ct
+--         ct' = ct
+--             { children = ((singletonCT dp) { level = level ct-1 }) `cons` fromList acc'
+--             }
 
 {-# INLINABLE rmCloseChildren #-}
 rmCloseChildren ::
