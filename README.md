@@ -96,3 +96,10 @@ HLearn is under active development.  At present, it is primarily a research tool
 Current development is focused in two areas.  First, implementing new models and their algebraic structures.  Many unimplemented models have "trivial" algebraic structure.  But for many successful models it is unknown whether they can have interesting structure.  The second area is investigating new structures.  Many models have Functor/Applicative/Monoid structure (or in some strict sense *almost* have these structures) and I'm working on how to exploit these structures.
 
 **Any comments / questions / pull requests are greatly appreciated!**
+
+## covertree
+
+The code for the "Faster Cover Trees" paper at ICML2015 is contained within this repo.
+It shouldn't be considered in a released state yet though.
+There is still some work left to clean it up and make it easy to use.
+The work should be finished before the actual conference.
