@@ -13,7 +13,7 @@ mlpack_neighbors="$tmpdir/neighbors_mlpack.csv"
 mlpack_distances="$tmpdir/distances_mlpack.csv"
 
 #verbose="--verbose"
-optimization="--varshift"
+optimization="--rotate=variance" # --packmethod=nopack"
 #method="--train-method=traininsert_ancestor"
 #method="--train-method=traininsert_orig"
 

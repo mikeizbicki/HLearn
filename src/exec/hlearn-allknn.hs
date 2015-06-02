@@ -48,6 +48,7 @@ import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
 import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.Data.UnsafeVector
+import HLearn.Data.Vector
 import HLearn.History.Timing
 import HLearn.Models.Distributions
 
@@ -61,6 +62,9 @@ import Control.Parallel.Strategies
 import System.IO.Unsafe
 
 import Foreign.Ptr
+
+-------------------------------------------------------------------------------
+
 
 -------------------------------------------------------------------------------
 -- command line parameters
@@ -82,8 +86,7 @@ data Params = Params
     , adopt_children    :: Bool
     , train_sequential  :: Bool
     , cache_dists       :: Bool
-    , pca_data          :: Bool
-    , varshift_data     :: Bool
+    , rotate            :: DataRotate
 
     , searchEpsilon     :: Float
     , expansionRatio    :: Float
@@ -129,12 +132,19 @@ data DataFormat
     | DF_String
     deriving (Read,Show,Data,Typeable)
 
+data DataRotate
+    = Variance
+    | PCA
+    | NoRotate
+    deriving (Read,Show,Data,Typeable)
+
 allknnParams = Params
     { k              = 1
                     &= help "Number of nearest neighbors to find"
 
     , reference_file = def
                     &= help "Reference data set"
+                    &= name "r"
                     &= typFile
 
     , data_format    = DF_CSV
@@ -142,14 +152,17 @@ allknnParams = Params
 
     , query_file     = def
                     &= help "Query data set"
+                    &= name "q"
                     &= typFile
 
     , distances_file = "distances_hlearn.csv"
                     &= help "File to output distances into"
+                    &= name "d"
                     &= typFile
 
     , neighbors_file = "neighbors_hlearn.csv"
                     &= help "File to output the neighbors into"
+                    &= name "n"
                     &= typFile
 
     , searchEpsilon   = 0
@@ -182,16 +195,9 @@ allknnParams = Params
     , cache_dists    = True
                     &= help "pre-calculate the maximum distance from any node dp to all of its descendents; speeds up queries at the expense of O(n log n) overhead in construction"
 
-    , pca_data       = False
+    , rotate         = NoRotate
                     &= groupname "Data Preprocessing"
-                    &= help "Rotate the data points using the PCA transform.  Speeds up nearest neighbor searches, but computing the PCA can be expensive in many dimensions."
-                    &= name "pca"
-                    &= explicit
-
-    , varshift_data  = True
-                    &= help "Sort the attributes according to their variance.  Provides almost as much speed up as the PCA transform during neighbor searches, but much less expensive to compute."
-                    &= name "varshift"
-                    &= explicit
+                    &= help "Rotate the data points.  May speed up nearest neighbor queries at the expense of longer preprocessing time."
 
     , verbose        = False
                     &= help "Print tree statistics (takes some extra time)"
@@ -234,38 +240,25 @@ main = do
     case data_format params of
         DF_CSV -> do
             let ct = Proxy::Proxy (CoverTree_ 2 Array UnboxedArray)
-                dp = Proxy::Proxy (Labeled' (L2 UnboxedVector Float) Int)
+                dp = Proxy::Proxy (Labeled' (UVector2 "dyn" Float) Int)
 
-            let {-# INLINE loadfile_dfcsv #-}
+            let {-# INLINE loadfile_dfcsv #-} -- prevents space leaks
                 loadfile_dfcsv filepath = do
-                    let dataparams = DataParams
-                            { datafile = filepath
-                            , labelcol = Nothing
-                            , pca      = pca_data params
-                            , varshift = varshift_data params
-                            }
-                    rs :: Array (L2 UnboxedVector Float) <- loaddata dataparams
-                    when (size rs > 0) $ do
-                        putStrLn $ "  numdim:  " ++ show ( VG.length $ rs!0 )
-                        putStrLn ""
-                        setptsize $ VG.length $ rs!0
+                    rs <- loadCSV filepath
+                    setptsize $ dim $ rs!0
 
---                         putStrLn $ "  numdim:  " ++ show ( dim $ rs!0 )
---                         putStrLn ""
---                         setptsize $ dim $ rs!0
+                    rs' <- case rotate params of
 
-                    let rs' = VG.convert rs :: UnboxedArray (L2 UnboxedVector Float)
+                        PCA -> error "PCARotate temporarily removed"
 
---                     putStrLn $ "rs  VG.! 0 = "++ show (rs  VG.! 0)
---                     putStrLn $ "rs' VG.! 0 = "++ show (rs' VG.! 0)
---
---                     putStrLn $ "VG.slice 5 20 rs  VG.! 10 = "++ show (VG.slice 5 20 rs  VG.! 10)
---                     putStrLn $ "VG.slice 5 20 rs' VG.! 10 = "++ show (VG.slice 5 20 rs' VG.! 10)
---
---                     putStrLn $ "rs  VG.! 99 = "++ show (rs  VG.! 99)
---                     putStrLn $ "rs' VG.! 99 = "++ show (rs' VG.! 99)
+                        Variance -> do
+                            let shuffleMap = mkShuffleMap rs
+                            time "mkShuffleMap" shuffleMap
+                            time "varshifting data" $ VG.map (apShuffleMap shuffleMap) rs
 
-                    return $ VG.zipWith Labeled' rs' $ VG.fromList [0::Int ..]
+                        NoRotate -> return rs
+
+                    return $ VG.zipWith Labeled' (VG.convert rs') $ VG.fromList [0::Int ..]
 
             allknn params loadfile_dfcsv ct dp k
 
@@ -304,7 +297,6 @@ main = do
 allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     ( ValidCT exprat childC leafC (Labeled' dp l)
     , ValidCT exprat childC leafC dp
---     , P.Fractional (Scalar dp)
     , RationalField (Scalar dp)
     , ValidNeighbor (Labeled' dp l)
 
@@ -312,29 +304,24 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     , Scalar (leafC (Labeled' dp l)) ~ Int
     , IxContainer (leafC (Labeled' dp l))
     , Bounded (Scalar dp)
-    , VU.Unbox dp
-    , VU.Unbox l
     , Scalar (childC (CoverTree_ exprat childC leafC (Labeled' dp l))) ~ Int
 
     , VG.Vector childC Int
     , VG.Vector childC Bool
+    , VG.Vector leafC (Labeled' dp l)
     , P.Ord l
     , NFData l
     , Show l
+
+    , Unbox (Labeled' dp l)
+    , Unbox dp
+    , Unbox l
     ) => Params
       -> (FilePath -> IO (UnboxedArray (Labeled' dp l)))
       -> proxy1 (CoverTree_ exprat childC leafC)
       -> proxy2 (Labeled' dp l)
       -> Proxy (1::Nat)
       -> IO ()
--- allknn ::
---     (
---     ) => Params
---       -> (FilePath -> IO (UnboxedArray (Labeled' (L2 UnboxedVector Float) Int)))
---       -> Proxy (CoverTree_ 2 Array UnboxedArray)
---       -> Proxy (Labeled' (L2 UnboxedVector Float) Int)
---       -> Proxy 1
---       -> IO ()
 allknn params loaddata _ _ _ = do
 
     -- load the dataset
@@ -351,23 +338,23 @@ allknn params loaddata _ _ _ = do
     -- build the trees
     reftree :: CoverTree_ exprat childC leafC (Labeled' dp l)
         <- buildTree params rs_shuffle
---     reftree <- buildTree params rs_shuffle
 
     (querytree,qs) <- case query_file params of
         Nothing -> return $ (reftree,rs)
-        Just qfile -> do
-            when (qfile=="/dev/null") $ do
-                exitSuccess
-
-            qs <- loaddata qfile
-            querytree <- buildTree params qs
-            return (querytree, qs)
+--         Just qfile -> do
+--             when (qfile=="/dev/null") $ do
+--                 exitSuccess
+--
+--             qs <- loaddata qfile
+--             querytree <- buildTree params qs
+--             return (querytree, qs)
 
     -- do knn search
     let res = unsafeParallelInterleaved
             ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
             ( stToList querytree )
-            :: Seq (Labeled' dp l, NeighborList 1 (Labeled' dp l))
+            :: [(Labeled' dp l, NeighborList 1 (Labeled' dp l))]
+--             :: Seq (Labeled' dp l, NeighborList 1 (Labeled' dp l))
     time "computing parFindNeighborMap" res
 
     -- output to files
@@ -402,15 +389,11 @@ buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
-    , VU.Unbox dp
+    , VG.Vector leafC dp
+    , Unbox dp
     ) => Params
       -> UnboxedArray dp
       -> IO (CoverTree_ exprat childC leafC dp)
--- buildTree ::
---     (
---     ) => Params
---       -> UnboxedArray (Labeled' (L2 UnboxedVector Float) Int)
---       -> IO (CoverTree_ 2 Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
 buildTree params xs = do
 
     setexpratIORef $ P.toRational $ expansionRatio params
@@ -502,6 +485,6 @@ printTreeStats str t = do
     putStr (str++"  tightCover...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_tightCovering t)
     putStr (str++"  separating...") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_separating t)
     putStr (str++"  maxDescDist..") >> hFlush stdout >> putStrLn (show $ invariant_CoverTree_maxDescendentDistance t)
-    putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
+--     putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
 
     putStrLn ""

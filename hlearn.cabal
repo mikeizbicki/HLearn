@@ -60,20 +60,20 @@ Library
         src
 
     ghc-options:
-        -O
---         -O2
+--         -O
+        -O2
         -funbox-strict-fields
-        -fcontext-stack=100
+--         -fcontext-stack=100
 
         -ddump-to-file
 
-        -ddump-simpl
+--         -ddump-simpl
 --         -ddump-simpl-stats
-        -dsuppress-module-prefixes
-        -dsuppress-uniques
+--         -dsuppress-module-prefixes
+--         -dsuppress-uniques
 --         -dsuppress-idinfo
-        -dsuppress-coercions
-        -dsuppress-type-applications
+--         -dsuppress-coercions
+--         -dsuppress-type-applications
 --         -ddump-rule-firings
 --         -ddump-rule-rewrites
 --         -ddump-rules
@@ -95,6 +95,7 @@ Library
         HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 --         HLearn.Data.SpaceTree.Algorithms.RangeSearch
         HLearn.Data.UnsafeVector
+        HLearn.Data.Vector
 
 --         HLearn.Evaluation.CrossValidation
 --
@@ -165,6 +166,7 @@ Library
         EmptyDataDecls
 
         PartialTypeSignatures
+        MultiWayIf
 
 -- executable hlearn-linear
 --     main-is:
@@ -276,8 +278,8 @@ executable hlearn-allknn
 --         -fcontext-stack=100
 
 --         -prof
-        -fspec-constr-count=100
-        -fspec-constr-threshold=1000
+--         -fspec-constr-count=100
+--         -fspec-constr-threshold=1000
 
         -fllvm
         -optlo-O3
@@ -286,14 +288,14 @@ executable hlearn-allknn
         -optlo-enable-no-nans-fp-math
         -optlo-enable-unsafe-fp-math
 
-        -ddump-to-file
-        -ddump-rule-firings
-        -ddump-rule-rewrites
-        -ddump-rules
-        -ddump-simpl
-        -ddump-simpl-stats
-        -dppr-debug
-        -dsuppress-module-prefixes
+--         -ddump-to-file
+--         -ddump-rule-firings
+--         -ddump-rule-rewrites
+--         -ddump-rules
+--         -ddump-simpl
+--         -ddump-simpl-stats
+--         -dppr-debug
+--         -dsuppress-module-prefixes
 --         -dsuppress-uniques
 --         -dsuppress-idinfo
 --         -dsuppress-coercions

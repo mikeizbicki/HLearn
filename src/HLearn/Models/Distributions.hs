@@ -69,6 +69,7 @@ instance Hilbert v => Group (Moments v) where
 instance Hilbert v => Module (Moments v) where
     (Moments a b c).*r = Moments (r*a) (b.*r) (c.*r)
 
+instance Hilbert v => FreeModule (Moments v) where
     -- TODO: what is the probabilistic interpretation of this?
     (Moments a1 b1 c1).*.(Moments a2 b2 c2) = Moments (a1*a2) (b1.*.b2) (c1.*.c2)
 

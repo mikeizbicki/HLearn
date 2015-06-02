@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds,UnboxedTuples,MagicHash,TemplateHaskell,RankNTypes,TupleSections #-}
+{-# LANGUAGE DataKinds,UnboxedTuples,MagicHash,TemplateHaskell,RankNTypes,TupleSections,AllowAmbiguousTypes #-}
 
 module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
     (
@@ -9,7 +9,6 @@ module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 
     , NeighborList (..)
     , getknnL
---     , nlMaxDist
 
     -- * functions
     , findAllNeighbors
@@ -17,31 +16,20 @@ module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
     where
 
 import qualified Prelude as P
-import Data.Strict.Tuple (Pair(..))
 
 import SubHask
 import SubHask.Algebra.Container
 import SubHask.Compatibility.Containers
-import SubHask.Compatibility.StaticVector
 import SubHask.Monad
 import SubHask.TemplateHaskell.Deriving
 
 import HLearn.Data.SpaceTree
-
--- import Data.Params
-import HLearn.Data.SpaceTree.CoverTree
-import SubHask.Compatibility.Vector
-import SubHask.Compatibility.Vector.Lebesgue
-import qualified Data.Vector.Generic as VG
-import GHC.Exts (inline)
 
 -------------------------------------------------------------------------------
 
 data Neighbor dp = Neighbor
     { neighbor         :: !dp
     , neighborDistance :: !(Scalar dp)
---     { neighbor         :: {-#UNPACK#-}!(Labeled' (L2 UnboxedVector Float) Int)
---     , neighborDistance :: {-#UNPACK#-}!Float
     }
 
 type ValidNeighbor dp = (Metric dp, Bounded (Scalar dp))
@@ -232,6 +220,10 @@ manualknn q t = {-# SCC manualknn #-} go t $ Neighbor q maxBound
                     where
                         dist = distanceUB q dp distn
 
+type ValidContainer f e = (Foldable f, Elem f~e) -- => f
+
+type AnyContainer e = forall x. (Constructible x, Foldable x, Elem x~e) => x
+
 {-# INLINE findAllNeighbors #-}
 findAllNeighbors ::
     ( SpaceTree t dp
@@ -242,7 +234,8 @@ findAllNeighbors ::
     ) => Scalar dp
       -> t dp
       -> [dp]
-      -> Seq ( dp, NeighborList 1 dp )
-findAllNeighbors epsilon rtree qs = reduce $ map
-    (\dp -> singleton (dp, NL_Cons (manualknn dp rtree) NL_Nil ))
-    qs
+      -> AnyContainer ( dp, NeighborList 1 dp )
+findAllNeighbors epsilon rtree qs = fromList $ map go qs
+    where
+        go dp = (dp, NL_Cons (manualknn dp rtree) NL_Nil )
+

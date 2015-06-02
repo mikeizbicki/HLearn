@@ -49,13 +49,11 @@ module HLearn.Data.SpaceTree
 import Debug.Trace
 
 import qualified Data.List as L
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector.Generic as VG
 
 import Prelude (map)
 import SubHask
 import SubHask.Monad
+import SubHask.Compatibility.Vector
 import SubHask.Compatibility.Containers
 
 import HLearn.Models.Distributions
@@ -89,19 +87,15 @@ class
     , Normed (ChildContainer t (t dp))
     , Foldable (LeafContainer t dp)
     , Foldable (ChildContainer t (t dp))
---     , Container (LeafContainer t dp)
---     , Container (LeafContainer t (t dp))
-
---     , Constructible (t dp)
     , dp ~ Elem (t dp)
     ) => SpaceTree t dp
         where
 
     type LeafContainer t :: * -> *
-    type LeafContainer t = V.Vector
+    type LeafContainer t = Array
 
     type ChildContainer t :: * -> *
-    type ChildContainer t = V.Vector
+    type ChildContainer t = Array
 
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}

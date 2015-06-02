@@ -139,26 +139,12 @@ loadDirectory numdp loadFile validFilepath validResult dirpath = {-# SCC loadDir
 
     return $ fromList results
 
--------------------
-
-
---------------------------------------------------------------------------------
-
-data DataParams = DataParams
-    { datafile :: String
-    , labelcol :: Maybe Int
-    , pca      :: Bool
-    , varshift :: Bool
-    }
-
--- head x = case uncons x of
---     Nothing -> error "head on empty"
---     Just (x,_) -> x
-
+-- | Load a CSV file containing numeric attributes.
 {-# INLINABLE loadCSV #-}
 loadCSV ::
     ( NFData a
     , FromRecord a
+    , FiniteModule a
     , Eq a
     , Show (Scalar a)
     ) => FilePath -> IO (Array a)
@@ -174,195 +160,126 @@ loadCSV filepath = do
         Left str -> error $ "failed to parse CSV file " ++ filepath ++ ": " ++ L.take 1000 str
 
     putStrLn "  dataset info:"
-    putStrLn $ "    num dp:  " ++ show (size rs)
+    putStrLn $ "    num dp:  " ++ show ( size rs )
+    putStrLn $ "    numdim:  " ++ show ( dim $ rs!0 )
     putStrLn ""
 
     return rs
 
-{-# INLINABLE loadCSVLabeled #-}
-loadCSVLabeled ::
-    ( Read k
-    , Read v2
-    , v ~ (v1 v2)
-    , VG.Vector v1 v2
-    , Eq v
-    , NFData (v1 v2)
-    , NFData k
-    ) => FilePath -> Int -> IO (Array (Labeled' v k))
-loadCSVLabeled filepath n = do
-    xs :: [[String]]
-       <- fmap toList $ loadCSV filepath
-
-    let ks = map (head . drop n) xs
-        vs = map (take n + drop (n+1)) xs
-
-    x <- return $ fromList $ zipWith Labeled' (map (listToVector . map read) vs) (map read ks)
-    deepseq x $ trace "loaded" $ return x
-
-{-# INLINABLE loaddata #-}
-loaddata ::
---     ( VG.Vector v f
---     , NFData (v f)
---     , NFData  f
---     , FromRecord (v f)
---     , Eq (v f)
---     , Ord f
---     , POrd_ (v f)
--- --     , Normed (v f)
---     , Show (Scalar (v f))
---     , Real f
---     , f~Float
---     , VUM.Unbox f
-    ( NFData a
-    , FromRecord a
-    , Eq a
-    , Show (Scalar a)
-    ) => DataParams -> IO (Array a)
-loaddata params = do
-    rs <- loadCSV $ datafile params
-
-    return rs
-
-    -- These algorithms are implemented sequentially,
-    -- so they run faster if we temporarily disable the RTS multithreading
---     disableMultithreading $ do
---
---         rs' <- if pca params
---             then time "calculating PCA" $ VG.convert $ rotatePCA rs
---             else return rs
---
---         let shuffleMap = mkShuffleMap $ VG.map ArrayT rs'
---         time "mkShuffleMap" shuffleMap
---
---         rs'' <- if varshift params
---             then time "varshifting data" $ VG.map (shuffleVec shuffleMap) rs'
---             else return rs'
---
---         return $ rs''
-
-
 -------------------------------------------------------------------------------
 -- data preprocessing
 
+-- | This exists only for the varshift right now and doesn't actually work
+--
+-- FIXME: move
+newtype Componentwise v = Componentwise { unComponentwise :: v }
+
+type instance Scalar (Componentwise v) = Scalar v
+type instance Logic (Componentwise v) = Logic v
+type instance Elem (Componentwise v) = Scalar v
+
+instance IsMutable (Componentwise v)
+
+instance Eq_ v => Eq_ (Componentwise v) where
+    (Componentwise v1)==(Componentwise v2) = v1==v2
+
+instance Semigroup v => Semigroup (Componentwise v) where
+    (Componentwise v1)+(Componentwise v2) = Componentwise $ v1+v2
+
+instance Monoid v => Monoid (Componentwise v) where
+    zero = Componentwise zero
+
+instance Abelian v => Abelian (Componentwise v)
+
+instance Cancellative v => Cancellative (Componentwise v) where
+    (Componentwise v1)-(Componentwise v2) = Componentwise $ v1-v2
+
+instance Group v => Group (Componentwise v) where
+    negate (Componentwise v) = Componentwise $ negate v
+
+instance FreeModule v => Rg (Componentwise v) where
+    (Componentwise v1)*(Componentwise v2) = Componentwise $ v1.*.v2
+
+instance FiniteModule v => Rig (Componentwise v) where
+    one = Componentwise $ ones
+
+instance FiniteModule v => Ring (Componentwise v)
+
+instance (FiniteModule v, VectorSpace v) => Field (Componentwise v) where
+    (Componentwise v1)/(Componentwise v2) = Componentwise $ v1./.v2
+
+instance (ValidLogic v, FiniteModule v) => IxContainer (Componentwise v) where
+    values (Componentwise v) = values v
+
+-- | Uses an efficient 1-pass algorithm to calculate the mean variance.
+-- This is much faster than the 2-pass algorithms on large datasets,
+-- but has (slightly) worse numeric stability.
+--
+-- See http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf for details.
+--
+-- FIXME: Find a better location for this
+{-# INLINE meanAndVarianceInOnePass  #-}
+meanAndVarianceInOnePass :: (Foldable xs, Field (Elem xs)) => xs -> (Elem xs, Elem xs)
+meanAndVarianceInOnePass ys = case uncons ys of
+    Nothing -> error "meanAndVarianceInOnePass on empty container"
+    Just (x,xs) -> (\(k,m,v) -> (m,v/(k-1))) $ foldl' go (2,x,0) xs
+    where
+        go (k,mk,qk) x = (k+1,mk',qk')
+            where
+                mk'=mk+(x-mk)/k
+                qk'=qk+(k-1)*(x-mk)*(x-mk)/k
+
+-- | A wrapper around "meanAndVarianceInOnePass"
+--
+-- FIXME: Find a better location for this
+{-# INLINE varianceInOnePass  #-}
+varianceInOnePass :: (Foldable xs, Field (Elem xs)) => xs -> Elem xs
+varianceInOnePass = snd . meanAndVarianceInOnePass
+
+-- FIXME: hack due to lack of forall'd constraints
+type ValidElem v =
+    ( Elem (SetElem v (Elem v)) ~ Elem v
+    , Elem (SetElem v (Scalar (Elem v))) ~ Scalar (Elem v)
+    , IxContainer (SetElem v (Elem v))
+    )
+
 -- | calculate the variance of each column, then sort so that the highest variance is first
+--
+-- NOTE: the git history has a lot of versions of this function with different levels of efficiency.
 {-# INLINABLE mkShuffleMap #-}
-mkShuffleMap :: forall v a s.
-    ( VG.Vector v a
-    , Elem (v a) ~ a
-    , Foldable (v a)
-    , Real a
-    , Ord a
-    , VU.Unbox a
-    , Eq_ (v a)
-    , ClassicalLogic (v a)
-    , NFData a
-    , a~Float
-    ) => Array (v a) -> UnboxedArray Int
-mkShuffleMap v = if VG.length v == 0
-    then empty
+mkShuffleMap :: forall v.
+    ( FiniteModule v
+    , VectorSpace v
+    , Eq v
+    , ValidElem v
+    ) => Array v -> UnboxedArray Int
+mkShuffleMap vs = if size vs==0
+    then error "mkShuffleMap: called on empty array"
     else runST ( do
-        let numdim = VG.length (v VG.! 0)
+--         let variances = fromList
+--                 $ values
+--                 $ varianceInOnePass
+--                 $ VG.map Componentwise vs
+--                 :: Array (Scalar v)
 
-        -- Use an efficient 1-pass algorithm for the variance.
-        -- This is much faster (due to cache issues) than 2-pass algorithms on large datasets.
-        -- Since this is only used as a speed heuristic, perfect numerical stability doesn't matter.
-        -- See http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf
-        let varV = VG.map ((\(_,_,q) -> q) . VG.foldl' go (1,0,0)) v
-            go (k,mk,qk) x = (k+1,mk',qk')
-                where
-                    mk'=mk+(x-mk)/k
-                    qk'=qk+(x-mk)*(x-mk)
+        let variances
+                = fromList
+                $ imap (\i _ -> varianceInOnePass $ (VG.map (!i) vs))
+                $ values
+                $ VG.head vs
+                :: Array (Scalar v)
 
-            sortV = VG.zip (VG.fromList [0..numdim-1::Int])
-                  $ VG.convert varV :: UnboxedArray (Int, a)
+        msortV <- VG.unsafeThaw $ imap (,) $ variances
+        Intro.sortBy (\(_,v1) (_,v2) -> compare v1 v2) msortV
+        sortV' :: Array (Int,Scalar v) <- VG.unsafeFreeze msortV
 
-        msortV <- VG.unsafeThaw sortV
-        Intro.sortBy (\(_,v2) (_,v1) -> compare v1 v2) msortV
-        sortV' <- VG.unsafeFreeze msortV
-
-        return $ VG.map fst sortV'
+        return $ VG.convert $ VG.map fst sortV'
         )
 
---     let numdim = VG.length (v VG.! 0)
---         numdpf = fromIntegral $ VG.length v
-
---     let m1V = VG.foldl1 (VG.zipWith (+)) v
---         m2V = VG.foldl1 (VG.zipWith (+)) $ VG.map (VG.map (\x -> x*x)) v
---         varV = VG.zipWith (\m1 m2 -> m2/numdpf-m1/numdpf*m1/numdpf) m1V m2V
-
---         sortV = VG.zip (VG.fromList [0..numdim-1::Int])
---               $ VG.convert varV :: UnboxedArray (Int, a)
---
---     msortV <- VG.unsafeThaw sortV
---     Intro.sortBy (\(_,v2) (_,v1) -> compare v1 v2) msortV
---     sortV' <- VG.unsafeFreeze msortV
---
---     return $ VG.map fst sortV'
---     )
-
---     meanV :: VUM.MVector s a <- VGM.new numdim
---     varV  :: VUM.MVector s a <- VGM.new numdim
---     let go (-1) = return ()
---         go i = do
---             let go_inner (-1) = return ()
---                 go_inner j = do
---                     let tmp = v VG.! i VG.! j
---                     meanVtmp <- (+tmp    ) `liftM` VGM.read meanV j
---                     varVtmp  <- (+tmp*tmp) `liftM` VGM.read varV  j
---                     VUM.write meanV
---
---             let xs   = fmap (VG.! i) v
---                 dist = train xs :: Normal a a
---                 var  = variance dist
---             VGM.write varV i (i,var)
---             go (i-1)
-
---     msortV :: VUM.MVector s (Int, a) <- VGM.new numdim
---
---     let go (-1) = return ()
---         go i = do
--- --             let !xs   = fmap (VG.! i) v
---             let !xs   = fmap (`VG.unsafeIndex` i) v
---                 !dist = train xs :: Normal a a
---                 !var  = variance dist
---             VGM.write msortV i (i,var)
---             go (i-1)
---     go (numdim-1)
-
---     forM [0..numdim-1] $ \i -> do
---         let xs   = fmap (VG.! i) v
---             dist = train xs :: Normal a a
---             var  = variance dist
---         VGM.write varV i (i,var)
-
--- mkShuffleMap xs
---     = fromList
---     $ map fst
---     $ L.sortBy (\(a,_) (b,_) -> compare a b)
---     $ zip [0..]
---     $ map (variance . trainNormal)
---     $ L.transpose
---     $ map toList
---     $ toList xs
-
-{-# INLINABLE shuffleVec #-}
 -- | apply the shufflemap to the data set to get a better ordering of the data
-shuffleVec :: VG.Vector v a => UnboxedArray Int -> v a -> v a
-shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v `VG.unsafeIndex` (vmap `VG.unsafeIndex` i)
--- shuffleVec vmap v = VG.generate (VG.length vmap) $ \i -> v VG.! (vmap VG.! i)
-
--- shuffleVec vmap v = runST $ do
---     ret <- VGM.new (VG.length v)
---
---     let go (-1) = return ()
---         go i = do
---             VGM.write ret i $ v VG.! (vmap VG.! i)
---             go (i-1)
---     go (VG.length v-1)
---
--- --     forM [0..VG.length v-1] $ \i -> do
--- --         VGM.write ret i $ v VG.! (vmap VG.! i)
---     VG.freeze ret
+{-# INLINABLE apShuffleMap #-}
+apShuffleMap :: FiniteModule v => UnboxedArray Int -> v -> v
+apShuffleMap vmap v = unsafeToModule $ V.toList $ V.generate (size vmap) $ \i -> v!(vmap!i)
 
 {-# INLINABLE meanCenter #-}
 -- | translate a dataset so the mean is zero
@@ -433,15 +350,3 @@ rotatePCADouble dps' =  VG.map rotate dps
         gramMatrix =  LA.trans tmpm LA.<> tmpm
             where
                 tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
-
--------------------------------------------------------------------------------
--- tests
-
-v1 = VS.fromList [1,2,3]
-v2 = VS.fromList [1,3,4]
-v3 = VS.fromList [1,5,6]
-v4 = VS.fromList [0,0,1]
-vs = V.fromList [v1,v2,v3,v4] :: V.Vector (VS.Vector Float)
-
-dist a b = distance (L2 a) (L2 b)
-

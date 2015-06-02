@@ -9,8 +9,6 @@ import Data.Either
 import qualified Prelude as P
 
 import qualified Data.Vector.Generic as VG
-import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector as V
 
 -- import Data.Params
 
@@ -109,6 +107,9 @@ instance
 -- | This type alias simplifies all our type signatures.
 --
 -- FIXME:
+-- Trim this set of constraints to be more manageable.
+--
+-- FIXME:
 -- There is a much smaller subset of these that is actually needed,
 -- but GHC's type system isn't strong enough to express this subset.
 type ValidCT exprat childC leafC dp =
@@ -120,8 +121,6 @@ type ValidCT exprat childC leafC dp =
     , Normed (leafC dp)
     , Elem (childC (CoverTree_ exprat childC leafC dp)) ~ CoverTree_ exprat childC leafC dp
     , Elem (leafC dp) ~ dp
-    , VG.Vector leafC dp
-    , VG.Vector leafC (Scalar dp)
     , Metric dp
     , QuotientField (Scalar dp) Int
     , Real (Scalar dp)
@@ -133,8 +132,6 @@ type ValidCT exprat childC leafC dp =
     , NFData (CoverTree_ exprat childC leafC dp)
     , HasScalar dp
     , Eq_ (childC (CoverTree_ exprat childC leafC dp))
-
---     , Param_exprat (CoverTree_ exprat childC leafC dp)
 
     , ClassicalLogic (leafC dp)
     , ClassicalLogic (leafC (CoverTree_ exprat childC leafC dp))
@@ -165,7 +162,6 @@ type ValidCT exprat childC leafC dp =
     , Integral (Scalar (childC (CoverTree_ exprat childC leafC dp)))
     , NFData (Scalar dp)
     , NFData dp
---     , Ord dp
 
     -- debugging constraints
     , Show (Scalar dp)
@@ -174,15 +170,6 @@ type ValidCT exprat childC leafC dp =
     , Show (childC (CoverTree_ exprat childC leafC dp))
     , Show (Scalar (childC (CoverTree_ exprat childC leafC dp)))
     , Show (Scalar (leafC dp))
-
-
-    , VG.Vector childC (CoverTree_ exprat childC leafC dp)
-    , VG.Vector childC (Scalar dp)
-
---     , exprat ~ (13/10)
---     , childC ~ Array
---     , leafC ~ UnboxedArray
---     , dp ~ Labeled' (L2 UnboxedVector Float) Int
     )
 
 instance
@@ -396,11 +383,9 @@ invariant_CoverTree_covering ::
     , Elem (childC Bool) ~ Bool
     , Foldable (childC Bool)
     , Foldable (childC (Scalar dp))
-    , VG.Vector childC Bool
     ) => CoverTree_ exprat childC leafC dp -> Bool
 invariant_CoverTree_covering node
     = and (map invariant_CoverTree_covering $ stChildrenList node)
---    && and (map (\child -> distance  (nodedp node) (nodedp child) <= 1.1*coverdist node) $ stChildrenList node)
    && and (map (\child -> distance  (nodedp node) (nodedp child) <= coverdist node) $ stChildrenList node)
 
 invariant_CoverTree_tightCovering ::
@@ -409,7 +394,6 @@ invariant_CoverTree_tightCovering ::
     , Elem (childC Bool) ~ Bool
     , Foldable (childC Bool)
     , Foldable (childC (Scalar dp))
-    , VG.Vector childC Bool
     ) => CoverTree_ exprat childC leafC dp -> Bool
 invariant_CoverTree_tightCovering node
     = and (map invariant_CoverTree_tightCovering $ stChildrenList node)
@@ -420,7 +404,6 @@ invariant_CoverTree_maxDescendentDistance ::
     ) => CoverTree_ exprat childC leafC dp -> Bool
 invariant_CoverTree_maxDescendentDistance node
     = and (map invariant_CoverTree_maxDescendentDistance $ stChildrenList node)
---    && and (map (\dp -> distance dp (nodedp node) <= 1.1 * maxDescendentDistance node) $ stDescendents node)
    && and (map (\dp -> distance dp (nodedp node) <= maxDescendentDistance node) $ stDescendents node)
 
 invariant_CoverTree_separating ::
@@ -428,31 +411,32 @@ invariant_CoverTree_separating ::
     , Elem (childC Bool) ~ Bool
     , Foldable (childC Bool)
     , Foldable (childC (Scalar dp))
-    , VG.Vector childC Bool
     ) => CoverTree_ exprat childC leafC dp -> Bool
 invariant_CoverTree_separating node
     = minimum ( P.filter (>0)
               $ map (\(x,y) -> distance (nodedp x) (nodedp y))
               $ cartesianProduct (toList $ children node) (toList $ children node)
               )
-      >= 0.9*sepdist node
---       >= sepdist node
-   && and (VG.map invariant_CoverTree_separating $ children node)
+      >= sepdist node
+   && and (map invariant_CoverTree_separating $ toList $ children node)
     where
         cartesianProduct :: [a] -> [b] -> [(a,b)]
         cartesianProduct xs ys = P.concatMap (\y -> map (\x -> (x,y)) xs) ys
 
+{-
 -- | FIXME: is this needed?
 property_leveled ::
     ( ValidCT exprat childC leafC dp
     , VG.Vector childC Bool
     , VG.Vector childC Int
+    , VG.Vector childC (CoverTree_ exprat childC leafC dp)
     ) => CoverTree_ exprat childC leafC dp -> Bool
 property_leveled node
     = VG.all (== VG.head xs) xs
    && VG.and (VG.map property_leveled $ children node)
     where
         xs = VG.map level $ children node
+-}
 
 -------------------------------------------------------------------------------
 -- optimization helpers
@@ -577,12 +561,11 @@ packCT :: forall exprat childC leafC dp.
     , VG.Vector leafC dp
     ) => CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
---packCT ct = {-# SCC packCT #-} deepseq (stToList ct) $ ct
-
 packCT ct = {-# SCC packCT #-} snd $ go 0 ct
     where
         dpvec :: leafC dp
         dpvec = VG.fromList $ stToList ct
+
         go !i !t = {-# SCC packCT_go #-} ( i',t
             { nodedp = dpvec `VG.unsafeIndex` i
             , leaves = VG.unsafeSlice (i+1) (VG.length $ leaves t) dpvec
@@ -1056,13 +1039,13 @@ rmleaf ct = {-# SCC rmleaf #-} if stHasNoChildren (head childL)
 --     , Foldable xs
 --     ) => xs
 --       -> Maybe' (CoverTree_ exprat childC leafC (Elem xs))
-trainMonoid ::
-    ( --KnownFrac exprat
---     ) => [ L2 UnboxedVector Float ]
---       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
-    ) => [ Labeled' (L2 UnboxedVector Float) Int ]
-      -> Maybe' (CoverTree_ 2 Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
-trainMonoid xs = {-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
+-- trainMonoid ::
+--     ( --KnownFrac exprat
+-- --     ) => [ L2 UnboxedVector Float ]
+-- --       -> Maybe' (CoverTree_ (13/10) Array UnboxedArray (L2 UnboxedVector Float))
+--     ) => [ Labeled' (L2 UnboxedVector Float) Int ]
+--       -> Maybe' (CoverTree_ 2 Array UnboxedArray (Labeled' (L2 UnboxedVector Float) Int))
+trainMonoid xs = undefined --{-# SCC trainMonoid #-} foldtree1 $ map (Just' . singletonCT) $ toList xs
 
 instance
     ( ValidCT exprat childC leafC dp
