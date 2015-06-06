@@ -117,6 +117,8 @@ type ValidCT exprat childC leafC dp =
     , Foldable (leafC dp)
     , Constructible (childC (CoverTree_ exprat childC leafC dp))
     , Constructible (leafC dp)
+    , IxContainer (childC (CoverTree_ exprat childC leafC dp))
+    , Sliceable (leafC dp)
     , Normed (childC (CoverTree_ exprat childC leafC dp))
     , Normed (leafC dp)
     , Elem (childC (CoverTree_ exprat childC leafC dp)) ~ CoverTree_ exprat childC leafC dp
@@ -132,6 +134,8 @@ type ValidCT exprat childC leafC dp =
     , NFData (CoverTree_ exprat childC leafC dp)
     , HasScalar dp
     , Eq_ (childC (CoverTree_ exprat childC leafC dp))
+    , Index (leafC dp) ~ Int
+    , Scalar (childC (CoverTree_ exprat childC leafC dp)) ~ Int
 
     , ClassicalLogic (leafC dp)
     , ClassicalLogic (leafC (CoverTree_ exprat childC leafC dp))
@@ -558,23 +562,24 @@ setLeaves n ct = {-# SCC setLeaves #-} if stNumNodes ct > n
 {-# INLINABLE packCT #-}
 packCT :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
-    , VG.Vector leafC dp
+--     , VG.Vector leafC dp
     ) => CoverTree_ exprat childC leafC dp
       -> CoverTree_ exprat childC leafC dp
 packCT ct = {-# SCC packCT #-} snd $ go 0 ct
     where
         dpvec :: leafC dp
-        dpvec = VG.fromList $ stToList ct
+        dpvec = fromList $ stToList ct
 
         go !i !t = {-# SCC packCT_go #-} ( i',t
-            { nodedp = dpvec `VG.unsafeIndex` i
-            , leaves = VG.unsafeSlice (i+1) (VG.length $ leaves t) dpvec
+            { nodedp = dpvec!i
+            , leaves = slice (i+1) (length $ leaves t) dpvec
+--             , leaves = VG.unsafeSlice (i+1) (length $ leaves t) dpvec
             , children = fromList children'
             } )
             where
                 (i',children') = {-# SCC mapAccumL #-} L.mapAccumL
                     go
-                    (i+1+VG.length (leaves t))
+                    (i+1+length (leaves t))
                     (toList $ children t)
 
 -------------------------------------------------------------------------------

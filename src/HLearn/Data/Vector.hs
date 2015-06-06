@@ -8,7 +8,6 @@
 module HLearn.Data.Vector
     ( SVector (..)
     , UVector (..)
-    , UVector2 (..)
     , Unbox
     )
     where
@@ -42,28 +41,33 @@ import Data.Csv
 import System.IO.Unsafe
 import SubHask.Compatibility.Vector
 
+
+--------------------------------------------------------------------------------
+
+type Unbox = VU.Unbox
+
 --------------------------------------------------------------------------------
 
 -- | The type of dynamic or statically sized vectors implemented using the FFI.
-data family UVector2 (n::k) r
+data family UVector (n::k) r
 
-type instance Scalar (UVector2 n r) = Scalar r
-type instance Logic (UVector2 n r) = Logic r
-type instance UVector2 n r >< a = UVector2 n (r><a)
+type instance Scalar (UVector n r) = Scalar r
+type instance Logic (UVector n r) = Logic r
+type instance UVector n r >< a = UVector n (r><a)
 
-type instance Index (UVector2 n r) = Int
-type instance Elem (UVector2 n r) = Scalar r
-type instance SetElem (UVector2 n r) b = UVector n b
+type instance Index (UVector n r) = Int
+type instance Elem (UVector n r) = Scalar r
+type instance SetElem (UVector n r) b = UVector n b
 
 --------------------------------------------------------------------------------
 
-data instance UVector2 (n::Symbol) r = UVector2_Dynamic
+data instance UVector (n::Symbol) r = UVector_Dynamic
     {-#UNPACK#-}!ByteArray
     {-#UNPACK#-}!Int -- ^ offset
     {-#UNPACK#-}!Int -- ^ length
 
-instance (Show r, Monoid r, Prim r) => Show (UVector2 (n::Symbol) r) where
-    show (UVector2_Dynamic arr off n) = if isZero n
+instance (Show r, Monoid r, Prim r) => Show (UVector (n::Symbol) r) where
+    show (UVector_Dynamic arr off n) = if isZero n
         then "zero"
         else show $ go (n-1) []
         where
@@ -72,16 +76,16 @@ instance (Show r, Monoid r, Prim r) => Show (UVector2 (n::Symbol) r) where
                 where
                     x = indexByteArray arr (off+i) :: r
 
-instance (Arbitrary r, Prim r, FreeModule r, IsScalar r) => Arbitrary (UVector2 (n::Symbol) r) where
+instance (Arbitrary r, Prim r, FreeModule r, IsScalar r) => Arbitrary (UVector (n::Symbol) r) where
     arbitrary = frequency
         [ (1,return zero)
         , (9,fmap unsafeToModule $ replicateM 27 arbitrary)
         ]
 
-instance (NFData r, Prim r) => NFData (UVector2 (n::Symbol) r) where
-    rnf (UVector2_Dynamic arr off n) = seq arr ()
+instance (NFData r, Prim r) => NFData (UVector (n::Symbol) r) where
+    rnf (UVector_Dynamic arr off n) = seq arr ()
 
-instance (FromField r, Prim r, IsScalar r, FreeModule r) => FromRecord (UVector2 (n::Symbol) r) where
+instance (FromField r, Prim r, IsScalar r, FreeModule r) => FromRecord (UVector (n::Symbol) r) where
     parseRecord r = do
         rs :: [r] <- parseRecord r
         return $ unsafeToModule rs
@@ -89,21 +93,21 @@ instance (FromField r, Prim r, IsScalar r, FreeModule r) => FromRecord (UVector2
 ---------------------------------------
 -- mutable
 
-newtype instance Mutable m (UVector2 (n::Symbol) r)
-    = Mutable_UVector2 (PrimRef m (UVector2 (n::Symbol) r))
+newtype instance Mutable m (UVector (n::Symbol) r)
+    = Mutable_UVector (PrimRef m (UVector (n::Symbol) r))
 
-instance (Prim r) => IsMutable (UVector2 (n::Symbol) r) where
+instance (Prim r) => IsMutable (UVector (n::Symbol) r) where
     {-
     freeze mv = copy mv >>= unsafeFreeze
     thaw v = unsafeThaw v >>= copy
 
-    unsafeFreeze (Mutable_UVector2 ref) = readPrimRef ref
+    unsafeFreeze (Mutable_UVector ref) = readPrimRef ref
     unsafeThaw v = do
         ref <- newPrimRef v
-        return $ Mutable_UVector2 ref
+        return $ Mutable_UVector ref
 
-    copy (Mutable_UVector2 ref) = do
-        (UVector2_Dynamic arr1 off1 n) <- readPrimRef ref
+    copy (Mutable_UVector ref) = do
+        (UVector_Dynamic arr1 off1 n) <- readPrimRef ref
         let b = n*sizeOf (undefined::r)
         arr2 <- if isNull arr1
             then return arr1
@@ -111,11 +115,11 @@ instance (Prim r) => IsMutable (UVector2 (n::Symbol) r) where
                 arr2 <- mallocForeignPtrBytes b
                 withForeignPtr arr1 $ \p1 -> withForeignPtr arr2 $ \p2 -> copyBytes p2 (plusPtr p1 off1) b
                 return arr2
-        ref2 <- newPrimRef (UVector2_Dynamic arr2 0 n)
-        return $ Mutable_UVector2 ref2
+        ref2 <- newPrimRef (UVector_Dynamic arr2 0 n)
+        return $ Mutable_UVector ref2
 
-    write (Mutable_UVector2 ref) (UVector2_Dynamic arr2 off2 n2) = do
-        (UVector2_Dynamic arr1 off1 n1) <- readPrimRef ref
+    write (Mutable_UVector ref) (UVector_Dynamic arr2 off2 n2) = do
+        (UVector_Dynamic arr1 off1 n1) <- readPrimRef ref
         unsafePrimToPrim $ if
             -- both ptrs null: do nothing
             | isNull arr1 && isNull arr2 -> return ()
@@ -123,12 +127,12 @@ instance (Prim r) => IsMutable (UVector2 (n::Symbol) r) where
             -- only arr1 null: allocate memory then copy arr2 over
             | isNull arr1 && not isNull arr2 -> do
                 arr1' <- mallocForeignPtrBytes b
-                unsafePrimToPrim $ writePrimRef ref (UVector2_Dynamic arr1' 0 n2)
+                unsafePrimToPrim $ writePrimRef ref (UVector_Dynamic arr1' 0 n2)
                 withForeignPtr arr1' $ \p1 -> withForeignPtr arr2 $ \p2 ->
                     copyBytes p1 p2 b
 
             -- only arr2 null: make arr1 null
-            | not isNull arr1 && isNull arr2 -> unsafePrimToPrim $ writePrimRef ref (UVector2_Dynamic arr2 0 n1)
+            | not isNull arr1 && isNull arr2 -> unsafePrimToPrim $ writePrimRef ref (UVector_Dynamic arr2 0 n1)
 
             -- both ptrs valid: perform a normal copy
             | otherwise ->
@@ -145,8 +149,8 @@ instance (Prim r) => IsMutable (UVector2 (n::Symbol) r) where
 binopDynUV :: forall a b n m.
     ( Prim a
     , Monoid a
-    ) => (a -> a -> a) -> UVector2 (n::Symbol) a -> UVector2 (n::Symbol) a -> UVector2 (n::Symbol) a
-binopDynUV f v1@(UVector2_Dynamic arr1 off1 n1) v2@(UVector2_Dynamic arr2 off2 n2) = if
+    ) => (a -> a -> a) -> UVector (n::Symbol) a -> UVector (n::Symbol) a -> UVector (n::Symbol) a
+binopDynUV f v1@(UVector_Dynamic arr1 off1 n1) v2@(UVector_Dynamic arr2 off2 n2) = if
     | isZero n1 && isZero n2 -> v1
     | isZero n1 -> monopDynUV (f zero) v2
     | isZero n2 -> monopDynUV (\a -> f a zero) v1
@@ -155,7 +159,7 @@ binopDynUV f v1@(UVector2_Dynamic arr1 off1 n1) v2@(UVector2_Dynamic arr2 off2 n
         marr3 <- newPinnedByteArray b
         go marr3 (n1-1)
         arr3 <- unsafeFreezeByteArray marr3
-        return $ UVector2_Dynamic arr3 0 n1
+        return $ UVector_Dynamic arr3 0 n1
 
     where
         go _ (-1) = return ()
@@ -168,15 +172,15 @@ binopDynUV f v1@(UVector2_Dynamic arr1 off1 n1) v2@(UVector2_Dynamic arr2 off2 n
 {-# INLINE monopDynUV #-}
 monopDynUV :: forall a b n m.
     ( Prim a
-    ) => (a -> a) -> UVector2 (n::Symbol) a -> UVector2 (n::Symbol) a
-monopDynUV f v@(UVector2_Dynamic arr1 off1 n) = if n==0
+    ) => (a -> a) -> UVector (n::Symbol) a -> UVector (n::Symbol) a
+monopDynUV f v@(UVector_Dynamic arr1 off1 n) = if n==0
     then v
     else unsafeInlineIO $ do
         let b = n*Prim.sizeOf (undefined::a)
         marr2 <- newPinnedByteArray b
         go marr2 (n-1)
         arr2 <- unsafeFreezeByteArray marr2
-        return $ UVector2_Dynamic arr2 0 n
+        return $ UVector_Dynamic arr2 0 n
 
     where
         go _ (-1) = return ()
@@ -193,9 +197,9 @@ binopDynUVM :: forall a b n m.
     , Prim b
     , Monoid a
     , Monoid b
-    ) => (a -> b -> a) -> Mutable m (UVector2 (n::Symbol) a) -> UVector2 n b -> m ()
-binopDynUVM f (Mutable_UVector2 ref) (UVector2_Dynamic arr2 off2 n2) = do
-    (UVector2_Dynamic arr1 off1 n1) <- readPrimRef ref
+    ) => (a -> b -> a) -> Mutable m (UVector (n::Symbol) a) -> UVector n b -> m ()
+binopDynUVM f (Mutable_UVector ref) (UVector_Dynamic arr2 off2 n2) = do
+    (UVector_Dynamic arr1 off1 n1) <- readPrimRef ref
 
     let runop arr1 arr2 n = unsafePrimToPrim $
             withForeignPtr arr1 $ \p1 ->
@@ -210,7 +214,7 @@ binopDynUVM f (Mutable_UVector2 ref) (UVector2_Dynamic arr2 off2 n2) = do
         -- FIXME: this algorithm requires two passes over the left vector
         | isNull arr1 -> do
             arr1' <- zerofp n2
-            unsafePrimToPrim $ writePrimRef ref (UVector2_Dynamic arr1' 0 n2)
+            unsafePrimToPrim $ writePrimRef ref (UVector_Dynamic arr1' 0 n2)
             runop arr1' arr2 n2
 
         -- only right vector is zero: use a temporary zero vector to run like normal
@@ -234,9 +238,9 @@ binopDynUVM f (Mutable_UVector2 ref) (UVector2_Dynamic arr2 off2 n2) = do
 monopDynM :: forall a b n m.
     ( PrimMonad m
     , Prim a
-    ) => (a -> a) -> Mutable m (UVector2 (n::Symbol) a) -> m ()
-monopDynM f (Mutable_UVector2 ref) = do
-    (UVector2_Dynamic arr1 off1 n) <- readPrimRef ref
+    ) => (a -> a) -> Mutable m (UVector (n::Symbol) a) -> m ()
+monopDynM f (Mutable_UVector ref) = do
+    (UVector_Dynamic arr1 off1 n) <- readPrimRef ref
     if isNull arr1
         then return ()
         else unsafePrimToPrim $
@@ -253,36 +257,36 @@ monopDynM f (Mutable_UVector2 ref) = do
 -------------------
 
 -}
-instance (Monoid r, Prim r) => Semigroup (UVector2 (n::Symbol) r) where
+instance (Monoid r, Prim r) => Semigroup (UVector (n::Symbol) r) where
     {-# INLINE (+)  #-} ; (+)  = binopDynUV  (+)
 --     {-# INLINE (+=) #-} ; (+=) = binopDynUVM (+)
 
-instance (Monoid r, Cancellative r, Prim r) => Cancellative (UVector2 (n::Symbol) r) where
+instance (Monoid r, Cancellative r, Prim r) => Cancellative (UVector (n::Symbol) r) where
     {-# INLINE (-)  #-} ; (-)  = binopDynUV  (-)
 --     {-# INLINE (-=) #-} ; (-=) = binopDynUVM (-)
 
-instance (Monoid r, Prim r) => Monoid (UVector2 (n::Symbol) r) where
+instance (Monoid r, Prim r) => Monoid (UVector (n::Symbol) r) where
     {-# INLINE zero #-}
     zero = unsafeInlineIO $ do
         marr <- newPinnedByteArray 0
         arr <- unsafeFreezeByteArray marr
-        return $ UVector2_Dynamic arr 0 0
+        return $ UVector_Dynamic arr 0 0
 
-instance (Group r, Prim r) => Group (UVector2 (n::Symbol) r) where
+instance (Group r, Prim r) => Group (UVector (n::Symbol) r) where
     {-# INLINE negate #-}
     negate v = monopDynUV negate v
 
-instance (Monoid r, Abelian r, Prim r) => Abelian (UVector2 (n::Symbol) r)
+instance (Monoid r, Abelian r, Prim r) => Abelian (UVector (n::Symbol) r)
 
-instance (Module r, Prim r) => Module (UVector2 (n::Symbol) r) where
+instance (Module r, Prim r) => Module (UVector (n::Symbol) r) where
     {-# INLINE (.*)   #-} ;  (.*)  v r = monopDynUV  (.*r) v
 --     {-# INLINE (.*=)  #-} ;  (.*=) v r = monopDynM (.*r) v
 
-instance (FreeModule r, Prim r) => FreeModule (UVector2 (n::Symbol) r) where
+instance (FreeModule r, Prim r) => FreeModule (UVector (n::Symbol) r) where
     {-# INLINE (.*.)  #-} ;  (.*.)     = binopDynUV  (.*.)
 --     {-# INLINE (.*.=) #-} ;  (.*.=)    = binopDynUVM (.*.)
 
-instance (VectorSpace r, Prim r) => VectorSpace (UVector2 (n::Symbol) r) where
+instance (VectorSpace r, Prim r) => VectorSpace (UVector (n::Symbol) r) where
     {-# INLINE (./)   #-} ;  (./)  v r = monopDynUV  (./r) v
 --     {-# INLINE (./=)  #-} ;  (./=) v r = monopDynM (./r) v
 
@@ -292,28 +296,28 @@ instance (VectorSpace r, Prim r) => VectorSpace (UVector2 (n::Symbol) r) where
 ----------------------------------------
 -- container
 
-instance (Monoid r, ValidLogic r, Prim r, IsScalar r) => IxContainer (UVector2 (n::Symbol) r) where
+instance (Monoid r, ValidLogic r, Prim r, IsScalar r) => IxContainer (UVector (n::Symbol) r) where
 
     {-# INLINE (!) #-}
-    (!) (UVector2_Dynamic arr off n) i = indexByteArray arr (off+i)
+    (!) (UVector_Dynamic arr off n) i = indexByteArray arr (off+i)
 
     {-# INLINABLE toIxList #-}
-    toIxList (UVector2_Dynamic arr off n) = P.zip [0..] $ go (n-1) []
+    toIxList (UVector_Dynamic arr off n) = P.zip [0..] $ go (n-1) []
         where
             go (-1) xs = xs
             go i xs = go (i-1) (indexByteArray arr (off+i) : xs)
 
-instance (FreeModule r, ValidLogic r, Prim r, IsScalar r) => FiniteModule (UVector2 (n::Symbol) r) where
+instance (FreeModule r, ValidLogic r, Prim r, IsScalar r) => FiniteModule (UVector (n::Symbol) r) where
 
     {-# INLINE dim #-}
-    dim (UVector2_Dynamic _ _ n) = n
+    dim (UVector_Dynamic _ _ n) = n
 
     {-# INLINABLE unsafeToModule #-}
     unsafeToModule xs = unsafeInlineIO $ do
         marr <- newPinnedByteArray $ n*Prim.sizeOf (undefined::r)
         go marr (P.reverse xs) (n-1)
         arr <- unsafeFreezeByteArray marr
-        return $ UVector2_Dynamic arr 0 n
+        return $ UVector_Dynamic arr 0 n
 
         where
             n = length xs
@@ -326,15 +330,15 @@ instance (FreeModule r, ValidLogic r, Prim r, IsScalar r) => FiniteModule (UVect
 ----------------------------------------
 -- comparison
 
-isConst :: (Prim r, Eq_ r, ValidLogic r) => UVector2 (n::Symbol) r -> r -> Logic r
-isConst (UVector2_Dynamic arr1 off1 n1) c = go (off1+n1-1)
+isConst :: (Prim r, Eq_ r, ValidLogic r) => UVector (n::Symbol) r -> r -> Logic r
+isConst (UVector_Dynamic arr1 off1 n1) c = go (off1+n1-1)
     where
         go (-1) = true
         go i = indexByteArray arr1 i==c && go (i-1)
 
-instance (Eq r, Monoid r, Prim r) => Eq_ (UVector2 (n::Symbol) r) where
+instance (Eq r, Monoid r, Prim r) => Eq_ (UVector (n::Symbol) r) where
     {-# INLINE (==) #-}
-    v1@(UVector2_Dynamic arr1 off1 n1)==v2@(UVector2_Dynamic arr2 off2 n2) = if
+    v1@(UVector_Dynamic arr1 off1 n1)==v2@(UVector_Dynamic arr2 off2 n2) = if
         | isZero n1 && isZero n2 -> true
         | isZero n1 -> isConst v2 zero
         | isZero n2 -> isConst v1 zero
@@ -350,7 +354,7 @@ instance (Eq r, Monoid r, Prim r) => Eq_ (UVector2 (n::Symbol) r) where
 
 
 {-# INLINE innerp #-}
--- innerp :: UVector2 200 Float -> UVector2 200 Float -> Float
+-- innerp :: UVector 200 Float -> UVector 200 Float -> Float
 innerp v1 v2 = go 0 (n-1)
 
     where
@@ -382,12 +386,12 @@ instance
     , Logic r~Bool
     , IsScalar r
     , VectorSpace r
-    ) => Metric (UVector2 (n::Symbol) r)
+    ) => Metric (UVector (n::Symbol) r)
         where
 
     {-# INLINE[2] distance #-}
-    distance v1@(UVector2_Dynamic arr1 off1 n1) v2@(UVector2_Dynamic arr2 off2 n2)
-      = {-# SCC distance_UVector2 #-} if
+    distance v1@(UVector_Dynamic arr1 off1 n1) v2@(UVector_Dynamic arr2 off2 n2)
+      = {-# SCC distance_UVector #-} if
         | isZero n1 -> size v2
         | isZero n2 -> size v1
         | otherwise -> sqrt $ go 0 (n1-1)
@@ -406,8 +410,8 @@ instance
                 else goEach (tot + (v1!i-v2!i).*.(v1!i-v2!i)) (i-1)
 
     {-# INLINE[2] distanceUB #-}
-    distanceUB v1@(UVector2_Dynamic arr1 off1 n1) v2@(UVector2_Dynamic arr2 off2 n2) ub
-      = {-# SCC distanceUB_UVector2 #-} if
+    distanceUB v1@(UVector_Dynamic arr1 off1 n1) v2@(UVector_Dynamic arr2 off2 n2) ub
+      = {-# SCC distanceUB_UVector #-} if
         | isZero n1 -> size v2
         | isZero n2 -> size v1
         | otherwise -> sqrt $ go 0 (n1-1)
@@ -430,9 +434,9 @@ instance
                 else goEach (tot + (v1!i-v2!i).*.(v1!i-v2!i)) (i-1)
 
 
-instance (VectorSpace r, Prim r, IsScalar r, ExpField r) => Normed (UVector2 (n::Symbol) r) where
+instance (VectorSpace r, Prim r, IsScalar r, ExpField r) => Normed (UVector (n::Symbol) r) where
     {-# INLINE size #-}
-    size v@(UVector2_Dynamic arr off n) = if isZero n
+    size v@(UVector_Dynamic arr off n) = if isZero n
         then 0
         else sqrt $ go 0 (off+n-1)
         where
@@ -447,217 +451,6 @@ instance (VectorSpace r, Prim r, IsScalar r, ExpField r) => Normed (UVector2 (n:
             goEach !tot !i = if i<0
                 then tot
                 else goEach (tot+v!i*v!i) (i-1)
-
---------------------------------------------------------------------------------
-
-type Unbox = VU.Unbox
-
--- | The type of dynamic or statically sized unboxed vectors.
-data family UVector (n::k) r
-
-type instance Scalar (UVector s r) = Scalar r
-type instance Logic (UVector s r) = Logic r
-type instance UVector s a >< b = UVector s (a><b)
-
-type instance Index (UVector n r) = Int
-type instance Elem (UVector n r) = r
-type instance SetElem (UVector n r) b = UVector n b
-
---------------------------------------------------------------------------------
-
-newtype instance UVector (n::Symbol) r = UVector_Dynamic
-    { unUVector_Dynamic :: VU.Vector r
-    }
-
-instance (Show r, Unbox r, IsScalar r, ClassicalLogic r) => Show (UVector (n::Symbol) r) where
-    show v = if isZero v
-        then "zero"
-        else show $ values v
-
-instance (Unbox r, Arbitrary r, IsScalar r, FreeModule r) => Arbitrary (UVector (n::Symbol) r) where
-    arbitrary = frequency
-        [ (1,return $ zero)
-        , (9,fmap unsafeToModule $ replicateM 27 arbitrary)
-        ]
-
-instance (NFData r, Unbox r) => NFData (UVector (n::Symbol) r) where
-    rnf (UVector_Dynamic v) = rnf v
-
-instance (FromField r, Unbox r, IsScalar r, FreeModule r) => FromRecord (UVector (n::Symbol) r) where
-    parseRecord r = do
-        rs :: [r] <- parseRecord r
-        return $ unsafeToModule rs
-
----------------------------------------
--- mutable
-
-mkMutable [t| forall (s::Symbol) a. UVector s a |]
-
--- newtype instance Mutable m (UVector (n::Symbol) r) = Mutable_UVector_Dynamic (VUM.MVector (PrimState m) r)
---
--- instance Unbox r => IsMutable (UVector (n::Symbol) r) where
---
---     {-# INLINE thaw #-}
---     thaw (UVector_Dynamic v) = fmap Mutable_UVector_Dynamic $ VG.thaw v
---
---     {-# INLINE freeze #-}
---     freeze (Mutable_UVector_Dynamic v) = fmap UVector_Dynamic $ VG.freeze v
---
---     {-# INLINE unsafeThaw #-}
---     unsafeThaw (UVector_Dynamic v) = fmap Mutable_UVector_Dynamic $ VG.unsafeThaw v
---
---     {-# INLINE unsafeFreeze #-}
---     unsafeFreeze (Mutable_UVector_Dynamic v) = fmap UVector_Dynamic $ VG.unsafeFreeze v
---
---     {-# INLINE write #-}
---     write (Mutable_UVector_Dynamic mv) (UVector_Dynamic v) = ifVG.copy mv v
-
----------------------------------------
--- comparison
-
-instance (Unbox r, Eq r, Monoid r) => Eq_ (UVector (s::Symbol) r) where
-    (UVector_Dynamic v1)==(UVector_Dynamic v2) = if
-        | VG.length v1==0 && VG.length v2==0 -> true
-        | VG.length v1==0 -> VG.and $ VG.map (==zero) v2
-        | VG.length v2==0 -> VG.and $ VG.map (==zero) v1
-        | otherwise -> VG.and $ VG.zipWith (==) v1 v2
-
----------------------------------------
--- algebra
-
-instance (Unbox r,  Semigroup r) => Semigroup (UVector (s::Symbol) r) where
-    {-# INLINABLE (+) #-}
-    (UVector_Dynamic v1)+(UVector_Dynamic v2) = if VG.length v1 == 0
-        then UVector_Dynamic v2
-        else if VG.length v2 == 0
-            then UVector_Dynamic v1
-            else UVector_Dynamic $ VG.generate (VG.length v1) go
-        where
-            go i = v1 `VG.unsafeIndex` i + v2 `VG.unsafeIndex` i
-
-instance (Unbox r,  Monoid r) => Monoid (UVector (s::Symbol) r) where
-    {-# INLINABLE zero #-}
-    zero = UVector_Dynamic VG.empty
-
-instance (Unbox r,  Abelian r) => Abelian (UVector (s::Symbol) r)
-
-instance (Unbox r,  Group r) => Cancellative (UVector (s::Symbol) r) where
-    {-# INLINABLE (-) #-}
-    (UVector_Dynamic v1)-(UVector_Dynamic v2) = if VG.length v1 == 0
-        then UVector_Dynamic $ VG.map negate v2
-        else if VG.length v2 == 0
-            then UVector_Dynamic v1
-            else UVector_Dynamic $ VG.generate (VG.length v1) go
-        where
-            go i = v1 `VG.unsafeIndex` i - v2 `VG.unsafeIndex` i
-
-instance (Unbox r,  Group r) => Group (UVector (s::Symbol) r) where
-    {-# INLINABLE negate #-}
-    negate (UVector_Dynamic v) = UVector_Dynamic $ VG.map negate v
-
-instance (Unbox r,  Module r, IsScalar (Scalar r)) => Module (UVector (s::Symbol) r) where
-    {-# INLINABLE (.*) #-}
-    (UVector_Dynamic v).*r = UVector_Dynamic $ VG.map (r*.) v
-
-instance (Unbox r,  FreeModule r, IsScalar (Scalar r)) => FreeModule (UVector (s::Symbol) r) where
-    {-# INLINABLE (.*.) #-}
-    (UVector_Dynamic u).*.(UVector_Dynamic v) = if VG.length u == VG.length v
-        then UVector_Dynamic $ VG.zipWith (.*.) u v
-        else zero
-
-instance (Unbox r, VectorSpace r, HasScalar r) => VectorSpace (UVector (s::Symbol) r) where
-    {-# INLINABLE (./) #-}
-    (UVector_Dynamic v)./r = UVector_Dynamic $ VG.map (./r) v
-
-    {-# INLINABLE (./.) #-}
-    (UVector_Dynamic u)./.(UVector_Dynamic v) = if VG.length u == VG.length v
-        then UVector_Dynamic $ VG.zipWith (./.) u v
-        else if VG.length u == 0
-            then zero
-            else UVector_Dynamic $ VG.map (./0) u
-
----------------------------------------
--- geometry
-
-instance
-    ( ExpField r
-    , Ord r
-    , IsScalar r
-    , Unbox r
-    ) => Metric (UVector (s::Symbol) r)
-        where
-
-    {-# INLINE[2] distance #-}
-    distance (UVector_Dynamic v1) (UVector_Dynamic v2) = {-# SCC distance_l2_hask #-} sqrt $ go 0 0
-        where
-            go !tot !i =  if i>VG.length v1-4
-                then goEach tot i
-                else go tot' (i+4)
-                where
-                    tot' = tot
-                        +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                        *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                        +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                        *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                        +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                        *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                        +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                        *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-
-            goEach !tot !i = if i>= VG.length v1
-                then tot
-                else goEach tot' (i+1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-
-    {-# INLINE[2] distanceUB #-}
-    distanceUB (UVector_Dynamic v1) (UVector_Dynamic v2) !dist = {-# SCC distanceUB_UVector #-}
-        go 0 0
-        where
-            dist2=dist*dist
-
-            go !tot !i = if i>VG.length v1-4
-                then goEach tot i
-                else if tot'>dist2
-                    then tot'
-                    else go tot' (i+4)
-                where
-                    tot' = tot
-                        +(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                        *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                        +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                        *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
-                        +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                        *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
-                        +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-                        *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
-
-            goEach !tot !i = if i>= VG.length v1
-                then sqrt tot
-                else if tot'>dist2
-                    then tot'
-                    else goEach tot' (i+1)
-                where
-                    tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-                              *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
-
-----------------------------------------
--- container
-
-instance (IsScalar r, Unbox r) => IxContainer (UVector (s::Symbol) r) where
-    lookup i (UVector_Dynamic v) = v VG.!? i
-    (!) (UVector_Dynamic v) i = v `VG.unsafeIndex` i
-
-    indices (UVector_Dynamic v) = [0..VG.length v-1]
-    values = VG.toList . unUVector_Dynamic
-
---     imap = VG.imap
-
-instance (IsScalar r, FreeModule r, Unbox r) => FiniteModule (UVector (s::Symbol) r) where
-    dim = VG.length . unUVector_Dynamic
-    unsafeToModule = UVector_Dynamic . VG.fromList
-
 
 --------------------------------------------------------------------------------
 -- helper functions for memory management

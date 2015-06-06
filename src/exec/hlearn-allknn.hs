@@ -18,10 +18,8 @@
 
 -- import Control.Monad
 import Control.Monad.Random hiding (fromList)
-import Data.List (zip,intersperse,init,tail,isSuffixOf,sortBy)
+import Data.List (zip,zipWith,intersperse,init,tail,isSuffixOf,sortBy)
 import Data.Maybe (fromJust)
-import qualified Data.Vector.Generic as VG
-import qualified Data.Vector.Unboxed as VU
 import Data.Version
 import Numeric
 import System.Console.CmdArgs.Implicit
@@ -239,13 +237,12 @@ main = do
 
     case data_format params of
         DF_CSV -> do
-            let ct = Proxy::Proxy (CoverTree_ 2 Array UnboxedArray)
-                dp = Proxy::Proxy (Labeled' (UVector2 "dyn" Float) Int)
+            let ct = Proxy::Proxy (CoverTree_ 2 Array UArray)
+                dp = Proxy::Proxy (Labeled' (UVector "dyn" Float) Int)
 
             let {-# INLINE loadfile_dfcsv #-} -- prevents space leaks
                 loadfile_dfcsv filepath = do
-                    rs <- loadCSV filepath
-                    setptsize $ dim $ rs!0
+                    rs :: Array (UVector "dyn" Float) <- loadCSV filepath
 
                     rs' <- case rotate params of
 
@@ -254,11 +251,11 @@ main = do
                         Variance -> do
                             let shuffleMap = mkShuffleMap rs
                             time "mkShuffleMap" shuffleMap
-                            time "varshifting data" $ VG.map (apShuffleMap shuffleMap) rs
+                            time "varshifting data" $ map (apShuffleMap shuffleMap) $ toList rs
 
-                        NoRotate -> return rs
+                        NoRotate -> return $ toList rs
 
-                    return $ VG.zipWith Labeled' (VG.convert rs') $ VG.fromList [0::Int ..]
+                    return $ fromList $ zipWith Labeled' rs' [0::Int ..]
 
             allknn params loadfile_dfcsv ct dp k
 
@@ -305,10 +302,9 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     , IxContainer (leafC (Labeled' dp l))
     , Bounded (Scalar dp)
     , Scalar (childC (CoverTree_ exprat childC leafC (Labeled' dp l))) ~ Int
+    , Unboxable (Labeled' dp l)
+    , Unboxable dp
 
-    , VG.Vector childC Int
-    , VG.Vector childC Bool
-    , VG.Vector leafC (Labeled' dp l)
     , P.Ord l
     , NFData l
     , Show l
@@ -317,7 +313,7 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     , Unbox dp
     , Unbox l
     ) => Params
-      -> (FilePath -> IO (UnboxedArray (Labeled' dp l)))
+      -> (FilePath -> IO (UArray (Labeled' dp l)))
       -> proxy1 (CoverTree_ exprat childC leafC)
       -> proxy2 (Labeled' dp l)
       -> Proxy (1::Nat)
@@ -387,12 +383,10 @@ allknn params loaddata _ _ _ = do
 -- This is important so we can compare their runtime features.
 buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
-    , VG.Vector childC Bool
-    , VG.Vector childC Int
-    , VG.Vector leafC dp
+    , Unboxable dp
     , Unbox dp
     ) => Params
-      -> UnboxedArray dp
+      -> UArray dp
       -> IO (CoverTree_ exprat childC leafC dp)
 buildTree params xs = do
 
@@ -450,8 +444,6 @@ buildTree params xs = do
 -- Should this be moved into the SpaceTree file?
 printTreeStats ::
     ( ValidCT exprat childC leafC dp
-    , VG.Vector childC Bool
-    , VG.Vector childC Int
     ) => String
       -> CoverTree_ exprat childC leafC dp
       -> IO ()
