@@ -88,14 +88,14 @@ Library
         HLearn.History.Timing
 
 --         HLearn.Data.Graph
-        HLearn.Data.Image
+--         HLearn.Data.Image
         HLearn.Data.LoadData
         HLearn.Data.SpaceTree
         HLearn.Data.SpaceTree.CoverTree
         HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 --         HLearn.Data.SpaceTree.Algorithms.RangeSearch
-        HLearn.Data.UnsafeVector
-        HLearn.Data.Vector
+--         HLearn.Data.UnsafeVector
+--         HLearn.Data.Vector
 
 --         HLearn.Evaluation.CrossValidation
 --

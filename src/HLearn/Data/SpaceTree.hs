@@ -52,8 +52,8 @@ import qualified Data.List as L
 
 import Prelude (map)
 import SubHask
+import SubHask.Algebra.Array
 import SubHask.Monad
-import SubHask.Compatibility.Vector
 import SubHask.Compatibility.Containers
 
 import HLearn.Models.Distributions
@@ -92,10 +92,10 @@ class
         where
 
     type LeafContainer t :: * -> *
-    type LeafContainer t = Array
+    type LeafContainer t = BArray
 
     type ChildContainer t :: * -> *
-    type ChildContainer t = Array
+    type ChildContainer t = BArray
 
     {-# INLINE stMinDistance #-}
     {-# INLINE stMaxDistance #-}

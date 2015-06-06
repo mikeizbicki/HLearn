@@ -14,12 +14,9 @@ import qualified Data.Vector.Generic as VG
 
 import SubHask
 import SubHask.Monad
+import SubHask.Algebra.Array
 import SubHask.Algebra.Container
 import SubHask.Compatibility.Containers
-
-import SubHask.Compatibility.Vector
-import SubHask.Compatibility.Vector.Lebesgue
-import HLearn.Data.UnsafeVector
 
 import HLearn.Data.SpaceTree
 import HLearn.Models.Distributions
@@ -44,7 +41,7 @@ exprat_ = fromRational $ unsafePerformIO $ readIORef expratIORef
 
 -------------------------------------------------------------------------------
 
-type CoverTree dp = CoverTree_ 2 Array Array dp
+type CoverTree dp = CoverTree_ 2 BArray BArray dp
 
 data CoverTree_
         ( exprat                :: Nat ) -- FIXME: should be "Frac" from typeparams

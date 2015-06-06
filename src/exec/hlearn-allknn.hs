@@ -16,7 +16,6 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
--- import Control.Monad
 import Control.Monad.Random hiding (fromList)
 import Data.List (zip,zipWith,intersperse,init,tail,isSuffixOf,sortBy)
 import Data.Maybe (fromJust)
@@ -28,38 +27,31 @@ import System.IO
 
 import qualified Prelude as P
 import SubHask
+import SubHask.Algebra.Array
 import SubHask.Algebra.Container
 import SubHask.Algebra.Ord
 import SubHask.Algebra.Parallel
+import SubHask.Algebra.Vector
 import SubHask.Compatibility.Containers
--- import SubHask.Compatibility.StaticVector
-import SubHask.Compatibility.Vector
-import SubHask.Compatibility.Vector.Lebesgue
--- import SubHask.Monad
-
--- import Data.Params
 
 -- import HLearn.Data.Graph
-import HLearn.Data.Image
+-- import HLearn.Data.Image
 import HLearn.Data.LoadData
 import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
 import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
-import HLearn.Data.UnsafeVector
-import HLearn.Data.Vector
 import HLearn.History.Timing
 import HLearn.Models.Distributions
 
 import Paths_HLearn
 
-
-import qualified Prelude as P
-import Control.Concurrent
-import Control.Parallel
-import Control.Parallel.Strategies
-import System.IO.Unsafe
-
-import Foreign.Ptr
+-- import qualified Prelude as P
+-- import Control.Concurrent
+-- import Control.Parallel
+-- import Control.Parallel.Strategies
+-- import System.IO.Unsafe
+--
+-- import Foreign.Ptr
 
 -------------------------------------------------------------------------------
 
@@ -237,12 +229,12 @@ main = do
 
     case data_format params of
         DF_CSV -> do
-            let ct = Proxy::Proxy (CoverTree_ 2 Array UArray)
+            let ct = Proxy::Proxy (CoverTree_ 2 BArray BArray)
                 dp = Proxy::Proxy (Labeled' (UVector "dyn" Float) Int)
 
             let {-# INLINE loadfile_dfcsv #-} -- prevents space leaks
                 loadfile_dfcsv filepath = do
-                    rs :: Array (UVector "dyn" Float) <- loadCSV filepath
+                    rs :: BArray (UVector "dyn" Float) <- loadCSV filepath
 
                     rs' <- case rotate params of
 
@@ -261,7 +253,7 @@ main = do
 
         {-
         DF_Images -> do
-            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array Array)
+            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) BArray BArray)
                 dp = Proxy::Proxy (Labeled' (ColorSig Float) FilePath)
 
             let {-# INLINE loaddata #-}
@@ -275,7 +267,7 @@ main = do
 
 
         DF_PLG -> do
-            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) Array Array)
+            let ct = Proxy::Proxy (CoverTree_ (Static (13/10)) BArray BArray)
                 dp = Proxy::Proxy (Labeled' Graph FilePath)
 
             let {-# INLINE loaddata #-}

@@ -27,16 +27,16 @@ import HLearn.Models.Distributions
 import Data.List (take,drop,zipWith)
 
 import SubHask
+import SubHask.Algebra.Array
 import SubHask.Algebra.Container
 import SubHask.Algebra.Parallel
 import SubHask.Compatibility.ByteString
 import SubHask.Compatibility.Cassava
 import SubHask.Compatibility.Containers
-import SubHask.Compatibility.Vector
-import SubHask.Compatibility.Vector.Lebesgue
+-- import SubHask.Compatibility.Vector
+-- import SubHask.Compatibility.Vector.Lebesgue
 import SubHask.TemplateHaskell.Deriving
 
-import HLearn.Data.UnsafeVector
 import HLearn.History.Timing
 import HLearn.Models.Classifiers.Common
 
@@ -46,9 +46,10 @@ import qualified Prelude as P
 
 --------------------------------------------------------------------------------
 
+{-
 -- | This loads files in the format used by the BagOfWords UCI dataset.
 -- See: https://archive.ics.uci.edu/ml/machine-learning-databases/bag-of-words/readme.txt
-loadBagOfWords :: FilePath -> IO (Array (Map' Int Float))
+loadBagOfWords :: FilePath -> IO (BArray (Map' Int Float))
 loadBagOfWords filepath = do
     hin <- openFile filepath ReadMode
     numdp :: Int <- liftM read $ hGetLine hin
@@ -68,12 +69,12 @@ loadBagOfWords filepath = do
 -- | Loads a dataset of strings in the unix words file format (i.e. one word per line).
 -- This format is also used by the UCI Bag Of Words dataset.
 -- See: https://archive.ics.uci.edu/ml/machine-learning-databases/bag-of-words/readme.txt
-loadWords :: (Monoid dp, Elem dp~Char, Eq dp, Constructible dp) => FilePath -> IO (Array dp)
+loadWords :: (Monoid dp, Elem dp~Char, Eq dp, Constructible dp) => FilePath -> IO (BArray dp)
 loadWords filepath = do
     hin <- openFile filepath ReadMode
     contents <- hGetContents hin
     return $ fromList $ map fromList $ L.lines contents
-
+-}
 
 --------------------------------------------------------------------------------
 
@@ -114,7 +115,7 @@ loadDirectory ::
       -> (FilePath -> Bool)   -- ^ function to filter out invalid filenames
       -> (a -> Bool)          -- ^ function to filter out malformed results
       -> FilePath             -- ^ directory to load data from
-      -> IO (Array (Labeled' a FilePath))         -- ^
+      -> IO (BArray (Labeled' a FilePath))         -- ^
 loadDirectory numdp loadFile validFilepath validResult dirpath = {-# SCC loadDirectory #-} do
 
     files <- timeIO "getDirectoryContentsRecursive" $ do
@@ -147,7 +148,7 @@ loadCSV ::
     , FiniteModule a
     , Eq a
     , Show (Scalar a)
-    ) => FilePath -> IO (Array a)
+    ) => FilePath -> IO (BArray a)
 loadCSV filepath = do
 
     bs <- timeIO ("loading ["++filepath++"]") $ readFileByteString filepath
@@ -236,13 +237,6 @@ meanAndVarianceInOnePass ys = case uncons ys of
 varianceInOnePass :: (Foldable xs, Field (Elem xs)) => xs -> Elem xs
 varianceInOnePass = snd . meanAndVarianceInOnePass
 
--- FIXME: hack due to lack of forall'd constraints
-type ValidElem v =
-    ( Elem (SetElem v (Elem v)) ~ Elem v
-    , Elem (SetElem v (Scalar (Elem v))) ~ Scalar (Elem v)
-    , IxContainer (SetElem v (Elem v))
-    )
-
 -- | calculate the variance of each column, then sort so that the highest variance is first
 --
 -- NOTE: the git history has a lot of versions of this function with different levels of efficiency.
@@ -251,8 +245,10 @@ mkShuffleMap :: forall v.
     ( FiniteModule v
     , VectorSpace v
     , Eq v
-    , ValidElem v
-    ) => Array v -> UnboxedArray Int
+    , Elem (SetElem v (Elem v)) ~ Elem v
+    , Elem (SetElem v (Scalar (Elem v))) ~ Scalar (Elem v)
+    , IxContainer (SetElem v (Elem v))
+    ) => BArray v -> UArray Int
 mkShuffleMap vs = if size vs==0
     then error "mkShuffleMap: called on empty array"
     else runST ( do
@@ -260,25 +256,34 @@ mkShuffleMap vs = if size vs==0
 --                 $ values
 --                 $ varianceInOnePass
 --                 $ VG.map Componentwise vs
---                 :: Array (Scalar v)
+--                 :: BArray (Scalar v)
 
         let variances
                 = fromList
-                $ imap (\i _ -> varianceInOnePass $ (VG.map (!i) vs))
+                $ imap (\i _ -> varianceInOnePass $ (imap (\_ -> (!i)) vs))
                 $ values
-                $ VG.head vs
-                :: Array (Scalar v)
+                $ vs!0
+                :: BArray (Scalar v)
 
-        msortV <- VG.unsafeThaw $ imap (,) $ variances
-        Intro.sortBy (\(_,v1) (_,v2) -> compare v1 v2) msortV
-        sortV' :: Array (Int,Scalar v) <- VG.unsafeFreeze msortV
+--         let (BArray v) = variances
+--         msortV <- VG.unsafeThaw $ imap (,) $ v
+--         Intro.sortBy (\(_,v1) (_,v2) -> compare v1 v2) msortV
+--         v' <- VG.unsafeFreeze msortV
+--         let sortV' = BArray v' :: BArray (Int,Scalar v)
+--         return $ VG.convert $ VG.map fst v'
 
-        return $ VG.convert $ VG.map fst sortV'
+        return
+            $ fromList
+            $ map fst
+            $ L.sortBy (\(_,v1) (_,v2) -> compare v1 v2)
+            $ toList
+            $ imap (,)
+            $ variances
         )
 
 -- | apply the shufflemap to the data set to get a better ordering of the data
 {-# INLINABLE apShuffleMap #-}
-apShuffleMap :: FiniteModule v => UnboxedArray Int -> v -> v
+apShuffleMap :: FiniteModule v => UArray Int -> v -> v
 apShuffleMap vmap v = unsafeToModule $ V.toList $ V.generate (size vmap) $ \i -> v!(vmap!i)
 
 {-# INLINABLE meanCenter #-}
@@ -318,7 +323,7 @@ rotatePCA dps' = {-# SCC rotatePCA #-} VG.map rotate dps
         gramMatrix = {-# SCC gramMatrix #-} foldl1' (P.+)
             [ let dp' = VG.convert dp in LA.asColumn dp' LA.<> LA.asRow dp' | dp <- VG.toList dps ]
 
-gramMatrix_ :: (Ring a, Storable a) => [Vector a] -> LA.Matrix a
+gramMatrix_ :: (Ring a, Storable a) => [VS.Vector a] -> LA.Matrix a
 gramMatrix_ xs = runST ( do
     let dim = VG.length (head xs)
     m <- LA.newMatrix 0 dim dim
