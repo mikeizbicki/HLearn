@@ -9,10 +9,15 @@ module HLearn.History
     (
     -- * The History Monad
     History
+    , History_
+--     , History__
     , runHistory
     , evalHistory
     , traceHistory
     , traceAllHistory
+
+    , NoCxt
+    , ValidCxt
 
     -- ** Reporting tools
     , Report (..)
@@ -31,7 +36,6 @@ module HLearn.History
     , mulTolerance
 
     -- * Display Functions
-    , Optimizable
     , DisplayFunction
 
     -- ** Display each iteration
@@ -76,6 +80,14 @@ import SubHask.Compatibility.Containers
 
 -------------------------------------------------------------------------------
 
+-- FIXME:
+-- This class is obsolete and should be deleted.
+-- It should be hard to do, I'm just tired right now and don't want to do the refactoring.
+class (Typeable a, Show a) => Optimizable a
+instance (Typeable a, Show a) => Optimizable a
+
+-------------------------------------------------------------------------------
+
 -- |
 --
 -- FIXME: Is there a way to store times in "Int"s rather than "Integer"s for more efficiency?
@@ -98,27 +110,25 @@ mkMutable [t| Report |]
 -------------------------------------------------------------------------------
 -- display functions
 
--- | This type synonym is a hack, that I'm not happy with.
--- Any class that any display function might want just gets included here.
-type Optimizable a = (Typeable a, Show a)
-
 -- | When running a "History" monad, there are three times we might need to perform IO actions: the beginning, middle, and end.
 -- This type just wraps all three of those functions into a single type.
-data DisplayFunction s = DisplayFunction
+data DisplayFunction_ cxt s = DisplayFunction
     { startDisplayFunction :: IO ()
-    , stepDisplayFunction  :: forall a. Optimizable a => Report -> s -> a -> (s, IO ())
+    , stepDisplayFunction  :: forall a. cxt a => Report -> s -> a -> (s, IO ())
     , stopDisplayFunction  :: s -> IO ()
     }
 
-mkMutable [t| forall s. DisplayFunction s |]
+type DisplayFunction = DisplayFunction_ Optimizable
 
-instance Semigroup s => Semigroup (DisplayFunction s) where
+mkMutable [t| forall cxt s. DisplayFunction_ cxt s |]
+
+instance Semigroup s => Semigroup (DisplayFunction_ cxt s) where
     df1+df2 = DisplayFunction
         (startDisplayFunction df1+startDisplayFunction df2)
         (stepDisplayFunction df1 +stepDisplayFunction df2 )
         (stopDisplayFunction df1 +stopDisplayFunction df2 )
 
-instance Monoid s => Monoid (DisplayFunction s) where
+instance Monoid s => Monoid (DisplayFunction_ cxt s) where
     zero = DisplayFunction zero zero zero
 
 ----------------------------------------
@@ -264,13 +274,26 @@ padString a i = P.take i $ a ++ P.repeat ' '
 
 -------------------------------------------------
 
+-- | Every type is an instance of "NoCxt".
+-- When running a "History" monad, we must always assign a value to the "cxt" variable.
+-- Use "NoCxt" when you don't want to enforce any constraints.
+class NoCxt a
+instance NoCxt a
+
+-- | Applies the cxt to construct the needed constraints.
+type ValidCxt (cxt :: * -> Constraint) a =
+    ( cxt String
+    , cxt a
+    , cxt (Scalar a)
+    )
+
 -- | A (sometimes) more convenient version of "History_"
-type History a = forall s. History_ s a
+type History cxt a = forall s. ValidCxt cxt a => History_ cxt s a
 
 -- | This monad internally requires -XImpredicativeTypes to thread our "DisplayFunction" throughout the code.
-newtype History_ s a = History
+newtype History_ cxt s a = History
     ( ReaderT
-        ( DisplayFunction s )
+        ( DisplayFunction_ cxt s )
         ( StateT
             (s,[Report])
 --             ( StateT
@@ -281,27 +304,27 @@ newtype History_ s a = History
         a
     )
 
-mkMutable [t| forall s a. History_ s a |]
+mkMutable [t| forall cxt s a. History_ cxt s a |]
 
 -- | Run the "History" computation without any debugging information.
 -- This is the most efficient way to run an optimization.
 {-# INLINABLE evalHistory #-}
-evalHistory :: History_ () a -> a
+evalHistory :: History_ NoCxt () a -> a
 evalHistory = unsafePerformIO . runHistory zero
 
 -- | Run the "History" computation with a small amount of debugging information.
 {-# INLINABLE traceHistory #-}
-traceHistory :: History_ () a -> a
+traceHistory :: Optimizable a => History_ Optimizable () a -> a
 traceHistory = unsafePerformIO . runHistory (displayFilter (maxReportLevel 2) dispIteration)
 
 -- | Run the "History" computation with a lot of debugging information.
 {-# INLINABLE traceAllHistory #-}
-traceAllHistory :: History_ () a -> a
+traceAllHistory :: Optimizable a => History_ Optimizable () a -> a
 traceAllHistory = unsafePerformIO . runHistory dispIteration
 
 -- | Specify the amount of debugging information to run the "History" computation with.
 {-# INLINABLE runHistory #-}
-runHistory :: forall s a. Monoid s => DisplayFunction s -> History_ s a -> IO a
+runHistory :: forall cxt s a. (cxt a, Monoid s) => DisplayFunction_ cxt s -> History_ cxt s a -> IO a
 runHistory df (History hist) = {-# SCC runHistory #-} do
     time <- getCPUTime
     let startReport = Report
@@ -315,7 +338,7 @@ runHistory df (History hist) = {-# SCC runHistory #-} do
 
     -- the nasty type signature below is needed for -XImpredicativeTypes
     (a, (s,_)) <- runStateT
-        ( (runReaderT :: forall m. ReaderT (DisplayFunction s) m a -> DisplayFunction s -> m a )
+        ( (runReaderT :: forall m. ReaderT (DisplayFunction_ cxt s) m a -> DisplayFunction_ cxt s -> m a )
             hist
             df
         )
@@ -330,7 +353,7 @@ runHistory df (History hist) = {-# SCC runHistory #-} do
 --
 -- This is a convenient wrapper around the "report" and "collectReports" functions.
 {-# INLINABLE beginFunction #-}
-beginFunction :: String -> History_ s a -> History_ s a
+beginFunction :: cxt String => String -> History_ cxt s a -> History_ cxt s a
 beginFunction b ha = collectReports $ do
     report b
     collectReports ha
@@ -338,7 +361,7 @@ beginFunction b ha = collectReports $ do
 -- | Register the parameter of type @a@ as being important for debugging information.
 -- This creates a new "Report" and automatically runs the appropriate "stepDisplayFunction".
 {-# INLINABLE report #-}
-report :: forall s a. Optimizable a => a -> History_ s a
+report :: forall cxt s a. cxt a => a -> History_ cxt s a
 report a = {-# SCC report #-} History $ do
     time <- liftIO getCPUTime
 
@@ -352,8 +375,8 @@ report a = {-# SCC report #-} History $ do
 
     -- get our DisplayFunction and call it
     -- the cumbersome type signature is required for -XImpredicativeTypes
-    (f::DisplayFunction s) <-
-        (ask :: ReaderT (DisplayFunction s) (StateT (s, [Report]) IO) (DisplayFunction s))
+    (f::DisplayFunction_ cxt s) <-
+        (ask :: ReaderT (DisplayFunction_ cxt s) (StateT (s, [Report]) IO) (DisplayFunction_ cxt s))
     let (s1,io) = stepDisplayFunction f newReport s0 a
 
     put $ (s1, newReport:xs)
@@ -363,7 +386,7 @@ report a = {-# SCC report #-} History $ do
 -- | Group all of the "Reports" that happen in the given computation together.
 -- You probably don't need to call this function directly, and instead should call "beginFunction".
 {-# INLINABLE collectReports #-}
-collectReports :: History_ s a -> History_ s a
+collectReports :: History_ cxt s a -> History_ cxt s a
 collectReports (History hist) = {-# SCC collectReports #-} History $ do
     mkLevel
     a <- hist
@@ -387,7 +410,7 @@ collectReports (History hist) = {-# SCC collectReports #-} History $ do
 
 
 {-# INLINABLE currentItr #-}
-currentItr :: History Int
+currentItr :: History cxt Int
 currentItr = History $ do
     (_ , x:_) <- get
     return $ numReports x
@@ -395,37 +418,37 @@ currentItr = History $ do
 ---------------------------------------
 -- monad hierarchy
 
-instance Functor Hask (History_ s) where
+instance Functor Hask (History_ cxt s) where
     fmap f (History s) = History (fmap f s)
 
-instance Then (History_ s) where
+instance Then (History_ cxt s) where
     (>>) = haskThen
 
-instance Monad Hask (History_ s) where
+instance Monad Hask (History_ cxt s) where
     return_ a = History $ return_ a
     join (History s) = History $ join (fmap (\(History s)->s) s)
 
 ---------------------------------------
 -- algebra hierarchy
 
-type instance Scalar (History_ s a) = Scalar a
+type instance Scalar (History_ cxt s a) = Scalar a
 
-instance Semigroup a => Semigroup (History_ s a) where
+instance Semigroup a => Semigroup (History_ cxt s a) where
     ha1 + ha2 = do
         a1 <- ha1
         a2 <- ha2
         return $ a1+a2
 
-instance Cancellative a => Cancellative (History_ s a) where
+instance Cancellative a => Cancellative (History_ cxt s a) where
     ha1 - ha2 = do
         a1 <- ha1
         a2 <- ha2
         return $ a1-a2
 
-instance Monoid a => Monoid (History_ s a) where
+instance Monoid a => Monoid (History_ cxt s a) where
     zero = return zero
 
-instance Group a => Group (History_ s a) where
+instance Group a => Group (History_ cxt s a) where
     negate ha = do
         a <- ha
         return $ negate a
@@ -433,46 +456,46 @@ instance Group a => Group (History_ s a) where
 ---------------------------------------
 -- comparison hierarchy
 
-type instance Logic (History_ s a) = History_ s (Logic a)
+type instance Logic (History_ cxt s a) = History_ cxt s (Logic a)
 
-instance Eq_ a => Eq_ (History_ s a) where
+instance Eq_ a => Eq_ (History_ cxt s a) where
     a==b = do
         a' <- a
         b' <- b
         return $ a'==b'
 
-instance POrd_ a => POrd_ (History_ s a) where
+instance POrd_ a => POrd_ (History_ cxt s a) where
     {-# INLINABLE inf #-}
     inf a b = do
         a' <- a
         b' <- b
         return $ inf a' b'
 
-instance Lattice_ a => Lattice_ (History_ s a) where
+instance Lattice_ a => Lattice_ (History_ cxt s a) where
     {-# INLINABLE sup #-}
     sup a b = do
         a' <- a
         b' <- b
         return $ sup a' b'
 
-instance MinBound_ a => MinBound_ (History_ s a) where
+instance MinBound_ a => MinBound_ (History_ cxt s a) where
     minBound = return $ minBound
 
-instance Bounded a => Bounded (History_ s a) where
+instance Bounded a => Bounded (History_ cxt s a) where
     maxBound = return $ maxBound
 
-instance Heyting a => Heyting (History_ s a) where
+instance Heyting a => Heyting (History_ cxt s a) where
     (==>) a b = do
         a' <- a
         b' <- b
         return $ a' ==> b'
 
-instance Complemented a => Complemented (History_ s a) where
+instance Complemented a => Complemented (History_ cxt s a) where
     not a = do
         a' <- a
         return $ not a'
 
-instance Boolean a => Boolean (History_ s a)
+instance Boolean a => Boolean (History_ cxt s a)
 
 -------------------------------------------------------------------------------
 -- Stop conditions
@@ -483,20 +506,31 @@ class Has_fx1 opt v where fx1 :: opt v -> Scalar v
 ---------------------------------------
 
 -- | A (sometimes) more convenient version of "StopCondition_".
-type StopCondition = forall a. StopCondition_ a
+type StopCondition = forall a cxt. StopCondition_ cxt a
 
 -- | Functions of this type determine whether the "iterate" function should keep looping or stop.
-type StopCondition_ a = a -> a -> History Bool
+type StopCondition_ cxt a = cxt a => a -> a -> forall s. History_ cxt s Bool
+-- type StopCondition_ cxt a =
+--     ( cxt a
+-- --     , Reportable (HistoryElem a)
+--     ) => a -> a -> forall s. History_ cxt s Bool
+--     ( cxt String
+--     , cxt a
+--     , cxt (HistoryElem a)
+--     , Reportable (HistoryElem a)
+--     , Reportable (Scalar (HistoryElem a))
+--     , Reportable (HistoryElem (Scalar (HistoryElem a><HistoryElem a)))
+--     )
 
 -- | This function is similar in spirit to the @while@ loop of imperative languages like @C@.
 -- The advantage is the "DisplayFunction"s from the "History" monad get automatically (and efficiently!) threaded throughout our computation.
 -- "iterate" is particularly useful for implementing iterative optimization algorithms.
 {-# INLINABLE iterate #-}
-iterate :: forall a. Optimizable a
-    => (a -> History a)         -- ^ step function
+iterate :: forall cxt a. cxt a -- () -- Optimizable a
+    => (a -> forall s. History_ cxt s a)         -- ^ step function
     -> a                        -- ^ start parameters
-    -> StopCondition_ a         -- ^ stop conditions
-    -> History a
+    -> StopCondition_ cxt a     -- ^ stop conditions
+    -> forall s. History_ cxt s a
 iterate step opt0 stop = {-# SCC iterate #-} do
     report opt0
     opt1 <- step opt0
@@ -524,7 +558,7 @@ stopBelow ::
     ( Has_fx1 opt v
     , Ord (Scalar v)
     ) => Scalar v
-      -> StopCondition_ (opt v)
+      -> StopCondition_ cxt (opt v)
 stopBelow threshold _ opt = return $ (fx1 opt) < threshold
 
 -- | Stop the iteration when successive function evaluations are within a given distance of each other.
@@ -533,7 +567,7 @@ mulTolerance ::
     ( BoundedField (Scalar v)
     , Has_fx1 opt v
     ) => Scalar v -- ^ tolerance
-      -> StopCondition_ (opt v)
+      -> StopCondition_ cxt (opt v)
 mulTolerance tol prevopt curopt = {-# SCC multiplicativeTollerance #-} do
     return $ (fx1 prevopt) /= infinity && left < right
         where
@@ -541,6 +575,6 @@ mulTolerance tol prevopt curopt = {-# SCC multiplicativeTollerance #-} do
             right = tol*(abs (fx1 curopt) + abs (fx1 prevopt) + 1e-18)
 
 -- | Stop the optimization if our function value has grown between iterations
-fx1grows :: ( Has_fx1 opt v , Ord (Scalar v) ) => StopCondition_ (opt v)
+fx1grows :: ( Has_fx1 opt v , Ord (Scalar v) ) => StopCondition_ cxt (opt v)
 fx1grows opt0 opt1 = {-# SCC fx1grows #-} return $ fx1 opt0 < fx1 opt1
 

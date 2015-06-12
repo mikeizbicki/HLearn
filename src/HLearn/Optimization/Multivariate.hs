@@ -79,6 +79,8 @@ data Iterator_cgd a = Iterator_cgd
     }
     deriving (Typeable)
 
+type instance Scalar (Iterator_cgd a) = Scalar a
+
 instance Show (Iterator_cgd a) where
     show _ = "CGD"
 
@@ -113,11 +115,11 @@ hestenesStiefel f'x1 f'x0 s0 = -(f'x1 <> (f'x1 - f'x0)) / (s0 <> (f'x1 - f'x0))
 fminunc_cgd ::
     ( Hilbert v
     , BoundedField (Scalar v)
-    , Optimizable v
-    , Optimizable (Scalar v)
+    , cxt (LineBracket (Scalar v))
+    , cxt (Iterator_brent (Scalar v))
     ) => v
       -> C1 (v -> Scalar v)
-      -> History (Iterator_cgd v)
+      -> History cxt (Iterator_cgd v)
 fminunc_cgd x0 f =
     fminunc_cgd_
         ( multivariateBrent ( stop_brent 1e-12 || maxIterations 20 ))
@@ -131,13 +133,12 @@ fminunc_cgd x0 f =
 fminunc_cgd_ ::
     ( VectorSpace v
     , ClassicalLogic v
-    , Optimizable v
-    ) => MultivariateLineSearch v
+    ) => MultivariateLineSearch cxt v
       -> ConjugateMethod v
       -> v
       -> C1 (v -> Scalar v)
-      -> StopCondition_ (Iterator_cgd v)
-      -> History (Iterator_cgd v)
+      -> StopCondition_ cxt (Iterator_cgd v)
+      -> History cxt (Iterator_cgd v)
 fminunc_cgd_ searchMethod conjugateMethod x0 f = {-# SCC fminunc_cgd #-} iterate
     (step_cgd searchMethod conjugateMethod f)
     $ Iterator_cgd
@@ -156,11 +157,11 @@ fminunc_cgd_ searchMethod conjugateMethod x0 f = {-# SCC fminunc_cgd #-} iterate
 step_cgd ::
     ( VectorSpace v
     , ClassicalLogic v
-    ) => MultivariateLineSearch v
+    ) => MultivariateLineSearch cxt v
       -> ConjugateMethod v
       -> C1 (v -> Scalar v)
       -> Iterator_cgd v
-      -> History (Iterator_cgd v)
+      -> History cxt (Iterator_cgd v)
 step_cgd stepMethod conjMethod f (Iterator_cgd x1 fx1 f'x1 alpha1 f'x0 s0 _) = {-# SCC step_cgd #-} do
     let f' = (derivative f $)
 
@@ -213,13 +214,12 @@ instance Has_fx1 Iterator_nr a where fx1 = _nr_fx1
 ----------------------------------------
 
 fminunc_nr_ ::
-    ( Optimizable v
-    , Hilbert v
+    ( Hilbert v
     , BoundedField (Scalar v)
     ) => v
       -> C2 (v -> Scalar v)
-      -> StopCondition_ (Iterator_nr v)
-      -> History (Iterator_nr v)
+      -> StopCondition_ cxt (Iterator_nr v)
+      -> History cxt (Iterator_nr v)
 fminunc_nr_ x0 f = iterate
     (step_nr f)
     $ Iterator_nr
@@ -230,13 +230,12 @@ fminunc_nr_ x0 f = iterate
         , _nr_alpha1 = 1
         }
 
-step_nr :: forall v.
-    ( Optimizable v
-    , Hilbert v
+step_nr :: forall v cxt.
+    ( Hilbert v
     , BoundedField (Scalar v)
     ) => C2 (v -> Scalar v)
       -> Iterator_nr v
-      -> History (Iterator_nr v)
+      -> History cxt (Iterator_nr v)
 step_nr f (Iterator_nr x0 fx0 _ f'x0 alpha0) = do
     let f'  = (derivative f $)
         f'' = ((derivative . derivative $ f) $)
@@ -281,6 +280,8 @@ data Iterator_bfgs v = Iterator_bfgs
     }
     deriving (Typeable)
 
+type instance Scalar (Iterator_bfgs v) = Scalar v
+
 instance Show (Iterator_bfgs v) where
     show _ = "BFGS"
 
@@ -288,15 +289,13 @@ instance Has_x1 Iterator_bfgs a where x1 = _bfgs_x1
 instance Has_fx1 Iterator_bfgs a where fx1 = _bfgs_fx1
 
 fminunc_bfgs_ ::
-    ( Optimizable v
-    , Optimizable (Scalar v)
-    , Hilbert v
+    ( Hilbert v
     , BoundedField (Scalar v)
     ) => v
       -> C1 ( v -> Scalar v)
-      -> MultivariateLineSearch v
-      -> StopCondition_ (Iterator_bfgs v)
-      -> History (Iterator_bfgs v)
+      -> MultivariateLineSearch cxt v
+      -> StopCondition_ cxt (Iterator_bfgs v)
+      -> History cxt (Iterator_bfgs v)
 fminunc_bfgs_ x0 f linesearch = iterate
     ( step_bfgs f linesearch )
     ( Iterator_bfgs
@@ -309,15 +308,13 @@ fminunc_bfgs_ x0 f linesearch = iterate
         }
     )
 
-step_bfgs :: forall v.
-    ( Optimizable v
-    , Optimizable (Scalar v)
-    , Hilbert v
+step_bfgs :: forall v cxt.
+    ( Hilbert v
     , BoundedField (Scalar v)
     ) => C1 ( v -> Scalar v)
-      -> MultivariateLineSearch v
+      -> MultivariateLineSearch cxt v
       -> Iterator_bfgs v
-      -> History (Iterator_bfgs v)
+      -> History cxt (Iterator_bfgs v)
 step_bfgs f linesearch opt = do
     let f' = (derivative f $)
 
@@ -380,6 +377,8 @@ data Backtracking v = Backtracking
     }
     deriving (Typeable)
 
+type instance Scalar (Backtracking v) = Scalar v
+
 instance Show (Backtracking v) where
     show _ = "Backtracking"
 
@@ -389,9 +388,9 @@ instance Show (Backtracking v) where
 -- faster than if one of the safer methods is used.
 backtracking ::
     ( Hilbert v
-    , Optimizable v
-    ) => StopCondition_ (Backtracking v)
-      -> MultivariateLineSearch v
+    , cxt (Backtracking v)
+    ) => StopCondition_ cxt (Backtracking v)
+      -> MultivariateLineSearch cxt v
 backtracking stops f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
     let g y = {-# SCC backtracking_g #-} f $ x0 + y *. f'x0
     let grow=2.1
@@ -414,7 +413,7 @@ step_backtracking ::
       -> (v -> Scalar v)
       -> (v -> v)
       -> Backtracking v
-      -> History (Backtracking v)
+      -> History cxt (Backtracking v)
 step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
     let x1 = tao * _bt_x bt
     return $ bt
@@ -430,38 +429,24 @@ step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
 -- stop conditions
 
 {-# INLINABLE wolfe #-}
-wolfe ::
-    ( Hilbert v
-    , Normed (Scalar v)
-    , Ord (Scalar v)
-    ) => Scalar v -> Scalar v -> StopCondition_ (Backtracking v)
+wolfe :: Hilbert v => Scalar v -> Scalar v -> StopCondition_ cxt (Backtracking v)
 wolfe !c1 !c2 !bt0 !bt1 = {-# SCC wolfe #-} do
     a <- amijo c1 bt0 bt1
     b <- strongCurvature c2 bt0 bt1
     return $ a && b
 
 {-# INLINABLE amijo #-}
-amijo ::
-    ( Hilbert v
-    , Ord (Scalar v)
-    ) => Scalar v -> StopCondition_ (Backtracking v)
+amijo :: Hilbert v => Scalar v -> StopCondition_ cxt (Backtracking v)
 amijo !c1 _ !bt = {-# SCC amijo #-} return $
     _bt_fx bt <= _init_fx bt + c1 * (_bt_x bt) * ((_init_f'x bt) <> (_init_dir bt))
 
 {-# INLINABLE weakCurvature #-}
-weakCurvature ::
-    ( Hilbert v
-    , Ord (Scalar v)
-    ) => Scalar v -> StopCondition_ (Backtracking v)
+weakCurvature :: Hilbert v => Scalar v -> StopCondition_ cxt (Backtracking v)
 weakCurvature !c2 _ !bt = {-# SCC weakCurvature #-} return $
     _init_dir bt <> _bt_f'x bt >= c2 * (_init_dir bt <> _init_f'x bt)
 
 {-# INLINABLE strongCurvature #-}
-strongCurvature ::
-    ( Hilbert v
-    , Ord (Scalar v)
-    , Normed (Scalar v)
-    ) => Scalar v -> StopCondition_ (Backtracking v)
+strongCurvature :: Hilbert v => Scalar v -> StopCondition_ cxt (Backtracking v)
 strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
     abs (_init_dir bt <> _bt_f'x bt) <= c2 * abs (_init_dir bt <> _init_f'x bt)
 
@@ -469,21 +454,20 @@ strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
 -------------------------------------------------------------------------------
 
 -- | determine how far to go in a particular direction
-type MultivariateLineSearch v
+type MultivariateLineSearch cxt v
     = (v -> Scalar v)       -- ^ f  = function
     -> (v -> v)             -- ^ f' = derivative of the function
     -> v                    -- ^ x0 = starting position
     -> v                    -- ^ f'(x0) = direction
     -> Scalar v             -- ^ initial guess at distance to minimum
-    -> History (Scalar v)
+    -> History cxt (Scalar v)
 
 multivariateBrent ::
     ( Hilbert v
-    , OrdField (Scalar v)
-    , Optimizable v
-    , Optimizable (Scalar v)
-    ) => StopCondition_ (Iterator_brent (Scalar v))
-      -> MultivariateLineSearch v
+    , cxt (LineBracket (Scalar v))
+    , cxt (Iterator_brent (Scalar v))
+    ) => StopCondition_ cxt (Iterator_brent (Scalar v))
+      -> MultivariateLineSearch cxt v
 multivariateBrent !stops !f _ !x0 !f'x0 !stepGuess = {-# SCC multivariateBrent #-} do
     let g y = f $ x0 + y *. f'x0
     bracket <- lineBracket g (stepGuess/2) (stepGuess*2)

@@ -100,6 +100,7 @@ import HLearn.History
 
 -------------------------------------------------------------------------------
 
+{-
 tester :: History Double
 tester = do
     lb <- lineBracketM f 0 1
@@ -118,20 +119,22 @@ tester = do
 
 -------------------------------------------------------------------------------
 
+-}
+
 -- | Finds the minimum of a function
-fminunc :: (Optimizable a, OrdField a) => (a -> a) -> a
+fminunc :: OrdField a => (a -> a) -> a
 fminunc = fminunc_brent
 
 -- | Finds the maximum of a function
-fmaxunc :: (Optimizable a, OrdField a) => (a -> a) -> a
+fmaxunc :: OrdField a => (a -> a) -> a
 fmaxunc f = fminunc_brent (-f)
 
 -- | Finds the minimum of a monadic function
-fminuncM :: (Optimizable a, OrdField a) => (a -> History a) -> a
+fminuncM :: OrdField a => (a -> History NoCxt a) -> a
 fminuncM = fminuncM_brent
 
 -- | Finds the maximum of a monadic function
-fmaxuncM :: (Optimizable a, OrdField a) => (a -> History a) -> a
+fmaxuncM :: OrdField a => (a -> History NoCxt a) -> a
 fmaxuncM f = fminuncM_brent (-f)
 
 -------------------------------------------------------------------------------
@@ -148,6 +151,8 @@ data LineBracket a = LineBracket
     }
     deriving (Typeable)
 
+type instance Scalar (LineBracket a) = Scalar a
+
 instance Show a => Show (LineBracket a) where
     show lb = "LineBracket; a="++show (_ax lb)++"; b="++show (_bx lb)++"; c="++show (_cx lb)
 
@@ -159,15 +164,15 @@ lineBracket ::
     ) => (a -> a) -- ^ the function we're bracketing
       -> a        -- ^ an initial guess for the lower bound
       -> a        -- ^ an initial guess for the upper bound
-      -> Optimizable a => History (LineBracket a)
+      -> History cxt (LineBracket a)
 lineBracket f = lineBracketM (return . f)
 
 lineBracketM ::
     ( OrdField a
-    ) => (a -> History a)       -- ^ the function we're bracketing
+    ) => (a -> History cxt a)       -- ^ the function we're bracketing
       -> a                      -- ^ an initial guess for the lower bound
       -> a                      -- ^ an initial guess for the upper bound
-      -> Optimizable a => History (LineBracket a)
+      -> History cxt (LineBracket a)
 lineBracketM !f !pt1 !pt2 = beginFunction "lineBracketM" $ do
     let gold = 1.618034
 
@@ -194,15 +199,15 @@ lineBracketM !f !pt1 !pt2 = beginFunction "lineBracketM" $ do
         lb0
         stop_LineBracket
 
-stop_LineBracket :: OrdField a => LineBracket a -> LineBracket a -> History Bool
+stop_LineBracket :: OrdField a => StopCondition_ cxt (LineBracket a)
 stop_LineBracket _ lb = if _fb lb /= _fb lb
     then error "NaN in linebracket"
     else return $ _fb lb <= _fc lb
 
 step_LineBracket :: OrdField a
-    => (a -> History a)
+    => (a -> History cxt a)
     -> LineBracket a
-    -> History (LineBracket a)
+    -> History cxt (LineBracket a)
 step_LineBracket !f lb@(LineBracket ax bx cx fa fb fc) = do
 
     let sign a b = if b>0 then abs a else -(abs a)
@@ -293,6 +298,8 @@ data Iterator_gss a = Iterator_gss
     }
     deriving (Typeable)
 
+type instance Scalar (Iterator_gss a) = Scalar a
+
 instance (ClassicalLogic a, Show a, OrdField a) => Show (Iterator_gss a) where
     show gss = "Iterator_gss; "++"x="++show x++"; f(x)="++show fx
         where
@@ -309,22 +316,22 @@ gss_fx gss =  min (_gss_fxb gss) (_gss_fxc gss)
 ---------------------------------------
 
 -- | A simple interface to golden section search
-fminunc_gss :: ( Optimizable a , OrdField a ) => (a -> a) -> a
+fminunc_gss :: OrdField a => (a -> a) -> a
 fminunc_gss f = fminuncM_gss (return . f)
 
 -- | A simple monadic interface to golden section search
-fminuncM_gss :: forall a. ( Optimizable a , OrdField a ) => (a -> History a) -> a
+fminuncM_gss :: OrdField a => (a -> History NoCxt a) -> a
 fminuncM_gss f = evalHistory $ do
     lb <- lineBracketM f 0 1
-    gss <- fminuncM_gss_ f lb (maxIterations 200 || stop_gss (1e-12 :: a))
+    gss <- fminuncM_gss_ f lb (maxIterations 200 || stop_gss 1e-12)
     return $ gss_x gss
 
 -- | The most generic interface to golden section search
-fminuncM_gss_ :: ( Optimizable a , OrdField a )
-    => (a -> History a)                 -- ^ the function we're minimizing
-    -> LineBracket a                    -- ^ bounds between which a minimum must exist
-    -> StopCondition_ (Iterator_gss a)  -- ^ controls the number of iterations
-    -> History (Iterator_gss a)
+fminuncM_gss_ :: forall a cxt. OrdField a
+    => (a -> History cxt a)                 -- ^ the function we're minimizing
+    -> LineBracket a                        -- ^ bounds between which a minimum must exist
+    -> StopCondition_ cxt (Iterator_gss a)  -- ^ controls the number of iterations
+    -> History cxt (Iterator_gss a)
 fminuncM_gss_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "goldenSectionSearch_" $ do
     let r = 0.61803399
         c = 1-r
@@ -350,7 +357,7 @@ fminuncM_gss_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "goldenSect
         stop
 
     where
-        step_gss :: OrdField a => (a -> History a) -> Iterator_gss a -> History (Iterator_gss a)
+        step_gss :: OrdField a => (a -> History cxt a) -> Iterator_gss a -> History cxt (Iterator_gss a)
         step_gss f (Iterator_gss f1 f2 x0 x1 x2 x3) = if f2 < f1
             then do
                 let x' = r*x2+c*x3
@@ -365,7 +372,7 @@ fminuncM_gss_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "goldenSect
                 c = 1-r
 
 -- | Does not stop until the independent variable is accurate to within the tolerance passed in.
-stop_gss :: OrdField a => a -> StopCondition_ (Iterator_gss a)
+stop_gss :: OrdField a => a -> StopCondition_ cxt (Iterator_gss a)
 stop_gss tol _ (Iterator_gss _ _ !x0 !x1 !x2 !x3 )
     = return $ abs (x3-x0) <= tol*(abs x1+abs x2)
 
@@ -387,6 +394,8 @@ data Iterator_brent a = Iterator_brent
     }
     deriving Typeable
 
+type instance Scalar (Iterator_brent a) = Scalar a
+
 instance Show a => Show (Iterator_brent a) where
     show b = "Iterator_brent; x="++show (_brent_x b)++"; f(x)="++show (_brent_fx b)
 
@@ -397,11 +406,11 @@ instance IsScalar a => Has_fx1 Iterator_brent a where
     fx1 = _brent_fx
 
 -- | A simple interface to Brent's method
-fminunc_brent :: ( Optimizable a, OrdField a ) => (a -> a) -> a
+fminunc_brent :: OrdField a => (a -> a) -> a
 fminunc_brent f = fminuncM_brent (return . f)
 
 -- | A simple monadic interface to Brent's method
-fminuncM_brent :: ( Optimizable a, OrdField a ) => (a -> History a) -> a
+fminuncM_brent :: OrdField a => (a -> History NoCxt a) -> a
 fminuncM_brent f = evalHistory $ do
     lb <- lineBracketM f 0 1
     b <- fminuncM_brent_ f lb ( maxIterations 200 || stop_brent 1e-12 )
@@ -409,11 +418,12 @@ fminuncM_brent f = evalHistory $ do
 
 -- | The most generic interface to Brent's method
 fminuncM_brent_ ::
-    ( Optimizable a , OrdField a
-    ) => (a -> History a)                   -- ^ the function we're minimizing
-      -> LineBracket a                      -- ^ bounds between which a minimum must exist
-      -> StopCondition_ (Iterator_brent a)  -- ^ controls the number of iterations
-      -> History (Iterator_brent a)
+    ( OrdField a
+    , cxt a
+    ) => (a -> History cxt a)                   -- ^ the function we're minimizing
+      -> LineBracket a                          -- ^ bounds between which a minimum must exist
+      -> StopCondition_ cxt (Iterator_brent a)  -- ^ controls the number of iterations
+      -> History cxt (Iterator_brent a)
 fminuncM_brent_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "brent" $ do
     fbx <- f bx
     iterate
@@ -434,9 +444,9 @@ fminuncM_brent_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "brent" $
         stop
 
     where
-        step_brent ::
-            ( OrdField a
-            ) => (a -> History a) -> Iterator_brent a -> History (Iterator_brent a)
+--         step_brent ::
+--             ( OrdField a
+--             ) => (a -> History cxt a) -> Iterator_brent a -> History cxt (Iterator_brent a)
         step_brent f brent@(Iterator_brent a b d e fv fw fx v w x) = do
             let cgold = 0.3819660
                 zeps = 1e-10
@@ -497,7 +507,7 @@ fminuncM_brent_ f (LineBracket ax bx cx fa fb fc) stop = beginFunction "brent" $
 -- | Does not stop until the independent variable is accurate to within the tolerance passed in.
 --
 -- FIXME: if we get an exact solution this doesn't stop the optimization
-stop_brent :: OrdField a => a -> StopCondition_ (Iterator_brent a)
+stop_brent :: OrdField a => a -> StopCondition_ cxt (Iterator_brent a)
 stop_brent tol _ opt = return $ abs (x-xm) <  tol2'-0.5*(b-a)
     where
         (Iterator_brent a b d e fv fw fx v w x) = opt
@@ -530,15 +540,17 @@ data Iterator_dbrent a = Iterator_dbrent
     }
     deriving Typeable
 
+type instance Scalar (Iterator_dbrent a) = Scalar a
+
 instance Show a => Show (Iterator_dbrent a) where
     show b = "Iterator_brent; x="++show (_dbrent_x b)++"; f(x)="++show (_dbrent_fx b)
 
 -- | A simple interface to Brent's method with derivatives
-fminunc_dbrent :: ( Optimizable a, OrdField a ) => (a -> a) -> (a -> a) -> a
+fminunc_dbrent :: OrdField a => (a -> a) -> (a -> a) -> a
 fminunc_dbrent f df = fminuncM_dbrent (return . f) (return . df)
 
 -- | A simple monadic interface to Brent's method with derivatives
-fminuncM_dbrent :: ( Optimizable a, OrdField a ) => (a -> History a) -> (a -> History a) -> a
+fminuncM_dbrent :: OrdField a => (a -> History NoCxt a) -> (a -> History NoCxt a) -> a
 fminuncM_dbrent f df = evalHistory $ do
     lb <- lineBracketM f 0 1
     b <- fminuncM_dbrent_ f df lb ( maxIterations 200 || stop_dbrent 1e-12 )
@@ -546,12 +558,12 @@ fminuncM_dbrent f df = evalHistory $ do
 
 -- | The most generic interface to Brent's method with derivatives
 fminuncM_dbrent_ ::
-    ( Optimizable a , OrdField a
-    ) => (a -> History a)                    -- ^ the function we're minimizing
-      -> (a -> History a)                    -- ^ the function's derivative
+    ( OrdField a
+    ) => (a -> History cxt a)                    -- ^ the function we're minimizing
+      -> (a -> History cxt a)                    -- ^ the function's derivative
       -> LineBracket a                       -- ^ bounds between which a minimum must exist
-      -> StopCondition_ (Iterator_dbrent a)  -- ^ controls the number of iterations
-      -> History (Iterator_dbrent a)
+      -> StopCondition_ cxt (Iterator_dbrent a)  -- ^ controls the number of iterations
+      -> History cxt (Iterator_dbrent a)
 fminuncM_dbrent_ f df (LineBracket ax bx cx fa fb fc) stop = beginFunction "dbrent" $ do
     fbx <- f bx
     dfx <- df bx
@@ -577,9 +589,6 @@ fminuncM_dbrent_ f df (LineBracket ax bx cx fa fb fc) stop = beginFunction "dbre
         stop
 
     where
-        step_dbrent ::
-            ( OrdField a
-            ) => (a -> History a) -> (a -> History a) -> Iterator_dbrent a -> History (Iterator_dbrent a)
         step_dbrent f df dbrent@(Iterator_dbrent a b d e fv fw fx dv dw dx v w x _) = do
             let zeps = 1e-10
                 sign a b = if b>0 then abs a else -(abs a)
@@ -661,7 +670,7 @@ fminuncM_dbrent_ f df (LineBracket ax bx cx fa fb fc) stop = beginFunction "dbre
 -- | Does not stop until the independent variable is accurate to within the tolerance passed in.
 --
 -- FIXME: if we get an exact solution this doesn't stop the optimization
-stop_dbrent :: OrdField a => a -> StopCondition_ (Iterator_dbrent a)
+stop_dbrent :: OrdField a => a -> StopCondition_ cxt (Iterator_dbrent a)
 stop_dbrent tol _ opt = return $ should_break || abs (x-xm) < tol2'-0.5*(b-a)
     where
         (Iterator_dbrent a b d e fv fw fx dv dw dx v w x should_break) = opt
@@ -669,4 +678,3 @@ stop_dbrent tol _ opt = return $ should_break || abs (x-xm) < tol2'-0.5*(b-a)
         tol1' = tol*(abs x)+zeps
         tol2' = 2*tol1'
         zeps = 1e-10
-
