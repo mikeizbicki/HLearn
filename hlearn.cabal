@@ -332,3 +332,77 @@ executable hlearn-allknn
 --         hmatrix             == 0.15.2.2
         hmatrix
 
+executable hlearn-allknn-bench
+    main-is:
+        hlearn-allknn-bench.hs
+
+    hs-source-dirs:
+        src/exec
+
+    ghc-options:
+--         -Wall
+        -threaded
+        -rtsopts
+--         -with-rtsopts=-N
+
+--         -O
+        -O2
+        -funbox-strict-fields
+        -fexcess-precision
+--         -fcontext-stack=100
+
+--         -prof
+--         -fspec-constr-count=100
+--         -fspec-constr-threshold=1000
+
+        -fllvm
+        -optlo-O3
+        -optlo-enable-fp-mad
+        -optlo-enable-no-infs-fp-math
+        -optlo-enable-no-nans-fp-math
+        -optlo-enable-unsafe-fp-math
+
+--         -ddump-to-file
+--         -ddump-rule-firings
+--         -ddump-rule-rewrites
+--         -ddump-rules
+--         -ddump-simpl
+--         -ddump-simpl-stats
+--         -dppr-debug
+--         -dsuppress-module-prefixes
+--         -dsuppress-uniques
+--         -dsuppress-idinfo
+--         -dsuppress-coercions
+--         -dsuppress-type-applications
+
+--         -ddump-cmm
+
+    build-depends:
+
+        base           ,
+        HLearn         ,
+        subhask        ,
+
+        directory          ,
+        filepath       ,
+        deepseq,
+        cassava,
+        containers,
+        unordered-containers,
+        vector,
+        bytestring,
+        tagged,
+        reflection,
+        time,
+        cmdargs,
+        QuickCheck,
+        parallel,
+        MonadRandom,
+        vector-algorithms,
+        strict,
+        vector-th-unbox,
+        primitive,
+        deepseq,
+--         hmatrix             == 0.15.2.2
+        hmatrix
+
