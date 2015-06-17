@@ -10,6 +10,7 @@ module HLearn.History
     -- * The History Monad
     History
     , History_
+    , liftIO'
 --     , History__
     , runHistory
     , evalHistory
@@ -25,6 +26,9 @@ module HLearn.History
     , report
     , iterate
     , currentItr
+    , withMsg
+    , withMsgIO
+    , timeDisplay
 
     -- *** stop conditions
     , StopCondition
@@ -415,6 +419,32 @@ currentItr = History $ do
     (_ , x:_) <- get
     return $ numReports x
 
+-- Report a History together with a message.
+withMsg :: (cxt String, NFData a) => String -> a -> History_ cxt s a
+withMsg msg a = withMsgIO msg (return a)
+
+withMsgIO :: (cxt String, NFData a) => String -> IO a -> History_ cxt s a
+withMsgIO msg ioa = do
+    a <- History $ liftIO ioa
+    report $ deepseq a msg
+    return a
+
+-- | Call "runHistory" with this "DisplayFunction" to get a table summarizing the optimization.
+-- This does not affect output during the optimization itself, only at the end.
+timeDisplay :: DisplayFunction_ Show ()
+timeDisplay = DisplayFunction zero step zero
+    where
+        -- type signature needed for -XImpredicativeTypes
+        step :: (Show a) => Report
+            -> ()
+            -> a
+            -> ( (), IO () )
+        step r _ a = ((), putStrLn (disp r a))
+        str a = show a ++ P.replicate (45-length (show a)) '.'
+
+        disp r a = str a ++ "done. cpu time=" ++ showFFloat (Just 6) ((fromIntegral $ cpuTimeDiff r)/1e12 :: Double) "" ++ "s"
+
+
 ---------------------------------------
 -- monad hierarchy
 
@@ -496,6 +526,10 @@ instance Complemented a => Complemented (History_ cxt s a) where
         return $ not a'
 
 instance Boolean a => Boolean (History_ cxt s a)
+
+-- FIXME: MonadIO instance
+liftIO' :: IO a -> History_ cxt s a
+liftIO' = History . liftIO
 
 -------------------------------------------------------------------------------
 -- Stop conditions
