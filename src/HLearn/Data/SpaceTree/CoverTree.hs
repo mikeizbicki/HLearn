@@ -242,11 +242,6 @@ instance
 
 ---------------------------------------
 
-{-# INLINABLE indicator #-}
-indicator :: Ring r => Bool -> r
-indicator True = 1
-indicator False = 0
-
 -- | returns a measure of how "spread out" descendent points are
 {-# INLINABLE ctMaxCoverRatio #-}
 ctMaxCoverRatio ::
