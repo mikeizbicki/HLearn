@@ -16,6 +16,14 @@ module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
     where
 
 import qualified Prelude as P
+import GHC.Exts (inline)
+import Data.List (sortBy)
+
+import Control.Monad.ST
+import qualified Data.Vector.Algorithms.Intro as Intro
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Generic.Mutable as VGM
+import SubHask.Algebra.Array
 
 import SubHask
 import SubHask.Algebra.Container
@@ -162,6 +170,7 @@ prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort
                         $ stChildren t
 
                     maxdist = nlMaxDist b''
+-}
 
 -- | This is a version of quicksort that only descends on its lower half.
 -- That is, it only "approximately" sorts a list.
@@ -179,9 +188,53 @@ qsortHalf !cmp !x = {-# SCC qsortHalf #-} go x []
                     GT -> part zs l e (z:g)
                     LT -> part zs (z:l) e g
                     EQ -> part zs l (z:e) g
--}
 
 ---------------------------------------
+
+-- |
+--
+-- NOTE:
+-- If we remove the call to "inline" on "foldr'", GHC
+{-# INLINE manualknn_ #-}
+manualknn_ ::
+    ( SpaceTree t dp
+    , Index (LeafContainer t dp) ~ Int
+    , Scalar (LeafContainer t dp) ~ Int
+    , IxContainer (LeafContainer t dp)
+    , Bounded (Scalar dp)
+    , ChildContainer t ~ BArray
+    ) => dp -> t dp -> Neighbor dp
+manualknn_ q t = {-# SCC manualknn #-} go (Labeled' t (distance (stNode t) q)) (Neighbor q maxBound)
+    where
+        go (Labeled' t dist) (Neighbor n distn) = if dist > maxdist
+            then Neighbor n distn
+            else inline foldr' go leafres
+                    $ qsortHalf (\(Labeled' _ d1) (Labeled' _ d2) -> compare d2 d1)
+                    $ map (\s -> Labeled' s (distanceUB q (stNode s) maxdist))
+                    $ toList
+--                     $ (\(BArray v) -> runST ( do
+--                         mv' <- VG.thaw $ VG.map (\s -> Labeled' s (distanceUB q (stNode s) maxdist)) v
+--                         Intro.partialSortBy (\(Labeled' _ d1) (Labeled' _ d2) -> compare d2 d1) mv' 5
+--                         v' <- VG.unsafeFreeze mv'
+--                         return $ BArray v'
+--                       ))
+                    $ stChildren t
+            where
+                leafres = inline foldr' (cata_nn_dp q) nl' $ stLeaves t
+
+                nl' = if dist==0 || dist >= distn
+                    then Neighbor n distn
+                    else Neighbor (stNode t) dist
+
+                maxdist = distn+lambda t
+
+{-# INLINE cata_nn_dp #-}
+cata_nn_dp !q !dp (Neighbor n distn) = {-# SCC nn_catadp #-}
+    if dist==0 || dist>distn
+        then Neighbor n distn
+        else Neighbor dp dist
+    where
+        dist = distanceUB q dp distn
 
 {-# INLINE manualknn #-}
 manualknn ::
@@ -190,14 +243,15 @@ manualknn ::
     , Scalar (LeafContainer t dp) ~ Int
     , IxContainer (LeafContainer t dp)
     , Bounded (Scalar dp)
+    , ChildContainer t ~ BArray
     ) => dp -> t dp -> Neighbor dp
-manualknn q t = {-# SCC manualknn #-} go t $ Neighbor q maxBound
+manualknn q t = {-# SCC manualknn #-} go t (Neighbor q maxBound)
     where
-        go !t (Neighbor n distn) = if dist > maxdist
+        go t (Neighbor n distn) = if dist > maxdist
             then Neighbor n distn
-            else foldr' go leafres $ stChildren t
+            else inline foldr' go leafres $ stChildren t
             where
-                leafres = inline_foldr' nn_catadp nl' $ stLeaves t
+                leafres = inline foldr' (cata_nn_dp q) nl' $ stLeaves t
 
                 nl' = if dist==0 || dist >= distn
                     then Neighbor n distn
@@ -206,19 +260,6 @@ manualknn q t = {-# SCC manualknn #-} go t $ Neighbor q maxBound
                 dist = distanceUB q (stNode t) maxdist
                 maxdist = distn+lambda t
 
-                {-# INLINE inline_foldr' #-}
-                inline_foldr' !f !tot !v = {-# SCC inline_foldr' #-} go1 (size v-1) tot
-                    where
-                        go1 (-1) !tot = tot
-                        go1 !i   !tot = go1 (i-1) $ f (v!i) tot
-
-                {-# INLINE nn_catadp #-}
-                nn_catadp !dp (Neighbor n distn) = {-# SCC nn_catadp #-}
-                    if dist==0 || dist>distn
-                        then Neighbor n distn
-                        else Neighbor dp dist
-                    where
-                        dist = distanceUB q dp distn
 
 type ValidContainer f e = (Foldable f, Elem f~e) -- => f
 
@@ -231,6 +272,7 @@ findAllNeighbors ::
     , Scalar (LeafContainer t dp) ~ Int
     , IxContainer (LeafContainer t dp)
     , Bounded (Scalar dp)
+    , ChildContainer t ~ BArray
     ) => Scalar dp
       -> t dp
       -> [dp]

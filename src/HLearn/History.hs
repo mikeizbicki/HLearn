@@ -23,17 +23,19 @@ module HLearn.History
     , Report (..)
     , beginFunction
     , report
+    , withMsg
+    , withMsgIO
     , iterate
     , currentItr
 
     -- *** stop conditions
     , StopCondition
-    , StopCondition_
 
     , maxIterations
     , stopBelow
-    , fx1grows
     , mulTolerance
+    , fx1grows
+    , noProgress
 
     -- * Display Functions
     , DisplayFunction
@@ -183,7 +185,8 @@ infoDiffTime r _ = "; " ++ showTime (cpuTimeDiff r)
 infoType :: DisplayInfo
 infoType _ a = "; "++if typeRep [a] == typeRep [""]
     then P.init $ P.tail $ show a
-    else P.head $ P.words $ show $ typeRep [a]
+    else show a
+--     else P.head $ P.words $ show $ typeRep [a]
 
 -- | Print the current iteration of the optimization.
 infoItr :: DisplayInfo
@@ -416,6 +419,20 @@ currentItr = History $ do
     return $ numReports x
 
 ---------------------------------------
+
+withMsg :: (cxt String, NFData a) => String -> a -> History_ cxt s a
+withMsg msg a = withMsgIO msg (return a)
+
+withMsgIO :: (cxt String, NFData a) => String -> IO a -> History_ cxt s a
+withMsgIO msg ioa = do
+    a <- History $ liftIO ioa
+    report $ deepseq a $ msg
+    return a
+
+-------------------------------------------------------------------------------
+-- algebra
+
+---------------------------------------
 -- monad hierarchy
 
 instance Functor Hask (History_ cxt s) where
@@ -429,7 +446,7 @@ instance Monad Hask (History_ cxt s) where
     join (History s) = History $ join (fmap (\(History s)->s) s)
 
 ---------------------------------------
--- algebra hierarchy
+-- math hierarchy
 
 type instance Scalar (History_ cxt s a) = Scalar a
 
@@ -498,40 +515,18 @@ instance Complemented a => Complemented (History_ cxt s a) where
 instance Boolean a => Boolean (History_ cxt s a)
 
 -------------------------------------------------------------------------------
--- Stop conditions
-
-class Has_x1  opt v where x1  :: opt v -> v
-class Has_fx1 opt v where fx1 :: opt v -> Scalar v
-
----------------------------------------
-
--- | A (sometimes) more convenient version of "StopCondition_".
-type StopCondition = forall a cxt. StopCondition_ cxt a
-
--- | Functions of this type determine whether the "iterate" function should keep looping or stop.
-type StopCondition_ cxt a = cxt a => a -> a -> forall s. History_ cxt s Bool
--- type StopCondition_ cxt a =
---     ( cxt a
--- --     , Reportable (HistoryElem a)
---     ) => a -> a -> forall s. History_ cxt s Bool
---     ( cxt String
---     , cxt a
---     , cxt (HistoryElem a)
---     , Reportable (HistoryElem a)
---     , Reportable (Scalar (HistoryElem a))
---     , Reportable (HistoryElem (Scalar (HistoryElem a><HistoryElem a)))
---     )
+-- iteration
 
 -- | This function is similar in spirit to the @while@ loop of imperative languages like @C@.
 -- The advantage is the "DisplayFunction"s from the "History" monad get automatically (and efficiently!) threaded throughout our computation.
 -- "iterate" is particularly useful for implementing iterative optimization algorithms.
 {-# INLINABLE iterate #-}
-iterate :: forall cxt a. cxt a -- () -- Optimizable a
-    => (a -> forall s. History_ cxt s a)         -- ^ step function
-    -> a                        -- ^ start parameters
-    -> StopCondition_ cxt a     -- ^ stop conditions
-    -> forall s. History_ cxt s a
-iterate step opt0 stop = {-# SCC iterate #-} do
+iterate :: forall cxt a. cxt a
+    => (a -> History cxt a)                 -- ^ step function
+    -> StopCondition a                      -- ^ stop conditions
+    -> a                                    -- ^ start parameters
+    -> History cxt a                        -- ^ result
+iterate step stop opt0 = {-# SCC iterate #-} do
     report opt0
     opt1 <- step opt0
     go opt0 opt1
@@ -545,10 +540,21 @@ iterate step opt0 stop = {-# SCC iterate #-} do
                     opt' <- step curopt
                     go curopt opt'
 
+---------------------------------------
+
+class Has_x1        opt v where x1      :: opt v -> v
+class Has_fx1       opt v where fx1     :: opt v -> Scalar v
+
+---------------------------------------
+-- stop conditions
+
+-- | Functions of this type determine whether the "iterate" function should keep looping or stop.
+type StopCondition a = forall cxt. cxt a => a -> a -> forall s. History_ cxt s Bool
+
 -- | Stop iterating after the specified number of iterations.
 -- This number is typically set fairly high (at least one hundred, possibly in the millions).
 -- It should probably be used on all optimizations to prevent poorly converging optimizations taking forever.
-maxIterations :: Int {- ^ max number of iterations -} -> StopCondition
+maxIterations :: Int {- ^ max number of iterations -} -> StopCondition a
 maxIterations i _ _ = History $ do
     (_ , x:_) <- get
     return $ numReports x >= i
@@ -558,7 +564,7 @@ stopBelow ::
     ( Has_fx1 opt v
     , Ord (Scalar v)
     ) => Scalar v
-      -> StopCondition_ cxt (opt v)
+      -> StopCondition (opt v)
 stopBelow threshold _ opt = return $ (fx1 opt) < threshold
 
 -- | Stop the iteration when successive function evaluations are within a given distance of each other.
@@ -567,7 +573,7 @@ mulTolerance ::
     ( BoundedField (Scalar v)
     , Has_fx1 opt v
     ) => Scalar v -- ^ tolerance
-      -> StopCondition_ cxt (opt v)
+      -> StopCondition (opt v)
 mulTolerance tol prevopt curopt = {-# SCC multiplicativeTollerance #-} do
     return $ (fx1 prevopt) /= infinity && left < right
         where
@@ -575,6 +581,9 @@ mulTolerance tol prevopt curopt = {-# SCC multiplicativeTollerance #-} do
             right = tol*(abs (fx1 curopt) + abs (fx1 prevopt) + 1e-18)
 
 -- | Stop the optimization if our function value has grown between iterations
-fx1grows :: ( Has_fx1 opt v , Ord (Scalar v) ) => StopCondition_ cxt (opt v)
-fx1grows opt0 opt1 = {-# SCC fx1grows #-} return $ fx1 opt0 < fx1 opt1
+fx1grows :: ( Has_fx1 opt v , Ord (Scalar v) ) => StopCondition (opt v)
+fx1grows opt0 opt1 = return $ fx1 opt0 < fx1 opt1
 
+-- | Stop the optimization if our function value has stopped decreasing
+noProgress :: Eq (opt v) => StopCondition (opt v)
+noProgress opt0 opt1 = return $ opt0 == opt1

@@ -38,22 +38,29 @@ import SubHask.Compatibility.Containers
 -- import HLearn.Data.Image
 import HLearn.Data.LoadData
 import HLearn.Data.SpaceTree
-import HLearn.Data.SpaceTree.CoverTree hiding (head,tail)
+import HLearn.Data.SpaceTree.CoverTree
+import HLearn.Data.SpaceTree.CoverTree.Unsafe
 import HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 import HLearn.History.Timing
 import HLearn.Models.Distributions
 
 import Paths_HLearn
 
--- import qualified Prelude as P
--- import Control.Concurrent
--- import Control.Parallel
--- import Control.Parallel.Strategies
--- import System.IO.Unsafe
---
--- import Foreign.Ptr
-
 -------------------------------------------------------------------------------
+
+-- import Debug.Trace
+--
+-- distance_l2_m128_UVector_Dynamic_ = trace "distance_l2_m128_UVector_Dynamic" distance_l2_m128_UVector_Dynamic
+
+{-# RULES
+
+-- "subhask/distance_l2_m128_UVector_Dynamic"     distance   = distance_l2_m128_UVector_Dynamic
+-- "subhask/distance_l2_m128_SVector_Dynamic"     distance   = distance_l2_m128_SVector_Dynamic
+--
+-- "subhask/distanceUB_l2_m128_UVector_Dynamic"   distanceUB = distanceUB_l2_m128_UVector_Dynamic
+-- "subhask/distanceUB_l2_m128_SVector_Dynamic"   distanceUB = distanceUB_l2_m128_SVector_Dynamic
+
+  #-}
 
 
 -------------------------------------------------------------------------------
@@ -229,7 +236,7 @@ main = do
 
     case data_format params of
         DF_CSV -> do
-            let ct = Proxy::Proxy (CoverTree_ 2 BArray BArray)
+            let ct = Proxy::Proxy UCoverTree
                 dp = Proxy::Proxy (Labeled' (UVector "dyn" Float) Int)
 
             let {-# INLINE loadfile_dfcsv #-} -- prevents space leaks
@@ -240,7 +247,7 @@ main = do
 
                         PCA -> error "PCARotate temporarily removed"
 
-                        Variance -> do
+                        Variance -> disableMultithreading $ do
                             let shuffleMap = mkShuffleMap rs
                             time "mkShuffleMap" shuffleMap
                             time "varshifting data" $ map (apShuffleMap shuffleMap) $ toList rs
@@ -293,17 +300,15 @@ allknn :: forall k exprat childC leafC dp l proxy1 proxy2 proxy3.
     , Scalar (leafC (Labeled' dp l)) ~ Int
     , IxContainer (leafC (Labeled' dp l))
     , Bounded (Scalar dp)
-    , Scalar (childC (CoverTree_ exprat childC leafC (Labeled' dp l))) ~ Int
+--     , Scalar (childC (CoverTree_ exprat childC leafC (Labeled' dp l))) ~ Int
     , Unboxable (Labeled' dp l)
-    , Unboxable dp
+--     , Unboxable dp
 
-    , P.Ord l
+    , childC ~ BArray
+
+    , Ord l
     , NFData l
     , Show l
-
-    , Unbox (Labeled' dp l)
-    , Unbox dp
-    , Unbox l
     ) => Params
       -> (FilePath -> IO (UArray (Labeled' dp l)))
       -> proxy1 (CoverTree_ exprat childC leafC)
@@ -341,7 +346,7 @@ allknn params loaddata _ _ _ = do
     let res = unsafeParallelInterleaved
             ( findAllNeighbors (convertRationalField $ searchEpsilon params) reftree  )
             ( stToList querytree )
-            :: [(Labeled' dp l, NeighborList 1 (Labeled' dp l))]
+            :: ParList (Labeled' dp l, NeighborList 1 (Labeled' dp l))
 --             :: Seq (Labeled' dp l, NeighborList 1 (Labeled' dp l))
     time "computing parFindNeighborMap" res
 
@@ -349,7 +354,7 @@ allknn params loaddata _ _ _ = do
     let sortedResults :: [[Neighbor (Labeled' dp l)]]
         sortedResults
             = map (getknnL . snd)
-            . sortBy (\(Labeled' _ y1,_) (Labeled' _ y2,_) -> P.compare y1 y2)
+            . sortBy (\(Labeled' _ y1,_) (Labeled' _ y2,_) -> compare y1 y2)
             $ toList res
     time "sorting results" sortedResults
 
@@ -377,12 +382,13 @@ buildTree :: forall exprat childC leafC dp.
     ( ValidCT exprat childC leafC dp
     , Unboxable dp
     , Unbox dp
+    , NFData (childC (CoverTree_ exprat childC leafC dp))
     ) => Params
       -> UArray dp
       -> IO (CoverTree_ exprat childC leafC dp)
 buildTree params xs = do
 
-    setexpratIORef $ P.toRational $ expansionRatio params
+    setExprat $ P.toRational $ expansionRatio params
 
     let trainmethod = case train_method params of
             TrainInsert_Orig     -> trainInsertOrig
@@ -472,3 +478,98 @@ printTreeStats str t = do
 --     putStr (str++"  leveled......") >> hFlush stdout >> putStrLn (show $ property_leveled t)
 
     putStrLn ""
+
+--------------------------------------------------------------------------------
+
+newtype ParList a = ParList [[a]]
+    deriving (Read,Show,NFData)
+
+mkMutable [t| forall a. ParList a |]
+
+type instance Scalar (ParList a) = Int
+type instance Logic (ParList a) = Bool
+type instance Elem (ParList a) = a
+
+instance (Eq a, Arbitrary a) => Arbitrary (ParList a) where
+    arbitrary = P.fmap fromList arbitrary
+
+instance Normed (ParList a) where
+    {-# INLINE size #-}
+    size (ParList xs) = sum $ map length xs
+
+instance Eq a => Eq_ (ParList a) where
+    {-# INLINE (==) #-}
+    (ParList a1)==(ParList a2) = a1==a2
+
+instance POrd a => POrd_ (ParList a) where
+    {-# INLINE inf #-}
+    inf (ParList a1) (ParList a2) = ParList [inf (P.concat a1) (P.concat a2)]
+
+instance POrd a => MinBound_ (ParList a) where
+    {-# INLINE minBound #-}
+    minBound = ParList []
+
+instance Semigroup (ParList a) where
+    {-# INLINE (+) #-}
+    (ParList a1)+(ParList a2) = ParList $ a1 + a2
+
+instance Monoid (ParList a) where
+    {-# INLINE zero #-}
+    zero = ParList []
+
+-- instance Eq a => Container (ParList a) where
+--     {-# INLINE elem #-}
+--     elem e (ParList a) = or $ map (elem e)
+
+instance Constructible (ParList a) where
+    {-# INLINE cons #-}
+    {-# INLINE snoc #-}
+    {-# INLINE singleton #-}
+    {-# INLINE fromList1 #-}
+    cons e (ParList [])     = ParList [[e]]
+    cons e (ParList (x:xs)) = ParList ((e:x):xs)
+
+    singleton e = ParList [[e]]
+
+    fromList1 x xs = ParList [x:xs]
+
+instance ValidEq a => Foldable (ParList a) where
+
+    {-# INLINE toList #-}
+    toList (ParList a) = P.concat a
+
+--     {-# INLINE uncons #-}
+--     uncons (ParList a) = if ParList.null a
+--         then Nothing
+--         else Just (ParList.index a 0, ParList $ ParList.drop 1 a)
+--
+--     {-# INLINE unsnoc #-}
+--     unsnoc (ParList e) = if ParList.null e
+--         then Nothing
+--         else Just (ParList $ ParList.take (ParList.length e-1) e, ParList.index e 0)
+
+--     foldMap f   (ParList a) = F.foldMap f   a
+--
+--     {-# INLINE foldr #-}
+--     {-# INLINE foldr' #-}
+--     {-# INLINE foldr1 #-}
+--     foldr   f e (ParList a) = F.foldr   f e a
+--     foldr'  f e (ParList a) = F.foldr'  f e a
+--     foldr1  f   (ParList a) = F.foldr1  f   a
+-- --     foldr1' f   (ParList a) = F.foldr1' f   a
+--
+--     {-# INLINE foldl #-}
+--     {-# INLINE foldl' #-}
+--     {-# INLINE foldl1 #-}
+--     foldl   f e (ParList a) = F.foldl   f e a
+--     foldl'  f e (ParList a) = F.foldl'  f e a
+--     foldl1  f   (ParList a) = F.foldl1  f   a
+-- --     foldl1' f   (ParList a) = F.foldl1' f   a
+
+instance (ValidEq a) => Partitionable (ParList a) where
+    {-# INLINABLE partition #-}
+    partition n (ParList xs) = map (\x -> ParList [x]) $ partition n $ P.concat xs
+
+    {-# INLINABLE partitionInterleaved #-}
+    partitionInterleaved n (ParList xs) = map (\x -> ParList [x]) $ partitionInterleaved n $ P.concat xs
+

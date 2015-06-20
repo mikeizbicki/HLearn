@@ -19,6 +19,10 @@ Library
         ghc-prim,
         template-haskell,
 
+        -- my packages
+--         typeparams          >= 0.0.6,
+        subhask             >= 0.1,
+
         -- control
         primitive           >= 0.5,
         vector-algorithms   >= 0.5.4,
@@ -28,10 +32,6 @@ Library
 
         ansi-terminal       >= 0.6.1.1,
         directory           >= 1.2,
-
-        -- my packages
---         typeparams          >= 0.0.6,
-        subhask             >= 0.1,
 
         -- math dependencies
         hmatrix             >= 0.16.0.5,
@@ -63,7 +63,14 @@ Library
 --         -O
         -O2
         -funbox-strict-fields
---         -fcontext-stack=100
+        -fexcess-precision
+
+        -fllvm
+        -optlo-O3
+        -optlo-enable-fp-mad
+        -optlo-enable-no-infs-fp-math
+        -optlo-enable-no-nans-fp-math
+        -optlo-enable-unsafe-fp-math
 
         -ddump-to-file
 
@@ -92,10 +99,9 @@ Library
         HLearn.Data.LoadData
         HLearn.Data.SpaceTree
         HLearn.Data.SpaceTree.CoverTree
+        HLearn.Data.SpaceTree.CoverTree.Unsafe
         HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
 --         HLearn.Data.SpaceTree.Algorithms.RangeSearch
---         HLearn.Data.UnsafeVector
---         HLearn.Data.Vector
 
 --         HLearn.Evaluation.CrossValidation
 --
@@ -258,6 +264,56 @@ Library
 --         MonadRandom     >=0.1.13,
 --         mtl             >=2.1.3
 
+--------------------------------------------------------------------------------
+
+executable hlearn-optimization-univariate
+    main-is:            Main.hs
+    hs-source-dirs:     examples/hlearn-optimization-univariate
+
+    build-depends:
+        base,
+        HLearn,
+        subhask,
+        cmdargs
+
+    ghc-options:
+        -threaded
+        -rtsopts
+
+        -O2
+        -fllvm
+        -optlo-O3
+        -optlo-enable-fp-mad
+        -optlo-enable-no-infs-fp-math
+        -optlo-enable-no-nans-fp-math
+        -optlo-enable-unsafe-fp-math
+
+--------------------------------------------------------------------------------
+
+executable hlearn-optimization-multivariate
+    main-is:            Main.hs
+    hs-source-dirs:     examples/hlearn-optimization-multivariate
+
+    build-depends:
+        base,
+        HLearn,
+        subhask,
+        cmdargs
+
+    ghc-options:
+        -threaded
+        -rtsopts
+
+        -O2
+        -fllvm
+        -optlo-O3
+        -optlo-enable-fp-mad
+        -optlo-enable-no-infs-fp-math
+        -optlo-enable-no-nans-fp-math
+        -optlo-enable-unsafe-fp-math
+
+--------------------------------------------------------------------------------
+
 executable hlearn-allknn
     main-is:
         hlearn-allknn.hs
@@ -266,20 +322,12 @@ executable hlearn-allknn
         src/exec
 
     ghc-options:
---         -Wall
         -threaded
         -rtsopts
---         -with-rtsopts=-N
 
---         -O
         -O2
         -funbox-strict-fields
         -fexcess-precision
---         -fcontext-stack=100
-
---         -prof
---         -fspec-constr-count=100
---         -fspec-constr-threshold=1000
 
         -fllvm
         -optlo-O3
@@ -304,31 +352,9 @@ executable hlearn-allknn
 --         -ddump-cmm
 
     build-depends:
-
         base           ,
         HLearn         ,
-        subhask        ,
+        subhask         ,
 
-        directory          ,
-        filepath       ,
-        deepseq,
-        cassava,
-        containers,
-        unordered-containers,
-        vector,
-        bytestring,
-        tagged,
-        reflection,
-        time,
         cmdargs,
-        QuickCheck,
-        parallel,
-        MonadRandom,
-        vector-algorithms,
-        strict,
-        vector-th-unbox,
-        primitive,
-        deepseq,
---         hmatrix             == 0.15.2.2
-        hmatrix
-
+        MonadRandom

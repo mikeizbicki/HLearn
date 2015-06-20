@@ -178,6 +178,7 @@ newtype Componentwise v = Componentwise { unComponentwise :: v }
 type instance Scalar (Componentwise v) = Scalar v
 type instance Logic (Componentwise v) = Logic v
 type instance Elem (Componentwise v) = Scalar v
+type instance SetElem (Componentwise v) v' = Componentwise v'
 
 instance IsMutable (Componentwise v)
 
@@ -209,8 +210,8 @@ instance FiniteModule v => Ring (Componentwise v)
 instance (FiniteModule v, VectorSpace v) => Field (Componentwise v) where
     (Componentwise v1)/(Componentwise v2) = Componentwise $ v1./.v2
 
-instance (ValidLogic v, FiniteModule v) => IxContainer (Componentwise v) where
-    values (Componentwise v) = values v
+-- instance (ValidLogic v, FiniteModule v) => IxContainer (Componentwise v) where
+--     values (Componentwise v) = values v
 
 -- | Uses an efficient 1-pass algorithm to calculate the mean variance.
 -- This is much faster than the 2-pass algorithms on large datasets,
@@ -286,8 +287,8 @@ mkShuffleMap vs = if size vs==0
 apShuffleMap :: FiniteModule v => UArray Int -> v -> v
 apShuffleMap vmap v = unsafeToModule $ V.toList $ V.generate (size vmap) $ \i -> v!(vmap!i)
 
-{-# INLINABLE meanCenter #-}
 -- | translate a dataset so the mean is zero
+{-# INLINABLE meanCenter #-}
 meanCenter ::
     ( VG.Vector v1 (v2 a)
     , VG.Vector v2 a
@@ -297,8 +298,8 @@ meanCenter dps = {-# SCC meanCenter #-} VG.map (\v -> VG.zipWith (-) v meanV) dp
     where
         meanV = {-# SCC meanV #-} VG.map (/ fromIntegral (VG.length dps)) $ VG.foldl1' (VG.zipWith (+)) dps
 
-{-# INLINABLE rotatePCA #-}
 -- | rotates the data using the PCA transform
+{-# INLINABLE rotatePCA #-}
 rotatePCA ::
     ( VG.Vector container dp
     , VG.Vector container [Float]
