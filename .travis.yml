@@ -1,0 +1,64 @@
+# NB: don't set `language: haskell` here
+
+# The following enables several GHC versions to be tested; often it's enough to test only against the last release in a major GHC version. Feel free to omit lines listings versions you don't need/want testing for.
+env:
+ - CABALVER=1.22 GHCVER=7.10.1
+ - CABALVER=1.22 GHCVER=7.10.2
+ # - CABALVER=head GHCVER=head   # see section about GHC HEAD snapshots
+
+# Note: the distinction between `before_install` and `install` is not important.
+before_install:
+
+ - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
+ - travis_retry sudo apt-get update
+ - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+ - travis_retry sudo apt-get install libblas-dev liblapack-dev
+
+ # update g++
+ - g++ --version
+ - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+ - sudo apt-get update -qq
+ - sudo apt-get install -qq g++-4.8
+ - g++ --version
+ - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
+ - g++ --version
+
+ # update llvm
+ # FIXME: We're recompiling llvm from scratch; is there a more efficient solution?
+ - travis_retry wget http://llvm.org/releases/3.5.2/llvm-3.5.2.src.tar.xz
+ - tar -xf llvm-3.5.2.src.tar.xz
+ - cd llvm-3.5.2.src
+ - ./configure --prefix=/usr CC=gcc CXX=g++  --disable-compiler-version-checks
+ - make -j4
+ - sudo make install
+ - PATH="$(pwd)/Release+Asserts/bin/:$PATH"
+ - opt --version || true
+ - ./Release+Asserts/bin/opt --version
+ - cd ..
+
+ # install the local version of subhask
+ - cd subhask
+ - cabal install -j4
+ - cd ..
+
+install:
+ - cabal --version
+ - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
+ - travis_retry cabal update
+ - travis_retry cabal install -j4 --only-dependencies --enable-tests --enable-benchmarks
+
+# Here starts the actual work to be performed for the package under test; any command which exits with a non-zero exit code causes the build to fail.
+script:
+ - if [ -f configure.ac ]; then autoreconf -i; fi
+ - cabal configure --enable-tests --enable-benchmarks -v2  # -v2 provides useful information for debugging
+ - cabal build   # this builds all libraries and executables (including tests/benchmarks)
+ - cabal test
+ - cabal check
+ - cabal sdist   # tests that a source-distribution can be generated
+
+# Check that the resulting source distribution can be built & installed.
+# If there are no other `.tar.gz` files in `dist`, this can be even simpler:
+# `cabal install --force-reinstalls dist/*-*.tar.gz`
+ - SRC_TGZ=$(cabal info . | awk '{print $2;exit}').tar.gz &&
+   (cd dist && cabal install --force-reinstalls "$SRC_TGZ")
