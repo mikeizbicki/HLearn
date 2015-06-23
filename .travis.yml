@@ -26,7 +26,8 @@ before_install:
 
  # install the local version of subhask
  - cd subhask
- - cabal install -j4
+ - travis_retry cabal update
+ - travis_retry cabal install -j4
  - cd ..
 
  # update llvm
