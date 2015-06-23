@@ -126,8 +126,9 @@ instance (Eq (Scalar a), Eq a) => Eq_ (Iterator_cgd a) where
 --        && (_cgd_f'x0  a1 == _cgd_f'x0  a2)
 --        && (_cgd_s0    a1 == _cgd_s0    a2)
 
-instance (Show a, Show (Scalar a)) => Show (Iterator_cgd a) where
-    show cgd = "CGD; x="++show (_cgd_x1 cgd)++"; f'x="++show (_cgd_f'x1 cgd)++"; fx="++show (_cgd_fx1 cgd)
+instance (Hilbert a, Show a, Show (Scalar a)) => Show (Iterator_cgd a) where
+--     show cgd = "CGD; x="++show (_cgd_x1 cgd)++"; f'x="++show (_cgd_f'x1 cgd)++"; fx="++show (_cgd_fx1 cgd)
+    show cgd = "CGD; |f'x|="++show (size $ _cgd_f'x1 cgd)++"; fx="++show (_cgd_fx1 cgd)
 
 instance Has_x1 Iterator_cgd v where x1 = _cgd_x1
 instance Has_fx1 Iterator_cgd v where fx1 = _cgd_fx1
@@ -193,11 +194,11 @@ step_cgd stepMethod conjMethod f (Iterator_cgd x1 fx1 f'x1 alpha1 f'x0 s0 _) = {
     -- This test isn't needed in linear optimization, and the inner products are mildly expensive.
     -- It also makes CGD work only in a Hilbert space.
     -- Is the restriction worth it?
-    let beta = if abs (f'x1<>f'x0) > 0.2*(f'x0<>f'x0)
-            then 0
-            else max 0 $ conjMethod f'x1 f'x0 s0
+--     let beta = if abs (f'x1<>f'x0) > 0.2*(f'x0<>f'x0)
+--             then 0
+--             else max 0 $ conjMethod f'x1 f'x0 s0
 
---     let beta = conjMethod f'x1 f'x0 s0
+    let beta = conjMethod f'x1 f'x0 s0
 
     let s1 = -f'x1 + beta *. s0
 
@@ -457,21 +458,24 @@ type instance Scalar (Backtracking v) = Scalar v
 instance Show (Backtracking v) where
     show _ = "Backtracking"
 
+instance Has_fx1 Backtracking v where
+    fx1 = _bt_fx
+
 -- | Backtracking linesearch is NOT guaranteed to converge.
 -- It is frequently used as the linesearch for multidimensional problems.
 -- In this case, the overall minimization problem can converge significantly
 -- faster than if one of the safer methods is used.
-{-# INLINE backtracking #-}
+{-# INLINABLE backtracking #-}
 backtracking ::
     ( Hilbert v
     , cxt (Backtracking v)
     ) => StopCondition (Backtracking v)
       -> LineSearch cxt v
-backtracking stop f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
-    let g y = {-# SCC backtracking_g #-} f $ x0 + y *. f'x0
-    let grow=2.1
+backtracking stop f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} beginFunction "backtracking" $ do
+    let g y = f $ x0 + y *. f'x0
+    let grow=1.65
 
-    fmap _bt_x $ iterate (step_backtracking 0.5 f f') stop $ Backtracking
+    fmap _bt_x $ iterate (step_backtracking 0.85 f f') stop $ Backtracking
         { _bt_x = (grow*stepGuess)
         , _bt_fx = g (grow*stepGuess)
         , _bt_f'x = grow *. (f' $ x0 + grow*stepGuess *. f'x0)
@@ -496,7 +500,7 @@ step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
         , _bt_f'x = g' x1
         }
     where
-        g alpha = f $ _init_x bt + alpha *. _init_dir bt
+        g  alpha =          f  (_init_x bt + alpha *. _init_dir bt)
         g' alpha = alpha *. f' (_init_x bt + alpha *. _init_dir bt)
 
 ---------------------------------------

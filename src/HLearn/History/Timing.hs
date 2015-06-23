@@ -4,8 +4,9 @@
 module HLearn.History.Timing
     where
 
+import SubHask (NFData, deepseq)
+
 import Prelude
-import Control.DeepSeq
 import Data.Time.Clock
 import Numeric
 import System.CPUTime

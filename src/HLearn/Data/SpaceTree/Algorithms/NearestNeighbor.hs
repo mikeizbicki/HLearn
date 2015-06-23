@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds,UnboxedTuples,MagicHash,TemplateHaskell,RankNTypes,TupleSections,AllowAmbiguousTypes #-}
-
 module HLearn.Data.SpaceTree.Algorithms.NearestNeighbor
     (
 
@@ -20,9 +18,9 @@ import GHC.Exts (inline)
 import Data.List (sortBy)
 
 import Control.Monad.ST
-import qualified Data.Vector.Algorithms.Intro as Intro
-import qualified Data.Vector.Generic as VG
-import qualified Data.Vector.Generic.Mutable as VGM
+-- import qualified Data.Vector.Algorithms.Intro as Intro
+-- import qualified Data.Vector.Generic as VG
+-- import qualified Data.Vector.Generic.Mutable as VGM
 import SubHask.Algebra.Array
 
 import SubHask

@@ -1,31 +1,6 @@
 module HLearn.Data.LoadData
     where
 
-import Control.DeepSeq
--- import Control.Monad
-import Control.Monad.ST
-import Data.Maybe
-import qualified Data.List as L
-import qualified Data.Vector as V
-import qualified Data.Vector.Generic as VG
-import qualified Data.Vector.Mutable as VM
-import qualified Data.Vector.Generic.Mutable as VGM
-import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector.Unboxed.Mutable as VUM
-import qualified Data.Vector.Storable as VS
-import qualified Data.Vector.Storable.Mutable as VSM
-import qualified Data.Vector.Algorithms.Intro as Intro
--- import System.Mem
-import System.IO
-import System.Directory
--- import System.FilePath.Posix
-import qualified Numeric.LinearAlgebra as LA
-import qualified Numeric.LinearAlgebra.Devel as LA
-
-import HLearn.Models.Distributions
-
-import Data.List (take,drop,zipWith)
-
 import SubHask
 import SubHask.Algebra.Array
 import SubHask.Algebra.Container
@@ -33,16 +8,20 @@ import SubHask.Algebra.Parallel
 import SubHask.Compatibility.ByteString
 import SubHask.Compatibility.Cassava
 import SubHask.Compatibility.Containers
--- import SubHask.Compatibility.Vector
--- import SubHask.Compatibility.Vector.Lebesgue
 import SubHask.TemplateHaskell.Deriving
 
 import HLearn.History.Timing
-import HLearn.Models.Classifiers.Common
+import HLearn.Models.Distributions
+
+import qualified Prelude as P
+import Prelude (asTypeOf,unzip,head,take,drop,zipWith)
+import Control.Monad.ST
+import qualified Data.List as L
+import Data.Maybe
+import System.Directory
+import System.IO
 
 import Debug.Trace
-import Prelude (asTypeOf,unzip,head)
-import qualified Prelude as P
 
 --------------------------------------------------------------------------------
 
@@ -167,6 +146,45 @@ loadCSV filepath = do
 
     return rs
 
+-- | FIXME: this should be combined with the CSV function above
+loadCSVLabeled' ::
+    ( NFData x
+    , FromRecord x
+    , FiniteModule x
+    , Eq x
+    , Show (Scalar x)
+    , Read (Scalar x)
+    ) => Int                -- ^ column of csv file containing the label
+      -> FilePath           -- ^ path to csv file
+      -> IO (BArray (Labeled' x (Lexical String)))
+loadCSVLabeled' col filepath = do
+
+    bs <- timeIO ("loading ["++filepath++"]") $ readFileByteString filepath
+
+    let rse = decode NoHeader bs
+    time "parsing csv file" rse
+
+    rs :: BArray (BArray String) <- case rse of
+        Right rs -> return rs
+        Left str -> error $ "failed to parse CSV file " ++ filepath ++ ": " ++ L.take 1000 str
+
+    let ret = fromList $ map go $ toList rs
+
+    putStrLn "  dataset info:"
+    putStrLn $ "    num dp:  " ++ show ( size ret )
+    putStrLn $ "    numdim:  " ++ show ( dim $ xLabeled' $ ret!0 )
+    putStrLn ""
+
+    return ret
+
+    where
+        go arr = Labeled' x y
+            where
+                y = Lexical $ arr!col
+                x = unsafeToModule $ map read $ take (col) arrlist ++ drop (col+1) arrlist
+
+                arrlist = toList arr
+
 -------------------------------------------------------------------------------
 -- data preprocessing
 
@@ -284,8 +302,19 @@ mkShuffleMap vs = if size vs==0
 
 -- | apply the shufflemap to the data set to get a better ordering of the data
 {-# INLINABLE apShuffleMap #-}
-apShuffleMap :: FiniteModule v => UArray Int -> v -> v
-apShuffleMap vmap v = unsafeToModule $ V.toList $ V.generate (size vmap) $ \i -> v!(vmap!i)
+apShuffleMap :: forall v. FiniteModule v => UArray Int -> v -> v
+apShuffleMap vmap v = unsafeToModule xs
+    where
+        xs :: [Scalar v]
+        xs = generate (size vmap) $ \i -> v!(vmap!i)
+
+generate :: (Monoid v, Constructible v) => Int -> (Int -> Elem v) -> v
+generate n f = if n <= 0
+    then zero
+    else fromList1N n (f 0) (map f [1..n])
+
+{-
+ - FIXME: All this needs to be reimplemented and (probably) moved into subhask.
 
 -- | translate a dataset so the mean is zero
 {-# INLINABLE meanCenter #-}
@@ -356,3 +385,4 @@ rotatePCADouble dps' =  VG.map rotate dps
         gramMatrix =  LA.trans tmpm LA.<> tmpm
             where
                 tmpm = LA.fromLists (VG.toList $ VG.map VG.toList dps)
+                -}

@@ -16,64 +16,29 @@ Library
     Build-Depends:
         -- common dependencies
         base                >= 4.8 && <4.9,
-        ghc-prim,
-        template-haskell,
-
-        -- my packages
---         typeparams          >= 0.0.6,
         subhask             >= 0.1,
 
         -- control
-        primitive           >= 0.5,
-        vector-algorithms   >= 0.5.4,
-        parallel            >= 3.2,
-        deepseq             >= 1.3,
         mtl                 >= 2.1.2,
 
+        -- i/o
         ansi-terminal       >= 0.6.1.1,
         directory           >= 1.2,
-
-        -- math dependencies
-        hmatrix             >= 0.16.0.5,
-        MonadRandom         >= 0.1,
-
-        -- are these needed?
-        statistics          >= 0.10,
-        random              >= 1.0.1,
-        cassava             >= 0.2.2,
-        time                >= 1.4.2,
-
-        vector,
-        strict              >= 0.3.2,
-
-        -- tests
-        QuickCheck          >= 2.6,
+        time                >= 1.4.2
 
         -- visualization
-
-        diagrams-svg        >= 0.6,
-        diagrams-lib        >= 1.3,
-        process             >= 1.1
+--         diagrams-svg        >= 0.6,
+--         diagrams-lib        >= 1.3,
+--         process             >= 1.1
 --         graphviz            >= 2999.16
 
     hs-source-dirs:
         src
 
     ghc-options:
---         -O
-        -O2
         -funbox-strict-fields
-        -fexcess-precision
 
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
-
-        -ddump-to-file
-
+--         -ddump-to-file
 --         -ddump-simpl
 --         -ddump-simpl-stats
 --         -dsuppress-module-prefixes
@@ -85,13 +50,11 @@ Library
 --         -ddump-rule-rewrites
 --         -ddump-rules
 --         -dppr-debug
-
 --         -ddump-cmm
 
     Exposed-modules:
 
         HLearn.History
---         HLearn.History.DisplayMethods
         HLearn.History.Timing
 
 --         HLearn.Data.Graph
@@ -121,6 +84,7 @@ Library
 --         HLearn.Metrics.Mahalanobis.Mega
 --         HLearn.Metrics.Mahalanobis.Normal
 --
+        HLearn.Classifiers.Linear
         HLearn.Models.Distributions
 
 --         HLearn.Optimization.Amoeba
@@ -174,96 +138,6 @@ Library
         PartialTypeSignatures
         MultiWayIf
 
--- executable hlearn-linear
---     main-is:
---         hlearn-linear.hs
---
---     hs-source-dirs:
---         src/exec
---
---     ghc-options:
---         -O
---         -funbox-strict-fields
---
---     build-depends:
---
---         base                >= 4.7,
---         HLearn              >= 2.0,
---         subhask             >= 0.1,
---
---         vector              >= 0.10.11,
---         hmatrix             >= 0.15.2.2,
---         containers          >= 0.5.5.1,
---
---         cmdargs             >= 0.10.7,
---         cassava             >= 0.4.1,
---         bytestring          >= 0.10.4,
---         deepseq             >= 1.3.0.2,
---         QuickCheck          >= 2.7.5,
---         parallel            >= 3.2.0.4,
---         time                >= 1.4.2,
---
---         vector-algorithms   >= 0.6.0.1,
---         MonadRandom         >= 0.1.13,
---         list-extras         >= 0.4.1.3
---
---     c-sources:
---         cbits/emd.c
---         cbits/ct.c
---
---     cc-options:
---         -- optimization options
---         -O3
---         -msse2
--- --         -mavx
---         -ffast-math
---         -fassociative-math
---         -ftree-vectorize
--- --         -march=native
---         -mfpmath=sse
---
---         -- opencv options
---         -fPIC
---
---     extra-libraries:
---         opencv_core
---         opencv_highgui
---         opencv_imgproc
---         opencv_imgcodecs
-
--- executable hlearn-embed
---     main-is:
---         hlearn-embed.hs
---
---     hs-source-dirs:
---         src/exec
---
---     ghc-options:
---         -threaded
---         -rtsopts
---
---         -O
---         -funbox-strict-fields
---         -fexcess-precision
---         -fcontext-stack=100
---
---         -fllvm
---         -optlo-O3
---         -optlo-enable-fp-mad
---         -optlo-enable-no-infs-fp-math
---         -optlo-enable-no-nans-fp-math
---         -optlo-enable-unsafe-fp-math
---
---     build-depends:
---
---         base            >=4.7,
---         HLearn          >=2.0,
---         typeparams      >=0.0.6,
---         subhask         >=0.0.1,
---
---         MonadRandom     >=0.1.13,
---         mtl             >=2.1.3
-
 --------------------------------------------------------------------------------
 
 executable hlearn-optimization-univariate
@@ -293,6 +167,30 @@ executable hlearn-optimization-univariate
 executable hlearn-optimization-multivariate
     main-is:            Main.hs
     hs-source-dirs:     examples/hlearn-optimization-multivariate
+
+    build-depends:
+        base,
+        HLearn,
+        subhask,
+        cmdargs
+
+    ghc-options:
+        -threaded
+        -rtsopts
+
+        -O2
+        -fllvm
+        -optlo-O3
+        -optlo-enable-fp-mad
+        -optlo-enable-no-infs-fp-math
+        -optlo-enable-no-nans-fp-math
+        -optlo-enable-unsafe-fp-math
+
+--------------------------------------------------------------------------------
+
+executable hlearn-classify
+    main-is:            Main.hs
+    hs-source-dirs:     examples/hlearn-classify
 
     build-depends:
         base,
