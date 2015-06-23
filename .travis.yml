@@ -24,6 +24,11 @@ before_install:
  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
  - g++ --version
 
+ # install the local version of subhask
+ - cd subhask
+ - cabal install -j4
+ - cd ..
+
  # update llvm
  # FIXME: We're recompiling llvm from scratch; is there a more efficient solution?
  - travis_retry wget http://llvm.org/releases/3.5.2/llvm-3.5.2.src.tar.xz
@@ -35,11 +40,6 @@ before_install:
  - PATH="$(pwd)/Release+Asserts/bin/:$PATH"
  - opt --version || true
  - ./Release+Asserts/bin/opt --version
- - cd ..
-
- # install the local version of subhask
- - cd subhask
- - cabal install -j4
  - cd ..
 
 install:
