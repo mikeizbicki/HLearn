@@ -31,17 +31,13 @@ before_install:
  - cd ..
 
  # update llvm
- # FIXME: We're recompiling llvm from scratch; is there a more efficient solution?
- - travis_retry wget http://llvm.org/releases/3.5.2/llvm-3.5.2.src.tar.xz
- - tar -xf llvm-3.5.2.src.tar.xz
- - cd llvm-3.5.2.src
- - ./configure --prefix=/usr CC=gcc CXX=g++  --disable-compiler-version-checks
- - make -j4
- - sudo make install
- - PATH="$(pwd)/Release+Asserts/bin/:$PATH"
- - opt --version || true
- - ./Release+Asserts/bin/opt --version
- - cd ..
+ - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+ - travis_retry sudo add-apt-repository "deb http://llvm.org/apt/precise/ llvm-toolchain-precise main"
+ - travis_retry sudo add-apt-repository "deb http://llvm.org/apt/precise/ llvm-toolchain-precise-$LLVMVER main"
+ - travis_retry sudo apt-get update
+ - sudo apt-get install -y llvm-$LLVMVER llvm-$LLVMVER-dev
+ - sudo ln -s /usr/bin/opt-$LLVMVER /usr/bin/opt
+ - export PATH="/usr/bin:$PATH"
 
 install:
  - cabal --version
