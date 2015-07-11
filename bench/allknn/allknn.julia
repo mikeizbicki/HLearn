@@ -1,0 +1,16 @@
+#!/usr/bin/env julia
+
+println("compiling KDTrees")
+using KDTrees
+
+println("reading csv")
+data = transpose(readcsv(ARGS[1]))
+
+println("constructing kdtree")
+tree = KDTree(data)
+
+println("performing queries")
+for k in 1:size(data,2)
+    p = data[:,k]
+    knn(tree, vec(p), int(ARGS[2]))
+end

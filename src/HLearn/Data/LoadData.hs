@@ -1,3 +1,4 @@
+-- | This module handles loading data from disk.
 module HLearn.Data.LoadData
     where
 
@@ -21,11 +22,14 @@ import Data.Maybe
 import System.Directory
 import System.IO
 
-import Debug.Trace
-
 --------------------------------------------------------------------------------
 
 {-
+FIXME:
+This code was written a long time ago to assist with the Cover Tree ICML paper.
+It needs to be updated to use the new subhask interface.
+This should be an easy project.
+
 -- | This loads files in the format used by the BagOfWords UCI dataset.
 -- See: https://archive.ics.uci.edu/ml/machine-learning-databases/bag-of-words/readme.txt
 loadBagOfWords :: FilePath -> IO (BArray (Map' Int Float))
@@ -44,6 +48,7 @@ loadBagOfWords filepath = do
 
     hClose hin
     VG.unsafeFreeze ret
+-}
 
 -- | Loads a dataset of strings in the unix words file format (i.e. one word per line).
 -- This format is also used by the UCI Bag Of Words dataset.
@@ -53,7 +58,6 @@ loadWords filepath = do
     hin <- openFile filepath ReadMode
     contents <- hGetContents hin
     return $ fromList $ map fromList $ L.lines contents
--}
 
 --------------------------------------------------------------------------------
 
@@ -113,9 +117,6 @@ loadDirectory numdp loadFile validFilepath validResult dirpath = {-# SCC loadDir
         return $ L.filter (validResult . xLabeled') xs
 
     putStrLn $ "  numdp: " ++ show (length files)
---     when debug $ do
---         forM files $ \file -> do
---             putStrLn file
 
     return $ fromList results
 
@@ -187,90 +188,58 @@ loadCSVLabeled' col filepath = do
 
 -------------------------------------------------------------------------------
 -- data preprocessing
-
--- | This exists only for the varshift right now and doesn't actually work
 --
--- FIXME: move
-newtype Componentwise v = Componentwise { unComponentwise :: v }
-
-type instance Scalar (Componentwise v) = Scalar v
-type instance Logic (Componentwise v) = Logic v
-type instance Elem (Componentwise v) = Scalar v
-type instance SetElem (Componentwise v) v' = Componentwise v'
-
-instance IsMutable (Componentwise v)
-
-instance Eq_ v => Eq_ (Componentwise v) where
-    (Componentwise v1)==(Componentwise v2) = v1==v2
-
-instance Semigroup v => Semigroup (Componentwise v) where
-    (Componentwise v1)+(Componentwise v2) = Componentwise $ v1+v2
-
-instance Monoid v => Monoid (Componentwise v) where
-    zero = Componentwise zero
-
-instance Abelian v => Abelian (Componentwise v)
-
-instance Cancellative v => Cancellative (Componentwise v) where
-    (Componentwise v1)-(Componentwise v2) = Componentwise $ v1-v2
-
-instance Group v => Group (Componentwise v) where
-    negate (Componentwise v) = Componentwise $ negate v
-
-instance FreeModule v => Rg (Componentwise v) where
-    (Componentwise v1)*(Componentwise v2) = Componentwise $ v1.*.v2
-
-instance FiniteModule v => Rig (Componentwise v) where
-    one = Componentwise $ ones
-
-instance FiniteModule v => Ring (Componentwise v)
-
-instance (FiniteModule v, VectorSpace v) => Field (Componentwise v) where
-    (Componentwise v1)/(Componentwise v2) = Componentwise $ v1./.v2
-
--- instance (ValidLogic v, FiniteModule v) => IxContainer (Componentwise v) where
---     values (Componentwise v) = values v
+-- FIXME:
+-- Find a better location for all this code.
 
 -- | Uses an efficient 1-pass algorithm to calculate the mean variance.
 -- This is much faster than the 2-pass algorithms on large datasets,
 -- but has (slightly) worse numeric stability.
 --
 -- See http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf for details.
---
--- FIXME: Find a better location for this
 {-# INLINE meanAndVarianceInOnePass  #-}
 meanAndVarianceInOnePass :: (Foldable xs, Field (Elem xs)) => xs -> (Elem xs, Elem xs)
-meanAndVarianceInOnePass ys = case uncons ys of
-    Nothing -> error "meanAndVarianceInOnePass on empty container"
-    Just (x,xs) -> (\(k,m,v) -> (m,v/(k-1))) $ foldl' go (2,x,0) xs
-    where
-        go (k,mk,qk) x = (k+1,mk',qk')
-            where
-                mk'=mk+(x-mk)/k
-                qk'=qk+(k-1)*(x-mk)*(x-mk)/k
+meanAndVarianceInOnePass ys =
+    {-# SCC meanAndVarianceInOnePass #-}
+    case uncons ys of
+        Nothing -> error "meanAndVarianceInOnePass on empty container"
+        Just (x,xs) -> (\(k,m,v) -> (m,v/(k-1))) $ foldl' go (2,x,0) xs
+        where
+            go (k,mk,qk) x = (k+1,mk',qk')
+                where
+                    mk'=mk+(x-mk)/k
+                    qk'=qk+(k-1)*(x-mk)*(x-mk)/k
 
 -- | A wrapper around "meanAndVarianceInOnePass"
---
--- FIXME: Find a better location for this
 {-# INLINE varianceInOnePass  #-}
 varianceInOnePass :: (Foldable xs, Field (Elem xs)) => xs -> Elem xs
 varianceInOnePass = snd . meanAndVarianceInOnePass
 
--- | calculate the variance of each column, then sort so that the highest variance is first
+-- | Calculate the variance of each column, then sort so that the highest variance is first.
+-- This can be useful for preprocessing data.
 --
--- NOTE: the git history has a lot of versions of this function with different levels of efficiency.
+-- NOTE:
+-- The git history has a lot of versions of this function with different levels of efficiency.
+-- I need to write a blog post about how all the subtle haskellisms effect the runtime.
 {-# INLINABLE mkShuffleMap #-}
 mkShuffleMap :: forall v.
     ( FiniteModule v
     , VectorSpace v
+    , Unboxable v
+    , Unboxable (Scalar v)
     , Eq v
     , Elem (SetElem v (Elem v)) ~ Elem v
     , Elem (SetElem v (Scalar (Elem v))) ~ Scalar (Elem v)
     , IxContainer (SetElem v (Elem v))
     ) => BArray v -> UArray Int
-mkShuffleMap vs = if size vs==0
+mkShuffleMap vs = {-# SCC mkShuffleMap #-} if size vs==0
     then error "mkShuffleMap: called on empty array"
     else runST ( do
+        -- FIXME:
+        -- @smalldata@ should be a random subsample of the data.
+        -- The size should also depend on the dimension.
+        let smalldata = P.take 1000 $ toList vs
+
 --         let variances = fromList
 --                 $ values
 --                 $ varianceInOnePass
@@ -278,24 +247,15 @@ mkShuffleMap vs = if size vs==0
 --                 :: BArray (Scalar v)
 
         let variances
-                = fromList
-                $ imap (\i _ -> varianceInOnePass $ (imap (\_ -> (!i)) vs))
+                = imap (\i _ -> varianceInOnePass $ (imap (\_ -> (!i)) smalldata))
                 $ values
                 $ vs!0
-                :: BArray (Scalar v)
-
---         let (BArray v) = variances
---         msortV <- VG.unsafeThaw $ imap (,) $ v
---         Intro.sortBy (\(_,v1) (_,v2) -> compare v1 v2) msortV
---         v' <- VG.unsafeFreeze msortV
---         let sortV' = BArray v' :: BArray (Int,Scalar v)
---         return $ VG.convert $ VG.map fst v'
+                :: [Scalar v]
 
         return
             $ fromList
             $ map fst
-            $ L.sortBy (\(_,v1) (_,v2) -> compare v1 v2)
-            $ toList
+            $ L.sortBy (\(_,v1) (_,v2) -> compare v2 v1)
             $ imap (,)
             $ variances
         )
@@ -306,15 +266,18 @@ apShuffleMap :: forall v. FiniteModule v => UArray Int -> v -> v
 apShuffleMap vmap v = unsafeToModule xs
     where
         xs :: [Scalar v]
-        xs = generate (size vmap) $ \i -> v!(vmap!i)
+        xs = generate1 (size vmap) $ \i -> v!(vmap!i)
 
-generate :: (Monoid v, Constructible v) => Int -> (Int -> Elem v) -> v
-generate n f = if n <= 0
+{-# INLINABLE generate1 #-}
+generate1 :: (Monoid v, Constructible v) => Int -> (Int -> Elem v) -> v
+generate1 n f = if n <= 0
     then zero
-    else fromList1N n (f 0) (map f [1..n])
+    else fromList1N n (f 0) (map f [1..n-1])
 
 {-
- - FIXME: All this needs to be reimplemented and (probably) moved into subhask.
+FIXME:
+All this needs to be reimplemented using the subhask interface.
+This requires fixing some of the features of subhask's linear algebra system.
 
 -- | translate a dataset so the mean is zero
 {-# INLINABLE meanCenter #-}

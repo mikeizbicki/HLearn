@@ -7,5 +7,5 @@ hlearn-linear
 *.swo
 dist/
 gitignore/
-examples/
+examples/old/
 scripts/

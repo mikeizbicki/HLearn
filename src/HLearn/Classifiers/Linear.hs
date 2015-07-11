@@ -29,25 +29,26 @@ type instance Scalar (GLM x y) = Scalar x
 
 --------------------------------------------------------------------------------
 
+-- type Foldable' xs x = (Foldable xs, Elem xs~x, Scalar xs~Int)
+
+type IsFoldable xs x = {-forall xs.-} (Foldable xs, Elem xs~x, Scalar xs~Int)
+
 {-# INLINEABLE trainLogisticRegression #-}
 trainLogisticRegression ::
     ( Ord y
     , Show y
     , Hilbert x
     , BoundedField (Scalar x)
-    , cxt (LineBracket (Scalar x))
-    , cxt (Iterator_cgd x)
-    , cxt (Iterator_cgd (Scalar x))
-    , cxt (Iterator_brent (Scalar x))
-    , cxt (Backtracking x)
-    , cxt (Map' y x)
-    , cxt Int
-    , Foldable xys
-    , Elem xys ~ Labeled' x y
-    , Scalar xys~Int
     ) => Scalar x                                           -- ^ regularization parameter
-      -> xys
-      -> History cxt (GLM x y)
+      -> IsFoldable xys (Labeled' x y) => xys               -- ^ dataset
+      -> ( cxt (LineBracket (Scalar x))
+         , cxt (Iterator_cgd x)
+         , cxt (Iterator_cgd (Scalar x))
+         , cxt (Iterator_brent (Scalar x))
+         , cxt (Backtracking x)
+         , cxt (Map' y x)
+         , cxt Int
+         ) => History cxt (GLM x y)
 trainLogisticRegression lambda xs = trainGLM_
     ( fminunc_cgd_
 --         hestenesStiefel
@@ -68,8 +69,7 @@ trainGLM_ :: forall xys x y cxt opt.
     ( Ord y
     , Show y
     , Hilbert x
-    , Has_x1 opt x
-    ) => (x -> C1 (x -> Scalar x) -> forall s. History_ cxt s (opt x))   -- ^ optimization method
+    ) => Has_x1 opt x => (x -> C1 (x -> Scalar x) -> forall s. History_ cxt s (opt x))   -- ^ optimization method
       -> (y -> Labeled' x y -> C2 (x -> Scalar x))          -- ^ loss function
       -> Scalar x                                           -- ^ regularization parameter
       -> [Labeled' x y]                                     -- ^ dataset

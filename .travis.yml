@@ -24,12 +24,6 @@ before_install:
  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
  - g++ --version
 
- # install the local version of subhask
- - cd subhask
- - travis_retry cabal update
- - travis_retry cabal install -j4
- - cd ..
-
  # update llvm
  - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
  - travis_retry sudo add-apt-repository "deb http://llvm.org/apt/precise/ llvm-toolchain-precise main"
@@ -38,6 +32,15 @@ before_install:
  - sudo apt-get install -y llvm-$LLVMVER llvm-$LLVMVER-dev
  - sudo ln -s /usr/bin/opt-$LLVMVER /usr/bin/opt
  - export PATH="/usr/bin:$PATH"
+
+ # install the local version of subhask
+ - cd subhask
+ - travis_retry cabal update
+ - travis_retry cabal install -j4
+ - cd ..
+
+ # configure cabal
+ - PATH="~/.cabal/bin:$PATH"
 
 install:
  - cabal --version

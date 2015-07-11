@@ -8,7 +8,6 @@ module HLearn.Data.SpaceTree.Algorithms
     (
 
     Neighbor (..)
-    , ValidNeighbor (..)
 
     , findNeighbor
     , findNeighbor_NoSort

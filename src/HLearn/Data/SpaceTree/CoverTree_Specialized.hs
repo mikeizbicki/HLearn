@@ -5,7 +5,7 @@
 --
 -- See the paper <http://izbicki.me/public/papers/icml2015-faster-cover-trees.pdf Faster Cover Trees> for a detailed explanation of the theory.
 -- I'm happy to answer any questions you have about the implementation details here.
-module HLearn.Data.SpaceTree.CoverTree
+module HLearn.Data.SpaceTree.CoverTree_Specialized
     ( BCoverTree
     , UCoverTree
     , CoverTree_
@@ -90,20 +90,20 @@ data CoverTree_
         ( leafC                 :: * -> * )
         ( dp                    :: * )
     = Node
-        { nodedp                :: !dp
-        , level                 :: {-#UNPACK#-}!Int
-        , nodeWeight            :: !(Scalar dp)
-        , numdp                 :: !(Scalar dp)
-        , maxDescendentDistance :: !(Scalar dp)
-        , children              :: !(childC (CoverTree_ exprat childC leafC dp))
-        , leaves                :: !(leafC dp)
---         { nodedp                :: {-#UNPACK#-}!(Labeled' (UVector "dyn" Float) Int)
---         , nodeWeight            :: {-#UNPACK#-}!Float
+--         { nodedp                :: !dp
 --         , level                 :: {-#UNPACK#-}!Int
---         , numdp                 :: {-#UNPACK#-}!Float
---         , maxDescendentDistance :: {-#UNPACK#-}!Float
---         , children              :: {-#UNPACK#-}!(BArray (CoverTree_ exprat childC leafC dp))
---         , leaves                :: {-#UNPACK#-}!(UArray dp)
+--         , nodeWeight            :: !(Scalar dp)
+--         , numdp                 :: !(Scalar dp)
+--         , maxDescendentDistance :: !(Scalar dp)
+--         , children              :: !(childC (CoverTree_ exprat childC leafC dp))
+--         , leaves                :: !(leafC dp)
+        { nodedp                :: {-#UNPACK#-}!(Labeled' (UVector "dyn" Float) Int)
+        , nodeWeight            :: {-#UNPACK#-}!Float
+        , level                 :: {-#UNPACK#-}!Int
+        , numdp                 :: {-#UNPACK#-}!Float
+        , maxDescendentDistance :: {-#UNPACK#-}!Float
+        , children              :: {-#UNPACK#-}!(BArray (CoverTree_ exprat childC leafC dp))
+        , leaves                :: {-#UNPACK#-}!(UArray dp)
         }
 
 mkMutable [t| forall a b c d. CoverTree_ a b c d |]
@@ -160,9 +160,9 @@ type ValidCT exprat childC leafC dp =
     , FiniteModule (Scalar (Elem (childC (Scalar dp))))
 
     -- unpack
---     , dp ~ Labeled' (UVector "dyn" Float) Int
---     , childC~BArray
---     , leafC~UArray
+    , dp ~ Labeled' (UVector "dyn" Float) Int
+    , childC~BArray
+    , leafC~UArray
 
     -- these constraints come from hlearn-allknn
     , Scalar (leafC dp) ~ Scalar (childC (CoverTree_ exprat childC leafC dp))
@@ -227,15 +227,6 @@ instance
            $ deepseq (children ct)
            $ deepseq (leaves ct)
            $ rnf ()
-
-instance
-    ( Arbitrary dp
-    , ValidCT exprat childC leafC dp
-    ) => Arbitrary (CoverTree_ exprat childC leafC dp) where
-    arbitrary = do
-        x  <- arbitrary
-        xs <- arbitrary
-        return $ fromList1 x xs
 
 ----------------------------------------
 -- comparison
