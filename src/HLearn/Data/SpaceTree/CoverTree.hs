@@ -66,12 +66,15 @@ import SubHask
 import SubHask.Monad
 import SubHask.Algebra.Array
 import SubHask.Algebra.Container
+import SubHask.Algebra.Ord
 import SubHask.Algebra.Vector
 import SubHask.Compatibility.Containers
 
 import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree.Unsafe
 import HLearn.Models.Distributions
+
+import Debug.Trace
 
 -------------------------------------------------------------------------------
 
@@ -280,7 +283,9 @@ instance
         where
 
     singleton = singletonCT
-    fromList1 x xs = fromJust' $ trainInsert addChild_ancestor (x:xs)
+    fromList1 x xs = fromJust' $ {-packCT $ setLeaves 0 $-} trainInsert addChild_ancestor (x:xs)
+    -- FIXME:
+    -- We can't pack the cover tree because insertion and (+) currently ignore datapoints in the leafContainer
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -517,7 +522,7 @@ insertCT_ :: forall exprat childC leafC dp.
 insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
     if dist > coverdist ct
         -- ct can't cover dp, so create a new node at dp that covers ct
-        then {-# SCC insertCT_greater #-} Node
+        then Node
             { nodedp                = dp
             , nodeWeight            = 1
             , level                 = dist2level_up (Proxy::Proxy exprat) dist
@@ -530,22 +535,52 @@ insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
             }
 
         -- insert dp underneath ct
-        else {-# SCC insertCT_under #-}ct
+        else ct
             { numdp                 = numdp ct+1
             , maxDescendentDistance = max dist (maxDescendentDistance ct)
             , children              = fromList $ go [] childrendists
             }
 
         where
-            childrendists = {-# SCC childrendists #-}
-                map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
+            childrendists = map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
 
-            mindist = {-# SCC mindist #-} minimum $ map fst childrendists
+            mindist = minimum $ map fst childrendists
 
-            go !acc [] = {-# SCC go_addChild #-} addChild dp ct
-            go !acc ((dist,x):xs) = if dist == mindist && dist <= coverdist x
-                then insertCT_ addChild dp x dist:(acc+map snd xs)
+            go !acc [] = addChild dp ct
+            go !acc ((xdist,x):xs) = if xdist == mindist && xdist <= coverdist x
+                then insertCT_ addChild dp x xdist:(acc+map snd xs)
                 else go (x:acc) xs
+
+{-
+ - FIXME:
+ - The code below enforces a "repulsion" invariant.
+ - This speeds up nearest neighbor queries in practice.
+ - But this implementation breaks the ancestor invariant.
+ - It shouldn't be too hard to fix,
+ - but I'm pretty sick of thinking about cover trees right now and don't want to do it.
+
+            childrendists = map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
+
+            (mindist:mindist2:_) = (sort $ map fst childrendists)++[maxBound,maxBound]
+
+            go !acc [] = addChild dp ct
+            go !acc ((xdist,x):xs) = if xdist == mindist && xdist <= coverdist x
+                then insertswapper x xdist:(acc+map snd xs)
+                else go (x:acc) xs
+
+            insertswapper x xdist = if mindist2 > sepdist ct
+--                                     && distance (nodedp ct) dp > distance (nodedp ct) (nodedp x)
+--                                     && distance (nodedp ct) dp > sepdist ct
+                                    && maximum dpdists > maximum xdists
+                                    && maximum xchilddists < coverdist x
+                                    && and (map (\t -> size (stChildrenList t)==0) $ stChildrenList x)
+                then insertCT_ addChild (nodedp x) (x {nodedp=dp}) xdist
+                else insertCT_ addChild dp x xdist
+                    where
+                        dpdists = map (\x -> distance dp (nodedp x)) $ toList $ children ct
+                        xdists = map (\x' -> distance (nodedp x) (nodedp x')) $ toList $ children ct
+                        xchilddists = map (distance dp . nodedp) (stChildrenList x)
+-}
 
 -- | These functions control the invariants we maintain while performing insertions into the cover tree.
 -- The input data point will be directly inserted as one of the children of the root of the tree.

@@ -55,8 +55,8 @@ instance (Eq dp, Eq (Scalar dp)) => Eq_ (Neighbor dp) where
 findNeighbor ::
     ( SpaceTree t dp
     , Bounded (Scalar dp)
-    ) => t dp -> dp -> Neighbor dp
-findNeighbor t q =
+    ) => Scalar dp -> t dp -> dp -> Neighbor dp
+findNeighbor ε t q =
     {-# SCC findNeighbor #-}
     go (Labeled' t startdist) startnode
     where
@@ -66,7 +66,7 @@ findNeighbor t q =
 
         startdist = distance (stNode t) q
 
-        go (Labeled' t dist) (Neighbor n distn) = if dist > maxdist
+        go (Labeled' t dist) (Neighbor n distn) = if dist*ε > maxdist
             then Neighbor n distn
             else inline foldr' go leafres
                 $ sortBy (\(Labeled' _ d1) (Labeled' _ d2) -> compare d2 d1)
@@ -86,16 +86,6 @@ findNeighbor t q =
                 then Neighbor n distn
                 else Neighbor dp dist
 
--- {-# INLINE findAllNeighbors #-}
--- findAllNeighbors ::
---     ( SpaceTree t dp
---     , Bounded (Scalar dp)
---     ) => Scalar dp
---       -> t dp
---       -> [dp]
---       -> All Constructible0 ( dp, Neighbor dp )
--- findAllNeighbors epsilon rtree qs = fromList $ map (\dp -> (dp, findNeighbor dp rtree)) qs
-
 ----------------------------------------
 
 -- | Find the nearest neighbor of a node.
@@ -105,12 +95,12 @@ findNeighbor t q =
 findNeighbor_NoSort ::
     ( SpaceTree t dp
     , Bounded (Scalar dp)
-    ) => t dp -> dp -> Neighbor dp
-findNeighbor_NoSort t q =
+    ) => Scalar dp -> t dp -> dp -> Neighbor dp
+findNeighbor_NoSort ε t q =
     {-# SCC findNeighbor_NoSort #-}
     go t (Neighbor q maxBound)
     where
-        go t res@(Neighbor _ distn) = if dist > maxdist
+        go t res@(Neighbor _ distn) = if dist*ε > maxdist
             then res
             else inline foldr' go leafres $ stChildren t
             where
@@ -126,13 +116,3 @@ findNeighbor_NoSort t q =
             if dist==0 || dist>distn
                 then Neighbor n distn
                 else Neighbor dp dist
-
--- {-# INLINE findAllNeighbors_NoSort #-}
--- findAllNeighbors_NoSort ::
---     ( SpaceTree t dp
---     , Bounded (Scalar dp)
---     ) => Scalar dp
---       -> t dp
---       -> [dp]
---       -> All Constructible0 ( dp, Neighbor dp )
--- findAllNeighbors_NoSort epsilon rtree qs = fromList $ map (\dp -> (dp, findNeighbor_NoSort dp rtree)) qs

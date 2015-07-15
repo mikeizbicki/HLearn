@@ -66,6 +66,7 @@ import SubHask
 import SubHask.Monad
 import SubHask.Algebra.Array
 import SubHask.Algebra.Container
+import SubHask.Algebra.Ord
 import SubHask.Algebra.Vector
 import SubHask.Compatibility.Containers
 
@@ -508,7 +509,7 @@ insertCT_ :: forall exprat childC leafC dp.
 insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
     if dist > coverdist ct
         -- ct can't cover dp, so create a new node at dp that covers ct
-        then {-# SCC insertCT_greater #-} Node
+        then Node
             { nodedp                = dp
             , nodeWeight            = 1
             , level                 = dist2level_up (Proxy::Proxy exprat) dist
@@ -521,19 +522,18 @@ insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
             }
 
         -- insert dp underneath ct
-        else {-# SCC insertCT_under #-}ct
+        else ct
             { numdp                 = numdp ct+1
             , maxDescendentDistance = max dist (maxDescendentDistance ct)
             , children              = fromList $ go [] childrendists
             }
 
         where
-            childrendists = {-# SCC childrendists #-}
-                map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
+            childrendists = map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
 
-            mindist = {-# SCC mindist #-} minimum $ map fst childrendists
+            mindist = minimum $ map fst childrendists
 
-            go !acc [] = {-# SCC go_addChild #-} addChild dp ct
+            go !acc [] = addChild dp ct
             go !acc ((dist,x):xs) = if dist == mindist && dist <= coverdist x
                 then insertCT_ addChild dp x dist:(acc+map snd xs)
                 else go (x:acc) xs

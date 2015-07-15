@@ -40,8 +40,10 @@ import SubHask.Compatibility.Containers
 -- import HLearn.Data.Image
 import HLearn.Data.LoadData
 import HLearn.Data.SpaceTree
+-- import HLearn.Data.SpaceTree.CoverTree
 import HLearn.Data.SpaceTree.CoverTree_Specialized
 import HLearn.Data.SpaceTree.CoverTree.Unsafe
+-- import HLearn.Data.SpaceTree.Algorithms
 import HLearn.Data.SpaceTree.Algorithms_Specialized
 import HLearn.History.Timing
 import HLearn.Models.Distributions
@@ -138,7 +140,7 @@ allknnParams = Params
                     &= help "Number of nearest neighbors to find"
                     &= groupname "Not currently implemented"
 
-    , searchEpsilon   = 0
+    , searchEpsilon   = 1
                     &= help ""
                     &= groupname "Not currently implemented"
 
@@ -245,8 +247,8 @@ main = do
     when (reference_file params == Nothing) $
         error "must specify a reference file"
 
-    when (searchEpsilon params < 0) $
-        error "search epsilon must be >= 0"
+    when (searchEpsilon params < 1) $
+        error "search epsilon must be >= 1"
 
     -- load the data
     let filepath = fromJust $ reference_file params
@@ -257,7 +259,6 @@ main = do
         DF_CSV -> do
             let {-# INLINE loadfile_dfcsv #-} -- prevents space leaks
                 loadfile_dfcsv filepath = do
---                     rs :: UArray (UVector "dyn" Float) <- fmap (fromList.toList) $ loadCSV filepath
                     rs :: BArray (UVector "dyn" Float) <- loadCSV filepath
 
                     rs' <- case rotate params of
@@ -347,7 +348,7 @@ allknn params loaddata _ _ _ = do
 
     let rs_shuffle = fromList $ case seed params of
             Nothing -> rs_take
---             Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
+            Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
 
     -- build the trees
     reftree :: CoverTree_ exprat childC leafC (Labeled' dp l)
@@ -365,8 +366,10 @@ allknn params loaddata _ _ _ = do
             FoldSort -> findNeighbor
             Fold     -> findNeighbor_NoSort
 
+    let epsilon = convertRationalField $ searchEpsilon params
+
     let res = unsafeParallelInterleaved
-            ( fromList . map (\dp -> (dp, method reftree dp) ) )
+            ( fromList . map (\dp -> (dp, method epsilon reftree dp) ) )
             ( stToList querytree )
             :: ParList (Labeled' dp l, Neighbor (Labeled' dp l))
     time "computing parFindNeighborMap" res
@@ -506,9 +509,10 @@ printTreeStats str t = do
     putStrLn ""
 
 --------------------------------------------------------------------------------
+-- FIXME:
+-- The code below should find a better home in subhask somewhere.
 
--- | FIXME:
--- See note above about ParList.
+-- | See note above about ParList.
 newtype ParList a = ParList [[a]]
     deriving (Read,Show,NFData)
 
@@ -600,4 +604,3 @@ instance (ValidEq a) => Partitionable (ParList a) where
 
     {-# INLINABLE partitionInterleaved #-}
     partitionInterleaved n (ParList xs) = map (\x -> ParList [x]) $ partitionInterleaved n $ P.concat xs
-
