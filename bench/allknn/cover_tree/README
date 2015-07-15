@@ -1,0 +1,17 @@
+This is a first pass implementation of a cover tree in c/c++.  It is
+somewhat optimized and not terribly robust.  
+
+
+'test_nn <int> <file>' checks the running times of tree creation and
+			querying for <int> nearest neighbors for every point in <file>.
+
+'knn <int> <file1> <file2>' computes the <int> nearest neighbors of every point in <file2>
+			    amongst the points in <file1>
+
+Copyright is owned by John Langford.
+
+The code is licensed under the GPL.
+
+The file 'cover_tree.{cc,h}' contains the core cover tree computation code. 
+The file 'point.{cc,h}' contains the definition of a point as well as
+parsing and printing functions.

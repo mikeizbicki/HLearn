@@ -1,5 +1,10 @@
 *.Rout
 *.csv
+*.class
+*.o
+
+results
+cover_tree
 
 hlearn-allknn
 hlearn-linear

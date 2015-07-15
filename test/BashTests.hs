@@ -27,7 +27,7 @@ main = do
 
         | dataset <-
             [ "./test/allknn-verify/dataset-10000x2.csv"
-            , "./test/allknn-verify/dataset-10000x20.csv"
+--             , "./test/allknn-verify/dataset-10000x20.csv"
 --             , "./test/allknn-verify/mnist-10000.csv"
             ]
         , treetype <-

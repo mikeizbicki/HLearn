@@ -122,6 +122,8 @@ Test-Suite BashTests
     main-is:            BashTests.hs
     build-depends:      base, process
 
+---------------------------------------
+
 Test-Suite QuickCheck-Unoptimized
     type:               exitcode-stdio-1.0
     hs-source-dirs:     test
@@ -150,74 +152,25 @@ Test-Suite QuickCheck-Optimized
         test-framework-quickcheck2  >= 0.3.0,
         test-framework              >= 0.8.0
 
---------------------------------------------------------------------------------
+---------------------------------------
 
-executable hlearn-optimization-univariate
-    main-is:            Main.hs
-    hs-source-dirs:     executables/hlearn-optimization-univariate
+Test-Suite Example0001
+    type:               exitcode-stdio-1.0
+    hs-source-dirs:     examples
+    main-is:            example0001-optimization-univariate.hs
+    build-depends:      HLearn, subhask, base
 
-    build-depends:
-        base,
-        HLearn,
-        subhask,
-        cmdargs
+Test-Suite Example0002
+    type:               exitcode-stdio-1.0
+    hs-source-dirs:     examples
+    main-is:            example0002-optimization-multivariate.hs
+    build-depends:      HLearn, subhask, base
 
-    ghc-options:
-        -threaded
-        -rtsopts
-
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
-
---------------------------------------------------------------------------------
-
-executable hlearn-optimization-multivariate
-    main-is:            Main.hs
-    hs-source-dirs:     executables/hlearn-optimization-multivariate
-
-    build-depends:
-        base,
-        HLearn,
-        subhask,
-        cmdargs
-
-    ghc-options:
-        -threaded
-        -rtsopts
-
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
-
---------------------------------------------------------------------------------
-
-executable hlearn-classify
-    main-is:            Main.hs
-    hs-source-dirs:     executables/hlearn-classify
-
-    build-depends:
-        base,
-        HLearn,
-        subhask,
-        cmdargs
-
-    ghc-options:
-        -threaded
-        -rtsopts
-
-        -fllvm
-        -optlo-O3
-        -optlo-enable-fp-mad
-        -optlo-enable-no-infs-fp-math
-        -optlo-enable-no-nans-fp-math
-        -optlo-enable-unsafe-fp-math
+Test-Suite Example0003
+    type:               exitcode-stdio-1.0
+    hs-source-dirs:     examples
+    main-is:            example0003-classification.hs
+    build-depends:      HLearn, subhask, base
 
 --------------------------------------------------------------------------------
 

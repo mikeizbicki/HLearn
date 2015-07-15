@@ -54,14 +54,15 @@ import Paths_HLearn
 -- command line parameters
 
 data Params = Params
-    { k                 :: Int
-    , kForceSlow        :: Bool
-
-    , data_format       :: DataFormat
+    { data_format       :: DataFormat
     , reference_file    :: Maybe String
     , query_file        :: Maybe String
     , distances_file    :: String
     , neighbors_file    :: String
+
+    , k                 :: Int
+    , kForceSlow        :: Bool
+
 
     , maxrefdp          :: Maybe Int
     , seed              :: Maybe Int
@@ -140,9 +141,9 @@ allknnParams = Params
                     &= help "Number of nearest neighbors to find"
                     &= groupname "Not currently implemented"
 
-    , searchEpsilon   = 1
-                    &= help ""
-                    &= groupname "Not currently implemented"
+    , searchEpsilon  = 1
+                    &= help "Instead of finding points with the closest distance, settle for finding points  whose distance is within searchepsilon*closest"
+                    &= groupname "Normal use"
 
     , reference_file = def
                     &= groupname "Normal use"
@@ -368,7 +369,8 @@ allknn params loaddata _ _ _ = do
 
     let epsilon = convertRationalField $ searchEpsilon params
 
-    let res = unsafeParallelInterleaved
+--     let res = unsafeParallelInterleaved
+    let res = parallelInterleaved
             ( fromList . map (\dp -> (dp, method epsilon reftree dp) ) )
             ( stToList querytree )
             :: ParList (Labeled' dp l, Neighbor (Labeled' dp l))
@@ -512,6 +514,12 @@ printTreeStats str t = do
 -- FIXME:
 -- The code below should find a better home in subhask somewhere.
 
+{-# RULES
+
+"subhask/parallelInterleaved"       forall (f :: a -> ParList b). parallel f = parallelInterleaved f
+
+  #-}
+
 -- | See note above about ParList.
 newtype ParList a = ParList [[a]]
     deriving (Read,Show,NFData)
@@ -548,6 +556,8 @@ instance Semigroup (ParList a) where
 instance Monoid (ParList a) where
     {-# INLINE zero #-}
     zero = ParList []
+
+instance Abelian (ParList a)
 
 -- instance Eq a => Container (ParList a) where
 --     {-# INLINE elem #-}

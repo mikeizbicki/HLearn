@@ -31,7 +31,7 @@ cd "$tmpdir"
 
 # hlearn using only default parameters
 cmds_hlearn=(
-    "hlearn-allknn -r $file -k $k --fold=foldsort --rotate=variance +RTS -N1"
+    "hlearn-allknn -r $file -k $k +RTS -N1"
     #"hlearn-allknn -r $file -k $k --fold=fold --rotate=variance +RTS -N1"
     #"hlearn-allknn -r $file -k $k --train-method=simplified --fold=foldsort --rotate=variance +RTS -N1"
     #"hlearn-allknn -r $file -k $k --train-method=simplified --fold=fold --rotate=variance +RTS -N1"
