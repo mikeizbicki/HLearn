@@ -5,7 +5,7 @@
 --
 -- See the paper <http://izbicki.me/public/papers/icml2015-faster-cover-trees.pdf Faster Cover Trees> for a detailed explanation of the theory.
 -- I'm happy to answer any questions you have about the implementation details here.
-module HLearn.Data.SpaceTree.CoverTree
+module HLearn.Data.SpaceTree.CoverTree_Specialized
     ( BCoverTree
     , UCoverTree
     , CoverTree_
@@ -74,8 +74,6 @@ import HLearn.Data.SpaceTree
 import HLearn.Data.SpaceTree.CoverTree.Unsafe
 import HLearn.Models.Distributions
 
-import Debug.Trace
-
 -------------------------------------------------------------------------------
 
 -- | The type of boxed cover trees.
@@ -93,20 +91,20 @@ data CoverTree_
         ( leafC                 :: * -> * )
         ( dp                    :: * )
     = Node
-        { nodedp                :: !dp
-        , level                 :: {-#UNPACK#-}!Int
-        , nodeWeight            :: !(Scalar dp)
-        , numdp                 :: !(Scalar dp)
-        , maxDescendentDistance :: !(Scalar dp)
-        , children              :: !(childC (CoverTree_ exprat childC leafC dp))
-        , leaves                :: !(leafC dp)
---         { nodedp                :: {-#UNPACK#-}!(Labeled' (UVector "dyn" Float) Int)
---         , nodeWeight            :: {-#UNPACK#-}!Float
+--         { nodedp                :: !dp
 --         , level                 :: {-#UNPACK#-}!Int
---         , numdp                 :: {-#UNPACK#-}!Float
---         , maxDescendentDistance :: {-#UNPACK#-}!Float
---         , children              :: {-#UNPACK#-}!(BArray (CoverTree_ exprat childC leafC dp))
---         , leaves                :: {-#UNPACK#-}!(UArray dp)
+--         , nodeWeight            :: !(Scalar dp)
+--         , numdp                 :: !(Scalar dp)
+--         , maxDescendentDistance :: !(Scalar dp)
+--         , children              :: !(childC (CoverTree_ exprat childC leafC dp))
+--         , leaves                :: !(leafC dp)
+        { nodedp                :: {-#UNPACK#-}!(Labeled' (UVector "dyn" Float) Int)
+        , nodeWeight            :: {-#UNPACK#-}!Float
+        , level                 :: {-#UNPACK#-}!Int
+        , numdp                 :: {-#UNPACK#-}!Float
+        , maxDescendentDistance :: {-#UNPACK#-}!Float
+        , children              :: {-#UNPACK#-}!(BArray (CoverTree_ exprat childC leafC dp))
+        , leaves                :: {-#UNPACK#-}!(UArray dp)
         }
 
 mkMutable [t| forall a b c d. CoverTree_ a b c d |]
@@ -163,9 +161,9 @@ type ValidCT exprat childC leafC dp =
     , FiniteModule (Scalar (Elem (childC (Scalar dp))))
 
     -- unpack
---     , dp ~ Labeled' (UVector "dyn" Float) Int
---     , childC~BArray
---     , leafC~UArray
+    , dp ~ Labeled' (UVector "dyn" Float) Int
+    , childC~BArray
+    , leafC~UArray
 
     -- these constraints come from hlearn-allknn
     , Scalar (leafC dp) ~ Scalar (childC (CoverTree_ exprat childC leafC dp))
@@ -231,15 +229,6 @@ instance
            $ deepseq (leaves ct)
            $ rnf ()
 
-instance
-    ( Arbitrary dp
-    , ValidCT exprat childC leafC dp
-    ) => Arbitrary (CoverTree_ exprat childC leafC dp) where
-    arbitrary = do
-        x  <- arbitrary
-        xs <- arbitrary
-        return $ fromList1 x xs
-
 ----------------------------------------
 -- comparison
 
@@ -283,9 +272,7 @@ instance
         where
 
     singleton = singletonCT
-    fromList1 x xs = fromJust' $ {-packCT $ setLeaves 0 $-} trainInsert addChild_ancestor (x:xs)
-    -- FIXME:
-    -- We can't pack the cover tree because insertion and (+) currently ignore datapoints in the leafContainer
+    fromList1 x xs = fromJust' $ trainInsert addChild_ancestor (x:xs)
 
 instance
     ( ValidCT exprat childC leafC dp
@@ -547,40 +534,9 @@ insertCT_ addChild dp ct dist = {-# SCC insertCT_ #-}
             mindist = minimum $ map fst childrendists
 
             go !acc [] = addChild dp ct
-            go !acc ((xdist,x):xs) = if xdist == mindist && xdist <= coverdist x
-                then insertCT_ addChild dp x xdist:(acc+map snd xs)
+            go !acc ((dist,x):xs) = if dist == mindist && dist <= coverdist x
+                then insertCT_ addChild dp x dist:(acc+map snd xs)
                 else go (x:acc) xs
-
-{-
- - FIXME:
- - The code below enforces a "repulsion" invariant.
- - This speeds up nearest neighbor queries in practice.
- - But this implementation breaks the ancestor invariant.
- - It shouldn't be too hard to fix,
- - but I'm pretty sick of thinking about cover trees right now and don't want to do it.
-
-            childrendists = map (\x -> (distance dp (nodedp x), x)) $ toList $ children ct
-
-            (mindist:mindist2:_) = (sort $ map fst childrendists)++[maxBound,maxBound]
-
-            go !acc [] = addChild dp ct
-            go !acc ((xdist,x):xs) = if xdist == mindist && xdist <= coverdist x
-                then insertswapper x xdist:(acc+map snd xs)
-                else go (x:acc) xs
-
-            insertswapper x xdist = if mindist2 > sepdist ct
---                                     && distance (nodedp ct) dp > distance (nodedp ct) (nodedp x)
---                                     && distance (nodedp ct) dp > sepdist ct
-                                    && maximum dpdists > maximum xdists
-                                    && maximum xchilddists < coverdist x
-                                    && and (map (\t -> size (stChildrenList t)==0) $ stChildrenList x)
-                then insertCT_ addChild (nodedp x) (x {nodedp=dp}) xdist
-                else insertCT_ addChild dp x xdist
-                    where
-                        dpdists = map (\x -> distance dp (nodedp x)) $ toList $ children ct
-                        xdists = map (\x' -> distance (nodedp x) (nodedp x')) $ toList $ children ct
-                        xchilddists = map (distance dp . nodedp) (stChildrenList x)
--}
 
 -- | These functions control the invariants we maintain while performing insertions into the cover tree.
 -- The input data point will be directly inserted as one of the children of the root of the tree.

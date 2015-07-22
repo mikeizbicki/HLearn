@@ -10,7 +10,6 @@ module HLearn.Data.Image
     where
 
 import SubHask
-import SubHask.Compatibility.Vector
 import SubHask.TemplateHaskell.Deriving
 
 import qualified Data.Vector as V

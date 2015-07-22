@@ -1,7 +1,15 @@
+-- | This module provides numerical routines for minimizing linear and nonlinear multidimensional functions.
+-- Multidimensional optimization is significantly harder than one dimensional optimization.
+-- In general, there are no black box routines that work well on every function,
+-- even if the function has only a single local minimum.
+--
+-- FIXME: better documentation
 module HLearn.Optimization.Multivariate
     (
 
-    -- * Multivariate optimization methods
+    -- * Simple interface
+
+    -- * Advanced interface
 
     -- ** Conjugate gradient descent
     -- | A great introduction is:
@@ -9,9 +17,8 @@ module HLearn.Optimization.Multivariate
     --
     -- NOTE: Does this paper has a mistake in the calculation of the optimal step size;
     -- it should be multiplied by 1/2?
-      fminunc_cgd
-    , fminunc_cgd_
-    , Iterator_cgd (..)
+      fminunc_cgd_
+    , Iterator_cgd
 
     -- *** Conjugation methods
     , ConjugateMethod
@@ -21,20 +28,26 @@ module HLearn.Optimization.Multivariate
     , hestenesStiefel
 
     -- ** Newton-Raphson (quadratic gradient descent)
+    , Iterator_nr
     , fminunc_nr_
-    , Iterator_nr (..)
 
     -- ** Quasi Newton methods
+    , Iterator_bfgs
     , fminunc_bfgs_
-    , Iterator_bfgs (..)
 
-    -- * Multivariate line search
-    , MultivariateLineSearch
+    -- ** Multivariate line search
+    , LineSearch
 
-    -- ** Univariate wrappers
-    , multivariateBrent
+    , mkLineSearch
+    , lineSearch_brent
+    , lineSearch_gss
 
-    -- ** Unsafe line minimization
+    -- *** Backtracking
+    -- | Backtracking is much faster than univariate line search methods.
+    -- It typically requires 1-3 function evaluations, whereas the univariate optimizations typically require 5-50.
+    -- The downside is that backtracking is not guaranteed to converge to the minimum along the line search.
+    -- In many cases, however, this is okay.
+    -- We make up for the lack of convergence by being able to run many more iterations of the multivariate optimization.
     , Backtracking (..)
     , backtracking
 
@@ -42,14 +55,36 @@ module HLearn.Optimization.Multivariate
     , amijo
     , weakCurvature
     , strongCurvature
+
+    -- * Test functions
+    -- | See <https://en.wikipedia.org/wiki/Test_functions_for_optimization wikipedia> for more detail.
+    --
+    -- FIXME: Include graphs in documentation.
+    --
+    -- FIXME: Implement the rest of the functions.
+
+    , sphere
+    , ackley
+    , beale
+    , rosenbrock
     )
     where
 
 import SubHask
+import SubHask.Algebra.Vector
 import SubHask.Category.Trans.Derivative
 
 import HLearn.History
 import HLearn.Optimization.Univariate
+
+-------------------------------------------------------------------------------
+
+type MultivariateMinimizer (n::Nat) cxt opt v
+    = LineSearch cxt v
+   -> StopCondition (opt v)
+   -> v
+   -> Diff n v (Scalar v)
+   -> History cxt (opt v)
 
 -------------------------------------------------------------------------------
 -- generic transforms
@@ -79,8 +114,21 @@ data Iterator_cgd a = Iterator_cgd
     }
     deriving (Typeable)
 
-instance Show (Iterator_cgd a) where
-    show _ = "CGD"
+type instance Scalar (Iterator_cgd a) = Scalar a
+type instance Logic (Iterator_cgd a) = Bool
+
+instance (Eq (Scalar a), Eq a) => Eq_ (Iterator_cgd a) where
+    a1==a2
+        = (_cgd_x1    a1 == _cgd_x1    a2)
+       && (_cgd_fx1   a1 == _cgd_fx1   a2)
+       && (_cgd_f'x1  a1 == _cgd_f'x1  a2)
+--        && (_cgd_alpha a1 == _cgd_alpha a2)
+--        && (_cgd_f'x0  a1 == _cgd_f'x0  a2)
+--        && (_cgd_s0    a1 == _cgd_s0    a2)
+
+instance (Hilbert a, Show a, Show (Scalar a)) => Show (Iterator_cgd a) where
+--     show cgd = "CGD; x="++show (_cgd_x1 cgd)++"; f'x="++show (_cgd_f'x1 cgd)++"; fx="++show (_cgd_fx1 cgd)
+    show cgd = "CGD; |f'x|="++show (size $ _cgd_f'x1 cgd)++"; fx="++show (_cgd_fx1 cgd)
 
 instance Has_x1 Iterator_cgd v where x1 = _cgd_x1
 instance Has_fx1 Iterator_cgd v where fx1 = _cgd_fx1
@@ -109,38 +157,14 @@ hestenesStiefel f'x1 f'x0 s0 = -(f'x1 <> (f'x1 - f'x0)) / (s0 <> (f'x1 - f'x0))
 
 ----------------------------------------
 
--- | Conjugate gradient descent with reasonable default parameters
-fminunc_cgd ::
-    ( Hilbert v
-    , BoundedField (Scalar v)
-    , Optimizable v
-    , Optimizable (Scalar v)
-    ) => v
-      -> C1 (v -> Scalar v)
-      -> History (Iterator_cgd v)
-fminunc_cgd x0 f =
-    fminunc_cgd_
-        ( multivariateBrent ( stop_brent 1e-12 || maxIterations 20 ))
-        polakRibiere
-        x0
-        f
-        ( maxIterations 20 || mulTolerance 1e-6 )
-
-
 -- | A generic method for conjugate gradient descent that gives you more control over the optimization parameters
+{-# INLINEABLE fminunc_cgd_ #-}
 fminunc_cgd_ ::
-    ( VectorSpace v
+    ( Hilbert v
     , ClassicalLogic v
-    , Optimizable v
-    ) => MultivariateLineSearch v
-      -> ConjugateMethod v
-      -> v
-      -> C1 (v -> Scalar v)
-      -> StopCondition_ (Iterator_cgd v)
-      -> History (Iterator_cgd v)
-fminunc_cgd_ searchMethod conjugateMethod x0 f = {-# SCC fminunc_cgd #-} iterate
-    (step_cgd searchMethod conjugateMethod f)
-    $ Iterator_cgd
+    ) => ConjugateMethod v -> MultivariateMinimizer 1 cxt Iterator_cgd v
+fminunc_cgd_ conj lineSearch stop x0 f = {-# SCC fminunc_cgd #-}
+    iterate (step_cgd lineSearch conj f) stop $ Iterator_cgd
         { _cgd_x1 = x0
         , _cgd_fx1 = f $ x0
         , _cgd_f'x1 = f' $ x0
@@ -152,29 +176,31 @@ fminunc_cgd_ searchMethod conjugateMethod x0 f = {-# SCC fminunc_cgd #-} iterate
     where
         f' = (derivative f $)
 
--- | performs a single iteration of the conjugate gradient descent algorithm
 step_cgd ::
-    ( VectorSpace v
+    ( Hilbert v
     , ClassicalLogic v
-    ) => MultivariateLineSearch v
+    ) => LineSearch cxt v
       -> ConjugateMethod v
       -> C1 (v -> Scalar v)
       -> Iterator_cgd v
-      -> History (Iterator_cgd v)
+      -> History cxt (Iterator_cgd v)
 step_cgd stepMethod conjMethod f (Iterator_cgd x1 fx1 f'x1 alpha1 f'x0 s0 _) = {-# SCC step_cgd #-} do
     let f' = (derivative f $)
 
-    -- this test ensures that conjugacy will be reset when it is lost; the
-    -- formula is taken from equation 1.174 of the book "Nonlinear Programming"
-
---     let beta = if abs (f'x1 <> f'x0) > 0.2 * squaredInnerProductNorm f'x0
+    -- This test on beta ensures that conjugacy will be reset when it is lost.
+    -- The formula is taken from equation 1.174 of the book "Nonlinear Programming".
+    --
+    -- FIXME:
+    -- This test isn't needed in linear optimization, and the inner products are mildly expensive.
+    -- It also makes CGD work only in a Hilbert space.
+    -- Is the restriction worth it?
+--     let beta = if abs (f'x1<>f'x0) > 0.2*(f'x0<>f'x0)
 --             then 0
 --             else max 0 $ conjMethod f'x1 f'x0 s0
 
     let beta = conjMethod f'x1 f'x0 s0
 
-    let s1 = - f'x1 + beta *. f'x1
---     let s1 = - f'x1 + beta *. s0
+    let s1 = -f'x1 + beta *. s0
 
     alpha <- stepMethod (f $) f' x1 s1 alpha1
 
@@ -212,31 +238,25 @@ instance Has_fx1 Iterator_nr a where fx1 = _nr_fx1
 
 ----------------------------------------
 
+{-# INLINEABLE fminunc_nr_ #-}
 fminunc_nr_ ::
-    ( Optimizable v
-    , Hilbert v
+    ( Hilbert v
     , BoundedField (Scalar v)
-    ) => v
-      -> C2 (v -> Scalar v)
-      -> StopCondition_ (Iterator_nr v)
-      -> History (Iterator_nr v)
-fminunc_nr_ x0 f = iterate
-    (step_nr f)
-    $ Iterator_nr
-        { _nr_x1 = x0
-        , _nr_fx1 = f $ x0
-        , _nr_fx0 = infinity
-        , _nr_f'x1 = derivative f $ x0
-        , _nr_alpha1 = 1
-        }
+    ) => MultivariateMinimizer 2 cxt Iterator_nr v
+fminunc_nr_ _ stop x0 f = iterate (step_nr f) stop $ Iterator_nr
+    { _nr_x1 = x0
+    , _nr_fx1 = f $ x0
+    , _nr_fx0 = infinity
+    , _nr_f'x1 = derivative f $ x0
+    , _nr_alpha1 = 1
+    }
 
-step_nr :: forall v.
-    ( Optimizable v
-    , Hilbert v
+step_nr :: forall v cxt.
+    ( Hilbert v
     , BoundedField (Scalar v)
     ) => C2 (v -> Scalar v)
       -> Iterator_nr v
-      -> History (Iterator_nr v)
+      -> History cxt (Iterator_nr v)
 step_nr f (Iterator_nr x0 fx0 _ f'x0 alpha0) = do
     let f'  = (derivative f $)
         f'' = ((derivative . derivative $ f) $)
@@ -271,6 +291,12 @@ step_nr f (Iterator_nr x0 fx0 _ f'x0 alpha0) = do
 -------------------------------------------------------------------------------
 -- The BFGS quasi-newton method
 
+-- | FIXME:
+-- We currently build the full matrix, making things slower than they need to be.
+-- Fixing this probably requires extending the linear algebra in subhask.
+--
+-- FIXME:
+-- Also, the code converges much slower than I would expect for some reason.
 data Iterator_bfgs v = Iterator_bfgs
     { _bfgs_x1      :: !v
     , _bfgs_fx1     :: !(Scalar v)
@@ -281,43 +307,35 @@ data Iterator_bfgs v = Iterator_bfgs
     }
     deriving (Typeable)
 
-instance Show (Iterator_bfgs v) where
-    show _ = "BFGS"
+type instance Scalar (Iterator_bfgs v) = Scalar v
+
+instance (Show v, Show (Scalar v)) => Show (Iterator_bfgs v) where
+    show i = "BFGS; x="++show (_bfgs_x1 i)++"; f'x="++show (_bfgs_f'x1 i)++"; fx="++show (_bfgs_fx1 i)
 
 instance Has_x1 Iterator_bfgs a where x1 = _bfgs_x1
 instance Has_fx1 Iterator_bfgs a where fx1 = _bfgs_fx1
 
+{-# INLINEABLE fminunc_bfgs_ #-}
 fminunc_bfgs_ ::
-    ( Optimizable v
-    , Optimizable (Scalar v)
-    , Hilbert v
+    ( Hilbert v
     , BoundedField (Scalar v)
-    ) => v
-      -> C1 ( v -> Scalar v)
-      -> MultivariateLineSearch v
-      -> StopCondition_ (Iterator_bfgs v)
-      -> History (Iterator_bfgs v)
-fminunc_bfgs_ x0 f linesearch = iterate
-    ( step_bfgs f linesearch )
-    ( Iterator_bfgs
-        { _bfgs_x1 = x0
-        , _bfgs_fx1 = f $ x0
-        , _bfgs_fx0 = infinity
-        , _bfgs_f'x1 = derivative f $ x0
-        , _bfgs_f''x1 = 1
-        , _bfgs_alpha1 = 1e-10
-        }
-    )
+    ) => MultivariateMinimizer 1 cxt Iterator_bfgs v
+fminunc_bfgs_ linesearch stop x0 f = iterate (step_bfgs f linesearch) stop $ Iterator_bfgs
+    { _bfgs_x1 = x0
+    , _bfgs_fx1 = f $ x0
+    , _bfgs_fx0 = infinity
+    , _bfgs_f'x1 = derivative f $ x0
+    , _bfgs_f''x1 = 1
+    , _bfgs_alpha1 = 1e-10
+    }
 
-step_bfgs :: forall v.
-    ( Optimizable v
-    , Optimizable (Scalar v)
-    , Hilbert v
+step_bfgs :: forall v cxt.
+    ( Hilbert v
     , BoundedField (Scalar v)
     ) => C1 ( v -> Scalar v)
-      -> MultivariateLineSearch v
+      -> LineSearch cxt v
       -> Iterator_bfgs v
-      -> History (Iterator_bfgs v)
+      -> History cxt (Iterator_bfgs v)
 step_bfgs f linesearch opt = do
     let f' = (derivative f $)
 
@@ -336,7 +354,7 @@ step_bfgs f linesearch opt = do
 --     let alpha = x1 brent
     alpha <- linesearch (f $) f' x0 f'x0 alpha0
 
-    let x1 = x0 + alpha *. d
+    let x1 = x0 - alpha *. d
         f'x1 = f' x1
 
     let p =   x1 -   x0
@@ -365,6 +383,61 @@ step_bfgs f linesearch opt = do
         , _bfgs_alpha1 = alpha
         }
 
+
+-------------------------------------------------------------------------------
+-- Line search
+
+-- | Functions of this type determine how far to go in a particular direction.
+-- These functions perform the same task as "UnivariateMinimizer",
+-- but the arguments are explicitly multidimensional.
+type LineSearch cxt v
+    = (v -> Scalar v)       -- ^ f  = function
+   -> (v -> v)              -- ^ f' = derivative of the function
+   -> v                     -- ^ x0 = starting position
+   -> v                     -- ^ f'(x0) = direction
+   -> Scalar v              -- ^ initial guess at distance to minimum
+   -> History cxt (Scalar v)
+
+-- | Convert a "UnivariateMinimizer" into a "LineSearch".
+{-# INLINEABLE mkLineSearch #-}
+mkLineSearch ::
+    ( Has_x1 opt (Scalar v)
+    , VectorSpace v
+    , OrdField (Scalar v)
+    , cxt (LineBracket (Scalar v))
+    , cxt (opt (Scalar v))
+    , cxt (Scalar (opt (Scalar v)))
+    ) => proxy opt                                      -- ^ required for type checking
+      -> UnivariateMinimizer cxt opt (Scalar v)
+      -> StopCondition (opt (Scalar v))                 -- ^ controls the number of iterations
+      -> LineSearch cxt v
+mkLineSearch _ fminuncM stops f _ x0 dir stepGuess = {-# SCC uni2multiLineSearch #-} do
+    let g y = f $ x0 + dir.*y
+    opt <- fminuncM stops stepGuess (return . g)
+    return $ x1 opt
+
+-- | Brent's method promoted to work on a one dimension subspace.
+{-# INLINEABLE lineSearch_brent #-}
+lineSearch_brent ::
+    ( VectorSpace v
+    , OrdField (Scalar v)
+    , cxt (LineBracket (Scalar v))
+    , cxt (Iterator_brent (Scalar v))
+    ) => StopCondition (Iterator_brent (Scalar v))
+      -> LineSearch cxt v
+lineSearch_brent stops = mkLineSearch (Proxy::Proxy Iterator_brent) fminuncM_brent stops
+
+-- | Golden section search promoted to work on a one dimension subspace.
+{-# INLINEABLE lineSearch_gss #-}
+lineSearch_gss ::
+    ( VectorSpace v
+    , OrdField (Scalar v)
+    , cxt (LineBracket (Scalar v))
+    , cxt (Iterator_gss (Scalar v))
+    ) => StopCondition (Iterator_gss (Scalar v))
+      -> LineSearch cxt v
+lineSearch_gss stops = mkLineSearch (Proxy::Proxy Iterator_gss) fminuncM_gss stops
+
 -------------------------------------------------------------------------------
 -- backtracking
 
@@ -380,33 +453,37 @@ data Backtracking v = Backtracking
     }
     deriving (Typeable)
 
+type instance Scalar (Backtracking v) = Scalar v
+
 instance Show (Backtracking v) where
     show _ = "Backtracking"
+
+instance Has_fx1 Backtracking v where
+    fx1 = _bt_fx
 
 -- | Backtracking linesearch is NOT guaranteed to converge.
 -- It is frequently used as the linesearch for multidimensional problems.
 -- In this case, the overall minimization problem can converge significantly
 -- faster than if one of the safer methods is used.
+{-# INLINABLE backtracking #-}
 backtracking ::
     ( Hilbert v
-    , Optimizable v
-    ) => StopCondition_ (Backtracking v)
-      -> MultivariateLineSearch v
-backtracking stops f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} do
-    let g y = {-# SCC backtracking_g #-} f $ x0 + y *. f'x0
-    let grow=2.1
+    , cxt (Backtracking v)
+    ) => StopCondition (Backtracking v)
+      -> LineSearch cxt v
+backtracking stop f f' x0 f'x0 stepGuess = {-# SCC backtracking #-} beginFunction "backtracking" $ do
+    let g y = f $ x0 + y *. f'x0
+    let grow=1.65
 
-    fmap _bt_x $ iterate (step_backtracking 0.5 f f')
-        (Backtracking
-            { _bt_x = (grow*stepGuess)
-            , _bt_fx = g (grow*stepGuess)
-            , _bt_f'x = grow *. (f' $ x0 + grow*stepGuess *. f'x0)
-            , _init_dir = f'x0
-            , _init_x = x0
-            , _init_fx = f x0
-            , _init_f'x = f'x0
-            })
-        stops
+    fmap _bt_x $ iterate (step_backtracking 0.85 f f') stop $ Backtracking
+        { _bt_x = (grow*stepGuess)
+        , _bt_fx = g (grow*stepGuess)
+        , _bt_f'x = grow *. (f' $ x0 + grow*stepGuess *. f'x0)
+        , _init_dir = f'x0
+        , _init_x = x0
+        , _init_fx = f x0
+        , _init_f'x = f'x0
+        }
 
 step_backtracking ::
     ( Module v
@@ -414,7 +491,7 @@ step_backtracking ::
       -> (v -> Scalar v)
       -> (v -> v)
       -> Backtracking v
-      -> History (Backtracking v)
+      -> History cxt (Backtracking v)
 step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
     let x1 = tao * _bt_x bt
     return $ bt
@@ -423,69 +500,90 @@ step_backtracking !tao !f !f' !bt = {-# SCC step_backtracking #-} do
         , _bt_f'x = g' x1
         }
     where
-        g alpha = f $ _init_x bt + alpha *. _init_dir bt
+        g  alpha =          f  (_init_x bt + alpha *. _init_dir bt)
         g' alpha = alpha *. f' (_init_x bt + alpha *. _init_dir bt)
 
 ---------------------------------------
 -- stop conditions
 
 {-# INLINABLE wolfe #-}
-wolfe ::
-    ( Hilbert v
-    , Normed (Scalar v)
-    , Ord (Scalar v)
-    ) => Scalar v -> Scalar v -> StopCondition_ (Backtracking v)
+wolfe :: Hilbert v => Scalar v -> Scalar v -> StopCondition (Backtracking v)
 wolfe !c1 !c2 !bt0 !bt1 = {-# SCC wolfe #-} do
     a <- amijo c1 bt0 bt1
     b <- strongCurvature c2 bt0 bt1
     return $ a && b
 
 {-# INLINABLE amijo #-}
-amijo ::
-    ( Hilbert v
-    , Ord (Scalar v)
-    ) => Scalar v -> StopCondition_ (Backtracking v)
+amijo :: Hilbert v => Scalar v -> StopCondition (Backtracking v)
 amijo !c1 _ !bt = {-# SCC amijo #-} return $
     _bt_fx bt <= _init_fx bt + c1 * (_bt_x bt) * ((_init_f'x bt) <> (_init_dir bt))
 
 {-# INLINABLE weakCurvature #-}
-weakCurvature ::
-    ( Hilbert v
-    , Ord (Scalar v)
-    ) => Scalar v -> StopCondition_ (Backtracking v)
+weakCurvature :: Hilbert v => Scalar v -> StopCondition (Backtracking v)
 weakCurvature !c2 _ !bt = {-# SCC weakCurvature #-} return $
     _init_dir bt <> _bt_f'x bt >= c2 * (_init_dir bt <> _init_f'x bt)
 
 {-# INLINABLE strongCurvature #-}
-strongCurvature ::
-    ( Hilbert v
-    , Ord (Scalar v)
-    , Normed (Scalar v)
-    ) => Scalar v -> StopCondition_ (Backtracking v)
+strongCurvature :: Hilbert v => Scalar v -> StopCondition (Backtracking v)
 strongCurvature !c2 _ !bt = {-# SCC strongCurvature #-} return $
     abs (_init_dir bt <> _bt_f'x bt) <= c2 * abs (_init_dir bt <> _init_f'x bt)
 
+--------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
+-- | The simplest quadratic function
+{-# INLINEABLE sphere #-}
+sphere :: Hilbert v => C1 (v -> Scalar v)
+sphere = unsafeProveC1 f f' -- f''
+    where
+        f   v = v<>v+3
+        f'  v = 2*.v
+--         f'' _ = 2
 
--- | determine how far to go in a particular direction
-type MultivariateLineSearch v
-    = (v -> Scalar v)       -- ^ f  = function
-    -> (v -> v)             -- ^ f' = derivative of the function
-    -> v                    -- ^ x0 = starting position
-    -> v                    -- ^ f'(x0) = direction
-    -> Scalar v             -- ^ initial guess at distance to minimum
-    -> History (Scalar v)
+-- |
+--
+-- > ackley [0,0] == 0
+--
+-- ackley :: (IsScalar r, Field r) => SVector 2 r -> r
+{-# INLINEABLE ackley #-}
+ackley :: SVector 2 Double -> Double
+ackley v = -20 * exp (-0.2 * sqrt $ 0.5 * (x*x + y*y)) - exp(0.5*cos(2*pi*x)+0.5*cos(2*pi*y)) + exp 1 + 20
+    where
+        x=v!0
+        y=v!1
 
-multivariateBrent ::
-    ( Hilbert v
-    , OrdField (Scalar v)
-    , Optimizable v
-    , Optimizable (Scalar v)
-    ) => StopCondition_ (Iterator_brent (Scalar v))
-      -> MultivariateLineSearch v
-multivariateBrent !stops !f _ !x0 !f'x0 !stepGuess = {-# SCC multivariateBrent #-} do
-    let g y = f $ x0 + y *. f'x0
-    bracket <- lineBracket g (stepGuess/2) (stepGuess*2)
-    brent <- fminuncM_brent_ (return . g) bracket stops
-    return $ _brent_x brent
+-- |
+--
+-- > beale [3,0.5] = 0
+{-# INLINEABLE beale #-}
+beale :: SVector 2 Double -> Double
+beale v = (1.5-x+x*y)**2 + (2.25-x+x*y*y)**2 + (2.625-x+x*y*y*y)**2
+    where
+        x=v!0
+        y=v!1
+
+-- | The Rosenbrock function is hard to optimize because it has a narrow quadratically shaped valley.
+--
+-- See <https://en.wikipedia.org/wiki/Rosenbrock_function wikipedia> for more details.
+--
+-- FIXME:
+-- The derivatives of this function are rather nasty.
+-- We need to expand "SubHask.Category.Trans.Derivative" to handle these harder cases automatically.
+{-# INLINEABLE rosenbrock #-}
+rosenbrock :: (ValidElem v (Scalar v), ExpRing (Scalar v), FiniteModule v) => C1 (v -> Scalar v)
+rosenbrock = unsafeProveC1 f f'
+    where
+        f v = sum [ 100*(v!(i+1) - (v!i)**2)**2 + (v!i - 1)**2 | i <- [0..dim v-2] ]
+
+        f' v = imap go v
+            where
+                go i x = if i==dim v-1
+                    then pt2
+                    else if i== 0
+                        then pt1
+                        else pt1+pt2
+                    where
+                        pt1 = 400*x*x*x - 400*xp1*x + 2*x -2
+                        pt2 = 200*x - 200*xm1*xm1
+                        xp1 = v!(i+1)
+                        xm1 = v!(i-1)
+

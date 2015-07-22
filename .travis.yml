@@ -1,0 +1,32 @@
+# NB: don't set `language: haskell` here
+
+# The following enables several GHC versions to be tested; often it's enough to test only against the last release in a major GHC version. Feel free to omit lines listings versions you don't need/want testing for.
+env:
+ - CABALVER=1.22 GHCVER=7.10.1 LLVMVER=3.5
+ - CABALVER=1.22 GHCVER=7.10.2 LLVMVER=3.5
+ # - CABALVER=head GHCVER=head   # see section about GHC HEAD snapshots
+
+before_install:
+ -  export PATH="~/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:/usr/bin:$PATH"
+
+install:
+ - travis_retry sudo curl https://raw.githubusercontent.com/mikeizbicki/HLearn/travis/install/ubuntu-precise.sh | sh
+ #- mkdir  /home/travis/.cabal
+ #- echo 'optimization: False' >> /home/travis/.cabal/config
+ # Sometimes GHC uses too much RAM for the travis server, causing the install script to fail.
+ # In this case, we can fix the problem by reinstalling without optimizations.
+
+# Here starts the actual work to be performed for the package under test; any command which exits with a non-zero exit code causes the build to fail.
+script:
+ - if [ -f configure.ac ]; then autoreconf -i; fi
+ - cabal configure -fO0 --enable-tests --enable-benchmarks -v2  # -v2 provides useful information for debugging
+ - cabal build # this builds all libraries and executables (including tests/benchmarks)
+ - cabal test
+ - cabal check
+ - cabal sdist   # tests that a source-distribution can be generated
+
+# Check that the resulting source distribution can be built & installed.
+# If there are no other `.tar.gz` files in `dist`, this can be even simpler:
+# `cabal install --force-reinstalls dist/*-*.tar.gz`
+ - SRC_TGZ=$(cabal info . | awk '{print $2;exit}').tar.gz &&
+   (cd dist && cabal install --force-reinstalls "$SRC_TGZ")

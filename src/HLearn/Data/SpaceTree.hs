@@ -1,16 +1,23 @@
-{-# LANGUAGE DataKinds,MagicHash,UnboxedTuples #-}
-
+-- | The space tree abstraction was pioneered by the <http://mlpack.org MLPack> library.
+-- It provides a generic interface for all tree structures that support nearest neighbor queries.
+-- The paper <http://arxiv.org/abs/1304.4327 Tree Independent Dual Tree Algorithms> gives full details.
+--
+-- FIXME:
+-- Should this interface be incorporated into subhask's "Container" class hierarchy?
+--
+-- FIXME:
+-- There is a close relation between the pruning folds described in the MLPack paper and the theory of ana/catamorphisms that haskellers love.
+-- Making this explicit would require some serious work, but would (maybe) provide an even simpler interface.
 module HLearn.Data.SpaceTree
     (
     -- * Type classes
     SpaceTree (..)
 
-    , Weighted#
-
     -- * Generic algorithms
-    , stMaxDescendentDistance
     , stToList
 --     , stToListW
+    , stHasNoChildren
+    , stChildrenList
     , stDescendents
     , stNumDp
     , stNumNodes
@@ -27,52 +34,25 @@ module HLearn.Data.SpaceTree
     , stMaxDepth
     , stNumSingletons
     , stExtraLeaves
-
-    -- * Pruning folds
-
-    -- ** Single tree
-
-    , prunefoldinit
-    , prunefold
-    , prunefoldA
-    , prunefoldB
-    , prunefoldB_CanError
---     , prunefoldB_CanError_sort
-    , prunefoldC
-    , prunefoldD
---     , prunefoldM
-    , noprune
-
     )
     where
 
-import Debug.Trace
-
 import qualified Data.List as L
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector.Generic as VG
 
 import Prelude (map)
 import SubHask
+import SubHask.Algebra.Array
 import SubHask.Monad
 import SubHask.Compatibility.Containers
 
-import HLearn.Models.Distributions.Univariate.Normal
+import HLearn.Models.Distributions
 
 -------------------------------------------------------------------------------
 -- SpaceTree
 
-type Weighted# dp = (# Scalar dp, dp #)
-
-fst# :: (# a,b #) -> a
-fst# (# a,b #) = a
-
-snd# :: (# a,b #) -> b
-snd# (# a,b #) = b
-
 class
     ( Metric dp
+    , Bounded (Scalar dp)
     , Logic (t dp) ~ Bool
     , Logic dp ~ Bool
     , Logic (LeafContainer t dp) ~ Bool
@@ -80,7 +60,7 @@ class
     , Logic (ChildContainer t (t dp)) ~ Bool
     , Eq_ (t dp)
     , Eq_ (ChildContainer t (t dp))
-    , Scalar dp ~ Scalar (t dp)
+--     , Scalar dp ~ Scalar (t dp)
     , Elem (ChildContainer t (t dp)) ~ t dp
     , Elem (LeafContainer t dp) ~ dp
     , Constructible (LeafContainer t dp)
@@ -89,78 +69,49 @@ class
     , Normed (ChildContainer t (t dp))
     , Foldable (LeafContainer t dp)
     , Foldable (ChildContainer t (t dp))
---     , Container (LeafContainer t dp)
---     , Container (LeafContainer t (t dp))
-
---     , Constructible (t dp)
     , dp ~ Elem (t dp)
     ) => SpaceTree t dp
         where
 
     type LeafContainer t :: * -> *
-    type LeafContainer t = V.Vector
+    type LeafContainer t = BArray
 
     type ChildContainer t :: * -> *
-    type ChildContainer t = V.Vector
+    type ChildContainer t = BArray
 
-    {-# INLINABLE stMinDistance #-}
-    {-# INLINABLE stMaxDistance #-}
-    stMinDistance :: t dp -> t dp -> Scalar dp
-    stMinDistance t1 t2 = fst# (stMinDistanceWithDistance t1 t2)
-    stMaxDistance :: t dp -> t dp -> Scalar dp
-    stMaxDistance t1 t2 = fst# (stMaxDistanceWithDistance t1 t2)
-
-    stMinDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
-    stMaxDistanceWithDistance :: t dp -> t dp -> (# Scalar dp, Scalar dp #)
-
-    {-# INLINABLE stMinDistanceDp #-}
-    {-# INLINABLE stMaxDistanceDp #-}
-    stMinDistanceDp :: t dp -> dp -> Scalar dp
-    stMinDistanceDp t dp = fst# (stMinDistanceDpWithDistance t dp)
-    stMaxDistanceDp :: t dp -> dp -> Scalar dp
-    stMaxDistanceDp t dp = fst# (stMaxDistanceDpWithDistance t dp)
-
-    stIsMinDistanceDpFartherThanWithDistanceCanError
-        :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
-    stIsMaxDistanceDpFartherThanWithDistanceCanError
-        :: CanError (Scalar dp) => t dp -> dp -> Scalar dp -> Scalar dp
-
-    stMinDistanceDpWithDistance :: t dp -> dp -> (# Scalar dp, Scalar dp #)
-    stMaxDistanceDpWithDistance :: t dp -> dp -> (# Scalar dp, Scalar dp #)
-
-    stMinDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
-    stMaxDistanceDpFromDistance :: t dp -> dp -> Scalar dp -> Scalar dp
-
-    stHasNode   :: t dp -> Bool
     stChildren  :: t dp -> ChildContainer t (t dp)
+    stLeaves    :: t dp -> LeafContainer t dp
+
     stNode      :: t dp -> dp
     stWeight    :: t dp -> Scalar dp
 
-    {-# INLINABLE stHasNoChildren #-}
-    stHasNoChildren :: t dp -> Bool
-    stHasNoChildren t = isEmpty $ stChildren t
+    {-# INLINE stNodeW #-}
+    stNodeW :: t dp -> Labeled' dp (Scalar dp)
+    stNodeW t = Labeled' (stNode t) (stWeight t)
 
-    {-# INLINABLE stChildrenList #-}
-    stChildrenList :: t dp -> [t dp]
-    stChildrenList t = toList $ stChildren t
+    {-# INLINABLE stMaxDescendentDistance #-}
+    stMaxDescendentDistance :: t dp -> Scalar dp
+    stMaxDescendentDistance t = maxBound
 
-    {-# INLINABLE stLeaves #-}
-    stLeaves :: t dp -> LeafContainer t dp
-    stLeaves t = zero
+-------------------------------------------------------------------------------
 
-    {-# INLINABLE stNodeW #-}
-    stNodeW :: t dp -> Weighted# dp
-    stNodeW t = (# stWeight t, stNode t #)
+instance
+    ( Metric dp
+    , Logic dp~Bool
+    , Bounded (Scalar dp)
+    ) => SpaceTree BArray dp
+        where
 
-    ro :: t dp -> Scalar dp
-    lambda :: t dp -> Scalar dp
+    type LeafContainer BArray = BArray
+    type ChildContainer BArray = BArray
+
+    stChildren _ = empty
+    stLeaves = id
+    stNode = (!0)
+    stWeight = 1
 
 -------------------------------------------------------------------------------
 -- generic algorithms
-
-{-# INLINABLE stMaxDescendentDistance #-}
-stMaxDescendentDistance :: (Eq dp, SpaceTree t dp) => t dp -> Scalar dp
-stMaxDescendentDistance t = maximum_ 0 $ map (distance (stNode t)) $ stDescendents t
 
 {-# INLINABLE stToSeqDFS #-}
 stToSeqDFS :: SpaceTree t dp => t dp -> Seq dp
@@ -209,6 +160,14 @@ stToList = toList . stToSeqDFS
 --         go xs = if stNode t `elem` (map stNode $ stChildrenList t)
 --             then xs
 --             else (stNode t,getTag t) : xs
+
+{-# INLINABLE stHasNoChildren #-}
+stHasNoChildren :: SpaceTree t dp => t dp -> Bool
+stHasNoChildren t = isEmpty $ stChildren t
+
+{-# INLINABLE stChildrenList #-}
+stChildrenList :: SpaceTree t dp => t dp -> [t dp]
+stChildrenList t = toList $ stChildren t
 
 {-# INLINABLE stDescendents #-}
 stDescendents :: SpaceTree t dp => t dp -> [dp]
@@ -329,187 +288,3 @@ stExtraLeaves t = if stHasNoChildren t
         + if supremum $ map (\c -> stNode c==stNode t && stHasNoChildren c) $ stChildrenList t
             then 1
             else 0
-
--------------------------------------------------------------------------------
--- pruning folds
-
----------------------------------------
--- single tree algs
-
-{-# INLINABLE prunefoldinit #-}
-prunefoldinit :: SpaceTree t dp => (t dp -> res) -> (res -> t dp -> Bool) -> (dp -> res -> res) -> t dp -> res
-prunefoldinit init prune f t = foldl'
-    (prunefold prune f)
-    (init t)
-    (stChildrenList t)
-
-{-# INLINABLE prunefold #-}
-prunefold :: SpaceTree t a => (b -> t a -> Bool) -> (a -> b -> b) -> b -> t a -> b
-prunefold prune f b t = if prune b t
-    then b
-    else if stHasNoChildren t
-        then b'
-        else foldl' (prunefold prune f) b' (stChildrenList t)
-    where
-        b' = f (stNode t) b
-
-{-# INLINABLE prunefoldW #-}
-prunefoldW :: SpaceTree t a => (b -> t a -> Bool) -> (Weighted# a -> b -> b) -> b -> t a -> b
-prunefoldW prune f b t = if prune b t
-    then b
-    else if stHasNoChildren t
-        then b'
-        else foldl' (prunefoldW prune f) b' (stChildrenList t)
-    where
-        b' = f (stNodeW t) b
-
-{-# INLINABLE prunefoldA #-}
-prunefoldA :: SpaceTree t a => (t a -> b -> Maybe' b) -> b -> t a -> b
-prunefoldA !f !b !t = {-# SCC prunefoldA #-} case f t b of
-    Nothing' -> b
-    Just' b' -> foldl' (prunefoldA f) b' (stChildren t)
-
-{-# INLINABLE prunefoldB #-}
-prunefoldB :: SpaceTree t a => (a -> b -> b) -> (t a -> b -> Maybe' b) -> b -> t a -> b
-prunefoldB !f1 !f2 !b !t = {-# SCC prunefoldB #-} case f2 t b of
-    Nothing' -> {-# SCC prunefoldB_Nothing #-} b
-    Just' b' -> {-# SCC prunefoldB_Just #-} foldl' (prunefoldB f1 f2) b'' (stChildren t)
-        where
-            b'' = {-# SCC b'' #-} foldr' f1 b' (stLeaves t)
-
--- {-# INLINABLE prunefoldB_CanError #-}
--- prunefoldB_CanError :: (SpaceTree t a, CanError b) =>
---     (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
--- prunefoldB_CanError !f1 !f2 !b !t = go b t
---     where
---         go !b !t = {-# SCC prunefoldB_CanError #-} if isError res
---             then {-# SCC prunefoldB_CanError_Nothing #-} b
---             else {-# SCC prunefoldB_CanError_Just #-}
---                 ckfoldl' go b'' (stChildren t)
---                 where
---                     ckfoldl' a = {-# SCC ckfoldl #-} CK.foldl' a
---                     !res = f2 t b
---                     !b'' = {-# SCC b'' #-} ckfoldl' (flip f1) res (stLeaves t)
-
-{-# INLINABLE prunefoldB_CanError #-}
--- {-# INLINE prunefoldB_CanError #-}
-prunefoldB_CanError :: (SpaceTree t a, CanError b) =>
-    (a -> b -> b) -> (t a -> b -> b) -> b -> t a -> b
-prunefoldB_CanError !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
-    where
-        go !t !b = {-# SCC prunefoldB_CanError_if #-} if isError res
-            then {-# SCC prunefoldB_CanError_Nothing #-} b
-            else {-# SCC prunefoldB_CanError_Just #-}
-                foldr' go b'' $ {-# SCC prunefoldB_CanError_stChildren #-} stChildren t
-                where
-                    res = {-# SCC res #-} f2 t b
-                    b'' = {-# SCC b'' #-} foldr' f1 res (stLeaves t)
-
-{-# INLINABLE prunefoldB_CanError_sort #-}
-prunefoldB_CanError_sort :: (SpaceTree t a, CanError b) =>
-    a -> (a -> b -> b) -> (Scalar a -> t a -> b -> b) -> b -> t a -> b
-prunefoldB_CanError_sort !query !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_sort #-}
-    go ( distance (stNode t) query, t ) b
-    where
-        go !( dist,t ) !b =  if isError res
-            then b
-            else foldr' go b'' children'
-                where
-                    res = f2 dist t b
-                    b'' = foldr' f1 res (stLeaves t)
-
-                    children'
-                        = {-# SCC children' #-} qsortHalf (\( d1,_ ) ( d2,_ ) -> compare d2 d1)
-                        $  map (\x -> ( distance (stNode x) query, x ))
-                        $ toList
-                        $ stChildren t
-
--- | This is a version of quicksort that only descends on its lower half.
--- That is, it only "approximately" sorts a list.
--- It is modified from http://en.literateprograms.org/Quicksort_%28Haskell%29
-{-# INLINABLE qsortHalf #-}
-qsortHalf :: (a -> a -> Ordering) -> [a] -> [a]
-qsortHalf cmp x = go x []
-    where
-        go [] y     = y
-        go [x] y    = x:y
-        go (x:xs) y = part xs [] [x] []
-            where
-                part [] l e g = go l (e ++ g ++ y)
-                part (z:zs) l e g = case cmp z x of
-                    GT -> part zs l e (z:g)
-                    LT -> part zs (z:l) e g
-                    EQ -> part zs l (z:e) g
-
--- sortBy cmp = mergeAll . sequences
---   where
---     sequences (a:b:xs)
---       | a `cmp` b == GT = descending b [a]  xs
---       | otherwise       = ascending  b (a:) xs
---     sequences xs = [xs]
---
---     descending a as (b:bs)
---       | a `cmp` b == GT = descending b (a:as) bs
---     descending a as bs  = (a:as): sequences bs
---
---     ascending a as (b:bs)
---       | a `cmp` b /= GT = ascending b (\ys -> as (a:ys)) bs
---     ascending a as bs   = as [a]: sequences bs
---
---     mergeAll [x] = x
---     mergeAll xs  = mergeAll (mergePairs xs)
---
---     mergePairs (a:b:xs) = merge a b: mergePairs xs
---     mergePairs xs       = xs
---
---     merge as@(a:as') bs@(b:bs')
---       | a `cmp` b == GT = b:merge as  bs'
---       | otherwise       = a:merge as' bs
---     merge [] bs         = bs
---     merge as []         = as
-
-{-# INLINABLE prunefoldD #-}
--- {-# INLINE prunefoldD #-}
-prunefoldD :: (SpaceTree t a, CanError b, Monoid b) =>
-    (a -> b -> b) -> ( (# a,Scalar a #) -> b -> b) -> b -> t a -> b
-prunefoldD !f1 !f2 !b !t = {-# SCC prunefoldB_CanError_start #-} go t b
-    where
-        go !t !b =  if isError res
-            then b
-            else foldr' go b'' $ stChildren t
-                where
-                    !res = f2' t b
-                    !b'' = foldr' f1 res (stLeaves t)
-
-        f2' t b = f2 (# stNode t, lambda t #) b
-
---                     !b'' = foldr' f2' res (stLeaves t)
-
---         f2' dp b = if isError tmp
---             then b
---             else tmp
---             where tmp = f2 (singleton dp) b
-
-
-
-{-# INLINABLE prunefoldC #-}
-prunefoldC ::
-    ( SpaceTree t a
-    , CanError b
-    ) => (a -> b -> b) -> b -> t a -> b
-prunefoldC !f !b !t = go t b
-    where
-        go !t !b = if isError res
-            then b
-            else foldr' go b'' $ stChildren t
-            where
-                res = f (stNode t) b
-                b'' = foldr' f1 res $ stLeaves t
-
-        f1 a b = if isError a' then b else a'
-            where a' = f a b
-
-{-# INLINE noprune #-}
-noprune :: b -> a -> Bool
-noprune _ _ = False
-

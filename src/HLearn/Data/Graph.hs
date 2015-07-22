@@ -139,8 +139,8 @@ distance' g1 g2 = distance (graph g1) (graph g2)
 
 data Graph_ = Graph_
     { transitionMatrix :: !(Matrix Double)
-    , startVec :: !(Vector Double)
-    , stopVec :: !(Vector Double)
+    , startVec :: !(DynVector 0 Double)
+    , stopVec :: !(DynVector 0 Double)
     }
     deriving (Show)
 

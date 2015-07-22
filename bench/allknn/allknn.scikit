@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+
+import sys
+from sklearn.neighbors import NearestNeighbors
+import numpy as np
+
+f = open(sys.argv[1])
+data = np.loadtxt(fname=f, delimiter=',')
+
+nbrs = NearestNeighbors(n_neighbors=int(sys.argv[2]), algorithm=sys.argv[3]).fit(data)
+distances, indices = nbrs.kneighbors(data)
+
