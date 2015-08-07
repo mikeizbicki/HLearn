@@ -349,7 +349,7 @@ allknn params loaddata _ _ _ = do
 
     let rs_shuffle = fromList $ case seed params of
             Nothing -> rs_take
-            Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
+--             Just n  -> evalRand (shuffle rs_take) (mkStdGen n)
 
     -- build the trees
     reftree :: CoverTree_ exprat childC leafC (Labeled' dp l)
