@@ -19,7 +19,7 @@ The H in HLearn stands for three separate concepts that are fundamental to HLear
 
 1. The H stands for [Haskell](http://haskell.org).
 Machine learning is about estimating *functions* from data,
-so it makes sense that a functional programming langauge would be well suited for machine learning.
+so it makes sense that a functional programming language would be well suited for machine learning.
 But Functional programming languages are not widely used in machine learning because they traditionally lack strong support for the fast numerical computations required for learning algorithms.
 HLearn uses the [SubHask](http://github.com/mikeizbicki/subhask) library to get this fast numeric support in Haskell.
 The two libraries are being developed in tandem with each other.
