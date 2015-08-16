@@ -21,8 +21,8 @@ import System.IO
 
 main = do
     xs :: BArray (Labeled' (SVector "dyn" Double) (Lexical String))
-       <- loadCSVLabeled' 0 "/home/user/proj/hlearn/datasets/csv/uci/wine.csv"
---        <- loadCSVLabeled' 8 "/home/user/proj/hlearn/datasets/csv/uci/pima-indians-diabetes.csv"
+       <- loadCSVLabeled' 0 "datasets/csv/uci/wine.csv"
+       -- <- loadCSVLabeled' 8 "datasets/csv/uci/pima-indians-diabetes.csv"
 
     glm <- runHistory
         ( (displayFilter (maxReportLevel 2) dispIteration)
