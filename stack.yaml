@@ -1,0 +1,11 @@
+flags: {}
+packages:
+- '.'
+#- subhask/
+extra-deps:
+    [ subhask-0.1.1.0
+    , gamma-0.9.0.2
+    , continued-fractions-0.9.1.1
+    , converge-0.1.0.1
+    ]
+resolver: lts-3.3
