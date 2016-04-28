@@ -27,8 +27,8 @@ The two libraries are being developed in tandem with each other.
 <!--but their compilers lack the support for real world optimizations needed for numerical applications.-->
 <!--Haskell strikes a nice balance.-->
 
-1. The H stands for [Homomorphisms](https://duckduckgo.com/l/?kh=-1&uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FHomomorphism).
-Homomorphisms are a fundamental concept in [abstract algebra](https://duckduckgo.com/l/?kh=-1&uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FAbstract_algebra),
+1. The H stands for [Homomorphisms](https://en.wikipedia.org/wiki/Homomorphism).
+Homomorphisms are a fundamental concept in [abstract algebra](https://en.wikipedia.org/wiki/Abstract_algebra),
 and HLearn exploits the algebraic structures inherrent in learning systems.
 The following table gives a brief overview of what these structures give us:
 
