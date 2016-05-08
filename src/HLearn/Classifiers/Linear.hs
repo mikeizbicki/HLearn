@@ -58,7 +58,7 @@ trainLogisticRegression lambda xs = trainGLM_
         (lineSearch_brent (stop_brent 1e-6 || maxIterations 50 || noProgress || fx1grows))
 --         (backtracking (strongCurvature 1e-10))
 --         (backtracking fx1grows)
-        (mulTolerance 1e-9 || maxIterations 50 || noProgress {-|| fx1grows-})
+        (mulTolerance 1e-9 || maxIterations 50 || noProgress {-- || fx1grows-})
     )
     loss_logistic
     lambda
