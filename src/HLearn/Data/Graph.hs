@@ -1,7 +1,6 @@
 module HLearn.Data.Graph
     where
 
-
 import SubHask
 import SubHask.Compatibility.HMatrix
 import SubHask.TemplateHaskell.Deriving
@@ -38,15 +37,6 @@ kernelDistance v1 v2 = sqrt $ selfKernel v1 + selfKernel v2 - 2* kernel v1 v2
 
 -- | A "SelfKernel" precomputes the kernel applied to itself twice.
 -- This is a common calculation in many kernelized algorithms, so this can greatly speed up computation.
--- newtype SelfKernel v = SelfKernel (Scalar v, v)
--- deriveHierarchy ''SelfKernel [''Ord,''Boolean]
--- deriveTypefamilies [''Scalar] ''SelfKernel
--- deriveSingleInstance ''SelfKernel ''Eq
--- deriveSingleInstance ''SelfKernel ''POrd
--- deriveSingleInstance ''SelfKernel ''Ord
--- deriveSingleInstance ''SelfKernel ''SupSemilattice
--- deriveSingleInstance ''SelfKernel ''InfSemilattice
--- deriveSingleInstance ''SelfKernel ''Lattic
 
 data SelfKernel v = SelfKernel !(Scalar v) !v
 
@@ -88,8 +78,6 @@ instance KernelSpace v => Metric (SelfKernel v) where
 --------------------------------------------------------------------------------
 -- Graph
 
--- type Graph = SelfKernel Graph_
-
 data Graph = Graph
     { graph :: Graph_
     , memo :: [Double]
@@ -100,10 +88,6 @@ type instance Logic Graph = Bool
 
 instance Eq_ Graph where
     g1==g2 = graph g1==graph g2
-
--- instance POrd_ Graph
--- instance Lattice_ Graph
--- instance Ord_ Graph
 
 instance NFData Graph where
     rnf (Graph g m) = deepseq g $ rnf m
@@ -116,8 +100,6 @@ mkGraph g_ = Graph
     where
 
         go []     tm' ret = ret
---         go (0:xs) tm' ret = go xs tm'  $ 0:ret
---         go (x:xs) tm' ret = go xs tm'' $ ((startVec g_ <> (tm'' `mXv` stopVec g_))):ret
         go (0:xs) tm' ret = go xs tm'  $ ret+ [0]
         go (x:xs) tm' ret = go xs tm'' $ ret + [(startVec g_ <> (tm'' `mXv` stopVec g_))]
             where
@@ -154,16 +136,10 @@ instance Eq_ Graph_ where
 type instance Scalar Graph_ = Double
 
 instance NFData Graph_ where
---     rnf g = ()
     rnf g = deepseq (transitionMatrix g)
           $ deepseq (startVec g)
           $ rnf (stopVec g)
 
--- instance POrd_ Graph_
--- instance Lattice_ Graph_ where
---     pcompare g1 g2 = pcompare (toVector $ transitionMatrix g1) (toVector $ transitionMatrix g2)
---
--- instance Ord_ Graph_
 
 productGraph_ :: Graph_ -> Graph_ -> Graph_
 productGraph_ g1 g2 = Graph_
@@ -175,8 +151,6 @@ productGraph_ g1 g2 = Graph_
 instance KernelSpace Graph_ where
     kernel = mkKernelGraph_ lambdas
 
--- mkKernelGraph :: [Double] -> Graph -> Graph -> Double
--- mkKernelGraph xs (SelfKernel _ g1) (SelfKernel _ g2) = mkKernelGraph_ xs g1 g2
 
 mkKernelGraph_ :: [Double] -> Graph_ -> Graph_ -> Double
 mkKernelGraph_ xs g1 g2 = go xs one 0
@@ -189,36 +163,6 @@ mkKernelGraph_ xs g1 g2 = go xs one 0
             where
                 tm'' = tm' * transitionMatrix gprod
 
--- mkDistanceGraph :: [Double] -> Graph -> Graph -> Double
--- mkDistanceGraph lambdas (SelfKernel _ g1) (SelfKernel _ g2)
---     = sqrt $ sum
--- --         [ mkKernelGraph_ lambdas g1 g1
--- --         + mkKernelGraph_ lambdas g2 g2
--- --         - mkKernelGraph_ lambdas g1 g2
--- --         - mkKernelGraph_ lambdas g1 g2
--- --
--- --         ]
---
--- --         [ (lambdas!(i-1))*
--- --             ( startVec g1' <> ((transitionMatrix g1'^^^i) `mXv` stopVec g1')
--- --             + startVec g2' <> ((transitionMatrix g2'^^^i) `mXv` stopVec g2')
--- --             - startVec gp <> ((transitionMatrix gp^^^i) `mXv` stopVec gp)
--- --             - startVec gp <> ((transitionMatrix gp^^^i) `mXv` stopVec gp)
--- --             )
--- --
--- --         | i <- [1..length lambdas::Int]
--- --         ]
--- --         where
--- --             g1'=productGraph_ g1 g1
--- --             g2'=productGraph_ g2 g2
--- --             gp=productGraph_ g1 g2
---
---         [ (lambdas!i)*
---             ( startVec g1 <> ((transitionMatrix g1^^^(i+1)) `mXv` stopVec g1)
---             - startVec g2 <> ((transitionMatrix g2^^^(i+1)) `mXv` stopVec g2)
---             ) **2
---         | i <- [0..length lambdas-1::Int]
---         ]
 
 (^^^) :: Ring r => r -> Int -> r
 (^^^) r 0 = one
@@ -235,7 +179,6 @@ edgeList2UndirectedGraph :: Int -> [(Int,Int)] -> Graph
 edgeList2UndirectedGraph numVertices edgeList = edgeList2Graph numVertices $ symmetrize edgeList
 
 edgeList2Graph :: Int -> [(Int,Int)] -> Graph
--- edgeList2Graph numVertices edgeList = mkSelfKernel $ Graph_
 edgeList2Graph numVertices edgeList = mkGraph $ Graph_
     { transitionMatrix = mat -- +one
     , startVec=VG.replicate numVertices $ 1/fromIntegral numVertices
@@ -257,13 +200,6 @@ edgeList2AdjList w h xs = go 0 0 (sort xs)
                 c' = (c+1) `mod` w
                 r' = if c+1 ==c' then r else r+1
 
---         go i j []           ret = (reverse ret) ++ replicate (w-i+(h-j-1)*w) 0
---         go i j ((xi,xj):xs) ret = if i==xi && j==xj
---             then go i' j' xs            (1:ret)
---             else go i' j' ((xi,xj):xs)  (0:ret)
---             where
---                 j'=(j+1) `mod` w
---                 i'=if (j+1)==j' then i else i+1
 
 symmetrize :: [(Int,Int)] -> [(Int,Int)]
 symmetrize xs = sort $ go xs []
